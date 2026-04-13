@@ -1,0 +1,18 @@
+{
+  "name": "bobora-walkguard",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Pedestrian route deviation detection engine for walking navigation",
+  "type": "module",
+  "scripts": {
+    "test": "vitest",
+    "test:run": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "simulate": "tsx packages/route-engine/src/simulator/runSimulator.ts"
+  },
+  "devDependencies": {
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  }
+}
