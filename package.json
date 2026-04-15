@@ -7,12 +7,18 @@
   "scripts": {
     "test": "vitest",
     "test:run": "vitest run",
+    "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "simulate": "tsx packages/route-engine/src/simulator/runSimulator.ts"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^25.6.0",
+    "eslint": "^10.2.0",
+    "globals": "^17.5.0",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3",
+    "typescript-eslint": "^8.58.2",
     "vitest": "^3.2.4"
   }
 }
