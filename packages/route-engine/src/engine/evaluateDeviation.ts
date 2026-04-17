@@ -255,6 +255,16 @@ export function evaluateDeviationStep(input: {
 
       passedTurn =
         farEnoughPastTurn && conflictingAfterTurn && leftRouteAfterTurn;
+
+      // Backtrack recovery: user walked back to a segment before the turn point
+      // while staying within the route corridor — clear the approach lock.
+      const returnedBeforeTurn =
+        nearestSegment.segmentIndex < activeApproachTurn.routeIndex &&
+        nearestSegment.distanceMeters < input.config.routeDriftDistanceThresholdMeters;
+      if (returnedBeforeTurn) {
+        activeApproachTurnId = undefined;
+        passedTurn = false;
+      }
     }
   }
 

@@ -2,7 +2,7 @@ PROMPT.md
 
 # PROJECT PROMPT
 ## Project Name
-Bobora WalkGuard - Pedestrian Route Deviation Detection Engine
+Walk - Pedestrian Route Deviation Detection Engine
 
 ## Product Goal
 Build the first milestone of a walking-navigation product that detects when a pedestrian has gone the wrong way before full rerouting happens.

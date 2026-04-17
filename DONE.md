@@ -1,7 +1,7 @@
 DONE.md
 # DEFINITION OF DONE
 ## Project
-Bobora WalkGuard - Milestone 1
+Walk - Milestone 1
 Pedestrian Route Deviation Detection Engine
 
 This file defines the exact completion criteria for the milestone.

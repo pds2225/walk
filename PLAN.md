@@ -2,7 +2,7 @@ PLAN.md
 
 # IMPLEMENTATION PLAN
 ## Project
-Bobora WalkGuard - Milestone 1
+Walk - Milestone 1
 Pedestrian Route Deviation Detection Engine
 
 ## Planning Principle

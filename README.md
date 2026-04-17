@@ -1,6 +1,6 @@
-# Bobora WalkGuard
+# Walk
 
-Milestone 1 of Bobora WalkGuard is a reusable walking-route deviation engine.
+Milestone 1 of Walk is a reusable walking-route deviation engine.
 
 Its job is simple:
 - receive synthetic walking position samples one by one

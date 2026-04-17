@@ -241,6 +241,40 @@ describe("RouteDeviationEngine", () => {
     expect(engine.getSessionState().driftStartTimestampMs).toBe(3_000);
   });
 
+  it("clears passed_turn when user backtracks to before the turn point", () => {
+    const engine = new RouteDeviationEngine(buildLeftTurnRoute());
+
+    engine.processSample(
+      createSample({
+        eastMeters: 32,
+        northMeters: 0,
+        headingDegrees: 90,
+        timestampMs: 1_000,
+      })
+    );
+
+    const missedResult = engine.processSample(
+      createSample({
+        eastMeters: 52,
+        northMeters: 0,
+        headingDegrees: 90,
+        timestampMs: 2_000,
+      })
+    );
+    expect(missedResult.state).toBe("passed_turn");
+
+    const recoveredResult = engine.processSample(
+      createSample({
+        eastMeters: 20,
+        northMeters: 0,
+        headingDegrees: 270,
+        timestampMs: 3_000,
+      })
+    );
+    expect(recoveredResult.state).toBe("on_route");
+    expect(recoveredResult.metrics.turnApproachActive).toBe(false);
+  });
+
   it("applies config overrides for tighter deviation sensitivity", () => {
     const engine = new RouteDeviationEngine(buildStraightRoute(), {
       routeDeviationDistanceThresholdMeters: 12,
