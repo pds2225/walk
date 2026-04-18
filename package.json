@@ -9,7 +9,9 @@
     "test:run": "vitest run",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "simulate": "tsx packages/route-engine/src/simulator/runSimulator.ts"
+    "simulate": "tsx packages/route-engine/src/simulator/runSimulator.ts",
+    "web:install": "python -m pip install -r streamlit_walk_engine/requirements.txt",
+    "web:demo": "python -m streamlit run streamlit_walk_engine/app.py"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

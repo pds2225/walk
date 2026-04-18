@@ -21,6 +21,7 @@
 - implemented a pure decision step and a stateful `RouteDeviationEngine`
 - implemented missed-turn pass-by detection
 - added a CLI simulator with four required scenarios
+- documented the local Streamlit web demo run path for non-developer use
 - added automated tests for geometry, route context, engine states, noise handling, reset logic, and config overrides
 - validated:
   - `npm run test:run`

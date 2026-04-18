@@ -1,11 +1,15 @@
-DONE.md
 # DEFINITION OF DONE
-## Project
-Walk - Milestone 1
+## 프로젝트
+walk — Walk Milestone 1
 Pedestrian Route Deviation Detection Engine
 
-This file defines the exact completion criteria for the milestone.
-Do not mark the work complete unless all mandatory conditions are satisfied.
+이 파일은 마일스톤 완료 조건을 정의한다.
+아래 항목을 전부 만족하지 않으면 완료로 선언하지 않는다.
+
+검증 명령 4개가 모두 통과한 뒤 아래 체크리스트를 대조한다.
+```bash
+npm run test:run && npm run typecheck && npm run lint && npm run simulate
+```
 
 ---
 
@@ -202,3 +206,56 @@ If any command fails, the milestone is not complete.
 If some optional improvement exists but a mandatory item is missing, the milestone is not complete.
 
 If blocked, produce the best partial result and document the blocker clearly in docs/progress-notes.md.
+
+---
+
+# Milestone 1 완료 확인 ✅
+
+아래 명령 4개 전부 통과 시 Milestone 1 완료:
+```bash
+npm run test:run && npm run typecheck && npm run lint && npm run simulate
+```
+
+---
+
+# Milestone 2 — Streamlit 웹 데모 완료 기준
+
+## H. Web Demo Functional Completion
+
+### H1. 설치 명령 통과
+```bash
+npm run web:install
+```
+조건: 오류 없이 완료
+
+### H2. 웹 데모 실행 가능
+```bash
+npm run web:demo
+```
+조건: 브라우저에서 http://localhost:8501 접속 가능, 콘솔 오류 없음
+
+### H3. 시나리오 4가지 동작
+- normal_walking → 전체 on_route 표시
+- mild_drift → on_route → drifting 상태 변화 표시
+- strong_deviation → on_route → drifting → deviated 상태 변화 표시
+- missed_turn → on_route → passed_turn 상태 변화 표시
+
+### H4. 엔진 Python 포팅 정확성
+조건:
+- TypeScript 엔진과 동일한 4가지 상태 반환
+- TypeScript 엔진과 동일한 기본 임계값 사용
+- any 타입 없이 완전한 타입 힌트 사용
+
+### H5. UI 최소 요구사항
+조건:
+- 시나리오 선택 UI 동작
+- 샘플 단계별 슬라이더 동작
+- 임계값 슬라이더 변경 시 결과 즉시 반영
+- 상태별 색상 배지 표시
+- 샘플별 결과 테이블 표시
+
+### H6. 문서 업데이트
+조건:
+- README.md에 npm run web:install + npm run web:demo 실행법 포함
+- docs/progress-notes.md에 Milestone 2 완료 내용 기록
+

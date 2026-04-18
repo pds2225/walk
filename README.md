@@ -7,7 +7,7 @@ Its job is simple:
 - compare the current position against a planned walking route
 - decide whether the pedestrian is still on the route, drifting away, clearly deviated, or has missed a turn
 
-This repository intentionally contains only the route deviation engine and its test harness.
+This repository contains the reusable route deviation engine and a lightweight local web demo for non-developers.
 
 ## Milestone Scope
 
@@ -29,6 +29,8 @@ Out of scope for this milestone:
 - database
 - authentication
 
+The included web demo is a local simulator, not a production service screen.
+
 ## Project Structure
 
 ```text
@@ -46,10 +48,19 @@ packages/route-engine/
 Public entry point:
 - `packages/route-engine/src/index.ts`
 
+Local web demo:
+- `streamlit_walk_engine/app.py`
+
 ## Install
 
 ```bash
 npm install
+```
+
+If you want to open the engine in a browser-like local web page, install the Python demo packages too:
+
+```bash
+npm run web:install
 ```
 
 ## Commands
@@ -77,6 +88,20 @@ Run the simulator:
 ```bash
 npm run simulate
 ```
+
+Run the local web demo:
+
+```bash
+npm run web:demo
+```
+
+Then open:
+
+```text
+http://localhost:8501
+```
+
+`Streamlit` means a Python tool that turns a script into a local web screen without building a full frontend first.
 
 ## Engine States
 
@@ -159,3 +184,19 @@ Each simulator sample prints:
 - route distance
 - heading difference
 - distance past a turn when relevant
+
+## Web Demo
+
+The `streamlit_walk_engine` demo lets you use the route engine in a local web UI.
+
+What you can do there:
+- choose one of four walking scenarios
+- move a slider sample by sample
+- see the route and actual path on a chart
+- check the current state, score, distance, and reason list
+- change key thresholds without touching code
+
+If `npm run web:demo` fails:
+- run `npm run web:install`
+- confirm Python is installed with `python --version`
+- try `python -m streamlit run streamlit_walk_engine/app.py`
