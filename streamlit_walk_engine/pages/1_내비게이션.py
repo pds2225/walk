@@ -8,9 +8,16 @@ import time
 from pathlib import Path
 from typing import Optional
 
-import plotly.graph_objects as go
 import streamlit as st
 import streamlit.components.v1 as components
+
+_MISSING_DEPENDENCIES: list[str] = []
+
+try:
+    import plotly.graph_objects as go
+except ModuleNotFoundError:
+    go = None  # type: ignore[assignment]
+    _MISSING_DEPENDENCIES.append("plotly")
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -57,6 +64,17 @@ ACTION_COLOR = {
     "none": "#27ae60", "monitor": "#f39c12",
     "warn_user": "#e67e22", "reroute_candidate": "#e74c3c",
 }
+
+
+def render_dependency_error() -> None:
+    missing = ", ".join(_MISSING_DEPENDENCIES)
+    st.error(f"필수 Python 패키지가 설치되지 않았습니다: {missing}")
+    st.markdown("Streamlit Cloud에서는 앱을 재부팅하거나 requirements.txt 설치 로그를 확인하세요.")
+    st.code(
+        "python -m pip install -r requirements.txt\n"
+        "python -m streamlit run streamlit_walk_engine/app.py",
+        language="powershell",
+    )
 
 # ── 세션 상태 ─────────────────────────────────────────────────────────────────
 
@@ -358,6 +376,10 @@ def _render_metrics(results: list[EngineResult]) -> None:
 
 def main() -> None:
     st.set_page_config(page_title="Walk 내비게이션", page_icon="🗺️", layout="wide")
+    if _MISSING_DEPENDENCIES:
+        render_dependency_error()
+        st.stop()
+
     _init()
 
     _load_history_from_ls()  # localStorage → 세션 복원 (첫 렌더 후 자동 적용)

@@ -6,9 +6,21 @@ import math
 import sys
 from pathlib import Path
 
-import pandas as pd
-import plotly.graph_objects as go
 import streamlit as st
+
+_MISSING_DEPENDENCIES: list[str] = []
+
+try:
+    import pandas as pd
+except ModuleNotFoundError:
+    pd = None  # type: ignore[assignment]
+    _MISSING_DEPENDENCIES.append("pandas")
+
+try:
+    import plotly.graph_objects as go
+except ModuleNotFoundError:
+    go = None  # type: ignore[assignment]
+    _MISSING_DEPENDENCIES.append("plotly")
 
 if __package__:
     from .engine import EngineConfig, EngineResult, RouteDeviationEngine
@@ -23,6 +35,17 @@ st.set_page_config(
     page_icon="🚶",
     layout="wide",
 )
+
+
+def render_dependency_error() -> None:
+    missing = ", ".join(_MISSING_DEPENDENCIES)
+    st.error(f"필수 Python 패키지가 설치되지 않았습니다: {missing}")
+    st.markdown("Streamlit Cloud에서는 앱을 재부팅하거나 requirements.txt 설치 로그를 확인하세요.")
+    st.code(
+        "python -m pip install -r requirements.txt\n"
+        "python -m streamlit run streamlit_walk_engine/app.py",
+        language="powershell",
+    )
 
 STATE_COLOR = {
     "on_route": "#27ae60",
@@ -302,6 +325,10 @@ def format_expected_states(scenario: Scenario) -> str:
 
 
 def main() -> None:
+    if _MISSING_DEPENDENCIES:
+        render_dependency_error()
+        st.stop()
+
     apply_styles()
 
     st.markdown("## 🚶 Walk — 경로이탈 감지 엔진 시뮬레이터")
