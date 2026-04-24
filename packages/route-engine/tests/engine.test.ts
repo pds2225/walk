@@ -303,3 +303,23 @@ describe("RouteDeviationEngine", () => {
     expect(result.metrics.consecutiveThresholdBreaches).toBe(2);
   });
 });
+
+describe("RouteDeviationEngine — invalid route inputs", () => {
+  it("throws RangeError when polyline is empty", () => {
+    expect(() => {
+      new RouteDeviationEngine({ polyline: [], turnPoints: [] });
+    }).toThrow(RangeError);
+  });
+
+  it("throws RangeError when polyline has only one coordinate", () => {
+    expect(() => {
+      new RouteDeviationEngine({ polyline: [ORIGIN], turnPoints: [] });
+    }).toThrow(RangeError);
+  });
+
+  it("error message mentions coordinate requirement", () => {
+    expect(() => {
+      new RouteDeviationEngine({ polyline: [], turnPoints: [] });
+    }).toThrow(/at least two/);
+  });
+});

@@ -95,3 +95,40 @@ describe("route analysis helpers", () => {
     expect(getDistancePastTurnPointMeters(turnPoint!, missedTurnSample)).toBeCloseTo(12, 0);
   });
 });
+
+describe("route analysis — straight route with no turn points", () => {
+  const ORIGIN = { latitude: 37.5665, longitude: 126.978 };
+  const straightRoute: RouteModel = {
+    polyline: [ORIGIN, moveCoordinateByMeters(ORIGIN, 100, 0)],
+    turnPoints: [],
+  };
+
+  it("getNextTurnPoint returns undefined when there are no turn points", () => {
+    const preparedRoute = prepareRouteModel(straightRoute);
+    const sample = moveCoordinateByMeters(ORIGIN, 50, 0);
+    const nearestSegment = findNearestRouteSegment(preparedRoute, sample);
+
+    const nextTurn = getNextTurnPoint(preparedRoute, nearestSegment.distanceAlongRouteMeters);
+
+    expect(nextTurn).toBeUndefined();
+  });
+
+  it("distanceToTurnPointMeters is undefined when getNextTurnPoint returns undefined", () => {
+    const preparedRoute = prepareRouteModel(straightRoute);
+    const sample = moveCoordinateByMeters(ORIGIN, 50, 0);
+    const nearestSegment = findNearestRouteSegment(preparedRoute, sample);
+
+    const nextTurn = getNextTurnPoint(preparedRoute, nearestSegment.distanceAlongRouteMeters);
+
+    expect(nextTurn?.distanceToTurnPointMeters).toBeUndefined();
+  });
+
+  it("findNearestRouteSegment works correctly on a straight route", () => {
+    const preparedRoute = prepareRouteModel(straightRoute);
+    const sample = moveCoordinateByMeters(ORIGIN, 30, 8);
+    const nearestSegment = findNearestRouteSegment(preparedRoute, sample);
+
+    expect(nearestSegment.segmentIndex).toBe(0);
+    expect(nearestSegment.distanceMeters).toBeCloseTo(8, 0);
+  });
+});

@@ -1,5 +1,5 @@
 # TASK_NIGHT_02.md
-## bobora-walkguard — 2차 밤샘 작업 지시서
+## walk — 2차 밤샘 작업 지시서
 ## Milestone 2 : Streamlit 로컬 웹 데모 완성
 
 ---

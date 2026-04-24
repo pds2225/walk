@@ -6,13 +6,17 @@ import math
 import sys
 from pathlib import Path
 
+import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-sys.path.insert(0, str(Path(__file__).parent))
-
-from engine import EngineConfig, EngineResult, RouteDeviationEngine
-from scenarios import ORIGIN, Scenario, get_scenarios
+if __package__:
+    from .engine import EngineConfig, EngineResult, RouteDeviationEngine
+    from .scenarios import ORIGIN, Scenario, get_scenarios
+else:
+    sys.path.insert(0, str(Path(__file__).parent))
+    from engine import EngineConfig, EngineResult, RouteDeviationEngine
+    from scenarios import ORIGIN, Scenario, get_scenarios
 
 st.set_page_config(
     page_title="Walk 경로이탈 시뮬레이터",
@@ -276,8 +280,6 @@ def render_table(results: list[EngineResult], scenario: Scenario, step: int) -> 
     if not results:
         return
 
-    import pandas as pd
-
     rows = []
     for i, (r, s) in enumerate(zip(results, scenario.samples[:step])):
         pos = scenario.positions[i]
@@ -292,7 +294,11 @@ def render_table(results: list[EngineResult], scenario: Scenario, step: int) -> 
         })
 
     df = pd.DataFrame(rows)
-    st.dataframe(df, use_container_width=True, hide_index=True)
+    st.dataframe(df, width="stretch", hide_index=True)
+
+
+def format_expected_states(scenario: Scenario) -> str:
+    return " → ".join(STATE_LABEL[state] for state in scenario.expected_states)
 
 
 def main() -> None:
@@ -311,7 +317,9 @@ def main() -> None:
             format_func=lambda i: scenarios[i].name,
         )
         scenario = scenarios[selected]
+        st.caption(f"시나리오 코드: `{scenario.key}`")
         st.caption(scenario.description)
+        st.markdown(f"**예상 상태 흐름:** {format_expected_states(scenario)}")
 
         st.divider()
         st.header("단계 제어")
@@ -339,7 +347,7 @@ def main() -> None:
 
     with plot_col:
         fig = build_figure(scenario, results, step)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
     with metric_col:
         st.markdown("### 현재 판정")

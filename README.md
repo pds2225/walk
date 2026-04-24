@@ -1,6 +1,8 @@
 # Walk
 
-Milestone 1 of Walk is a reusable walking-route deviation engine.
+Walk currently includes:
+- Milestone 1: a reusable walking-route deviation engine
+- Milestone 2: a local Streamlit web demo for non-developers
 
 Its job is simple:
 - receive synthetic walking position samples one by one
@@ -20,6 +22,14 @@ Included in Milestone 1:
 - missed-turn pass-by detection
 - unit tests
 - CLI simulator
+
+Included in Milestone 2:
+- local Streamlit web UI in `streamlit_walk_engine/`
+- scenario selector for four demo flows
+- sample-step slider
+- threshold sliders for live recalculation
+- Plotly route visualization
+- current-state badges and result table
 
 Out of scope for this milestone:
 - mobile UI
@@ -196,7 +206,26 @@ What you can do there:
 - check the current state, score, distance, and reason list
 - change key thresholds without touching code
 
+Expected scenario flows:
+- `normal_walking`: only `on_route`
+- `mild_drift`: `on_route` -> `drifting`
+- `strong_deviation`: `on_route` -> `drifting` -> `deviated`
+- `missed_turn`: `on_route` -> `drifting` -> `passed_turn`
+
+Recommended local run order:
+
+```bash
+npm install
+npm run test:run
+npm run typecheck
+npm run lint
+npm run simulate
+npm run web:install
+npm run web:demo
+```
+
 If `npm run web:demo` fails:
 - run `npm run web:install`
 - confirm Python is installed with `python --version`
-- try `python -m streamlit run streamlit_walk_engine/app.py`
+- try `python streamlit_walk_engine/run_demo.py`
+- if Streamlit stays running but `localhost:8501` does not open inside a non-interactive shell, run the same command in a normal local terminal window
