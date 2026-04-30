@@ -4,7 +4,16 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   {
-    ignores: ["node_modules/**", "package-lock.json", "eslint.config.js"],
+    ignores: [
+      "node_modules/**",
+      ".pytest_cache/**",
+      "**/.pytest_cache/**",
+      "__pycache__/**",
+      "**/__pycache__/**",
+      ".venv/**",
+      "package-lock.json",
+      "eslint.config.js",
+    ],
   },
   js.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
