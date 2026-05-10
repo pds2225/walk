@@ -137,11 +137,11 @@
 `streamlit_walk_engine/engine.py`의 684줄 중 geometry 함수(distance_meters, bearing_degrees, normalize_heading, angular_difference, point_to_segment_distance, point_to_polyline_distance)에 자동화 테스트가 없다. TypeScript 쪽은 geometry.test.ts 6개 케이스가 있으나 Python 포팅은 무검증 상태.
 
 **수락 기준:**
-- [ ] `streamlit_walk_engine/tests/test_geometry.py` 파일 생성
-- [ ] distance_meters: 두 좌표 간 거리 계산 정확도 검증 (오차 1m 이내)
-- [ ] angular_difference: 0~180 범위 반환 검증
-- [ ] point_to_polyline_distance: 다중 선분 최솟값 반환 검증
-- [ ] `cd streamlit_walk_engine && python -m pytest tests/ -v` 통과
+- [x] `streamlit_walk_engine/tests/test_geometry.py` 파일 생성
+- [x] distance_meters: 두 좌표 간 거리 계산 정확도 검증 (오차 1m 이내)
+- [x] angular_difference: 0~180 범위 반환 검증
+- [x] point_to_polyline_distance: 다중 선분 최솟값 반환 검증
+- [x] `cd streamlit_walk_engine && python -m pytest tests/ -v` 통과
 
 ---
 
