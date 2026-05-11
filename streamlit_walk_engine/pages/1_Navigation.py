@@ -594,6 +594,63 @@ def main() -> None:
                     except Exception as e:
                         st.error(f"예약 추가 실패: {e}")
 
+            bulk_text = st.text_area(
+                "여러 개 한 번에 추가",
+                placeholder="예)\n서울역 1번출구 -> 경복궁\n강남역 10번출구 -> 코엑스",
+                key="booking_bulk_input",
+                height=90,
+            )
+            if st.button("일괄 예약 추가", disabled=not bulk_text.strip(), use_container_width=True):
+                added = 0
+                failed: list[str] = []
+                with st.spinner("예약 경로를 일괄 확인 중..."):
+                    for line in bulk_text.splitlines():
+                        raw = line.strip()
+                        if not raw:
+                            continue
+                        if "->" in raw:
+                            start_query, dest_query = [part.strip() for part in raw.split("->", 1)]
+                        elif "," in raw:
+                            start_query, dest_query = [part.strip() for part in raw.split(",", 1)]
+                        else:
+                            failed.append(f"{raw}: 출발지와 목적지를 '->'로 구분해 주세요.")
+                            continue
+                        if not start_query or not dest_query:
+                            failed.append(f"{raw}: 출발지 또는 목적지가 비어 있습니다.")
+                            continue
+                        try:
+                            start_result = geocode_address(start_query)
+                            dest_result = geocode_address(dest_query)
+                            if start_result is None or dest_result is None:
+                                failed.append(f"{raw}: 주소를 찾을 수 없습니다.")
+                                continue
+                            start_coord, start_display = start_result
+                            dest_coord, dest_display_raw = dest_result
+                            dest_display = _exit_label(dest_query, dest_display_raw)
+                            st.session_state["nav_route_bookings"].insert(0, {
+                                "id": _booking_id(),
+                                "label": f"{start_query} → {dest_query}",
+                                "start_query": start_query,
+                                "dest_query": dest_query,
+                                "start_display": start_display,
+                                "dest_display": dest_display,
+                                "start_lat": start_coord.latitude,
+                                "start_lon": start_coord.longitude,
+                                "dest_lat": dest_coord.latitude,
+                                "dest_lon": dest_coord.longitude,
+                                "radius_m": booking_radius,
+                                "enabled": True,
+                            })
+                            added += 1
+                        except Exception as e:
+                            failed.append(f"{raw}: {e}")
+                if added:
+                    st.success(f"예약 경로 {added}개를 추가했습니다.")
+                if failed:
+                    st.warning("일부 예약은 추가하지 못했습니다.")
+                    for msg in failed[:5]:
+                        st.caption(msg)
+
         bookings = st.session_state["nav_route_bookings"]
         if bookings:
             for i, booking in enumerate(bookings):
