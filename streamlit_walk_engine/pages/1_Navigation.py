@@ -101,6 +101,9 @@ def _init() -> None:
         "nav_reroute_count": 0,
         "nav_search_history": [],
         "nav_pending_hist": None,
+        "nav_route_bookings": [],
+        "nav_active_booking_id": None,
+        "nav_last_booking_check_ms": None,
     }.items():
         if k not in st.session_state:
             st.session_state[k] = v
@@ -113,6 +116,77 @@ def _reset() -> None:
     st.session_state["nav_last_alerted_state"] = "on_route"
     st.session_state["nav_last_reroute_ts_ms"] = None
     st.session_state["nav_reroute_count"] = 0
+
+
+def _activate_route(
+    origin: Coordinate,
+    dest: Coordinate,
+    display_name: str,
+    route: RouteModel,
+    *,
+    start_now: bool,
+) -> None:
+    st.session_state.update({
+        "nav_dest": dest,
+        "nav_dest_display": display_name,
+        "nav_route": route,
+        "nav_engine": RouteDeviationEngine(route, st.session_state["nav_config"]),
+    })
+    _reset()
+    if start_now:
+        st.session_state.update({
+            "nav_running": True,
+            "nav_engine": RouteDeviationEngine(route, st.session_state["nav_config"]),
+            "nav_results": [],
+            "nav_samples": [],
+            "nav_prev_coord": None,
+            "nav_prev_ts_ms": None,
+        })
+
+
+def _booking_id() -> str:
+    return f"booking-{int(time.time() * 1000)}"
+
+
+def _booking_coord(booking: dict, prefix: str) -> Coordinate:
+    return Coordinate(
+        latitude=float(booking[f"{prefix}_lat"]),
+        longitude=float(booking[f"{prefix}_lon"]),
+    )
+
+
+def _try_activate_booking(origin: Optional[Coordinate]) -> None:
+    if origin is None or st.session_state["nav_running"]:
+        return
+
+    now_ms = int(time.time() * 1000)
+    last_check = st.session_state["nav_last_booking_check_ms"]
+    if last_check is not None and now_ms - last_check < 5_000:
+        return
+    st.session_state["nav_last_booking_check_ms"] = now_ms
+
+    for booking in st.session_state["nav_route_bookings"]:
+        if not booking.get("enabled", True):
+            continue
+        if st.session_state.get("nav_active_booking_id") == booking["id"]:
+            continue
+
+        start = _booking_coord(booking, "start")
+        radius_m = float(booking.get("radius_m", 80))
+        distance_to_start = distance_meters(origin, start)
+        if distance_to_start > radius_m:
+            continue
+
+        dest = _booking_coord(booking, "dest")
+        with st.spinner(f"예약 경로 활성화 중: {booking['label']}"):
+            try:
+                route = fetch_walking_route(origin, dest)
+                _activate_route(origin, dest, booking["dest_display"], route, start_now=True)
+                st.session_state["nav_active_booking_id"] = booking["id"]
+                st.toast(f"예약 경로 시작: {booking['label']}")
+            except Exception as e:
+                st.warning(f"예약 경로 활성화 실패: {e}")
+        break
 
 # ── localStorage 히스토리 영속화 ─────────────────────────────────────────────
 
@@ -469,6 +543,85 @@ def main() -> None:
                 st.success(f"📍 {addr}")
             else:
                 st.caption(f"📍 {origin.latitude:.5f}, {origin.longitude:.5f}")
+
+        st.divider()
+        st.header("예약 경로")
+        with st.expander("출발지-목적지 예약", expanded=False):
+            booking_start = st.text_input(
+                "예약 출발지",
+                placeholder="예) 서울역 1번출구",
+                key="booking_start_input",
+            )
+            booking_dest = st.text_input(
+                "예약 목적지",
+                placeholder="예) 경복궁",
+                key="booking_dest_input",
+            )
+            booking_radius = st.slider("출발지 도착 판정 반경 (m)", 30, 300, 80, step=10)
+            if st.button("예약 추가", disabled=(not booking_start or not booking_dest), use_container_width=True):
+                with st.spinner("예약 출발지와 목적지 확인 중..."):
+                    try:
+                        start_result = geocode_address(booking_start)
+                        dest_result = geocode_address(booking_dest)
+                        if start_result is None:
+                            st.error("예약 출발지를 찾을 수 없습니다.")
+                        elif dest_result is None:
+                            st.error("예약 목적지를 찾을 수 없습니다.")
+                        else:
+                            start_coord, start_display = start_result
+                            dest_coord, dest_display_raw = dest_result
+                            dest_display = _exit_label(booking_dest, dest_display_raw)
+                            booking = {
+                                "id": _booking_id(),
+                                "label": f"{booking_start} → {booking_dest}",
+                                "start_query": booking_start,
+                                "dest_query": booking_dest,
+                                "start_display": start_display,
+                                "dest_display": dest_display,
+                                "start_lat": start_coord.latitude,
+                                "start_lon": start_coord.longitude,
+                                "dest_lat": dest_coord.latitude,
+                                "dest_lon": dest_coord.longitude,
+                                "radius_m": booking_radius,
+                                "enabled": True,
+                            }
+                            st.session_state["nav_route_bookings"].insert(0, booking)
+                            st.success("예약 경로를 추가했습니다.")
+                    except requests.exceptions.Timeout:
+                        st.error("예약 추가 중 네트워크 시간이 초과되었습니다.")
+                    except requests.exceptions.ConnectionError:
+                        st.error("예약 추가 중 네트워크에 연결할 수 없습니다.")
+                    except Exception as e:
+                        st.error(f"예약 추가 실패: {e}")
+
+        bookings = st.session_state["nav_route_bookings"]
+        if bookings:
+            for i, booking in enumerate(bookings):
+                distance_text = ""
+                if origin is not None:
+                    start_coord = _booking_coord(booking, "start")
+                    distance_text = f" · 현재 {distance_meters(origin, start_coord):.0f}m"
+                st.caption(f"{i + 1}. {booking['label']} · 반경 {booking['radius_m']}m{distance_text}")
+                col_a, col_b = st.columns([1, 1])
+                with col_a:
+                    enabled = st.toggle(
+                        "활성",
+                        value=booking.get("enabled", True),
+                        key=f"booking_enabled_{booking['id']}",
+                    )
+                    booking["enabled"] = enabled
+                with col_b:
+                    if st.button("삭제", key=f"booking_delete_{booking['id']}"):
+                        st.session_state["nav_route_bookings"] = [
+                            b for b in bookings if b["id"] != booking["id"]
+                        ]
+                        if st.session_state.get("nav_active_booking_id") == booking["id"]:
+                            st.session_state["nav_active_booking_id"] = None
+                        st.rerun()
+        else:
+            st.caption("예약된 경로가 없습니다.")
+
+        _try_activate_booking(origin)
 
         st.divider()
         st.header("자동 재경로")
