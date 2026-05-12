@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import sys
 import time
 from pathlib import Path
@@ -76,6 +77,7 @@ def render_dependency_error() -> None:
         language="powershell",
     )
 
+
 # ── 세션 상태 ─────────────────────────────────────────────────────────────────
 
 def _init() -> None:
@@ -101,9 +103,12 @@ def _init() -> None:
         "nav_reroute_count": 0,
         "nav_search_history": [],
         "nav_pending_hist": None,
+        "nav_booking_history": [],
+        "nav_favorites": [],
         "nav_route_bookings": [],
         "nav_active_booking_id": None,
         "nav_last_booking_check_ms": None,
+        "nav_dest_input": "",
     }.items():
         if k not in st.session_state:
             st.session_state[k] = v
@@ -111,8 +116,12 @@ def _init() -> None:
 
 def _reset() -> None:
     for k in ("nav_engine", "nav_results", "nav_samples",
-               "nav_running", "nav_prev_coord", "nav_prev_ts_ms"):
-        st.session_state[k] = [] if "results" in k or "samples" in k else None if k != "nav_running" else False
+              "nav_running", "nav_prev_coord", "nav_prev_ts_ms"):
+        st.session_state[k] = (
+            [] if "results" in k or "samples" in k
+            else False if k == "nav_running"
+            else None
+        )
     st.session_state["nav_last_alerted_state"] = "on_route"
     st.session_state["nav_last_reroute_ts_ms"] = None
     st.session_state["nav_reroute_count"] = 0
@@ -144,8 +153,10 @@ def _activate_route(
         })
 
 
-def _booking_id() -> str:
-    return f"booking-{int(time.time() * 1000)}"
+# ── 공통 헬퍼 ─────────────────────────────────────────────────────────────────
+
+def _make_id(prefix: str) -> str:
+    return f"{prefix}-{int(time.time() * 1000)}"
 
 
 def _booking_coord(booking: dict, prefix: str) -> Coordinate:
@@ -155,126 +166,106 @@ def _booking_coord(booking: dict, prefix: str) -> Coordinate:
     )
 
 
-def _try_activate_booking(origin: Optional[Coordinate]) -> None:
-    if origin is None or st.session_state["nav_running"]:
-        return
-
-    now_ms = int(time.time() * 1000)
-    last_check = st.session_state["nav_last_booking_check_ms"]
-    if last_check is not None and now_ms - last_check < 5_000:
-        return
-    st.session_state["nav_last_booking_check_ms"] = now_ms
-
-    for booking in st.session_state["nav_route_bookings"]:
-        if not booking.get("enabled", True):
-            continue
-        if st.session_state.get("nav_active_booking_id") == booking["id"]:
-            continue
-
-        start = _booking_coord(booking, "start")
-        radius_m = float(booking.get("radius_m", 80))
-        distance_to_start = distance_meters(origin, start)
-        if distance_to_start > radius_m:
-            continue
-
-        dest = _booking_coord(booking, "dest")
-        with st.spinner(f"예약 경로 활성화 중: {booking['label']}"):
-            try:
-                route = fetch_walking_route(origin, dest)
-                _activate_route(origin, dest, booking["dest_display"], route, start_now=True)
-                st.session_state["nav_active_booking_id"] = booking["id"]
-                st.toast(f"예약 경로 시작: {booking['label']}")
-            except Exception as e:
-                st.warning(f"예약 경로 활성화 실패: {e}")
-        break
-
-# ── localStorage 히스토리 영속화 ─────────────────────────────────────────────
-
-_LS_KEY = "walk_navi_history"
+def _make_booking(
+    start_query: str, start_display: str, start_coord: Coordinate,
+    dest_query: str, dest_display: str, dest_coord: Coordinate,
+    radius_m: int,
+) -> dict:
+    return {
+        "id": _make_id("booking"),
+        "label": f"{start_query} → {dest_query}",
+        "start_query": start_query, "dest_query": dest_query,
+        "start_display": start_display, "dest_display": dest_display,
+        "start_lat": start_coord.latitude, "start_lon": start_coord.longitude,
+        "dest_lat": dest_coord.latitude, "dest_lon": dest_coord.longitude,
+        "radius_m": radius_m, "enabled": True,
+    }
 
 
-def _save_history_to_ls(history: list) -> None:
-    """히스토리 리스트를 브라우저 localStorage에 저장합니다 (탭 닫아도 유지)."""
-    payload = json.dumps(history, ensure_ascii=False)   # Python list → JSON 문자열
-    js_payload = json.dumps(payload)                    # JSON 문자열 → JS 문자열 리터럴
-    components.html(
-        f"<script>try{{localStorage.setItem('{_LS_KEY}',{js_payload})}}catch(e){{}}</script>",
-        height=0,
-    )
+def _remember_booking_history(start_query: str, dest_query: str, radius_m: int) -> None:
+    entry = {
+        "id": _make_id("bkhist"),
+        "label": f"{start_query} → {dest_query}",
+        "start_query": start_query,
+        "dest_query": dest_query,
+        "radius_m": radius_m,
+    }
+    history = [
+        h for h in st.session_state["nav_booking_history"]
+        if not (h.get("start_query") == start_query and h.get("dest_query") == dest_query)
+    ]
+    history.insert(0, entry)
+    st.session_state["nav_booking_history"] = history[:20]
+    _save_list_to_ls(_LS_KEY_BOOKINGS, st.session_state["nav_booking_history"])
 
-
-def _load_history_from_ls() -> None:
-    """localStorage에서 히스토리를 읽어 세션 상태에 복원합니다.
-
-    streamlit-js-eval은 첫 렌더에서 None을 반환하고
-    두 번째 렌더에서 실제 값을 반환합니다.
-    """
-    if not _HAS_GEO or _js_eval is None:
-        return
-    if st.session_state["nav_search_history"]:
-        return  # 이미 세션에 히스토리가 있으면 스킵
-    raw = _js_eval(js_expressions=f"localStorage.getItem('{_LS_KEY}')", key="ls_load_history")
-    if raw:
-        try:
-            loaded = json.loads(raw)
-            if isinstance(loaded, list):
-                st.session_state["nav_search_history"] = loaded[:10]
-        except Exception:
-            pass
-
-
-# ── 출구 태그 헬퍼 ───────────────────────────────────────────────────────────
 
 def _exit_tag(query: str) -> str:
-    """쿼리에 지하철 출구 번호가 있으면 ' (N번출구)' 문자열 반환, 없으면 빈 문자열."""
-    import re
     m = re.search(r"(.+?역)\s*(\d+)\s*번?\s*출구", query)
     return f" ({m.group(2)}번출구)" if m else ""
 
 
 def _exit_label(query: str, display_name: str) -> str:
-    """목적지 확인 표시용: 출구 번호가 있으면 한국어 레이블 생성."""
-    import re
     m = re.search(r"(.+?역)\s*(\d+)\s*번?\s*출구", query)
     if not m:
         return display_name
     station, num = m.group(1), m.group(2)
-    # display_name에 이미 출구 정보가 있으면 그대로, 없으면 suffix 추가
     if f"Exit {num}" in display_name or f"{num}번출구" in display_name:
         return display_name
     return f"{display_name}  🚇 {station} {num}번출구 기준"
 
 
+# ── localStorage 영속화 ───────────────────────────────────────────────────────
+
+_LS_KEY           = "walk_navi_history"
+_LS_KEY_BOOKINGS  = "walk_navi_booking_history"
+_LS_KEY_FAVORITES = "walk_navi_favorites"
+
+
+def _save_list_to_ls(key: str, items: list) -> None:
+    payload = json.dumps(items, ensure_ascii=False)
+    js_payload = json.dumps(payload)
+    components.html(
+        f"<script>try{{localStorage.setItem('{key}',{js_payload})}}catch(e){{}}</script>",
+        height=0,
+    )
+
+
+def _load_list_from_ls(key: str, state_key: str, limit: int) -> None:
+    """localStorage → session_state 복원. streamlit-js-eval 첫 렌더는 None 반환 후 재실행."""
+    if not _HAS_GEO or _js_eval is None:
+        return
+    if st.session_state[state_key]:
+        return
+    raw = _js_eval(js_expressions=f"localStorage.getItem('{key}')", key=f"ls_{state_key}")
+    if raw:
+        try:
+            loaded = json.loads(raw)
+            if isinstance(loaded, list):
+                st.session_state[state_key] = loaded[:limit]
+        except Exception:
+            pass
+
+
+def _load_history_from_ls() -> None:
+    _load_list_from_ls(_LS_KEY,           "nav_search_history",  10)
+    _load_list_from_ls(_LS_KEY_BOOKINGS,  "nav_booking_history", 20)
+    _load_list_from_ls(_LS_KEY_FAVORITES, "nav_favorites",       50)
+
+
 # ── 알림 ─────────────────────────────────────────────────────────────────────
 
 _ALERT = {
-    "drifting": {
-        "freqs": [660], "durs": [320],
-        "vibrate": [150],
-        "toast": "⚠️ 이탈 시작 — 경로를 확인하세요",
-    },
-    "deviated": {
-        "freqs": [880, 660], "durs": [250, 380],
-        "vibrate": [200, 100, 300],
-        "toast": "🚨 경로 이탈 — 재탐색이 필요합니다",
-    },
-    "passed_turn": {
-        "freqs": [880, 880, 880], "durs": [140, 140, 220],
-        "vibrate": [100, 60, 100, 60, 200],
-        "toast": "↩️ 회전 미이행 — 되돌아가야 합니다",
-    },
+    "drifting":    {"freqs": [660],           "durs": [320],       "vibrate": [150],              "toast": "⚠️ 이탈 시작 — 경로를 확인하세요"},
+    "deviated":    {"freqs": [880, 660],       "durs": [250, 380],  "vibrate": [200, 100, 300],    "toast": "🚨 경로 이탈 — 재탐색이 필요합니다"},
+    "passed_turn": {"freqs": [880, 880, 880],  "durs": [140, 140, 220], "vibrate": [100, 60, 100, 60, 200], "toast": "↩️ 회전 미이행 — 되돌아가야 합니다"},
 }
 
 
 def _trigger_alert(state: str) -> None:
-    """상태 변화 시 토스트 + 소리(Web Audio) + 진동(모바일)을 발생시킵니다."""
     cfg = _ALERT.get(state)
     if cfg is None:
         return
-
     st.toast(cfg["toast"])
-
-    # 각 음을 순서대로 재생하는 JS 조각 생성
     tone_calls: list[str] = []
     offset_ms = 0
     for freq, dur in zip(cfg["freqs"], cfg["durs"]):
@@ -293,17 +284,12 @@ def _trigger_alert(state: str) -> None:
             }}catch(e){{}}
         }},{offset_ms});""")
         offset_ms += dur + 80
-
-    vibrate_js = str(cfg["vibrate"])
-    js = f"""
-    <script>
-    (function(){{
-        {''.join(tone_calls)}
-        try{{if(navigator.vibrate)navigator.vibrate({vibrate_js});}}catch(e){{}}
-    }})();
-    </script>
-    """
-    components.html(js, height=0)
+    components.html(
+        f"<script>(function(){{{' '.join(tone_calls)}"
+        f"try{{if(navigator.vibrate)navigator.vibrate({cfg['vibrate']});}}catch(e){{}}"
+        f"}})();</script>",
+        height=0,
+    )
 
 
 # ── 샘플 생성 ─────────────────────────────────────────────────────────────────
@@ -317,18 +303,18 @@ def _make_sample(
     ts_ms = int((raw_gps or {}).get("timestamp", time.time() * 1000))
     gps_c = (raw_gps or {}).get("coords", {})
     gps_heading = gps_c.get("heading")
-    gps_speed = gps_c.get("speed")
+    gps_speed   = gps_c.get("speed")
 
     if gps_heading is not None and gps_speed is not None and float(gps_speed) > 0.2:
         heading = float(gps_heading)
-        speed = float(gps_speed)
+        speed   = float(gps_speed)
     elif prev_coord is not None and distance_meters(prev_coord, coord) > 0.5:
         heading = bearing_degrees(prev_coord, coord)
         elapsed = (ts_ms - prev_ts_ms) / 1000.0 if prev_ts_ms and ts_ms > prev_ts_ms else 1.0
-        speed = distance_meters(prev_coord, coord) / elapsed
+        speed   = distance_meters(prev_coord, coord) / elapsed
     else:
         heading = 0.0
-        speed = 1.4
+        speed   = 1.4
 
     return PositionSample(
         latitude=coord.latitude,
@@ -338,6 +324,7 @@ def _make_sample(
         timestamp_ms=ts_ms,
     )
 
+
 # ── 지도 ─────────────────────────────────────────────────────────────────────
 
 def _build_map(
@@ -346,8 +333,8 @@ def _build_map(
     results: list[EngineResult],
     samples: list[PositionSample],
 ) -> go.Figure:
-    fig = go.Figure()
-    lats = [c.latitude for c in route.polyline]
+    fig  = go.Figure()
+    lats = [c.latitude  for c in route.polyline]
     lons = [c.longitude for c in route.polyline]
 
     fig.add_trace(go.Scattermap(
@@ -370,14 +357,12 @@ def _build_map(
     fig.add_trace(go.Scattermap(
         lat=[lats[0]], lon=[lons[0]], mode="markers+text",
         marker=dict(size=14, color="#2980b9"),
-        text=["출발"], textposition="top right",
-        name="출발", showlegend=False,
+        text=["출발"], textposition="top right", name="출발", showlegend=False,
     ))
     fig.add_trace(go.Scattermap(
         lat=[dest.latitude], lon=[dest.longitude], mode="markers+text",
         marker=dict(size=16, color="#e74c3c"),
-        text=["목적지"], textposition="top right",
-        name="목적지", showlegend=False,
+        text=["목적지"], textposition="top right", name="목적지", showlegend=False,
     ))
 
     for i, (r, s) in enumerate(zip(results[:-1], samples[:-1])):
@@ -414,6 +399,7 @@ def _build_map(
     )
     return fig
 
+
 # ── 판정 패널 ─────────────────────────────────────────────────────────────────
 
 def _render_metrics(results: list[EngineResult]) -> None:
@@ -434,17 +420,256 @@ def _render_metrics(results: list[EngineResult]) -> None:
         unsafe_allow_html=True,
     )
     st.divider()
-    st.metric("이탈 점수", f"{last.score:.3f}")
+    st.metric("이탈 점수",    f"{last.score:.3f}")
     st.metric("경로까지 거리", f"{last.metrics.distance_from_route_meters:.1f} m")
-    st.metric("헤딩 차이", f"{last.metrics.heading_difference_degrees:.0f}°")
-    st.metric("샘플 수", len(results))
+    st.metric("헤딩 차이",    f"{last.metrics.heading_difference_degrees:.0f}°")
+    st.metric("샘플 수",      len(results))
     if last.metrics.distance_to_next_turn_point_meters is not None:
         st.metric("다음 회전", f"{last.metrics.distance_to_next_turn_point_meters:.0f} m")
     if last.metrics.drift_duration_ms > 0:
         st.metric("이탈 지속", f"{last.metrics.drift_duration_ms / 1000:.1f}s")
-    reroute_count = st.session_state.get("nav_reroute_count", 0)
-    if reroute_count > 0:
-        st.metric("재경로 횟수", f"{reroute_count}회")
+    if st.session_state.get("nav_reroute_count", 0) > 0:
+        st.metric("재경로 횟수", f"{st.session_state['nav_reroute_count']}회")
+
+
+# ── 예약 추가 헬퍼 ────────────────────────────────────────────────────────────
+
+def _add_single_booking(booking_start: str, booking_dest: str, booking_radius: int) -> None:
+    with st.spinner("예약 출발지와 목적지 확인 중..."):
+        try:
+            start_result = geocode_address(booking_start)
+            dest_result  = geocode_address(booking_dest)
+            if start_result is None:
+                st.error("예약 출발지를 찾을 수 없습니다.")
+            elif dest_result is None:
+                st.error("예약 목적지를 찾을 수 없습니다.")
+            else:
+                start_coord, start_display = start_result
+                dest_coord,  dest_display_raw = dest_result
+                booking = _make_booking(
+                    booking_start, start_display, start_coord,
+                    booking_dest, _exit_label(booking_dest, dest_display_raw), dest_coord,
+                    booking_radius,
+                )
+                st.session_state["nav_route_bookings"].insert(0, booking)
+                _remember_booking_history(booking_start, booking_dest, booking_radius)
+                st.success("예약 경로를 추가했습니다.")
+        except requests.exceptions.Timeout:
+            st.error("예약 추가 중 네트워크 시간이 초과되었습니다.")
+        except requests.exceptions.ConnectionError:
+            st.error("예약 추가 중 네트워크에 연결할 수 없습니다.")
+        except Exception as e:
+            st.error(f"예약 추가 실패: {e}")
+
+
+def _add_bulk_bookings(bulk_text: str, booking_radius: int) -> None:
+    added  = 0
+    failed: list[str] = []
+    with st.spinner("예약 경로를 일괄 확인 중..."):
+        for line in bulk_text.splitlines():
+            raw = line.strip()
+            if not raw:
+                continue
+            if "->" in raw:
+                parts = raw.split("->", 1)
+            elif "," in raw:
+                parts = raw.split(",", 1)
+            else:
+                failed.append(f"{raw}: 출발지와 목적지를 '->'로 구분해 주세요.")
+                continue
+            start_query, dest_query = parts[0].strip(), parts[1].strip()
+            if not start_query or not dest_query:
+                failed.append(f"{raw}: 출발지 또는 목적지가 비어 있습니다.")
+                continue
+            try:
+                sr = geocode_address(start_query)
+                dr = geocode_address(dest_query)
+                if sr is None or dr is None:
+                    failed.append(f"{raw}: 주소를 찾을 수 없습니다.")
+                    continue
+                sc, sd = sr
+                dc, dd_raw = dr
+                st.session_state["nav_route_bookings"].insert(0, _make_booking(
+                    start_query, sd, sc,
+                    dest_query, _exit_label(dest_query, dd_raw), dc,
+                    booking_radius,
+                ))
+                _remember_booking_history(start_query, dest_query, booking_radius)
+                added += 1
+            except Exception as e:
+                failed.append(f"{raw}: {e}")
+    if added:
+        st.success(f"예약 경로 {added}개를 추가했습니다.")
+    if failed:
+        st.warning("일부 예약은 추가하지 못했습니다.")
+        for msg in failed[:5]:
+            st.caption(msg)
+
+
+# ── 예약 자동 활성화 ──────────────────────────────────────────────────────────
+
+def _try_activate_booking(origin: Optional[Coordinate]) -> None:
+    if origin is None or st.session_state["nav_running"]:
+        return
+    now_ms = int(time.time() * 1000)
+    last_check = st.session_state["nav_last_booking_check_ms"]
+    if last_check is not None and now_ms - last_check < 5_000:
+        return
+    st.session_state["nav_last_booking_check_ms"] = now_ms
+
+    for booking in st.session_state["nav_route_bookings"]:
+        if not booking.get("enabled", True):
+            continue
+        if st.session_state.get("nav_active_booking_id") == booking["id"]:
+            continue
+        start = _booking_coord(booking, "start")
+        if distance_meters(origin, start) > float(booking.get("radius_m", 80)):
+            continue
+        dest = _booking_coord(booking, "dest")
+        with st.spinner(f"예약 경로 활성화 중: {booking['label']}"):
+            try:
+                route = fetch_walking_route(origin, dest)
+                _activate_route(origin, dest, booking["dest_display"], route, start_now=True)
+                st.session_state["nav_active_booking_id"] = booking["id"]
+                st.toast(f"예약 경로 시작: {booking['label']}")
+            except Exception as e:
+                st.warning(f"예약 경로 활성화 실패: {e}")
+        break
+
+
+# ── 사이드바 섹션 ─────────────────────────────────────────────────────────────
+
+def _sidebar_destination(favorites: list) -> None:
+    """목적지 입력 + 즐겨찾기 선택 → 자동 채움 + 검색 히스토리 버튼."""
+    st.header("목적지")
+    st.text_input(
+        "주소 또는 장소명",
+        placeholder="예) 경복궁, 강남역 10번출구",
+        key="nav_dest_input",
+    )
+
+    if favorites:
+        fav_opts = ["선택 안 함"] + [f"{f['name']} · {f['address']}" for f in favorites]
+        sel = st.selectbox("즐겨찾기에서 선택", fav_opts, key="fav_dest_sel")
+        if sel != "선택 안 함":
+            addr = favorites[fav_opts.index(sel) - 1]["address"]
+            if st.button("목적지에 입력", key="fav_to_dest", use_container_width=True):
+                st.session_state["nav_dest_input"] = addr
+                st.rerun()
+
+    history = st.session_state["nav_search_history"]
+    if history:
+        st.caption("최근 검색")
+        for i, h in enumerate(history[:5]):
+            label = f"🕐 {h['query']}{_exit_tag(h['query'])}"
+            if st.button(label, key=f"hist_{i}", use_container_width=True):
+                st.session_state["nav_pending_hist"] = h
+                st.rerun()
+
+
+def _sidebar_favorites(favorites: list) -> None:
+    """즐겨찾기 추가·삭제 관리 패널."""
+    with st.expander("즐겨찾기 관리", expanded=False):
+        fav_name = st.text_input("명칭", placeholder="예) 회사, 집, 학교", key="fav_name_in")
+        fav_addr = st.text_input("주소", placeholder="예) 서울역 1번출구",  key="fav_addr_in")
+        if st.button("즐겨찾기 추가", disabled=(not fav_name or not fav_addr), use_container_width=True):
+            new_fav = {
+                "id":      _make_id("fav"),
+                "name":    fav_name.strip(),
+                "address": fav_addr.strip(),
+            }
+            updated = [
+                f for f in favorites
+                if f.get("name") != new_fav["name"] and f.get("address") != new_fav["address"]
+            ]
+            updated.insert(0, new_fav)
+            st.session_state["nav_favorites"] = updated[:50]
+            _save_list_to_ls(_LS_KEY_FAVORITES, updated[:50])
+            st.success("즐겨찾기를 추가했습니다.")
+            st.rerun()
+
+        for fav in favorites[:10]:
+            col_n, col_d = st.columns([3, 1])
+            with col_n:
+                st.caption(f"{fav['name']} · {fav['address']}")
+            with col_d:
+                if st.button("삭제", key=f"fav_del_{fav['id']}"):
+                    st.session_state["nav_favorites"] = [f for f in favorites if f["id"] != fav["id"]]
+                    _save_list_to_ls(_LS_KEY_FAVORITES, st.session_state["nav_favorites"])
+                    st.rerun()
+
+
+def _sidebar_bookings(favorites: list, origin: Optional[Coordinate]) -> None:
+    """예약 경로 추가·관리 패널 + 자동 활성화 트리거."""
+    st.header("예약 경로")
+    with st.expander("출발지-목적지 예약", expanded=False):
+
+        # 즐겨찾기 → 예약 입력칸 자동 채움
+        if favorites:
+            fav_opts = ["선택 안 함"] + [f"{f['name']} · {f['address']}" for f in favorites]
+            sel = st.selectbox("즐겨찾기 주소 불러오기", fav_opts, key="bk_fav_sel")
+            if sel != "선택 안 함":
+                sel_addr = favorites[fav_opts.index(sel) - 1]["address"]
+                col_s, col_d = st.columns(2)
+                with col_s:
+                    if st.button("출발지에 입력", key="fav_to_bk_start", use_container_width=True):
+                        st.session_state["booking_start_input"] = sel_addr
+                        st.rerun()
+                with col_d:
+                    if st.button("목적지에 입력", key="fav_to_bk_dest", use_container_width=True):
+                        st.session_state["booking_dest_input"] = sel_addr
+                        st.rerun()
+
+        # 예약 히스토리 버튼 → 입력칸 자동 채움
+        booking_history = st.session_state["nav_booking_history"]
+        if booking_history:
+            st.caption("예약 히스토리")
+            for i, item in enumerate(booking_history[:5]):
+                if st.button(f"🕘 {item['label']}", key=f"bkhist_{i}", use_container_width=True):
+                    st.session_state["booking_start_input"] = item["start_query"]
+                    st.session_state["booking_dest_input"]  = item["dest_query"]
+                    st.rerun()
+
+        booking_start  = st.text_input("예약 출발지", placeholder="예) 서울역 1번출구", key="booking_start_input")
+        booking_dest   = st.text_input("예약 목적지", placeholder="예) 경복궁",         key="booking_dest_input")
+        booking_radius = st.slider("출발지 도착 판정 반경 (m)", 30, 300, 80, step=10)
+
+        if st.button("예약 추가", disabled=(not booking_start or not booking_dest), use_container_width=True):
+            _add_single_booking(booking_start, booking_dest, booking_radius)
+
+        bulk_text = st.text_area(
+            "여러 개 한 번에 추가",
+            placeholder="예)\n서울역 1번출구 -> 경복궁\n강남역 10번출구 -> 코엑스",
+            key="booking_bulk_input",
+            height=90,
+        )
+        if st.button("일괄 예약 추가", disabled=not bulk_text.strip(), use_container_width=True):
+            _add_bulk_bookings(bulk_text, booking_radius)
+
+    # 활성 예약 목록
+    bookings = st.session_state["nav_route_bookings"]
+    if bookings:
+        for booking in bookings:
+            dist_text = (
+                f" · 현재 {distance_meters(origin, _booking_coord(booking, 'start')):.0f}m"
+                if origin is not None else ""
+            )
+            st.caption(f"{booking['label']} · 반경 {booking['radius_m']}m{dist_text}")
+            col_a, col_b = st.columns(2)
+            with col_a:
+                enabled = st.toggle("활성", value=booking.get("enabled", True), key=f"bk_on_{booking['id']}")
+                booking["enabled"] = enabled
+            with col_b:
+                if st.button("삭제", key=f"bk_del_{booking['id']}"):
+                    st.session_state["nav_route_bookings"] = [b for b in bookings if b["id"] != booking["id"]]
+                    if st.session_state.get("nav_active_booking_id") == booking["id"]:
+                        st.session_state["nav_active_booking_id"] = None
+                    st.rerun()
+    else:
+        st.caption("예약된 경로가 없습니다.")
+
+    _try_activate_booking(origin)
+
 
 # ── 메인 ─────────────────────────────────────────────────────────────────────
 
@@ -455,13 +680,12 @@ def main() -> None:
         st.stop()
 
     _init()
-
-    _load_history_from_ls()  # localStorage → 세션 복원 (첫 렌더 후 자동 적용)
+    _load_history_from_ls()
 
     if st.session_state["nav_running"] and _HAS_REFRESH:
         st_autorefresh(interval=3000, key="nav_refresh")
 
-    # 히스토리 버튼 클릭 처리 — 저장된 좌표로 바로 경로 탐색
+    # 검색 히스토리 버튼 클릭 처리 — 저장된 좌표로 바로 경로 탐색
     pending_hist = st.session_state.get("nav_pending_hist")
     if pending_hist is not None:
         st.session_state["nav_pending_hist"] = None
@@ -472,10 +696,10 @@ def main() -> None:
                     hist_dest = Coordinate(latitude=pending_hist["lat"], longitude=pending_hist["lon"])
                     new_route = fetch_walking_route(hist_origin, hist_dest)
                     st.session_state.update({
-                        "nav_dest": hist_dest,
+                        "nav_dest":         hist_dest,
                         "nav_dest_display": pending_hist["display_name"],
-                        "nav_route": new_route,
-                        "nav_engine": RouteDeviationEngine(new_route, st.session_state["nav_config"]),
+                        "nav_route":        new_route,
+                        "nav_engine":       RouteDeviationEngine(new_route, st.session_state["nav_config"]),
                     })
                     _reset()
                     st.success(f"'{pending_hist['query']}' 경로 생성 완료")
@@ -487,57 +711,51 @@ def main() -> None:
 
     # ── 사이드바 ──────────────────────────────────────────────────────────────
     with st.sidebar:
-        st.header("목적지")
-        dest_text = st.text_input("주소 또는 장소명", placeholder="예) 경복궁, 강남역 10번출구")
+        favorites = st.session_state["nav_favorites"]
 
-        history = st.session_state["nav_search_history"]
-        if history:
-            st.caption("최근 검색")
-            for i, h in enumerate(history[:5]):
-                exit_tag = _exit_tag(h["query"])
-                label = f"🕐 {h['query']}{exit_tag}"
-                if st.button(label, key=f"hist_{i}", use_container_width=True):
-                    st.session_state["nav_pending_hist"] = h
-                    st.rerun()
+        _sidebar_destination(favorites)
+        _sidebar_favorites(favorites)
 
         st.divider()
         st.header("현재 위치")
         if _HAS_GEO:
-            geo = get_geolocation()
-            if geo and geo.get("coords"):
-                c = geo["coords"]
-                origin = Coordinate(latitude=float(c["latitude"]), longitude=float(c["longitude"]))
-                st.session_state["nav_origin"] = origin
-                st.session_state["nav_raw_gps"] = geo
-            elif st.session_state["nav_origin"] is None:
-                st.warning("브라우저에서 위치 권한을 허용해 주세요.")
+            # nav 실행 중이거나 아직 위치 미취득 때만 watchPosition 활성화
+            need_gps_poll = st.session_state["nav_running"] or st.session_state["nav_origin"] is None
+            if need_gps_poll:
+                geo = get_geolocation()
+                if geo and geo.get("coords"):
+                    c = geo["coords"]
+                    new_origin = Coordinate(latitude=float(c["latitude"]), longitude=float(c["longitude"]))
+                    st.session_state["nav_origin"] = new_origin
+                    st.session_state["nav_raw_gps"] = geo
+                elif st.session_state["nav_origin"] is None:
+                    st.warning("브라우저에서 위치 권한을 허용해 주세요.")
+            else:
+                if st.button("📍 위치 새로고침", use_container_width=True):
+                    st.session_state["nav_origin"] = None
+                    st.rerun()
         else:
             st.caption("GPS 패키지 미설치 — 수동 입력")
             lat_in = st.number_input("위도", value=37.5665, format="%.6f", step=0.0001)
             lon_in = st.number_input("경도", value=126.9780, format="%.6f", step=0.0001)
             if st.button("위치 설정"):
-                new_origin = Coordinate(latitude=lat_in, longitude=lon_in)
-                st.session_state["nav_origin"] = new_origin
-                st.session_state["nav_raw_gps"] = None
-                st.session_state["nav_origin_address"] = None
-                st.session_state["nav_origin_address_coord"] = None
+                st.session_state.update({
+                    "nav_origin":              Coordinate(latitude=lat_in, longitude=lon_in),
+                    "nav_raw_gps":             None,
+                    "nav_origin_address":      None,
+                    "nav_origin_address_coord": None,
+                })
 
         origin: Optional[Coordinate] = st.session_state["nav_origin"]
         if origin:
-            # 100m 이상 이동했을 때만 역방향 지오코딩 갱신
             cached_coord: Optional[Coordinate] = st.session_state["nav_origin_address_coord"]
-            needs_refresh = (
-                cached_coord is None
-                or distance_meters(cached_coord, origin) > 100
-            )
-            if needs_refresh:
+            if cached_coord is None or distance_meters(cached_coord, origin) > 100:
                 try:
                     addr = reverse_geocode(origin)
-                    st.session_state["nav_origin_address"] = addr
+                    st.session_state["nav_origin_address"]       = addr
                     st.session_state["nav_origin_address_coord"] = origin
                 except Exception:
                     pass
-
             addr = st.session_state["nav_origin_address"]
             if addr:
                 st.success(f"📍 {addr}")
@@ -545,140 +763,7 @@ def main() -> None:
                 st.caption(f"📍 {origin.latitude:.5f}, {origin.longitude:.5f}")
 
         st.divider()
-        st.header("예약 경로")
-        with st.expander("출발지-목적지 예약", expanded=False):
-            booking_start = st.text_input(
-                "예약 출발지",
-                placeholder="예) 서울역 1번출구",
-                key="booking_start_input",
-            )
-            booking_dest = st.text_input(
-                "예약 목적지",
-                placeholder="예) 경복궁",
-                key="booking_dest_input",
-            )
-            booking_radius = st.slider("출발지 도착 판정 반경 (m)", 30, 300, 80, step=10)
-            if st.button("예약 추가", disabled=(not booking_start or not booking_dest), use_container_width=True):
-                with st.spinner("예약 출발지와 목적지 확인 중..."):
-                    try:
-                        start_result = geocode_address(booking_start)
-                        dest_result = geocode_address(booking_dest)
-                        if start_result is None:
-                            st.error("예약 출발지를 찾을 수 없습니다.")
-                        elif dest_result is None:
-                            st.error("예약 목적지를 찾을 수 없습니다.")
-                        else:
-                            start_coord, start_display = start_result
-                            dest_coord, dest_display_raw = dest_result
-                            dest_display = _exit_label(booking_dest, dest_display_raw)
-                            booking = {
-                                "id": _booking_id(),
-                                "label": f"{booking_start} → {booking_dest}",
-                                "start_query": booking_start,
-                                "dest_query": booking_dest,
-                                "start_display": start_display,
-                                "dest_display": dest_display,
-                                "start_lat": start_coord.latitude,
-                                "start_lon": start_coord.longitude,
-                                "dest_lat": dest_coord.latitude,
-                                "dest_lon": dest_coord.longitude,
-                                "radius_m": booking_radius,
-                                "enabled": True,
-                            }
-                            st.session_state["nav_route_bookings"].insert(0, booking)
-                            st.success("예약 경로를 추가했습니다.")
-                    except requests.exceptions.Timeout:
-                        st.error("예약 추가 중 네트워크 시간이 초과되었습니다.")
-                    except requests.exceptions.ConnectionError:
-                        st.error("예약 추가 중 네트워크에 연결할 수 없습니다.")
-                    except Exception as e:
-                        st.error(f"예약 추가 실패: {e}")
-
-            bulk_text = st.text_area(
-                "여러 개 한 번에 추가",
-                placeholder="예)\n서울역 1번출구 -> 경복궁\n강남역 10번출구 -> 코엑스",
-                key="booking_bulk_input",
-                height=90,
-            )
-            if st.button("일괄 예약 추가", disabled=not bulk_text.strip(), use_container_width=True):
-                added = 0
-                failed: list[str] = []
-                with st.spinner("예약 경로를 일괄 확인 중..."):
-                    for line in bulk_text.splitlines():
-                        raw = line.strip()
-                        if not raw:
-                            continue
-                        if "->" in raw:
-                            start_query, dest_query = [part.strip() for part in raw.split("->", 1)]
-                        elif "," in raw:
-                            start_query, dest_query = [part.strip() for part in raw.split(",", 1)]
-                        else:
-                            failed.append(f"{raw}: 출발지와 목적지를 '->'로 구분해 주세요.")
-                            continue
-                        if not start_query or not dest_query:
-                            failed.append(f"{raw}: 출발지 또는 목적지가 비어 있습니다.")
-                            continue
-                        try:
-                            start_result = geocode_address(start_query)
-                            dest_result = geocode_address(dest_query)
-                            if start_result is None or dest_result is None:
-                                failed.append(f"{raw}: 주소를 찾을 수 없습니다.")
-                                continue
-                            start_coord, start_display = start_result
-                            dest_coord, dest_display_raw = dest_result
-                            dest_display = _exit_label(dest_query, dest_display_raw)
-                            st.session_state["nav_route_bookings"].insert(0, {
-                                "id": _booking_id(),
-                                "label": f"{start_query} → {dest_query}",
-                                "start_query": start_query,
-                                "dest_query": dest_query,
-                                "start_display": start_display,
-                                "dest_display": dest_display,
-                                "start_lat": start_coord.latitude,
-                                "start_lon": start_coord.longitude,
-                                "dest_lat": dest_coord.latitude,
-                                "dest_lon": dest_coord.longitude,
-                                "radius_m": booking_radius,
-                                "enabled": True,
-                            })
-                            added += 1
-                        except Exception as e:
-                            failed.append(f"{raw}: {e}")
-                if added:
-                    st.success(f"예약 경로 {added}개를 추가했습니다.")
-                if failed:
-                    st.warning("일부 예약은 추가하지 못했습니다.")
-                    for msg in failed[:5]:
-                        st.caption(msg)
-
-        bookings = st.session_state["nav_route_bookings"]
-        if bookings:
-            for i, booking in enumerate(bookings):
-                distance_text = ""
-                if origin is not None:
-                    start_coord = _booking_coord(booking, "start")
-                    distance_text = f" · 현재 {distance_meters(origin, start_coord):.0f}m"
-                st.caption(f"{i + 1}. {booking['label']} · 반경 {booking['radius_m']}m{distance_text}")
-                col_a, col_b = st.columns([1, 1])
-                with col_a:
-                    enabled = st.toggle(
-                        "활성",
-                        value=booking.get("enabled", True),
-                        key=f"booking_enabled_{booking['id']}",
-                    )
-                    booking["enabled"] = enabled
-                with col_b:
-                    if st.button("삭제", key=f"booking_delete_{booking['id']}"):
-                        st.session_state["nav_route_bookings"] = [
-                            b for b in bookings if b["id"] != booking["id"]
-                        ]
-                        if st.session_state.get("nav_active_booking_id") == booking["id"]:
-                            st.session_state["nav_active_booking_id"] = None
-                        st.rerun()
-        else:
-            st.caption("예약된 경로가 없습니다.")
-
-        _try_activate_booking(origin)
+        _sidebar_bookings(favorites, origin)
 
         st.divider()
         st.header("자동 재경로")
@@ -696,14 +781,16 @@ def main() -> None:
 
         st.divider()
         st.header("엔진 임계값")
-        drift_t = st.slider("이탈 시작 거리 (m)", 5, 20, 10)
-        dev_t = st.slider("이탈 확정 거리 (m)", 10, 30, 15)
+        drift_t    = st.slider("이탈 시작 거리 (m)", 5, 20, 10)
+        dev_t      = st.slider("이탈 확정 거리 (m)", 10, 30, 15)
         min_consec = st.slider("최소 연속 샘플", 1, 5, 3)
         st.session_state["nav_config"] = EngineConfig(
             route_drift_distance_threshold_meters=float(drift_t),
             route_deviation_distance_threshold_meters=float(dev_t),
             minimum_consecutive_samples_for_deviation=min_consec,
         )
+
+    dest_text: str = st.session_state.get("nav_dest_input", "")
 
     # ── 액션 버튼 ─────────────────────────────────────────────────────────────
     c1, c2, c3 = st.columns([2, 1, 1])
@@ -720,23 +807,17 @@ def main() -> None:
                         route = fetch_walking_route(origin, dest)
                         confirmed = _exit_label(dest_text, display_name)
                         st.session_state.update({
-                            "nav_dest": dest,
+                            "nav_dest":         dest,
                             "nav_dest_display": confirmed,
-                            "nav_route": route,
-                            "nav_engine": RouteDeviationEngine(route, st.session_state["nav_config"]),
+                            "nav_route":        route,
+                            "nav_engine":       RouteDeviationEngine(route, st.session_state["nav_config"]),
                         })
                         _reset()
-                        # 검색 히스토리 저장 (중복 제거, 최대 10개)
-                        hist = [h for h in st.session_state["nav_search_history"]
-                                if h["query"] != dest_text]
-                        hist.insert(0, {
-                            "query": dest_text,
-                            "display_name": confirmed,
-                            "lat": dest.latitude,
-                            "lon": dest.longitude,
-                        })
+                        hist = [h for h in st.session_state["nav_search_history"] if h["query"] != dest_text]
+                        hist.insert(0, {"query": dest_text, "display_name": confirmed,
+                                        "lat": dest.latitude, "lon": dest.longitude})
                         st.session_state["nav_search_history"] = hist[:10]
-                        _save_history_to_ls(hist[:10])  # localStorage 동기화
+                        _save_list_to_ls(_LS_KEY, hist[:10])
                         st.success(
                             f"경로 생성 완료 — 좌표 {len(route.polyline)}개 / "
                             f"회전 지점 {len(route.turn_points)}개"
@@ -748,7 +829,6 @@ def main() -> None:
                 except Exception as e:
                     st.error(f"경로 탐색 실패: {e}")
 
-        # 목적지 확인 주소 표시
         if st.session_state.get("nav_dest_display"):
             st.info(f"📌 {st.session_state['nav_dest_display']}")
         st.caption("경로 엔진: Valhalla (OpenStreetMap 도보 전용)")
@@ -763,10 +843,10 @@ def main() -> None:
             else:
                 if st.button("▶ 시작", disabled=(origin is None)):
                     st.session_state.update({
-                        "nav_running": True,
-                        "nav_engine": RouteDeviationEngine(route, st.session_state["nav_config"]),
-                        "nav_results": [],
-                        "nav_samples": [],
+                        "nav_running":  True,
+                        "nav_engine":   RouteDeviationEngine(route, st.session_state["nav_config"]),
+                        "nav_results":  [],
+                        "nav_samples":  [],
                     })
                     st.rerun()
 
@@ -778,56 +858,45 @@ def main() -> None:
             st.session_state["nav_running"] = False
             st.rerun()
 
-    # ── GPS 샘플 처리 (내비게이션 실행 중) ───────────────────────────────────
+    # ── GPS 샘플 처리 ─────────────────────────────────────────────────────────
     if st.session_state["nav_running"] and origin is not None:
         engine: Optional[RouteDeviationEngine] = st.session_state["nav_engine"]
         prev_coord: Optional[Coordinate] = st.session_state["nav_prev_coord"]
-
-        should_process = (
-            engine is not None
-            and (prev_coord is None or distance_meters(prev_coord, origin) > 1.0)
-        )
-        if should_process:
-            sample = _make_sample(
-                origin,
-                st.session_state["nav_raw_gps"],
-                prev_coord,
-                st.session_state["nav_prev_ts_ms"],
-            )
+        if engine is not None and (prev_coord is None or distance_meters(prev_coord, origin) > 1.0):
+            sample = _make_sample(origin, st.session_state["nav_raw_gps"], prev_coord,
+                                  st.session_state["nav_prev_ts_ms"])
             result = engine.process_sample(sample)
             st.session_state["nav_results"].append(result)
             st.session_state["nav_samples"].append(sample)
-            st.session_state["nav_prev_coord"] = origin
-            st.session_state["nav_prev_ts_ms"] = sample.timestamp_ms
+            st.session_state["nav_prev_coord"]   = origin
+            st.session_state["nav_prev_ts_ms"]   = sample.timestamp_ms
 
-            # 상태가 바뀌었을 때만 알림 발생
             last_alerted = st.session_state["nav_last_alerted_state"]
             if st.session_state["nav_alert_enabled"] and result.state != last_alerted:
                 _trigger_alert(result.state)
                 st.session_state["nav_last_alerted_state"] = result.state
 
-            # 자동 재경로 — deviated / passed_turn 에서만, 15초 쿨다운
             dest_coord: Optional[Coordinate] = st.session_state["nav_dest"]
             if (
                 st.session_state["nav_reroute_enabled"]
                 and result.state in ("deviated", "passed_turn")
                 and dest_coord is not None
             ):
-                now_ms = int(time.time() * 1000)
+                now_ms      = int(time.time() * 1000)
                 last_reroute = st.session_state["nav_last_reroute_ts_ms"]
                 if last_reroute is None or (now_ms - last_reroute) > 15_000:
                     try:
-                        new_route = fetch_walking_route(origin, dest_coord)
-                        new_count = st.session_state["nav_reroute_count"] + 1
+                        new_route  = fetch_walking_route(origin, dest_coord)
+                        new_count  = st.session_state["nav_reroute_count"] + 1
                         st.session_state.update({
-                            "nav_route": new_route,
-                            "nav_engine": RouteDeviationEngine(new_route, st.session_state["nav_config"]),
-                            "nav_results": [],
-                            "nav_samples": [],
-                            "nav_prev_coord": None,
-                            "nav_last_reroute_ts_ms": now_ms,
-                            "nav_reroute_count": new_count,
-                            "nav_last_alerted_state": "on_route",
+                            "nav_route":               new_route,
+                            "nav_engine":              RouteDeviationEngine(new_route, st.session_state["nav_config"]),
+                            "nav_results":             [],
+                            "nav_samples":             [],
+                            "nav_prev_coord":          None,
+                            "nav_last_reroute_ts_ms":  now_ms,
+                            "nav_reroute_count":       new_count,
+                            "nav_last_alerted_state":  "on_route",
                         })
                         st.toast(f"🔄 재경로 완료 ({new_count}회차) — 새 경로로 안내합니다")
                     except Exception as e:
@@ -835,7 +904,7 @@ def main() -> None:
 
     # ── 지도 + 판정 패널 ──────────────────────────────────────────────────────
     route = st.session_state["nav_route"]
-    dest = st.session_state["nav_dest"]
+    dest  = st.session_state["nav_dest"]
 
     if route is None or dest is None:
         st.info("목적지를 입력하고 '경로 탐색' 버튼을 누르세요.")
@@ -852,5 +921,5 @@ def main() -> None:
         _render_metrics(st.session_state["nav_results"])
 
 
-import requests  # noqa: E402 — needed for exception handling above
+import requests  # noqa: E402 — exception types used in _add_single_booking
 main()
