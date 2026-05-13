@@ -392,7 +392,7 @@ def _build_map(
 
     fig.update_layout(
         map=dict(style="open-street-map", center=dict(lat=clat, lon=clon), zoom=15),
-        height=520,
+        height=360,
         margin=dict(l=0, r=0, t=0, b=0),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
                     bgcolor="rgba(255,255,255,0.85)", bordercolor="#ddd", borderwidth=1),
@@ -401,6 +401,22 @@ def _build_map(
 
 
 # ── 판정 패널 ─────────────────────────────────────────────────────────────────
+
+def _render_status_badge(results: list[EngineResult]) -> None:
+    if not results:
+        return
+    last = results[-1]
+    st.markdown(
+        f'<div style="background:{STATE_COLOR[last.state]};color:white;font-weight:bold;'
+        f'padding:14px 18px;border-radius:10px;text-align:center;font-size:1.15rem;'
+        f'margin-bottom:8px">'
+        f'{STATE_LABEL[last.state]}'
+        f'<span style="font-size:0.85rem;font-weight:normal;margin-left:12px;opacity:0.9">'
+        f'{ACTION_LABEL[last.suggested_next_action]}'
+        f'</span></div>',
+        unsafe_allow_html=True,
+    )
+
 
 def _render_metrics(results: list[EngineResult]) -> None:
     if not results:
@@ -909,6 +925,9 @@ def main() -> None:
     if route is None or dest is None:
         st.info("목적지를 입력하고 '경로 탐색' 버튼을 누르세요.")
         return
+
+    if st.session_state["nav_running"]:
+        _render_status_badge(st.session_state["nav_results"])
 
     map_col, metric_col = st.columns([3, 1], gap="large")
     with map_col:
