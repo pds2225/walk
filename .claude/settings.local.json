@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python streamlit_walk_engine/run_demo.py)",
+      "Bash(echo \"PID=$!\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://127.0.0.1:8501/)",
+      "Bash(curl -s http://127.0.0.1:8501/)",
+      "Bash(curl -s -o /dev/null -w \"8501: %{http_code}\\\\n\" http://127.0.0.1:8501/)",
+      "Bash(curl -s -o /dev/null -w \"8502: %{http_code}\\\\n\" http://127.0.0.1:8502/)",
+      "Bash(curl *)",
+      "Bash(dir D:\\\\walk\\\\*.md /b)",
+      "Bash(dir D:\\\\walk\\\\AGENTS.md /b)"
+    ]
+  }
+}
