@@ -24,6 +24,7 @@ _VALHALLA = "https://valhalla1.openstreetmap.de/route"
 _UA = "walk-navi-mvp/1.0"
 _TIMEOUT = 15
 _HEADERS_KO = {"User-Agent": _UA, "Accept-Language": "ko-KR,ko;q=0.9,en;q=0.8"}
+_GEOCODE_COUNTRY = "kr"  # Nominatim countrycodes — 동명 해외 지명 오선택 방지
 
 
 # ── 지하철 출구 query 전처리 ─────────────────────────────────────────────────
@@ -56,7 +57,7 @@ def geocode_address(query: str) -> tuple[Coordinate, str] | None:
     for candidate in _subway_candidates(query):
         resp = requests.get(
             _NOMINATIM_SEARCH,
-            params={"q": candidate, "format": "json", "limit": 1},
+            params={"q": candidate, "format": "json", "limit": 1, "countrycodes": _GEOCODE_COUNTRY},
             headers=_HEADERS_KO,
             timeout=_TIMEOUT,
         )
