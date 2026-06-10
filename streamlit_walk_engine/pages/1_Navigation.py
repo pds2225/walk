@@ -33,7 +33,7 @@ from engine import (
     distance_meters,
 )
 import gps_filter
-from route_builder import fetch_walking_route, geocode_address, reverse_geocode
+from route_builder import fetch_walking_route, geocode_address, reverse_geocode, route_engine_label
 
 try:
     from streamlit_js_eval import get_geolocation, streamlit_js_eval as _js_eval
@@ -860,7 +860,7 @@ def main() -> None:
 
         if st.session_state.get("nav_dest_display"):
             st.info(f"📌 {st.session_state['nav_dest_display']}")
-        st.caption("경로 엔진: Valhalla (OpenStreetMap 도보 전용)")
+        st.caption(f"경로 엔진: {route_engine_label()}")
 
     with c2:
         route: Optional[RouteModel] = st.session_state["nav_route"]
