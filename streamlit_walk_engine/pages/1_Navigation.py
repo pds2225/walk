@@ -43,7 +43,7 @@ from route_builder import (
 )
 
 try:
-    from streamlit_js_eval import get_geolocation, streamlit_js_eval as _js_eval
+    from streamlit_js_eval import streamlit_js_eval as _js_eval
     _HAS_GEO = True
 except ImportError:
     _HAS_GEO = False
@@ -387,6 +387,22 @@ def _maybe_finish_arrival(origin: Coordinate) -> bool:
     else:
         st.toast("🏁 목적지에 도착했습니다")
     return True
+
+
+# ── 위치 폴링 ─────────────────────────────────────────────────────────────────
+
+def _poll_geolocation() -> Optional[dict]:
+    """브라우저 위치를 주기적으로 재취득.
+
+    streamlit_js_eval 컴포넌트는 같은 표현식 문자열을 다시 평가하지 않으므로
+    (frontend의 once-per-string 가드), get_geolocation()을 그대로 쓰면 위치가
+    세션당 1회만 잡힌다. 4초 버킷 주석으로 표현식을 바꿔 재평가를 강제한다 —
+    버킷 안에서는 문자열이 같아 값 변경→rerun 무한루프가 생기지 않는다.
+    """
+    if _js_eval is None:
+        return None
+    tick = int(time.time() // 4)
+    return _js_eval(js_expressions=f"getLocation() /* {tick} */", key="nav_geo_poll")
 
 
 # ── 샘플 생성 ─────────────────────────────────────────────────────────────────
@@ -839,7 +855,7 @@ def main() -> None:
             # nav 실행 중이거나 아직 위치 미취득 때만 watchPosition 활성화
             need_gps_poll = st.session_state["nav_running"] or st.session_state["nav_origin"] is None
             if need_gps_poll:
-                geo = get_geolocation()
+                geo = _poll_geolocation()
                 if geo and geo.get("coords"):
                     c = geo["coords"]
                     new_origin = Coordinate(latitude=float(c["latitude"]), longitude=float(c["longitude"]))
@@ -948,7 +964,8 @@ def main() -> None:
 
         cand = st.session_state.get("nav_dest_candidates")
         if cand:
-            labels = [f"{i + 1}. {d}" for i, (_, _, d) in enumerate(cand["options"])]
+            # "1\." — 마크다운 순서 목록으로 해석돼 번호가 사라지는 것 방지
+            labels = [f"{i + 1}\\. {d}" for i, (_, _, d) in enumerate(cand["options"])]
             sel = st.radio(f"'{cand['query']}' 검색 결과 — 목적지를 선택하세요", labels, key="nav_cand_sel")
             if st.button("✅ 이 장소로 경로 탐색", disabled=(origin is None), use_container_width=True):
                 lat, lon, display_name = cand["options"][labels.index(sel)]
