@@ -30,6 +30,12 @@ WEAK_TOAST_COOLDOWN_MS = 15_000
 # 확정 이탈로 간주하는 엔진 상태 (engine.DeviationState 부분집합)
 _CONFIRMED_DEVIATION_STATES = ("deviated", "passed_turn")
 
+# 도착 판정 반경 — 이 거리 이내 + accuracy 신뢰 가능 시 도착 처리
+ARRIVAL_RADIUS_M = 20.0
+# 재경로 워밍업 가드 — 경로 시작 직후 GPS 안정화 전 오탐 재경로 방지
+REROUTE_WARMUP_SAMPLES = 5
+REROUTE_WARMUP_MS = 30_000
+
 
 class AlertDecision(NamedTuple):
     """decide_alert의 결정 결과. 호출부는 이 값으로 발화·세션 상태 갱신을 수행한다."""
@@ -49,6 +55,35 @@ def accuracy_quality(accuracy_m: Optional[float]) -> AccuracyQuality:
     if accuracy_m <= FAIR_ACCURACY_M:
         return "fair"
     return "poor"
+
+
+def is_arrival(
+    distance_to_dest_m: float,
+    accuracy_m: Optional[float],
+    radius_m: float = ARRIVAL_RADIUS_M,
+) -> bool:
+    """목적지 도착 판정 — 반경 이내이면서 accuracy가 fair(≤35m) 이하일 때만 True.
+
+    - accuracy 미보고(None, 수동 입력) → 기존 동작 보존 차원에서 거리만으로 판정.
+    - poor accuracy(>35m)에서 억제하는 이유: 오차 큰 GPS가 우연히 반경에
+      들어와 조기 도착 처리되는 오판 방지 (보수적 판정).
+    """
+    if distance_to_dest_m > radius_m:
+        return False
+    return accuracy_m is None or accuracy_m <= FAIR_ACCURACY_M
+
+
+def in_reroute_warmup(sample_count: int, elapsed_since_start_ms: int) -> bool:
+    """경로 시작 직후 재경로 금지 구간 여부.
+
+    샘플 5개 미만 + 경과 30초 미만이 모두 해당될 때만 True (둘 중 하나라도
+    충족되면 워밍업 종료). 시작 직후 GPS 워밍업 노이즈로 deviated가 떠서
+    곧바로 재경로가 발동하는 오탐을 막는다.
+    """
+    return (
+        sample_count < REROUTE_WARMUP_SAMPLES
+        and elapsed_since_start_ms < REROUTE_WARMUP_MS
+    )
 
 
 def alert_level(

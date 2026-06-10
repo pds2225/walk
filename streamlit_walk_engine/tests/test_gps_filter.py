@@ -5,6 +5,8 @@ Unit tests for gps_filter.py — accuracy 기반 3단계 알림 게이팅 순수
   accuracy_quality  → 경계값 (≤15 good / ≤35 fair / 초과 poor / None unknown)
   alert_level       → full/weak/mute 분기 + drifting 사각지대(의도적 mute) + 커스텀 게이트
   decide_alert      → 상태 전이 게이트, mute 미갱신(회복-재발화), weak 쿨다운, alert_enabled OFF 보존
+  is_arrival        → 도착 반경/accuracy 경계, poor accuracy 억제, 커스텀 반경
+  in_reroute_warmup → 시작 직후 재경로 금지 구간 (샘플 수/경과 시간 동시 조건)
 """
 
 import sys
@@ -17,9 +19,14 @@ from gps_filter import (
     FAIR_ACCURACY_M,
     ALERT_ACCURACY_GATE_M,
     WEAK_TOAST_COOLDOWN_MS,
+    ARRIVAL_RADIUS_M,
+    REROUTE_WARMUP_SAMPLES,
+    REROUTE_WARMUP_MS,
     accuracy_quality,
     alert_level,
     decide_alert,
+    is_arrival,
+    in_reroute_warmup,
 )
 
 
@@ -255,3 +262,44 @@ class TestDecideAlertDisabled:
         assert decision.fire_weak_toast is False
         assert decision.new_last_alerted == "on_route"
         assert decision.new_last_weak_ts_ms is None
+
+
+class TestIsArrival:
+    # 도착 판정: 반경(20m) 이내 + accuracy fair(≤35m) 이하일 때만 True
+    def test_within_radius_good_accuracy(self):
+        assert is_arrival(15.0, 10.0) is True
+
+    def test_at_radius_boundary(self):
+        assert is_arrival(ARRIVAL_RADIUS_M, 10.0) is True
+
+    def test_outside_radius(self):
+        assert is_arrival(ARRIVAL_RADIUS_M + 0.1, 5.0) is False
+
+    def test_accuracy_none_passes(self):
+        # 수동 입력 등 accuracy 미보고 — 거리만으로 판정 (기존 동작 보존)
+        assert is_arrival(10.0, None) is True
+
+    def test_fair_accuracy_boundary_passes(self):
+        assert is_arrival(10.0, FAIR_ACCURACY_M) is True
+
+    def test_poor_accuracy_suppressed(self):
+        # 오차 큰 GPS의 조기 도착 오판 방지
+        assert is_arrival(10.0, FAIR_ACCURACY_M + 1) is False
+
+    def test_custom_radius(self):
+        assert is_arrival(50.0, 10.0, radius_m=60.0) is True
+
+
+class TestInRerouteWarmup:
+    # 워밍업: 샘플 5개 미만 '그리고' 30초 미만일 때만 True
+    def test_warmup_active_at_start(self):
+        assert in_reroute_warmup(1, 3_000) is True
+
+    def test_sample_count_ends_warmup(self):
+        assert in_reroute_warmup(REROUTE_WARMUP_SAMPLES, 3_000) is False
+
+    def test_elapsed_time_ends_warmup(self):
+        assert in_reroute_warmup(2, REROUTE_WARMUP_MS) is False
+
+    def test_boundary_just_below_both(self):
+        assert in_reroute_warmup(REROUTE_WARMUP_SAMPLES - 1, REROUTE_WARMUP_MS - 1) is True
