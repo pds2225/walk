@@ -34,6 +34,7 @@ from engine import (
 )
 import gps_filter
 from route_builder import (
+    fetch_static_map_png,
     fetch_walking_route_with_engine,
     geocode_address,
     reverse_geocode,
@@ -121,6 +122,7 @@ def _init() -> None:
         "nav_route_info": None,
         "nav_arrival_summary": None,
         "nav_dest_candidates": None,
+        "nav_static_map": None,
     }.items():
         if k not in st.session_state:
             st.session_state[k] = v
@@ -174,6 +176,13 @@ def _fetch_route(origin: Coordinate, dest: Coordinate) -> RouteModel:
     route, engine_label, route_info = fetch_walking_route_with_engine(origin, dest)
     st.session_state["nav_route_engine"] = engine_label
     st.session_state["nav_route_info"] = route_info
+
+    # Static Map은 목적지가 바뀐 경우에만 1회 호출 (rerun마다 호출 한도 소진 방지)
+    dest_key = f"{dest.latitude:.6f},{dest.longitude:.6f}"
+    cached = st.session_state.get("nav_static_map")
+    if not cached or cached.get("key") != dest_key:
+        png = fetch_static_map_png(origin, dest)
+        st.session_state["nav_static_map"] = {"key": dest_key, "png": png} if png else None
     return route
 
 
@@ -962,6 +971,9 @@ def main() -> None:
             summary = _route_summary_text()
             if summary:
                 st.caption(f"🚶 {summary}")
+            static_map = st.session_state.get("nav_static_map")
+            if static_map and static_map.get("png"):
+                st.image(static_map["png"], caption="TMAP 지도 미리보기 — 📍 목적지", use_container_width=True)
         st.caption(f"경로 엔진: {st.session_state.get('nav_route_engine') or route_engine_label()}")
 
     with c2:
@@ -985,7 +997,8 @@ def main() -> None:
     with c3:
         if st.button("↺ 초기화"):
             for k in ("nav_route", "nav_dest", "nav_engine", "nav_results",
-                      "nav_samples", "nav_prev_coord", "nav_prev_ts_ms", "nav_route_info"):
+                      "nav_samples", "nav_prev_coord", "nav_prev_ts_ms",
+                      "nav_route_info", "nav_static_map", "nav_dest_candidates"):
                 st.session_state[k] = [] if "results" in k or "samples" in k else None
             st.session_state["nav_running"] = False
             st.rerun()

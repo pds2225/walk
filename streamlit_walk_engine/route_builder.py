@@ -22,7 +22,7 @@ from urllib.parse import quote
 import requests
 
 sys.path.insert(0, str(Path(__file__).parent))
-from engine import Coordinate, RouteModel, TurnPoint
+from engine import Coordinate, RouteModel, TurnPoint, distance_meters
 
 
 @dataclass(frozen=True)
@@ -39,6 +39,7 @@ _VALHALLA = "https://valhalla1.openstreetmap.de/route"
 _TMAP_PEDESTRIAN = "https://apis.openapi.sk.com/tmap/routes/pedestrian"
 _TMAP_POIS = "https://apis.openapi.sk.com/tmap/pois"
 _TMAP_REVERSE_GEO = "https://apis.openapi.sk.com/tmap/geo/reversegeocoding"
+_TMAP_STATIC_MAP = "https://apis.openapi.sk.com/tmap/staticMap"
 _UA = "walk-navi-mvp/1.0"
 _TIMEOUT = 15
 _HEADERS_KO = {"User-Agent": _UA, "Accept-Language": "ko-KR,ko;q=0.9,en;q=0.8"}
@@ -447,3 +448,62 @@ def route_engine_label() -> str:
     if _tmap_app_key():
         return _LABEL_TMAP
     return f"{_LABEL_VALHALLA} — TMAP 앱키 미설정"
+
+
+# ── TMAP Static Map (경로 미리보기 이미지) ───────────────────────────────────
+
+def _static_map_zoom(distance_m: float) -> int:
+    """출발-목적지 직선거리에 맞는 줌 레벨 — 두 지점이 화면에 함께 들어오게."""
+    if distance_m < 300:
+        return 17
+    if distance_m < 700:
+        return 16
+    if distance_m < 1500:
+        return 15
+    if distance_m < 3000:
+        return 14
+    if distance_m < 6000:
+        return 13
+    return 12
+
+
+def fetch_static_map_png(
+    origin: Coordinate,
+    dest: Coordinate,
+    *,
+    width: int = 600,
+    height: int = 320,
+) -> bytes | None:
+    """목적지 미리보기용 TMAP Static Map PNG.
+
+    서버측(requests) 호출이라 앱키가 브라우저에 노출되지 않습니다.
+    출발-목적지 중점을 중심으로 잡고 목적지에 마커를 찍습니다.
+    키 없음/호출 실패 시 None — 호출부는 이미지 영역을 숨깁니다.
+    """
+    app_key = _tmap_app_key()
+    if not app_key:
+        return None
+    try:
+        resp = requests.get(
+            _TMAP_STATIC_MAP,
+            params={
+                "version": "1",
+                "longitude": f"{(origin.longitude + dest.longitude) / 2:.8f}",
+                "latitude": f"{(origin.latitude + dest.latitude) / 2:.8f}",
+                "coordType": "WGS84GEO",
+                "zoom": _static_map_zoom(distance_meters(origin, dest)),
+                "format": "PNG",
+                "width": width,
+                "height": height,
+                "markers": f"{dest.longitude:.8f},{dest.latitude:.8f}",
+            },
+            headers={"appKey": app_key},
+            timeout=_TIMEOUT,
+        )
+        if resp.status_code != 200:
+            return None
+        if not resp.headers.get("Content-Type", "").startswith("image/"):
+            return None
+        return resp.content
+    except requests.RequestException:
+        return None

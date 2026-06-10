@@ -360,3 +360,49 @@ class TestReverseGeocodeDispatch:
         monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: None)
         monkeypatch.setattr(route_builder, "_reverse_geocode_nominatim", lambda c: "Nominatim 주소")
         assert route_builder.reverse_geocode(self._COORD) == "Nominatim 주소"
+
+
+class _FakeStaticMapResp:
+    def __init__(self, status=200, content=b"", content_type="image/png;charset=UTF-8"):
+        self.status_code = status
+        self.content = content
+        self.headers = {"Content-Type": content_type}
+
+
+class TestStaticMap:
+    _O = Coordinate(latitude=37.56629, longitude=126.97797)
+    _D = Coordinate(latitude=37.56575, longitude=126.97515)
+
+    def test_zoom_levels_by_distance(self):
+        # 거리 경계: <300→17, <700→16, <1500→15, <3000→14, <6000→13, 그 외→12
+        for distance, zoom in ((100, 17), (300, 16), (700, 15), (1500, 14), (3000, 13), (6000, 12)):
+            assert route_builder._static_map_zoom(distance) == zoom
+
+    def test_returns_png_bytes(self, monkeypatch):
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: "test-key")
+        monkeypatch.setattr(
+            route_builder.requests, "get",
+            lambda *a, **kw: _FakeStaticMapResp(content=b"PNGDATA"),
+        )
+        assert route_builder.fetch_static_map_png(self._O, self._D) == b"PNGDATA"
+
+    def test_without_key_returns_none(self, monkeypatch):
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: None)
+        assert route_builder.fetch_static_map_png(self._O, self._D) is None
+
+    def test_error_status_returns_none(self, monkeypatch):
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: "test-key")
+        monkeypatch.setattr(
+            route_builder.requests, "get",
+            lambda *a, **kw: _FakeStaticMapResp(status=429, content_type="application/json"),
+        )
+        assert route_builder.fetch_static_map_png(self._O, self._D) is None
+
+    def test_non_image_body_returns_none(self, monkeypatch):
+        # 200이어도 에러 JSON이 오면 이미지로 표시하지 않음
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: "test-key")
+        monkeypatch.setattr(
+            route_builder.requests, "get",
+            lambda *a, **kw: _FakeStaticMapResp(content_type="application/json"),
+        )
+        assert route_builder.fetch_static_map_png(self._O, self._D) is None
