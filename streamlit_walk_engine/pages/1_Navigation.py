@@ -33,7 +33,13 @@ from engine import (
     distance_meters,
 )
 import gps_filter
-from route_builder import fetch_walking_route_with_engine, geocode_address, reverse_geocode, route_engine_label
+from route_builder import (
+    fetch_walking_route_with_engine,
+    geocode_address,
+    reverse_geocode,
+    route_engine_label,
+    search_places,
+)
 
 try:
     from streamlit_js_eval import get_geolocation, streamlit_js_eval as _js_eval
@@ -114,6 +120,7 @@ def _init() -> None:
         "nav_route_engine": None,
         "nav_route_info": None,
         "nav_arrival_summary": None,
+        "nav_dest_candidates": None,
     }.items():
         if k not in st.session_state:
             st.session_state[k] = v
@@ -317,6 +324,30 @@ def _trigger_alert(state: str) -> None:
         f"try{{if(navigator.vibrate)navigator.vibrate({cfg['vibrate']});}}catch(e){{}}"
         f"}})();</script>",
         height=0,
+    )
+
+
+# ── 경로 생성 공통 흐름 ───────────────────────────────────────────────────────
+
+def _create_route_to(origin: Coordinate, dest: Coordinate, display_name: str, query: str) -> None:
+    """목적지 좌표 확정 후 경로 생성 + 세션/히스토리 갱신 (검색·후보 선택 공용)."""
+    route = _fetch_route(origin, dest)
+    confirmed = _exit_label(query, display_name)
+    st.session_state.update({
+        "nav_dest":         dest,
+        "nav_dest_display": confirmed,
+        "nav_route":        route,
+        "nav_engine":       RouteDeviationEngine(route, st.session_state["nav_config"]),
+    })
+    _reset()
+    hist = [h for h in st.session_state["nav_search_history"] if h["query"] != query]
+    hist.insert(0, {"query": query, "display_name": confirmed,
+                    "lat": dest.latitude, "lon": dest.longitude})
+    st.session_state["nav_search_history"] = hist[:10]
+    _save_list_to_ls(_LS_KEY, hist[:10])
+    st.success(
+        f"경로 생성 완료 — 좌표 {len(route.polyline)}개 / "
+        f"회전 지점 {len(route.turn_points)}개"
     )
 
 
@@ -884,37 +915,47 @@ def main() -> None:
 
     with c1:
         if st.button("🔍 경로 탐색", disabled=(not dest_text or origin is None)):
+            st.session_state["nav_dest_candidates"] = None
             with st.spinner("경로 탐색 중..."):
                 try:
-                    result = geocode_address(dest_text)
-                    if result is None:
+                    candidates = search_places(dest_text, limit=5)
+                    if not candidates:
                         st.error("목적지를 찾을 수 없습니다. 다른 주소나 장소명으로 다시 시도해 주세요.")
+                    elif len(candidates) == 1:
+                        dest, display_name = candidates[0]
+                        _create_route_to(origin, dest, display_name, dest_text)
                     else:
-                        dest, display_name = result
-                        route = _fetch_route(origin, dest)
-                        confirmed = _exit_label(dest_text, display_name)
-                        st.session_state.update({
-                            "nav_dest":         dest,
-                            "nav_dest_display": confirmed,
-                            "nav_route":        route,
-                            "nav_engine":       RouteDeviationEngine(route, st.session_state["nav_config"]),
-                        })
-                        _reset()
-                        hist = [h for h in st.session_state["nav_search_history"] if h["query"] != dest_text]
-                        hist.insert(0, {"query": dest_text, "display_name": confirmed,
-                                        "lat": dest.latitude, "lon": dest.longitude})
-                        st.session_state["nav_search_history"] = hist[:10]
-                        _save_list_to_ls(_LS_KEY, hist[:10])
-                        st.success(
-                            f"경로 생성 완료 — 좌표 {len(route.polyline)}개 / "
-                            f"회전 지점 {len(route.turn_points)}개"
-                        )
+                        # 동명 장소 오선택 방지 — 후보를 보여주고 사용자가 선택
+                        st.session_state["nav_dest_candidates"] = {
+                            "query": dest_text,
+                            "options": [(c.latitude, c.longitude, d) for c, d in candidates],
+                        }
                 except requests.exceptions.Timeout:
                     st.error("네트워크 시간 초과. 인터넷 연결을 확인하고 다시 시도해 주세요.")
                 except requests.exceptions.ConnectionError:
                     st.error("네트워크에 연결할 수 없습니다.")
                 except Exception as e:
                     st.error(f"경로 탐색 실패: {e}")
+
+        cand = st.session_state.get("nav_dest_candidates")
+        if cand:
+            labels = [f"{i + 1}. {d}" for i, (_, _, d) in enumerate(cand["options"])]
+            sel = st.radio(f"'{cand['query']}' 검색 결과 — 목적지를 선택하세요", labels, key="nav_cand_sel")
+            if st.button("✅ 이 장소로 경로 탐색", disabled=(origin is None), use_container_width=True):
+                lat, lon, display_name = cand["options"][labels.index(sel)]
+                st.session_state["nav_dest_candidates"] = None
+                with st.spinner("경로 탐색 중..."):
+                    try:
+                        _create_route_to(
+                            origin, Coordinate(latitude=lat, longitude=lon),
+                            display_name, cand["query"],
+                        )
+                    except requests.exceptions.Timeout:
+                        st.error("네트워크 시간 초과. 인터넷 연결을 확인하고 다시 시도해 주세요.")
+                    except requests.exceptions.ConnectionError:
+                        st.error("네트워크에 연결할 수 없습니다.")
+                    except Exception as e:
+                        st.error(f"경로 탐색 실패: {e}")
 
         if st.session_state.get("nav_dest_display"):
             st.info(f"📌 {st.session_state['nav_dest_display']}")

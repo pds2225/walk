@@ -237,3 +237,126 @@ class TestTmapAppKey:
         monkeypatch.delenv("TMAP_APP_KEY", raising=False)
         # secrets 파일이 없는 환경에서는 st.secrets 접근이 예외 → None
         assert route_builder._tmap_app_key() is None
+
+
+def _tmap_poi(name, front=None, noor=None, road="", upper="서울", middle="강남구", lower="역삼동"):
+    poi = {
+        "name": name,
+        "upperAddrName": upper, "middleAddrName": middle, "lowerAddrName": lower,
+        "newAddressList": {"newAddress": ([{"fullAddressRoad": road}] if road else [])},
+    }
+    if front:
+        poi["frontLat"], poi["frontLon"] = str(front[1]), str(front[0])
+    if noor:
+        poi["noorLat"], poi["noorLon"] = str(noor[1]), str(noor[0])
+    return poi
+
+
+def _tmap_poi_payload(*pois):
+    return {"searchPoiInfo": {"pois": {"poi": list(pois)}}}
+
+
+class TestPoisFromTmapResponse:
+    def test_front_coordinate_preferred_and_display_with_road(self):
+        payload = _tmap_poi_payload(
+            _tmap_poi("강남역 10번출구", front=(127.02707407, 37.49865740),
+                      noor=(127.02699075, 37.49862962), road="서울 강남구 강남대로 지하 396"),
+        )
+        results = route_builder._pois_from_tmap_response(payload, limit=5)
+        assert len(results) == 1
+        coord, display = results[0]
+        assert coord == Coordinate(latitude=37.49865740, longitude=127.02707407)
+        assert display == "강남역 10번출구 · 서울 강남구 강남대로 지하 396"
+
+    def test_noor_fallback_and_admin_address(self):
+        payload = _tmap_poi_payload(_tmap_poi("어딘가", noor=(127.0, 37.5)))
+        results = route_builder._pois_from_tmap_response(payload, limit=5)
+        coord, display = results[0]
+        assert coord == Coordinate(latitude=37.5, longitude=127.0)
+        assert display == "어딘가 · 서울 강남구 역삼동"
+
+    def test_zero_coordinates_skipped(self):
+        payload = _tmap_poi_payload(_tmap_poi("좌표없음", front=(0.0, 0.0)))
+        assert route_builder._pois_from_tmap_response(payload, limit=5) == []
+
+    def test_limit_applied(self):
+        payload = _tmap_poi_payload(*[
+            _tmap_poi(f"poi-{i}", front=(127.0 + i * 0.001, 37.5)) for i in range(5)
+        ])
+        assert len(route_builder._pois_from_tmap_response(payload, limit=3)) == 3
+
+    def test_empty_payload(self):
+        assert route_builder._pois_from_tmap_response({}, limit=5) == []
+
+
+class TestSearchPlacesDispatch:
+    _COORD = Coordinate(latitude=37.5, longitude=127.0)
+
+    def test_tmap_results_returned(self, monkeypatch):
+        expected = [(self._COORD, "강남역 10번출구 · 서울 강남구")]
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: "test-key")
+        monkeypatch.setattr(
+            route_builder, "_search_pois_tmap",
+            lambda query, key, limit: expected,
+        )
+        assert route_builder.search_places("강남역 10번출구") == expected
+
+    def test_tmap_empty_falls_back_to_nominatim(self, monkeypatch):
+        fallback = (self._COORD, "Nominatim 결과")
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: "test-key")
+        monkeypatch.setattr(route_builder, "_search_pois_tmap", lambda q, k, n: [])
+        monkeypatch.setattr(route_builder, "_geocode_nominatim", lambda q: fallback)
+        assert route_builder.search_places("어딘가") == [fallback]
+
+    def test_tmap_error_falls_back_to_nominatim(self, monkeypatch):
+        fallback = (self._COORD, "Nominatim 결과")
+
+        def _boom(query, key, limit):
+            raise ValueError("TMAP 장소 검색 실패: 429")
+
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: "test-key")
+        monkeypatch.setattr(route_builder, "_search_pois_tmap", _boom)
+        monkeypatch.setattr(route_builder, "_geocode_nominatim", lambda q: fallback)
+        assert route_builder.search_places("어딘가") == [fallback]
+
+    def test_without_key_uses_nominatim(self, monkeypatch):
+        fallback = (self._COORD, "Nominatim 결과")
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: None)
+        monkeypatch.setattr(route_builder, "_geocode_nominatim", lambda q: fallback)
+        assert route_builder.search_places("어딘가") == [fallback]
+
+    def test_nothing_found_returns_empty(self, monkeypatch):
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: None)
+        monkeypatch.setattr(route_builder, "_geocode_nominatim", lambda q: None)
+        assert route_builder.search_places("없는곳") == []
+
+    def test_geocode_address_returns_top_candidate(self, monkeypatch):
+        expected = [(self._COORD, "후보1")]
+        monkeypatch.setattr(route_builder, "search_places", lambda q, limit=5: expected)
+        assert route_builder.geocode_address("어딘가") == expected[0]
+
+
+class TestReverseGeocodeDispatch:
+    _COORD = Coordinate(latitude=37.56629, longitude=126.97797)
+
+    def test_tmap_address_used(self, monkeypatch):
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: "test-key")
+        monkeypatch.setattr(
+            route_builder, "_reverse_geocode_tmap",
+            lambda coord, key: "서울특별시 중구 세종대로 110 서울특별시청",
+        )
+        assert route_builder.reverse_geocode(self._COORD) == "서울특별시 중구 세종대로 110 서울특별시청"
+
+    def test_tmap_error_falls_back_to_nominatim(self, monkeypatch):
+        def _boom(coord, key):
+            raise ValueError("TMAP 역지오코딩 실패: 500")
+
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: "test-key")
+        monkeypatch.setattr(route_builder, "_reverse_geocode_tmap", _boom)
+        monkeypatch.setattr(route_builder, "_reverse_geocode_nominatim", lambda c: "Nominatim 주소")
+        assert route_builder.reverse_geocode(self._COORD) == "Nominatim 주소"
+
+    def test_without_key_uses_nominatim(self, monkeypatch):
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: None)
+        monkeypatch.setattr(route_builder, "_reverse_geocode_nominatim", lambda c: "Nominatim 주소")
+        assert route_builder.reverse_geocode(self._COORD) == "Nominatim 주소"

@@ -37,6 +37,8 @@ _NOMINATIM_SEARCH = "https://nominatim.openstreetmap.org/search"
 _NOMINATIM_REVERSE = "https://nominatim.openstreetmap.org/reverse"
 _VALHALLA = "https://valhalla1.openstreetmap.de/route"
 _TMAP_PEDESTRIAN = "https://apis.openapi.sk.com/tmap/routes/pedestrian"
+_TMAP_POIS = "https://apis.openapi.sk.com/tmap/pois"
+_TMAP_REVERSE_GEO = "https://apis.openapi.sk.com/tmap/geo/reversegeocoding"
 _UA = "walk-navi-mvp/1.0"
 _TIMEOUT = 15
 _HEADERS_KO = {"User-Agent": _UA, "Accept-Language": "ko-KR,ko;q=0.9,en;q=0.8"}
@@ -63,13 +65,10 @@ def _subway_candidates(query: str) -> list[str]:
     ]))
 
 
-# ── geocoding ────────────────────────────────────────────────────────────────
+# ── geocoding (TMAP POI 통합검색 → Nominatim 폴백) ───────────────────────────
 
-def geocode_address(query: str) -> tuple[Coordinate, str] | None:
-    """주소/장소명 → (Coordinate, 표시 주소).
-
-    지하철 출구 표기 변형을 순서대로 시도하고, 성공 시 display_name을 함께 반환합니다.
-    """
+def _geocode_nominatim(query: str) -> tuple[Coordinate, str] | None:
+    """Nominatim 검색 — 지하철 출구 표기 변형을 순서대로 시도합니다 (폴백 경로)."""
     for candidate in _subway_candidates(query):
         resp = requests.get(
             _NOMINATIM_SEARCH,
@@ -87,10 +86,78 @@ def geocode_address(query: str) -> tuple[Coordinate, str] | None:
     return None
 
 
-# ── reverse geocoding ─────────────────────────────────────────────────────────
+def _pois_from_tmap_response(data: dict, limit: int) -> list[tuple[Coordinate, str]]:
+    """TMAP POI 통합검색 응답에서 (좌표, 표시명) 후보 목록을 추출합니다.
 
-def reverse_geocode(coord: Coordinate) -> str | None:
-    """좌표 → 한국어 주소 문자열 (Nominatim reverse geocoding)."""
+    좌표는 frontLat/frontLon(정문) 우선, 없으면 noorLat/noorLon(중심).
+    표시명은 "이름 · 도로명주소" 형태 (도로명 없으면 시/구/동).
+    """
+    pois = data.get("searchPoiInfo", {}).get("pois", {}).get("poi", [])
+    results: list[tuple[Coordinate, str]] = []
+    for poi in pois[:limit]:
+        lat = poi.get("frontLat") or poi.get("noorLat")
+        lon = poi.get("frontLon") or poi.get("noorLon")
+        try:
+            coord = Coordinate(latitude=float(lat), longitude=float(lon))
+        except (TypeError, ValueError):
+            continue
+        if coord.latitude == 0.0 and coord.longitude == 0.0:
+            continue
+        name = str(poi.get("name", "")).strip()
+        new_addrs = poi.get("newAddressList", {}).get("newAddress", [])
+        addr = str(new_addrs[0].get("fullAddressRoad", "")).strip() if new_addrs else ""
+        if not addr:
+            addr = " ".join(filter(None, (
+                poi.get("upperAddrName"), poi.get("middleAddrName"), poi.get("lowerAddrName"),
+            ))).strip()
+        display = f"{name} · {addr}" if name and addr else (name or addr)
+        if not display:
+            display = f"{coord.latitude:.5f}, {coord.longitude:.5f}"
+        results.append((coord, display))
+    return results
+
+
+def _search_pois_tmap(query: str, app_key: str, limit: int) -> list[tuple[Coordinate, str]]:
+    """TMAP POI 통합검색 — '강남역 10번출구' 같은 출구/상호 검색을 직접 처리합니다."""
+    resp = requests.get(
+        _TMAP_POIS,
+        params={
+            "version": "1", "searchKeyword": query, "count": limit,
+            "reqCoordType": "WGS84GEO", "resCoordType": "WGS84GEO",
+        },
+        headers={"appKey": app_key, "Accept": "application/json"},
+        timeout=_TIMEOUT,
+    )
+    if resp.status_code == 204:  # 검색 결과 없음
+        return []
+    if resp.status_code != 200:
+        raise ValueError(f"TMAP 장소 검색 실패: {resp.status_code}")
+    return _pois_from_tmap_response(resp.json(), limit)
+
+
+def search_places(query: str, limit: int = 5) -> list[tuple[Coordinate, str]]:
+    """장소 검색 후보 목록 — TMAP POI 우선, 실패·결과 없음 시 Nominatim 1건 폴백."""
+    app_key = _tmap_app_key()
+    if app_key:
+        try:
+            results = _search_pois_tmap(query, app_key, limit)
+            if results:
+                return results
+        except Exception:
+            pass  # 네트워크/한도 오류 — Nominatim으로 진행
+    single = _geocode_nominatim(query)
+    return [single] if single else []
+
+
+def geocode_address(query: str) -> tuple[Coordinate, str] | None:
+    """주소/장소명 → (Coordinate, 표시 주소). TMAP POI 1순위, Nominatim 폴백."""
+    results = search_places(query, limit=1)
+    return results[0] if results else None
+
+
+# ── reverse geocoding (TMAP → Nominatim 폴백) ────────────────────────────────
+
+def _reverse_geocode_nominatim(coord: Coordinate) -> str | None:
     resp = requests.get(
         _NOMINATIM_REVERSE,
         params={"lat": coord.latitude, "lon": coord.longitude, "format": "json"},
@@ -102,6 +169,36 @@ def reverse_geocode(coord: Coordinate) -> str | None:
     if "error" in data:
         return None
     return data.get("display_name")
+
+
+def _reverse_geocode_tmap(coord: Coordinate, app_key: str) -> str | None:
+    resp = requests.get(
+        _TMAP_REVERSE_GEO,
+        params={
+            "version": "1", "lat": coord.latitude, "lon": coord.longitude,
+            "coordType": "WGS84GEO", "addressType": "A10",
+        },
+        headers={"appKey": app_key, "Accept": "application/json"},
+        timeout=_TIMEOUT,
+    )
+    if resp.status_code != 200:
+        raise ValueError(f"TMAP 역지오코딩 실패: {resp.status_code}")
+    full = str(resp.json().get("addressInfo", {}).get("fullAddress", "")).strip()
+    # fullAddress는 행정동/지번/도로명 주소가 쉼표로 묶여 옴 — 마지막(도로명+건물명) 사용
+    return full.split(",")[-1].strip() or None
+
+
+def reverse_geocode(coord: Coordinate) -> str | None:
+    """좌표 → 한국어 주소 문자열. TMAP 역지오코딩 1순위, Nominatim 폴백."""
+    app_key = _tmap_app_key()
+    if app_key:
+        try:
+            addr = _reverse_geocode_tmap(coord, app_key)
+            if addr:
+                return addr
+        except Exception:
+            pass
+    return _reverse_geocode_nominatim(coord)
 
 
 # ── Valhalla polyline6 디코더 ─────────────────────────────────────────────────
