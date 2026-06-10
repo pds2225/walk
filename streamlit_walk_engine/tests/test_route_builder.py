@@ -2,10 +2,11 @@
 Unit tests for route_builder.py — TMAP 보행자 경로 응답 파싱 + 엔진 선택(dispatcher) 검증.
 
 커버 범위:
-  _route_from_tmap_features → LineString 병합/중복 제거, turnType 좌·우회전 매핑,
-                              경계(시작/끝) 회전 제외, 좌표 부족 시 ValueError
-  fetch_walking_route       → 앱키 있음(TMAP), TMAP 실패 시 Valhalla 대체, 앱키 없음(Valhalla)
-  route_engine_label        → 사용 엔진에 따른 라벨 문자열
+  _route_from_tmap_features        → LineString 병합/중복 제거, turnType 좌·우회전 매핑,
+                                     경계(시작/끝) 회전 제외, 좌표 부족 시 ValueError
+  fetch_walking_route_with_engine  → 앱키 있음(TMAP), TMAP 실패 시 Valhalla 대체(라벨에 원인 포함),
+                                     앱키 없음(Valhalla) — 전역 상태 없이 호출별 라벨 반환
+  route_engine_label               → 앱키 유무에 따른 기본 라벨 문자열
 """
 
 import os
@@ -115,14 +116,6 @@ class TestRouteFromTmapFeatures:
 
 
 class TestFetchWalkingRouteDispatch:
-    @pytest.fixture(autouse=True)
-    def _reset_engine_state(self):
-        route_builder._last_engine_used = None
-        route_builder._last_tmap_error = None
-        yield
-        route_builder._last_engine_used = None
-        route_builder._last_tmap_error = None
-
     def _dummy_route(self):
         return RouteModel(
             polyline=(
@@ -140,8 +133,9 @@ class TestFetchWalkingRouteDispatch:
             lambda origin, dest, key: expected,
         )
         origin, dest = expected.polyline
-        assert route_builder.fetch_walking_route(origin, dest) is expected
-        assert "TMAP" in route_builder.route_engine_label()
+        route, label = route_builder.fetch_walking_route_with_engine(origin, dest)
+        assert route is expected
+        assert "TMAP" in label
 
     def test_falls_back_to_valhalla_on_tmap_error(self, monkeypatch):
         expected = self._dummy_route()
@@ -156,9 +150,9 @@ class TestFetchWalkingRouteDispatch:
             lambda origin, dest: expected,
         )
         origin, dest = expected.polyline
-        assert route_builder.fetch_walking_route(origin, dest) is expected
-        label = route_builder.route_engine_label()
-        assert "Valhalla" in label and "대체" in label
+        route, label = route_builder.fetch_walking_route_with_engine(origin, dest)
+        assert route is expected
+        assert "Valhalla" in label and "대체" in label and "한도 초과" in label
 
     def test_uses_valhalla_without_key(self, monkeypatch):
         expected = self._dummy_route()
@@ -168,8 +162,30 @@ class TestFetchWalkingRouteDispatch:
             lambda origin, dest: expected,
         )
         origin, dest = expected.polyline
+        route, label = route_builder.fetch_walking_route_with_engine(origin, dest)
+        assert route is expected
+        assert "Valhalla" in label and "대체" not in label
+
+    def test_compat_wrapper_returns_route_only(self, monkeypatch):
+        expected = self._dummy_route()
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: None)
+        monkeypatch.setattr(
+            route_builder, "_fetch_walking_route_valhalla",
+            lambda origin, dest: expected,
+        )
+        origin, dest = expected.polyline
         assert route_builder.fetch_walking_route(origin, dest) is expected
-        assert "Valhalla" in route_builder.route_engine_label()
+
+
+class TestRouteEngineLabel:
+    def test_label_with_key(self, monkeypatch):
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: "test-key")
+        assert "TMAP" in route_builder.route_engine_label()
+
+    def test_label_without_key(self, monkeypatch):
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: None)
+        label = route_builder.route_engine_label()
+        assert "Valhalla" in label and "미설정" in label
 
 
 class TestTmapAppKey:

@@ -277,41 +277,41 @@ def _fetch_walking_route_valhalla(origin: Coordinate, dest: Coordinate) -> Route
 
 # ── 경로 탐색 진입점 (TMAP 우선, Valhalla 대체) ──────────────────────────────
 
-_last_engine_used: str | None = None   # "tmap" | "valhalla" — 마지막 경로 탐색에 쓰인 엔진
-_last_tmap_error: str | None = None    # TMAP 실패 → Valhalla 대체 시 원인 (UI 표시용)
+_LABEL_TMAP = "TMAP 보행자 경로 (SK open API)"
+_LABEL_VALHALLA = "Valhalla (OpenStreetMap 도보 전용)"
 
 
-def fetch_walking_route(origin: Coordinate, dest: Coordinate) -> RouteModel:
+def fetch_walking_route_with_engine(origin: Coordinate, dest: Coordinate) -> tuple[RouteModel, str]:
     """도보 경로를 가져옵니다. TMAP 앱키가 있으면 TMAP, 없거나 실패하면 Valhalla.
 
     Returns:
-        RouteModel — polyline(전체 좌표) + turn_points(회전 지점)
+        (RouteModel, 사용한 엔진 설명) — 호출자가 경로와 함께 세션별로 보관해
+        화면 캡션이 항상 해당 경로를 만든 엔진을 가리키도록 합니다.
     Raises:
         ValueError: 경로를 찾지 못한 경우.
         requests.RequestException: 네트워크 오류.
     """
-    global _last_engine_used, _last_tmap_error
+    tmap_error: str | None = None
     app_key = _tmap_app_key()
     if app_key:
         try:
-            route = _fetch_walking_route_tmap(origin, dest, app_key)
-            _last_engine_used, _last_tmap_error = "tmap", None
-            return route
+            return _fetch_walking_route_tmap(origin, dest, app_key), _LABEL_TMAP
         except Exception as exc:  # TMAP 한도 초과/경로 없음 등 — Valhalla로 자동 대체
-            _last_tmap_error = str(exc)
+            tmap_error = str(exc)
     route = _fetch_walking_route_valhalla(origin, dest)
-    _last_engine_used = "valhalla"
+    if tmap_error:
+        return route, f"Valhalla (TMAP 호출 실패로 대체 — {tmap_error})"
+    return route, _LABEL_VALHALLA
+
+
+def fetch_walking_route(origin: Coordinate, dest: Coordinate) -> RouteModel:
+    """fetch_walking_route_with_engine에서 경로만 반환하는 호환용 래퍼."""
+    route, _ = fetch_walking_route_with_engine(origin, dest)
     return route
 
 
 def route_engine_label() -> str:
-    """UI 표시용 현재 경로 엔진 설명 문자열."""
-    if _last_engine_used == "tmap":
-        return "TMAP 보행자 경로 (SK open API)"
-    if _last_engine_used == "valhalla":
-        if _last_tmap_error:
-            return f"Valhalla (TMAP 호출 실패로 대체 — {_last_tmap_error})"
-        return "Valhalla (OpenStreetMap 도보 전용)"
+    """경로 탐색 전 UI 표시용 — 앱키 유무에 따라 사용될 엔진 설명을 반환합니다."""
     if _tmap_app_key():
-        return "TMAP 보행자 경로 (SK open API)"
-    return "Valhalla (OpenStreetMap 도보 전용) — TMAP 앱키 미설정"
+        return _LABEL_TMAP
+    return f"{_LABEL_VALHALLA} — TMAP 앱키 미설정"
