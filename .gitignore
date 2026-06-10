@@ -1,6 +1,12 @@
-# Node
-node_modules/
+# 비밀키 — 절대 커밋 금지
+.streamlit/secrets.toml
+.env
+.env.*
 
 # Python
 __pycache__/
-*.py[cod]
+*.pyc
+.pytest_cache/
+
+# Node
+node_modules/

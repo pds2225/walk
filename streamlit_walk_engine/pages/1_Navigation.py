@@ -32,7 +32,8 @@ from engine import (
     bearing_degrees,
     distance_meters,
 )
-from route_builder import fetch_walking_route, geocode_address, reverse_geocode
+import gps_filter
+from route_builder import fetch_walking_route_with_engine, geocode_address, reverse_geocode, route_engine_label
 
 try:
     from streamlit_js_eval import get_geolocation, streamlit_js_eval as _js_eval
@@ -94,6 +95,7 @@ def _init() -> None:
         "nav_prev_ts_ms": None,
         "nav_config": EngineConfig(),
         "nav_last_alerted_state": "on_route",
+        "nav_last_weak_toast_ts_ms": None,
         "nav_alert_enabled": True,
         "nav_origin_address": None,
         "nav_origin_address_coord": None,
@@ -109,6 +111,8 @@ def _init() -> None:
         "nav_active_booking_id": None,
         "nav_last_booking_check_ms": None,
         "nav_dest_input": "",
+        "nav_route_engine": None,
+        "nav_route_info": None,
     }.items():
         if k not in st.session_state:
             st.session_state[k] = v
@@ -123,6 +127,7 @@ def _reset() -> None:
             else None
         )
     st.session_state["nav_last_alerted_state"] = "on_route"
+    st.session_state["nav_last_weak_toast_ts_ms"] = None
     st.session_state["nav_last_reroute_ts_ms"] = None
     st.session_state["nav_reroute_count"] = 0
 
@@ -154,6 +159,26 @@ def _activate_route(
 
 
 # ── 공통 헬퍼 ─────────────────────────────────────────────────────────────────
+
+def _fetch_route(origin: Coordinate, dest: Coordinate) -> RouteModel:
+    """경로 탐색 + 엔진 라벨/부가정보(총거리·ETA·안내문)를 현재 세션에 기록."""
+    route, engine_label, route_info = fetch_walking_route_with_engine(origin, dest)
+    st.session_state["nav_route_engine"] = engine_label
+    st.session_state["nav_route_info"] = route_info
+    return route
+
+
+def _route_summary_text() -> str | None:
+    """현재 경로의 '총 435m · 도보 약 6분' 표시 문자열 (정보 없으면 None)."""
+    info = st.session_state.get("nav_route_info")
+    if info is None or info.total_distance_meters is None:
+        return None
+    meters = info.total_distance_meters
+    dist = f"{meters / 1000:.1f}km" if meters >= 1000 else f"{meters}m"
+    if info.total_time_seconds:
+        return f"총 {dist} · 도보 약 {max(1, round(info.total_time_seconds / 60))}분"
+    return f"총 {dist}"
+
 
 def _make_id(prefix: str) -> str:
     return f"{prefix}-{int(time.time() * 1000)}"
@@ -442,6 +467,10 @@ def _render_metrics(results: list[EngineResult]) -> None:
     st.metric("샘플 수",      len(results))
     if last.metrics.distance_to_next_turn_point_meters is not None:
         st.metric("다음 회전", f"{last.metrics.distance_to_next_turn_point_meters:.0f} m")
+        info = st.session_state.get("nav_route_info")
+        turn_id = last.metrics.nearest_turn_point_id
+        if info is not None and turn_id and info.turn_descriptions.get(turn_id):
+            st.caption(f"↪️ {info.turn_descriptions[turn_id]}")
     if last.metrics.drift_duration_ms > 0:
         st.metric("이탈 지속", f"{last.metrics.drift_duration_ms / 1000:.1f}s")
     if st.session_state.get("nav_reroute_count", 0) > 0:
@@ -544,7 +573,7 @@ def _try_activate_booking(origin: Optional[Coordinate]) -> None:
         dest = _booking_coord(booking, "dest")
         with st.spinner(f"예약 경로 활성화 중: {booking['label']}"):
             try:
-                route = fetch_walking_route(origin, dest)
+                route = _fetch_route(origin, dest)
                 _activate_route(origin, dest, booking["dest_display"], route, start_now=True)
                 st.session_state["nav_active_booking_id"] = booking["id"]
                 st.toast(f"예약 경로 시작: {booking['label']}")
@@ -710,7 +739,7 @@ def main() -> None:
             with st.spinner(f"'{pending_hist['query']}' 경로 탐색 중..."):
                 try:
                     hist_dest = Coordinate(latitude=pending_hist["lat"], longitude=pending_hist["lon"])
-                    new_route = fetch_walking_route(hist_origin, hist_dest)
+                    new_route = _fetch_route(hist_origin, hist_dest)
                     st.session_state.update({
                         "nav_dest":         hist_dest,
                         "nav_dest_display": pending_hist["display_name"],
@@ -777,6 +806,16 @@ def main() -> None:
                 st.success(f"📍 {addr}")
             else:
                 st.caption(f"📍 {origin.latitude:.5f}, {origin.longitude:.5f}")
+            acc = (st.session_state["nav_raw_gps"] or {}).get("coords", {}).get("accuracy")
+            q = gps_filter.accuracy_quality(acc)
+            if q == "good":
+                st.caption(f"🟢 정확도 좋음 (±{acc:.0f}m) — 알림 정상")
+            elif q == "fair":
+                st.caption(f"🟡 정확도 보통 (±{acc:.0f}m) — 알림 신뢰도 낮음")
+            elif q == "poor":
+                st.caption(f"🔴 정확도 낮음 (±{acc:.0f}m) — 약한 경고만")
+            else:
+                st.caption("⚪ 수동 입력")
 
         st.divider()
         _sidebar_bookings(favorites, origin)
@@ -820,7 +859,7 @@ def main() -> None:
                         st.error("목적지를 찾을 수 없습니다. 다른 주소나 장소명으로 다시 시도해 주세요.")
                     else:
                         dest, display_name = result
-                        route = fetch_walking_route(origin, dest)
+                        route = _fetch_route(origin, dest)
                         confirmed = _exit_label(dest_text, display_name)
                         st.session_state.update({
                             "nav_dest":         dest,
@@ -847,7 +886,10 @@ def main() -> None:
 
         if st.session_state.get("nav_dest_display"):
             st.info(f"📌 {st.session_state['nav_dest_display']}")
-        st.caption("경로 엔진: Valhalla (OpenStreetMap 도보 전용)")
+            summary = _route_summary_text()
+            if summary:
+                st.caption(f"🚶 {summary}")
+        st.caption(f"경로 엔진: {st.session_state.get('nav_route_engine') or route_engine_label()}")
 
     with c2:
         route: Optional[RouteModel] = st.session_state["nav_route"]
@@ -869,7 +911,7 @@ def main() -> None:
     with c3:
         if st.button("↺ 초기화"):
             for k in ("nav_route", "nav_dest", "nav_engine", "nav_results",
-                      "nav_samples", "nav_prev_coord", "nav_prev_ts_ms"):
+                      "nav_samples", "nav_prev_coord", "nav_prev_ts_ms", "nav_route_info"):
                 st.session_state[k] = [] if "results" in k or "samples" in k else None
             st.session_state["nav_running"] = False
             st.rerun()
@@ -887,10 +929,23 @@ def main() -> None:
             st.session_state["nav_prev_coord"]   = origin
             st.session_state["nav_prev_ts_ms"]   = sample.timestamp_ms
 
-            last_alerted = st.session_state["nav_last_alerted_state"]
-            if st.session_state["nav_alert_enabled"] and result.state != last_alerted:
+            acc = (st.session_state["nav_raw_gps"] or {}).get("coords", {}).get("accuracy")
+            lvl = gps_filter.alert_level(acc, result.state)
+            now_ms = int(time.time() * 1000)
+            decision = gps_filter.decide_alert(
+                result.state,
+                st.session_state["nav_last_alerted_state"],
+                lvl,
+                now_ms,
+                st.session_state["nav_last_weak_toast_ts_ms"],
+                st.session_state["nav_alert_enabled"],
+            )
+            if decision.fire_full:
                 _trigger_alert(result.state)
-                st.session_state["nav_last_alerted_state"] = result.state
+            if decision.fire_weak_toast:
+                st.toast("⚠️ 경로 이탈 가능 — 위치 정확도 낮음, 확인 필요")
+            st.session_state["nav_last_alerted_state"] = decision.new_last_alerted
+            st.session_state["nav_last_weak_toast_ts_ms"] = decision.new_last_weak_ts_ms
 
             dest_coord: Optional[Coordinate] = st.session_state["nav_dest"]
             if (
@@ -902,7 +957,7 @@ def main() -> None:
                 last_reroute = st.session_state["nav_last_reroute_ts_ms"]
                 if last_reroute is None or (now_ms - last_reroute) > 15_000:
                     try:
-                        new_route  = fetch_walking_route(origin, dest_coord)
+                        new_route  = _fetch_route(origin, dest_coord)
                         new_count  = st.session_state["nav_reroute_count"] + 1
                         st.session_state.update({
                             "nav_route":               new_route,
@@ -913,6 +968,7 @@ def main() -> None:
                             "nav_last_reroute_ts_ms":  now_ms,
                             "nav_reroute_count":       new_count,
                             "nav_last_alerted_state":  "on_route",
+                            "nav_last_weak_toast_ts_ms": None,
                         })
                         st.toast(f"🔄 재경로 완료 ({new_count}회차) — 새 경로로 안내합니다")
                     except Exception as e:
