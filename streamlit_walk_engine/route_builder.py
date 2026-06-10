@@ -15,6 +15,7 @@ from __future__ import annotations
 import os
 import re
 import sys
+from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import quote
 
@@ -22,6 +23,15 @@ import requests
 
 sys.path.insert(0, str(Path(__file__).parent))
 from engine import Coordinate, RouteModel, TurnPoint
+
+
+@dataclass(frozen=True)
+class RouteInfo:
+    """경로 부가정보 — RouteModel(엔진 입력)과 분리해 UI 표시에만 사용합니다."""
+    total_distance_meters: int | None = None
+    total_time_seconds: int | None = None
+    turn_descriptions: dict[str, str] = field(default_factory=dict)  # TurnPoint.id → 안내문
+
 
 _NOMINATIM_SEARCH = "https://nominatim.openstreetmap.org/search"
 _NOMINATIM_REVERSE = "https://nominatim.openstreetmap.org/reverse"
@@ -144,24 +154,33 @@ _TMAP_TURN_LEFT  = {12, 16, 17}  # 좌회전 / 8시 방향 좌회전 / 10시 방
 _TMAP_TURN_RIGHT = {13, 18, 19}  # 우회전 / 2시 방향 우회전 / 4시 방향 우회전
 
 
-def _route_from_tmap_features(features: list[dict]) -> RouteModel:
-    """TMAP 보행자 경로 응답(GeoJSON features)을 RouteModel로 변환합니다.
+def _route_from_tmap_features(features: list[dict]) -> tuple[RouteModel, RouteInfo]:
+    """TMAP 보행자 경로 응답(GeoJSON features)을 (RouteModel, RouteInfo)로 변환합니다.
 
     - LineString 좌표([lon, lat])를 이어붙여 polyline 구성 (구간 경계 중복 좌표 제거)
     - Point의 turnType이 좌/우회전이면 회전 지점으로 수집
       (Point 좌표 = 직전 LineString의 마지막 좌표이므로 그 시점의 polyline 끝 인덱스 사용)
+    - 총거리/소요시간(첫 피처 properties)과 회전 지점별 한국어 안내문(description) 추출
     """
     coords: list[Coordinate] = []
-    raw_turns: list[tuple[int, str]] = []  # (route_index, direction)
+    raw_turns: list[tuple[int, str, str]] = []  # (route_index, direction, 안내문)
+    total_distance: int | None = None
+    total_time: int | None = None
 
     for feature in features:
         geometry = feature.get("geometry", {})
         gtype = geometry.get("type")
+        props = feature.get("properties", {})
+        if total_distance is None and "totalDistance" in props:
+            total_distance = int(props["totalDistance"])
+        if total_time is None and "totalTime" in props:
+            total_time = int(props["totalTime"])
         if gtype == "Point":
-            turn_type = feature.get("properties", {}).get("turnType")
+            turn_type = props.get("turnType")
             if turn_type in _TMAP_TURN_LEFT or turn_type in _TMAP_TURN_RIGHT:
                 direction = "left" if turn_type in _TMAP_TURN_LEFT else "right"
-                raw_turns.append((len(coords) - 1, direction))
+                description = str(props.get("description", "")).strip()
+                raw_turns.append((len(coords) - 1, direction, description))
         elif gtype == "LineString":
             for lon, lat in geometry.get("coordinates", []):
                 c = Coordinate(latitude=float(lat), longitude=float(lon))
@@ -173,24 +192,34 @@ def _route_from_tmap_features(features: list[dict]) -> RouteModel:
         raise ValueError("TMAP 경로 좌표가 너무 적습니다.")
 
     turn_points: list[TurnPoint] = []
+    turn_descriptions: dict[str, str] = {}
     seen: set[int] = set()
     tid = 0
-    for idx, direction in raw_turns:
+    for idx, direction, description in raw_turns:
         if idx in seen or idx <= 0 or idx >= len(coords) - 1:
             continue
         seen.add(idx)
         tid += 1
+        turn_id = f"turn-{tid}"
         turn_points.append(TurnPoint(
-            id=f"turn-{tid}",
+            id=turn_id,
             coordinate=coords[idx],
             route_index=idx,
             direction=direction,
         ))
+        if description:
+            turn_descriptions[turn_id] = description
 
-    return RouteModel(polyline=tuple(coords), turn_points=tuple(turn_points))
+    route = RouteModel(polyline=tuple(coords), turn_points=tuple(turn_points))
+    info = RouteInfo(
+        total_distance_meters=total_distance,
+        total_time_seconds=total_time,
+        turn_descriptions=turn_descriptions,
+    )
+    return route, info
 
 
-def _fetch_walking_route_tmap(origin: Coordinate, dest: Coordinate, app_key: str) -> RouteModel:
+def _fetch_walking_route_tmap(origin: Coordinate, dest: Coordinate, app_key: str) -> tuple[RouteModel, RouteInfo]:
     """TMAP 보행자 경로 API(POST /tmap/routes/pedestrian)로 도보 경로를 가져옵니다."""
     resp = requests.post(
         _TMAP_PEDESTRIAN,
@@ -225,7 +254,7 @@ _TURN_RIGHT = {4, 5, 6}   # slight_right / right / sharp_right
 _TURN_LEFT  = {8, 9, 10}  # sharp_left  / left  / slight_left
 
 
-def _fetch_walking_route_valhalla(origin: Coordinate, dest: Coordinate) -> RouteModel:
+def _fetch_walking_route_valhalla(origin: Coordinate, dest: Coordinate) -> tuple[RouteModel, RouteInfo]:
     """Valhalla pedestrian costing으로 도보 경로를 가져와 RouteModel로 변환합니다."""
     resp = requests.post(
         _VALHALLA,
@@ -272,7 +301,12 @@ def _fetch_walking_route_valhalla(origin: Coordinate, dest: Coordinate) -> Route
             direction=direction,
         ))
 
-    return RouteModel(polyline=tuple(polyline), turn_points=tuple(turn_points))
+    summary = leg.get("summary", {})
+    info = RouteInfo(
+        total_distance_meters=int(summary["length"] * 1000) if "length" in summary else None,
+        total_time_seconds=int(summary["time"]) if "time" in summary else None,
+    )
+    return RouteModel(polyline=tuple(polyline), turn_points=tuple(turn_points)), info
 
 
 # ── 경로 탐색 진입점 (TMAP 우선, Valhalla 대체) ──────────────────────────────
@@ -281,12 +315,12 @@ _LABEL_TMAP = "TMAP 보행자 경로 (SK open API)"
 _LABEL_VALHALLA = "Valhalla (OpenStreetMap 도보 전용)"
 
 
-def fetch_walking_route_with_engine(origin: Coordinate, dest: Coordinate) -> tuple[RouteModel, str]:
+def fetch_walking_route_with_engine(origin: Coordinate, dest: Coordinate) -> tuple[RouteModel, str, RouteInfo]:
     """도보 경로를 가져옵니다. TMAP 앱키가 있으면 TMAP, 없거나 실패하면 Valhalla.
 
     Returns:
-        (RouteModel, 사용한 엔진 설명) — 호출자가 경로와 함께 세션별로 보관해
-        화면 캡션이 항상 해당 경로를 만든 엔진을 가리키도록 합니다.
+        (RouteModel, 사용한 엔진 설명, RouteInfo) — 호출자가 경로와 함께 세션별로
+        보관해 캡션·총거리/ETA·회전 안내문이 항상 해당 경로를 가리키도록 합니다.
     Raises:
         ValueError: 경로를 찾지 못한 경우.
         requests.RequestException: 네트워크 오류.
@@ -295,18 +329,19 @@ def fetch_walking_route_with_engine(origin: Coordinate, dest: Coordinate) -> tup
     app_key = _tmap_app_key()
     if app_key:
         try:
-            return _fetch_walking_route_tmap(origin, dest, app_key), _LABEL_TMAP
+            route, info = _fetch_walking_route_tmap(origin, dest, app_key)
+            return route, _LABEL_TMAP, info
         except Exception as exc:  # TMAP 한도 초과/경로 없음 등 — Valhalla로 자동 대체
             tmap_error = str(exc)
-    route = _fetch_walking_route_valhalla(origin, dest)
+    route, info = _fetch_walking_route_valhalla(origin, dest)
     if tmap_error:
-        return route, f"Valhalla (TMAP 호출 실패로 대체 — {tmap_error})"
-    return route, _LABEL_VALHALLA
+        return route, f"Valhalla (TMAP 호출 실패로 대체 — {tmap_error})", info
+    return route, _LABEL_VALHALLA, info
 
 
 def fetch_walking_route(origin: Coordinate, dest: Coordinate) -> RouteModel:
     """fetch_walking_route_with_engine에서 경로만 반환하는 호환용 래퍼."""
-    route, _ = fetch_walking_route_with_engine(origin, dest)
+    route, _, _ = fetch_walking_route_with_engine(origin, dest)
     return route
 
 
