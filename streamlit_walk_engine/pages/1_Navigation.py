@@ -33,7 +33,7 @@ from engine import (
     distance_meters,
 )
 import gps_filter
-from route_builder import fetch_walking_route, geocode_address, reverse_geocode, route_engine_label
+from route_builder import fetch_walking_route_with_engine, geocode_address, reverse_geocode, route_engine_label
 
 try:
     from streamlit_js_eval import get_geolocation, streamlit_js_eval as _js_eval
@@ -111,6 +111,7 @@ def _init() -> None:
         "nav_active_booking_id": None,
         "nav_last_booking_check_ms": None,
         "nav_dest_input": "",
+        "nav_route_engine": None,
     }.items():
         if k not in st.session_state:
             st.session_state[k] = v
@@ -157,6 +158,13 @@ def _activate_route(
 
 
 # ── 공통 헬퍼 ─────────────────────────────────────────────────────────────────
+
+def _fetch_route(origin: Coordinate, dest: Coordinate) -> RouteModel:
+    """경로 탐색 + 사용한 엔진 라벨을 현재 세션에 기록 (캡션이 이 경로의 엔진을 표시)."""
+    route, engine_label = fetch_walking_route_with_engine(origin, dest)
+    st.session_state["nav_route_engine"] = engine_label
+    return route
+
 
 def _make_id(prefix: str) -> str:
     return f"{prefix}-{int(time.time() * 1000)}"
@@ -547,7 +555,7 @@ def _try_activate_booking(origin: Optional[Coordinate]) -> None:
         dest = _booking_coord(booking, "dest")
         with st.spinner(f"예약 경로 활성화 중: {booking['label']}"):
             try:
-                route = fetch_walking_route(origin, dest)
+                route = _fetch_route(origin, dest)
                 _activate_route(origin, dest, booking["dest_display"], route, start_now=True)
                 st.session_state["nav_active_booking_id"] = booking["id"]
                 st.toast(f"예약 경로 시작: {booking['label']}")
@@ -713,7 +721,7 @@ def main() -> None:
             with st.spinner(f"'{pending_hist['query']}' 경로 탐색 중..."):
                 try:
                     hist_dest = Coordinate(latitude=pending_hist["lat"], longitude=pending_hist["lon"])
-                    new_route = fetch_walking_route(hist_origin, hist_dest)
+                    new_route = _fetch_route(hist_origin, hist_dest)
                     st.session_state.update({
                         "nav_dest":         hist_dest,
                         "nav_dest_display": pending_hist["display_name"],
@@ -833,7 +841,7 @@ def main() -> None:
                         st.error("목적지를 찾을 수 없습니다. 다른 주소나 장소명으로 다시 시도해 주세요.")
                     else:
                         dest, display_name = result
-                        route = fetch_walking_route(origin, dest)
+                        route = _fetch_route(origin, dest)
                         confirmed = _exit_label(dest_text, display_name)
                         st.session_state.update({
                             "nav_dest":         dest,
@@ -860,7 +868,7 @@ def main() -> None:
 
         if st.session_state.get("nav_dest_display"):
             st.info(f"📌 {st.session_state['nav_dest_display']}")
-        st.caption(f"경로 엔진: {route_engine_label()}")
+        st.caption(f"경로 엔진: {st.session_state.get('nav_route_engine') or route_engine_label()}")
 
     with c2:
         route: Optional[RouteModel] = st.session_state["nav_route"]
@@ -928,7 +936,7 @@ def main() -> None:
                 last_reroute = st.session_state["nav_last_reroute_ts_ms"]
                 if last_reroute is None or (now_ms - last_reroute) > 15_000:
                     try:
-                        new_route  = fetch_walking_route(origin, dest_coord)
+                        new_route  = _fetch_route(origin, dest_coord)
                         new_count  = st.session_state["nav_reroute_count"] + 1
                         st.session_state.update({
                             "nav_route":               new_route,
