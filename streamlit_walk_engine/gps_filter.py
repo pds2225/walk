@@ -90,8 +90,9 @@ def decide_alert(
     - full + 전이 → fire_full, last_alerted 갱신.
     - weak + 전이 + 쿨다운 경과(또는 첫 발화) → fire_weak_toast, last_alerted·ts 갱신.
     - weak + 전이 + 쿨다운 미경과 → 미발화, last_alerted만 갱신(동일 state 재토글 방지).
-    - mute → 미발화, last_alerted 미갱신(안전 측 기본값: 정확도 회복 시 같은
-      state로도 full이 재발화될 수 있게), ts 불변.
+    - mute → 미발화, 기본적으로 last_alerted 미갱신(정확도 회복 시 같은 state로도
+      full이 재발화될 수 있게). 단, 확정 이탈에서 on_route/drifting으로 돌아온
+      mute 전이는 동기화해 다음 확정 이탈 알림이 stale state로 묵살되지 않게 함.
     """
     if not alert_enabled:
         return AlertDecision(
@@ -135,10 +136,16 @@ def decide_alert(
             new_last_weak_ts_ms=last_weak_ts_ms,
         )
 
-    # level == "mute": last_alerted 미갱신 — 정확도 회복 시 full 재발화 허용
+    # level == "mute": 확정 이탈에서 muted 상태로 돌아온 경우만 동기화한다.
+    new_last_alerted = (
+        state
+        if last_alerted in _CONFIRMED_DEVIATION_STATES
+        and state not in _CONFIRMED_DEVIATION_STATES
+        else last_alerted
+    )
     return AlertDecision(
         fire_full=False,
         fire_weak_toast=False,
-        new_last_alerted=last_alerted,
+        new_last_alerted=new_last_alerted,
         new_last_weak_ts_ms=last_weak_ts_ms,
     )
