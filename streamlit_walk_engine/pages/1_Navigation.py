@@ -32,6 +32,7 @@ from engine import (
     bearing_degrees,
     distance_meters,
 )
+import gps_filter
 from route_builder import fetch_walking_route, geocode_address, reverse_geocode
 
 try:
@@ -94,6 +95,7 @@ def _init() -> None:
         "nav_prev_ts_ms": None,
         "nav_config": EngineConfig(),
         "nav_last_alerted_state": "on_route",
+        "nav_last_weak_toast_ts_ms": None,
         "nav_alert_enabled": True,
         "nav_origin_address": None,
         "nav_origin_address_coord": None,
@@ -123,6 +125,7 @@ def _reset() -> None:
             else None
         )
     st.session_state["nav_last_alerted_state"] = "on_route"
+    st.session_state["nav_last_weak_toast_ts_ms"] = None
     st.session_state["nav_last_reroute_ts_ms"] = None
     st.session_state["nav_reroute_count"] = 0
 
@@ -777,6 +780,16 @@ def main() -> None:
                 st.success(f"📍 {addr}")
             else:
                 st.caption(f"📍 {origin.latitude:.5f}, {origin.longitude:.5f}")
+            acc = (st.session_state["nav_raw_gps"] or {}).get("coords", {}).get("accuracy")
+            q = gps_filter.accuracy_quality(acc)
+            if q == "good":
+                st.caption(f"🟢 정확도 좋음 (±{acc:.0f}m) — 알림 정상")
+            elif q == "fair":
+                st.caption(f"🟡 정확도 보통 (±{acc:.0f}m) — 알림 신뢰도 낮음")
+            elif q == "poor":
+                st.caption(f"🔴 정확도 낮음 (±{acc:.0f}m) — 약한 경고만")
+            else:
+                st.caption("⚪ 수동 입력")
 
         st.divider()
         _sidebar_bookings(favorites, origin)
@@ -887,10 +900,23 @@ def main() -> None:
             st.session_state["nav_prev_coord"]   = origin
             st.session_state["nav_prev_ts_ms"]   = sample.timestamp_ms
 
-            last_alerted = st.session_state["nav_last_alerted_state"]
-            if st.session_state["nav_alert_enabled"] and result.state != last_alerted:
+            acc = (st.session_state["nav_raw_gps"] or {}).get("coords", {}).get("accuracy")
+            lvl = gps_filter.alert_level(acc, result.state)
+            now_ms = int(time.time() * 1000)
+            decision = gps_filter.decide_alert(
+                result.state,
+                st.session_state["nav_last_alerted_state"],
+                lvl,
+                now_ms,
+                st.session_state["nav_last_weak_toast_ts_ms"],
+                st.session_state["nav_alert_enabled"],
+            )
+            if decision.fire_full:
                 _trigger_alert(result.state)
-                st.session_state["nav_last_alerted_state"] = result.state
+            if decision.fire_weak_toast:
+                st.toast("⚠️ 경로 이탈 가능 — 위치 정확도 낮음, 확인 필요")
+            st.session_state["nav_last_alerted_state"] = decision.new_last_alerted
+            st.session_state["nav_last_weak_toast_ts_ms"] = decision.new_last_weak_ts_ms
 
             dest_coord: Optional[Coordinate] = st.session_state["nav_dest"]
             if (
@@ -913,6 +939,7 @@ def main() -> None:
                             "nav_last_reroute_ts_ms":  now_ms,
                             "nav_reroute_count":       new_count,
                             "nav_last_alerted_state":  "on_route",
+                            "nav_last_weak_toast_ts_ms": None,
                         })
                         st.toast(f"🔄 재경로 완료 ({new_count}회차) — 새 경로로 안내합니다")
                     except Exception as e:
