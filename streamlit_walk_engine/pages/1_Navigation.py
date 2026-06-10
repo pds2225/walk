@@ -112,6 +112,7 @@ def _init() -> None:
         "nav_last_booking_check_ms": None,
         "nav_dest_input": "",
         "nav_route_engine": None,
+        "nav_route_info": None,
     }.items():
         if k not in st.session_state:
             st.session_state[k] = v
@@ -160,10 +161,23 @@ def _activate_route(
 # ── 공통 헬퍼 ─────────────────────────────────────────────────────────────────
 
 def _fetch_route(origin: Coordinate, dest: Coordinate) -> RouteModel:
-    """경로 탐색 + 사용한 엔진 라벨을 현재 세션에 기록 (캡션이 이 경로의 엔진을 표시)."""
-    route, engine_label = fetch_walking_route_with_engine(origin, dest)
+    """경로 탐색 + 엔진 라벨/부가정보(총거리·ETA·안내문)를 현재 세션에 기록."""
+    route, engine_label, route_info = fetch_walking_route_with_engine(origin, dest)
     st.session_state["nav_route_engine"] = engine_label
+    st.session_state["nav_route_info"] = route_info
     return route
+
+
+def _route_summary_text() -> str | None:
+    """현재 경로의 '총 435m · 도보 약 6분' 표시 문자열 (정보 없으면 None)."""
+    info = st.session_state.get("nav_route_info")
+    if info is None or info.total_distance_meters is None:
+        return None
+    meters = info.total_distance_meters
+    dist = f"{meters / 1000:.1f}km" if meters >= 1000 else f"{meters}m"
+    if info.total_time_seconds:
+        return f"총 {dist} · 도보 약 {max(1, round(info.total_time_seconds / 60))}분"
+    return f"총 {dist}"
 
 
 def _make_id(prefix: str) -> str:
@@ -453,6 +467,10 @@ def _render_metrics(results: list[EngineResult]) -> None:
     st.metric("샘플 수",      len(results))
     if last.metrics.distance_to_next_turn_point_meters is not None:
         st.metric("다음 회전", f"{last.metrics.distance_to_next_turn_point_meters:.0f} m")
+        info = st.session_state.get("nav_route_info")
+        turn_id = last.metrics.nearest_turn_point_id
+        if info is not None and turn_id and info.turn_descriptions.get(turn_id):
+            st.caption(f"↪️ {info.turn_descriptions[turn_id]}")
     if last.metrics.drift_duration_ms > 0:
         st.metric("이탈 지속", f"{last.metrics.drift_duration_ms / 1000:.1f}s")
     if st.session_state.get("nav_reroute_count", 0) > 0:
@@ -868,6 +886,9 @@ def main() -> None:
 
         if st.session_state.get("nav_dest_display"):
             st.info(f"📌 {st.session_state['nav_dest_display']}")
+            summary = _route_summary_text()
+            if summary:
+                st.caption(f"🚶 {summary}")
         st.caption(f"경로 엔진: {st.session_state.get('nav_route_engine') or route_engine_label()}")
 
     with c2:
@@ -890,7 +911,7 @@ def main() -> None:
     with c3:
         if st.button("↺ 초기화"):
             for k in ("nav_route", "nav_dest", "nav_engine", "nav_results",
-                      "nav_samples", "nav_prev_coord", "nav_prev_ts_ms"):
+                      "nav_samples", "nav_prev_coord", "nav_prev_ts_ms", "nav_route_info"):
                 st.session_state[k] = [] if "results" in k or "samples" in k else None
             st.session_state["nav_running"] = False
             st.rerun()
