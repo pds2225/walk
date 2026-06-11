@@ -467,11 +467,16 @@ def _static_map_zoom(distance_m: float) -> int:
     return 12
 
 
+# TMAP StaticMap 실효 최대 크기 — 초과 요청은 서버가 512px로 잘라 반환함을
+# 실호출로 확인(600→512×320, 2048→512×512). 묵시적 클램핑에 의존하지 않도록 명시.
+_STATIC_MAP_MAX_PX = 512
+
+
 def fetch_static_map_png(
     origin: Coordinate,
     dest: Coordinate,
     *,
-    width: int = 600,
+    width: int = 512,
     height: int = 320,
 ) -> bytes | None:
     """목적지 미리보기용 TMAP Static Map PNG.
@@ -493,8 +498,8 @@ def fetch_static_map_png(
                 "coordType": "WGS84GEO",
                 "zoom": _static_map_zoom(distance_meters(origin, dest)),
                 "format": "PNG",
-                "width": width,
-                "height": height,
+                "width": min(width, _STATIC_MAP_MAX_PX),
+                "height": min(height, _STATIC_MAP_MAX_PX),
                 "markers": f"{dest.longitude:.8f},{dest.latitude:.8f}",
             },
             headers={"appKey": app_key},

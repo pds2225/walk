@@ -406,3 +406,17 @@ class TestStaticMap:
             lambda *a, **kw: _FakeStaticMapResp(content_type="application/json"),
         )
         assert route_builder.fetch_static_map_png(self._O, self._D) is None
+
+    def test_dimensions_clamped_to_tmap_limit(self, monkeypatch):
+        # 512 초과 요청은 서버가 잘라 반환하므로 요청 단계에서 명시적으로 클램프
+        captured = {}
+
+        def _capture(url, params=None, **kw):
+            captured.update(params)
+            return _FakeStaticMapResp(content=b"PNGDATA")
+
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: "test-key")
+        monkeypatch.setattr(route_builder.requests, "get", _capture)
+        route_builder.fetch_static_map_png(self._O, self._D, width=2048, height=1024)
+        assert captured["width"] == 512
+        assert captured["height"] == 512
