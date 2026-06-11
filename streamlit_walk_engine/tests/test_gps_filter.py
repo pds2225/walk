@@ -16,10 +16,12 @@ from gps_filter import (
     GOOD_ACCURACY_M,
     FAIR_ACCURACY_M,
     ALERT_ACCURACY_GATE_M,
+    USABLE_ACCURACY_M,
     WEAK_TOAST_COOLDOWN_MS,
     accuracy_quality,
     alert_level,
     decide_alert,
+    is_fix_usable,
 )
 
 
@@ -28,7 +30,31 @@ class TestConstants:
         assert GOOD_ACCURACY_M == 15.0
         assert FAIR_ACCURACY_M == 35.0
         assert ALERT_ACCURACY_GATE_M == 15.0
+        assert USABLE_ACCURACY_M == 50.0
         assert WEAK_TOAST_COOLDOWN_MS == 15_000
+
+
+class TestIsFixUsable:
+    # accuracy 미보고(None) → 기존 동작 보존 = 사용
+    def test_none_is_usable(self):
+        assert is_fix_usable(None) is True
+
+    # 50m 이내(경계 포함 ≤) → 사용
+    def test_within_limit_is_usable(self):
+        assert is_fix_usable(10) is True
+
+    def test_at_boundary_is_usable(self):
+        assert is_fix_usable(50.0) is True
+
+    # 50m 초과 → 무시
+    def test_over_limit_is_unusable(self):
+        assert is_fix_usable(50.1) is False
+        assert is_fix_usable(120) is False
+
+    # 커스텀 한계
+    def test_custom_limit(self):
+        assert is_fix_usable(30, max_accuracy_m=25.0) is False
+        assert is_fix_usable(20, max_accuracy_m=25.0) is True
 
 
 class TestAccuracyQuality:

@@ -24,6 +24,9 @@ GOOD_ACCURACY_M = 15.0
 FAIR_ACCURACY_M = 35.0
 # 알림 억제 시작 실효 경계 — UI 슬라이더와 분리된 독립 상수
 ALERT_ACCURACY_GATE_M = 15.0
+# 위치 갱신 사용 한계 — 이보다 나쁜(큰) accuracy의 fix는 현재 위치 갱신에 쓰지 않는다.
+# 도심 GPS 오차 상단(~50m)을 넘는 측정은 "현재 위치"로 신뢰하지 않고 이전 위치를 유지한다.
+USABLE_ACCURACY_M = 50.0
 # weak toast 재발화 쿨다운
 WEAK_TOAST_COOLDOWN_MS = 15_000
 
@@ -49,6 +52,21 @@ def accuracy_quality(accuracy_m: Optional[float]) -> AccuracyQuality:
     if accuracy_m <= FAIR_ACCURACY_M:
         return "fair"
     return "poor"
+
+
+def is_fix_usable(
+    accuracy_m: Optional[float],
+    max_accuracy_m: float = USABLE_ACCURACY_M,
+) -> bool:
+    """GPS fix를 '현재 위치' 갱신에 쓸지 결정한다 (±max_accuracy_m 이내만 신뢰).
+
+    - accuracy 미보고(None: 수동 입력·미지원 브라우저 등) → True (기존 동작 보존).
+    - accuracy ≤ max(양호) → True.
+    - accuracy > max(나쁨) → False (이 fix는 무시하고 이전 위치 유지).
+    """
+    if accuracy_m is None:
+        return True
+    return accuracy_m <= max_accuracy_m
 
 
 def alert_level(
