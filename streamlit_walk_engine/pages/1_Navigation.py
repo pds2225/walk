@@ -48,6 +48,38 @@ try:
 except ImportError:
     _HAS_REFRESH = False
 
+
+def _get_geolocation_high_accuracy(component_key: str = "walk_hi_acc_geo"):
+    """현재 위치를 enableHighAccuracy로 1회 요청한다 (실패 시 스톡 get_geolocation 폴백).
+
+    스톡 get_geolocation()은 getCurrentPosition을 옵션 없이 호출해 고정밀을 요청하지
+    않는다. 여기서는 streamlit_js_eval로 enableHighAccuracy=true 측정을 요청한다.
+    반환 형태는 get_geolocation()과 동일: {"coords": {...}, "timestamp": ...} /
+    {"error": {...}} / None. (_HAS_GEO 가 True일 때만 호출된다.)
+    """
+    js = (
+        "new Promise((resolve)=>{"
+        "if(!navigator.geolocation){resolve({error:{code:0,message:'no geolocation'}});return;}"
+        "navigator.geolocation.getCurrentPosition("
+        "(p)=>resolve({coords:{accuracy:p.coords.accuracy,altitude:p.coords.altitude,"
+        "altitudeAccuracy:p.coords.altitudeAccuracy,heading:p.coords.heading,"
+        "latitude:p.coords.latitude,longitude:p.coords.longitude,speed:p.coords.speed},"
+        "timestamp:p.timestamp}),"
+        "(e)=>resolve({error:{code:e.code,message:e.message}}),"
+        "{enableHighAccuracy:true,maximumAge:0,timeout:10000});"
+        "})"
+    )
+    geo = None
+    if _js_eval is not None:
+        try:
+            geo = _js_eval(js_expressions=js, key=component_key)
+        except Exception:
+            geo = None
+    if not geo:  # 첫 렌더 None·예외 → 스톡 경로 폴백
+        geo = get_geolocation()
+    return geo
+
+
 # ── 상수 ──────────────────────────────────────────────────────────────────────
 
 STATE_COLOR = {
@@ -767,12 +799,24 @@ def main() -> None:
             # nav 실행 중이거나 아직 위치 미취득 때만 watchPosition 활성화
             need_gps_poll = st.session_state["nav_running"] or st.session_state["nav_origin"] is None
             if need_gps_poll:
-                geo = get_geolocation()
+                geo = _get_geolocation_high_accuracy()
                 if geo and geo.get("coords"):
                     c = geo["coords"]
-                    new_origin = Coordinate(latitude=float(c["latitude"]), longitude=float(c["longitude"]))
-                    st.session_state["nav_origin"] = new_origin
-                    st.session_state["nav_raw_gps"] = geo
+                    acc = c.get("accuracy")
+                    if gps_filter.is_fix_usable(acc):
+                        new_origin = Coordinate(latitude=float(c["latitude"]), longitude=float(c["longitude"]))
+                        st.session_state["nav_origin"] = new_origin
+                        st.session_state["nav_raw_gps"] = geo
+                    elif st.session_state["nav_origin"] is None:
+                        st.warning(
+                            f"GPS 정확도 낮음 (±{acc:.0f}m > {gps_filter.USABLE_ACCURACY_M:.0f}m) — "
+                            "더 정확한 위치를 기다리는 중…"
+                        )
+                    else:
+                        st.caption(
+                            f"⚠️ 이번 측정 ±{acc:.0f}m (>{gps_filter.USABLE_ACCURACY_M:.0f}m) — "
+                            "무시하고 이전 위치 유지"
+                        )
                 elif st.session_state["nav_origin"] is None:
                     st.warning("브라우저에서 위치 권한을 허용해 주세요.")
             else:
