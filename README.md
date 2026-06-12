@@ -1,47 +1,73 @@
 # Walk
 
-Walk currently includes:
-- Milestone 1: a reusable walking-route deviation engine
-- Milestone 2: a local Streamlit web demo for non-developers
+`walk`는 보행 내비게이션에서 사용자가 정해진 경로를 잘 따라가고 있는지 판단하는 프로젝트입니다.
 
-Its job is simple:
-- receive synthetic walking position samples one by one
-- compare the current position against a planned walking route
-- decide whether the pedestrian is still on the route, drifting away, clearly deviated, or has missed a turn
+쉽게 말하면, 사용자의 현재 위치 샘플을 하나씩 받아서 다음 상태를 판정합니다.
 
-This repository contains the reusable route deviation engine and a lightweight local web demo for non-developers.
+- 정상 경로 위에 있음
+- 경로에서 조금 벗어나기 시작함
+- 확실히 경로를 이탈함
+- 회전해야 할 지점을 지나침
 
-## Milestone Scope
+현재 저장소에는 TypeScript 기반 경로 이탈 판정 엔진과 Streamlit 기반 로컬 화면이 함께 들어 있습니다.
 
-Included in Milestone 1:
-- route polyline and turn-point models
-- distance-from-route calculation
-- heading-difference calculation
-- route-context helpers
-- stateful route deviation engine
-- missed-turn pass-by detection
-- unit tests
-- CLI simulator
+## 현재 진행 상태
 
-Included in Milestone 2:
-- local Streamlit web UI in `streamlit_walk_engine/`
-- scenario selector for four demo flows
-- sample-step slider
-- threshold sliders for live recalculation
-- Plotly route visualization
-- current-state badges and result table
+### 완료된 작업
 
-Out of scope for this milestone:
-- mobile UI
-- map SDK integration
-- native GPS permissions
-- backend API
-- database
-- authentication
+- 보행 경로 이탈 판정 엔진 구현
+- 경로 선, 회전 지점, 현재 위치 샘플 모델 구현
+- 경로까지 거리 계산
+- 진행 방향 차이 계산
+- 회전 지점 통과 여부 판정
+- GPS 정확도 기반 알림 필터 추가
+- Streamlit 로컬 데모 화면 구성
+- Navigation 페이지에서 경로, 현재 위치, 거리, 예상 시간, 회전 안내 표시
+- 자동 테스트 구성
+- `main` 브랜치를 `origin/main` 최신 상태로 동기화
 
-The included web demo is a local simulator, not a production service screen.
+### 검증 완료
 
-## Project Structure
+아래 검증은 `D:\walk` 기준으로 통과했습니다.
+
+```powershell
+cd D:\walk
+python -m pytest "D:\walk\streamlit_walk_engine\tests" -q
+python -m pytest "D:\walk\streamlit_task_organizer\tests" -q
+npm run test:run
+npm run typecheck
+```
+
+검증 결과:
+
+- `streamlit_walk_engine` 테스트: 97개 통과
+- `streamlit_task_organizer` 테스트: 20개 통과
+- TypeScript/Vitest 테스트: 81개 통과
+- TypeScript 타입 검사: 통과
+
+### 진행 중인 브랜치
+
+`worktree-visual-verdict-nav-ui` 브랜치는 아직 `main`에 병합되지 않았습니다.
+
+이 브랜치의 기능:
+
+- 경로를 만들기 전에도 Navigation 화면에 기본 지도를 표시
+- 현재 위치가 있으면 현재 위치 중심으로 지도 표시
+- 현재 위치가 없으면 서울시청 기준 기본 지도 표시
+
+수정 파일:
+
+```text
+streamlit_walk_engine/pages/1_Navigation.py
+```
+
+현재 판단:
+
+- 기능 자체는 유용한 화면 개선입니다.
+- 이미 브랜치 커밋은 존재합니다.
+- 다만 `main`에는 아직 들어가지 않았으므로, 나중에 PR 또는 병합 여부를 따로 결정해야 합니다.
+
+## 프로젝트 구조
 
 ```text
 packages/route-engine/
@@ -53,94 +79,113 @@ packages/route-engine/
     simulator/
     types/
   tests/
+
+streamlit_walk_engine/
+  app.py
+  engine.py
+  gps_filter.py
+  route_builder.py
+  scenarios.py
+  pages/
+  tests/
+
+streamlit_task_organizer/
+  tests/
 ```
 
-Public entry point:
-- `packages/route-engine/src/index.ts`
+주요 진입점:
 
-Local web demo:
-- `streamlit_walk_engine/app.py`
+- TypeScript 엔진: `packages/route-engine/src/index.ts`
+- Streamlit 데모: `streamlit_walk_engine/app.py`
+- Navigation 화면: `streamlit_walk_engine/pages/1_Navigation.py`
 
-## Install
+## 설치 방법
 
-```bash
+Windows PowerShell 기준입니다.
+
+```powershell
+cd D:\walk
 npm install
 ```
 
-If you want to open the engine in a browser-like local web page, install the Python demo packages too:
+Python 데모 실행에 필요한 패키지도 설치합니다.
 
-```bash
+```powershell
+cd D:\walk
 npm run web:install
 ```
 
-## Commands
+## 실행 방법
 
-Run the automated tests:
+### 전체 테스트 실행
 
-```bash
+```powershell
+cd D:\walk
 npm run test:run
 ```
 
-Run the type check:
+### 타입 검사
 
-```bash
+```powershell
+cd D:\walk
 npm run typecheck
 ```
 
-Run the lint check:
+### 린트 검사
 
-```bash
+```powershell
+cd D:\walk
 npm run lint
 ```
 
-Run the simulator:
+### 시뮬레이터 실행
 
-```bash
+```powershell
+cd D:\walk
 npm run simulate
 ```
 
-Run the local web demo:
+### Streamlit 로컬 화면 실행
 
-```bash
+```powershell
+cd D:\walk
 npm run web:demo
 ```
 
-Then open:
+실행 후 브라우저에서 아래 주소를 엽니다.
 
 ```text
 http://localhost:8501
 ```
 
-`Streamlit` means a Python tool that turns a script into a local web screen without building a full frontend first.
+## 엔진 상태 값
 
-## Engine States
+- `on_route`: 경로를 정상적으로 따라가는 상태
+- `drifting`: 경로에서 조금 벗어나기 시작한 상태
+- `deviated`: 경로 이탈이 확실한 상태
+- `passed_turn`: 회전해야 할 지점을 지나친 상태
 
-- `on_route`: the pedestrian is still close to the planned route and heading is acceptable.
-- `drifting`: the pedestrian has started to move outside the safe route corridor, but the engine does not yet have enough evidence for a hard deviation.
-- `deviated`: the pedestrian has stayed off-route for long enough, or across enough consecutive samples, that the engine can confidently warn about deviation.
-- `passed_turn`: the pedestrian entered a turn approach zone and then continued past the turn without following the expected new direction.
+## 추천 행동 값
 
-## Suggested Actions
+- `none`: 별도 알림 없음
+- `monitor`: 조금 더 지켜봄
+- `warn_user`: 사용자에게 경고
+- `reroute_candidate`: 재경로 탐색 후보
 
-- `none`: no alert is needed.
-- `monitor`: keep watching because the user may be starting to drift.
-- `warn_user`: the user is likely off-route and should be warned.
-- `reroute_candidate`: the route is likely wrong enough that rerouting should be considered next.
+## 기본 기준값
 
-## Default Thresholds
+엔진에서 사용하는 기본 보행 기준입니다.
 
-These thresholds are the built-in walking defaults used by the engine:
+- 경로 이탈 주의 거리: `10 m`
+- 경로 이탈 확정 거리: `15 m`
+- 강한 이탈 거리: `25 m`
+- 진행 방향 차이 기준: `45 deg`
+- 회전 지점 통과 거리: `8 m`
+- 회전 접근 거리: `12 m`
+- 이탈 확정 최소 샘플 수: `3`
+- 이탈 확정 최소 지속 시간: `4000 ms`
 
-- route drift distance threshold: `10 m`
-- route deviation distance threshold: `15 m`
-- strong deviation distance threshold: `25 m`
-- heading difference threshold: `45 deg`
-- pass-by post-turn distance threshold: `8 m`
-- turn approach distance threshold: `12 m`
-- minimum consecutive samples for deviation: `3`
-- minimum drift duration: `4000 ms`
-
-## Example Usage
+## TypeScript 사용 예시
 
 ```ts
 import { RouteDeviationEngine } from "./packages/route-engine/src/index.js";
@@ -165,67 +210,69 @@ console.log(result.state);
 console.log(result.metrics.distanceFromRouteMeters);
 ```
 
-## Test Coverage Summary
+## 테스트 범위
 
-The current test suite covers:
-- geometry calculations
-- heading normalization and angular difference
-- nearest-segment and turn-context lookup
-- on-route scenario
-- drifting scenario
-- deviated scenario
-- missed-turn scenario
-- GPS noise recovery
-- counter reset behavior
-- config override behavior
+현재 테스트는 다음을 확인합니다.
 
-## Simulator Scenarios
+- 거리 계산
+- 진행 방향 각도 계산
+- 가장 가까운 경로 구간 찾기
+- 회전 지점 탐색
+- 정상 보행 시나리오
+- 약한 이탈 시나리오
+- 강한 이탈 시나리오
+- 회전 지점 통과 시나리오
+- GPS 노이즈 회복
+- 상태 카운터 초기화
+- 설정값 변경
+- Streamlit 보조 기능
 
-The simulator includes:
-- normal walking
-- mild drift
-- strong deviation
-- missed turn
+## 시뮬레이터 시나리오
 
-Each simulator sample prints:
-- engine state
-- suggested action
-- score
-- route distance
-- heading difference
-- distance past a turn when relevant
+시뮬레이터에는 다음 흐름이 들어 있습니다.
 
-## Web Demo
+- 정상 보행
+- 약한 경로 이탈
+- 강한 경로 이탈
+- 회전 지점 통과
 
-The `streamlit_walk_engine` demo lets you use the route engine in a local web UI.
+각 샘플은 다음 값을 출력합니다.
 
-What you can do there:
-- choose one of four walking scenarios
-- move a slider sample by sample
-- see the route and actual path on a chart
-- check the current state, score, distance, and reason list
-- change key thresholds without touching code
+- 엔진 상태
+- 추천 행동
+- 점수
+- 경로까지 거리
+- 진행 방향 차이
+- 회전 지점 관련 거리
 
-Expected scenario flows:
-- `normal_walking`: only `on_route`
-- `mild_drift`: `on_route` -> `drifting`
-- `strong_deviation`: `on_route` -> `drifting` -> `deviated`
-- `missed_turn`: `on_route` -> `drifting` -> `passed_turn`
+## 문제가 생겼을 때
 
-Recommended local run order:
+`npm run web:demo`가 실패하면 아래 순서로 확인합니다.
 
-```bash
-npm install
-npm run test:run
-npm run typecheck
-npm run lint
-npm run simulate
+```powershell
+cd D:\walk
 npm run web:install
-npm run web:demo
+python --version
+python streamlit_walk_engine/run_demo.py
 ```
 
-If `npm run web:demo` fails:
-- run `npm run web:install`
-- confirm Python is installed with `python --version`
-- try `python streamlit_walk_engine/run_demo.py`
-- if Streamlit stays running but `localhost:8501` does not open inside a non-interactive shell, run the same command in a normal local terminal window
+Streamlit이 실행 중인데 `localhost:8501`이 열리지 않으면, 자동화 터미널이 아니라 일반 PowerShell 창에서 같은 명령어를 다시 실행합니다.
+
+## Git 정리 메모
+
+현재 `main` 브랜치는 `origin/main`과 동기화되어 있습니다.
+
+커밋에 넣지 말아야 할 로컬 파일 예시:
+
+- `.env`, `.env.*`
+- `.omc/`
+- `.claude/settings.local.json`
+- `*.log`
+- 개인 작업용 복사본 폴더
+
+README처럼 문서만 수정할 때도 커밋 전에는 아래 명령으로 포함 파일을 확인합니다.
+
+```powershell
+cd D:\walk
+git status --short
+```
