@@ -457,10 +457,36 @@ def _build_map(
 
     fig.update_layout(
         map=dict(style="open-street-map", center=dict(lat=clat, lon=clon), zoom=15),
-        height=360,
+        height=560,
         margin=dict(l=0, r=0, t=0, b=0),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
                     bgcolor="rgba(255,255,255,0.85)", bordercolor="#ddd", borderwidth=1),
+    )
+    return fig
+
+
+_DEFAULT_CENTER = Coordinate(latitude=37.5665, longitude=126.9780)  # 서울시청
+
+
+def _build_placeholder_map(center: Optional[Coordinate]) -> go.Figure:
+    """경로 생성 전에도 표시하는 기본 지도 (현재 위치 또는 서울시청 중심)."""
+    c = center or _DEFAULT_CENTER
+    fig = go.Figure()
+    # Scattermap 트레이스가 하나도 없으면 plotly가 map 서브플롯 대신 빈 좌표축을 그린다
+    fig.add_trace(go.Scattermap(lat=[], lon=[], mode="markers", showlegend=False, hoverinfo="skip"))
+    if center is not None:
+        fig.add_trace(go.Scattermap(
+            lat=[c.latitude], lon=[c.longitude], mode="markers+text",
+            marker=dict(size=16, color="#2980b9"),
+            text=["현재 위치"], textposition="top right", showlegend=False,
+            hovertemplate="현재 위치<extra></extra>",
+        ))
+    fig.update_layout(
+        map=dict(style="open-street-map", center=dict(lat=c.latitude, lon=c.longitude),
+                 zoom=15 if center is not None else 12),
+        height=560,
+        margin=dict(l=0, r=0, t=0, b=0),
+        showlegend=False,
     )
     return fig
 
@@ -1035,7 +1061,8 @@ def main() -> None:
     dest  = st.session_state["nav_dest"]
 
     if route is None or dest is None:
-        st.info("목적지를 입력하고 '경로 탐색' 버튼을 누르세요.")
+        st.info("목적지를 입력하고 '경로 탐색' 버튼을 누르세요. 지도는 현재 위치 기준으로 표시됩니다.")
+        st.plotly_chart(_build_placeholder_map(origin), use_container_width=True)
         return
 
     if st.session_state["nav_running"]:
