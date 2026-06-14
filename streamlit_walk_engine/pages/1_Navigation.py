@@ -33,6 +33,7 @@ from engine import (
     distance_meters,
 )
 import gps_filter
+from alert_voice import build_tts_script, tts_phrase
 from route_builder import fetch_walking_route_with_engine, geocode_address, reverse_geocode, route_engine_label
 
 try:
@@ -129,6 +130,7 @@ def _init() -> None:
         "nav_last_alerted_state": "on_route",
         "nav_last_weak_toast_ts_ms": None,
         "nav_alert_enabled": True,
+        "nav_tts_enabled": True,
         "nav_origin_address": None,
         "nav_origin_address_coord": None,
         "nav_dest_display": None,
@@ -318,7 +320,7 @@ _ALERT = {
 }
 
 
-def _trigger_alert(state: str) -> None:
+def _trigger_alert(state: str, tts: bool = True) -> None:
     cfg = _ALERT.get(state)
     if cfg is None:
         return
@@ -341,9 +343,15 @@ def _trigger_alert(state: str) -> None:
             }}catch(e){{}}
         }},{offset_ms});""")
         offset_ms += dur + 80
+    voice_script = ""
+    if tts:
+        phrase = tts_phrase(state)
+        if phrase:
+            voice_script = build_tts_script(phrase)
     components.html(
         f"<script>(function(){{{' '.join(tone_calls)}"
         f"try{{if(navigator.vibrate)navigator.vibrate({cfg['vibrate']});}}catch(e){{}}"
+        f"{voice_script}"
         f"}})();</script>",
         height=0,
     )
@@ -877,6 +885,10 @@ def main() -> None:
         st.session_state["nav_alert_enabled"] = alert_on
         if alert_on:
             st.caption("이탈 시작: 1회 비프 | 경로 이탈: 2회 에스컬레이션 | 회전 미이행: 3회 연속")
+        tts_on = st.toggle("음성 안내 (TTS)", value=st.session_state["nav_tts_enabled"])
+        st.session_state["nav_tts_enabled"] = tts_on
+        if tts_on:
+            st.caption("이탈 상태를 한국어 음성으로 안내합니다 (브라우저 음성 합성 사용)")
 
         st.divider()
         st.header("엔진 임계값")
@@ -985,7 +997,7 @@ def main() -> None:
                 st.session_state["nav_alert_enabled"],
             )
             if decision.fire_full:
-                _trigger_alert(result.state)
+                _trigger_alert(result.state, st.session_state["nav_tts_enabled"])
             if decision.fire_weak_toast:
                 st.toast("⚠️ 경로 이탈 가능 — 위치 정확도 낮음, 확인 필요")
             st.session_state["nav_last_alerted_state"] = decision.new_last_alerted
