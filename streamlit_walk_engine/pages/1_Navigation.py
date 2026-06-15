@@ -50,14 +50,25 @@ except ImportError:
     _HAS_REFRESH = False
 
 
+# GPS 재측정 주기(초). streamlit_js_eval 프런트엔드는 '같은 js_expressions 문자열'은
+# 다시 평가하지 않으므로(once-per-string 가드), 표현식을 고정하면 위치가 세션당 1회만
+# 잡혀 내비 중 갱신되지 않는다. 이 주기로 바뀌는 토큰을 표현식에 덧붙여 재측정을 유도한다.
+_GPS_POLL_BUCKET_SEC = 3
+
+
 def _get_geolocation_high_accuracy(component_key: str = "walk_hi_acc_geo"):
-    """현재 위치를 enableHighAccuracy로 1회 요청한다 (실패 시 스톡 get_geolocation 폴백).
+    """현재 위치를 enableHighAccuracy로 요청한다 (실패 시 스톡 get_geolocation 폴백).
 
     스톡 get_geolocation()은 getCurrentPosition을 옵션 없이 호출해 고정밀을 요청하지
     않는다. 여기서는 streamlit_js_eval로 enableHighAccuracy=true 측정을 요청한다.
     반환 형태는 get_geolocation()과 동일: {"coords": {...}, "timestamp": ...} /
     {"error": {...}} / None. (_HAS_GEO 가 True일 때만 호출된다.)
+
+    내비 중 위치가 갱신되도록 표현식 끝에 _GPS_POLL_BUCKET_SEC 주기로 바뀌는 주석
+    토큰을 붙인다 — 같은 버킷 안에서는 문자열이 같아 값-변경발 무한 rerun이 없고,
+    버킷이 바뀔 때마다 프런트엔드가 재평가해 새 fix를 받는다.
     """
+    bucket = int(time.time() // _GPS_POLL_BUCKET_SEC)
     js = (
         "new Promise((resolve)=>{"
         "if(!navigator.geolocation){resolve({error:{code:0,message:'no geolocation'}});return;}"
@@ -68,7 +79,7 @@ def _get_geolocation_high_accuracy(component_key: str = "walk_hi_acc_geo"):
         "timestamp:p.timestamp}),"
         "(e)=>resolve({error:{code:e.code,message:e.message}}),"
         "{enableHighAccuracy:true,maximumAge:0,timeout:10000});"
-        "})"
+        f"}})/* {bucket} */"
     )
     geo = None
     if _js_eval is not None:
@@ -147,6 +158,7 @@ def _init() -> None:
         "nav_dest_input": "",
         "nav_route_engine": None,
         "nav_route_info": None,
+        "nav_arrival_summary": None,
     }.items():
         if k not in st.session_state:
             st.session_state[k] = v
@@ -164,6 +176,7 @@ def _reset() -> None:
     st.session_state["nav_last_weak_toast_ts_ms"] = None
     st.session_state["nav_last_reroute_ts_ms"] = None
     st.session_state["nav_reroute_count"] = 0
+    st.session_state["nav_arrival_summary"] = None
 
 
 def _activate_route(
@@ -317,6 +330,7 @@ _ALERT = {
     "drifting":    {"freqs": [660],           "durs": [320],       "vibrate": [150],              "toast": "⚠️ 이탈 시작 — 경로를 확인하세요"},
     "deviated":    {"freqs": [880, 660],       "durs": [250, 380],  "vibrate": [200, 100, 300],    "toast": "🚨 경로 이탈 — 재탐색이 필요합니다"},
     "passed_turn": {"freqs": [880, 880, 880],  "durs": [140, 140, 220], "vibrate": [100, 60, 100, 60, 200], "toast": "↩️ 회전 미이행 — 되돌아가야 합니다"},
+    "arrived":     {"freqs": [523, 659, 784],  "durs": [150, 150, 280], "vibrate": [80, 50, 80, 50, 160],   "toast": "🏁 목적지 도착 — 안내를 종료합니다"},
 }
 
 
@@ -355,6 +369,38 @@ def _trigger_alert(state: str, tts: bool = True) -> None:
         f"}})();</script>",
         height=0,
     )
+
+
+# ── 도착 판정 ─────────────────────────────────────────────────────────────────
+
+def _maybe_finish_arrival(origin: Coordinate) -> bool:
+    """목적지 도착 반경 진입 시 안내 종료 + 요약 기록. 도착 처리되면 True.
+
+    이탈 판정보다 먼저 호출한다 — 목적지 근처에서 잔여 이탈 알림이 울리지 않도록.
+    """
+    dest: Optional[Coordinate] = st.session_state["nav_dest"]
+    if dest is None:
+        return False
+    acc = (st.session_state["nav_raw_gps"] or {}).get("coords", {}).get("accuracy")
+    if not gps_filter.is_arrival(distance_meters(origin, dest), acc):
+        return False
+
+    parts: list[str] = []
+    samples = st.session_state["nav_samples"]
+    if samples:
+        elapsed_min = (int(time.time() * 1000) - samples[0].timestamp_ms) / 60_000
+        parts.append(f"소요 약 {max(1, round(elapsed_min))}분")
+    if st.session_state.get("nav_reroute_count", 0) > 0:
+        parts.append(f"재경로 {st.session_state['nav_reroute_count']}회")
+    detail = " · ".join(parts)
+    st.session_state["nav_arrival_summary"] = "🏁 도착 완료" + (f" — {detail}" if detail else "")
+    st.session_state["nav_running"] = False
+    st.session_state["nav_active_booking_id"] = None  # 같은 예약 경로 재발동 허용
+    if st.session_state["nav_alert_enabled"]:
+        _trigger_alert("arrived", st.session_state["nav_tts_enabled"])
+    else:
+        st.toast("🏁 목적지에 도착했습니다")
+    return True
 
 
 # ── 샘플 생성 ─────────────────────────────────────────────────────────────────
@@ -987,6 +1033,7 @@ def main() -> None:
                         "nav_engine":   RouteDeviationEngine(route, st.session_state["nav_config"]),
                         "nav_results":  [],
                         "nav_samples":  [],
+                        "nav_arrival_summary": None,
                     })
                     st.rerun()
 
@@ -996,10 +1043,16 @@ def main() -> None:
                       "nav_samples", "nav_prev_coord", "nav_prev_ts_ms", "nav_route_info"):
                 st.session_state[k] = [] if "results" in k or "samples" in k else None
             st.session_state["nav_running"] = False
+            st.session_state["nav_arrival_summary"] = None
             st.rerun()
 
-    # ── GPS 샘플 처리 ─────────────────────────────────────────────────────────
+    # ── 도착 판정 (이탈 판정보다 우선) ────────────────────────────────────────
+    arrived_now = False
     if st.session_state["nav_running"] and origin is not None:
+        arrived_now = _maybe_finish_arrival(origin)
+
+    # ── GPS 샘플 처리 ─────────────────────────────────────────────────────────
+    if not arrived_now and st.session_state["nav_running"] and origin is not None:
         engine: Optional[RouteDeviationEngine] = st.session_state["nav_engine"]
         prev_coord: Optional[Coordinate] = st.session_state["nav_prev_coord"]
         if engine is not None and (prev_coord is None or distance_meters(prev_coord, origin) > 1.0):
@@ -1037,7 +1090,12 @@ def main() -> None:
             ):
                 now_ms      = int(time.time() * 1000)
                 last_reroute = st.session_state["nav_last_reroute_ts_ms"]
-                if last_reroute is None or (now_ms - last_reroute) > 15_000:
+                nav_samples  = st.session_state["nav_samples"]
+                warmup = gps_filter.in_reroute_warmup(
+                    len(nav_samples),
+                    now_ms - nav_samples[0].timestamp_ms if nav_samples else 0,
+                )
+                if not warmup and (last_reroute is None or (now_ms - last_reroute) > 15_000):
                     try:
                         new_route  = _fetch_route(origin, dest_coord)
                         new_count  = st.session_state["nav_reroute_count"] + 1
@@ -1067,6 +1125,8 @@ def main() -> None:
 
     if st.session_state["nav_running"]:
         _render_status_badge(st.session_state["nav_results"])
+    elif st.session_state.get("nav_arrival_summary"):
+        st.success(st.session_state["nav_arrival_summary"])
 
     map_col, metric_col = st.columns([3, 1], gap="large")
     with map_col:
