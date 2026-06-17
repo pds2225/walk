@@ -965,7 +965,8 @@ def main() -> None:
         st.divider()
         st.header("엔진 임계값")
         drift_t    = st.slider("이탈 시작 거리 (m)", 5, 20, 10)
-        dev_t      = st.slider("이탈 확정 거리 (m)", 10, 30, 15)
+        # 이탈 확정 거리는 시작 거리 이상·강한 이탈 거리(기본 25m) 이하로 제약(drift<=deviation<=strong).
+        dev_t      = st.slider("이탈 확정 거리 (m)", drift_t, 25, max(15, drift_t))
         min_consec = st.slider("최소 연속 샘플", 1, 5, 3)
         st.session_state["nav_config"] = EngineConfig(
             route_drift_distance_threshold_meters=float(drift_t),
