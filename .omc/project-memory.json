@@ -41,7 +41,7 @@
   },
   "build": {
     "buildCommand": null,
-    "testCommand": "npm test",
+    "testCommand": "python -m pytest streamlit_walk_engine/tests -q --co 2>/dev/null | tail -5",
     "lintCommand": "npm run lint",
     "devCommand": null,
     "scripts": {
@@ -197,6 +197,271 @@
       ]
     }
   },
-  "hotPaths": [],
+  "hotPaths": [
+    {
+      "path": "streamlit_walk_engine\\pages\\1_Navigation.py",
+      "accessCount": 53,
+      "lastAccessed": 1781720562038,
+      "type": "file"
+    },
+    {
+      "path": "streamlit_walk_engine\\engine.py",
+      "accessCount": 28,
+      "lastAccessed": 1781720613259,
+      "type": "file"
+    },
+    {
+      "path": "DONE.md",
+      "accessCount": 16,
+      "lastAccessed": 1781720565121,
+      "type": "file"
+    },
+    {
+      "path": "README.md",
+      "accessCount": 15,
+      "lastAccessed": 1781720569387,
+      "type": "file"
+    },
+    {
+      "path": "streamlit_walk_engine\\app.py",
+      "accessCount": 15,
+      "lastAccessed": 1781720605027,
+      "type": "file"
+    },
+    {
+      "path": "PROMPT.md",
+      "accessCount": 12,
+      "lastAccessed": 1781720507063,
+      "type": "file"
+    },
+    {
+      "path": "packages\\route-engine\\src\\config\\walkingConfig.ts",
+      "accessCount": 12,
+      "lastAccessed": 1781720584776,
+      "type": "file"
+    },
+    {
+      "path": "streamlit_walk_engine",
+      "accessCount": 10,
+      "lastAccessed": 1781720611982,
+      "type": "directory"
+    },
+    {
+      "path": "packages\\route-engine\\src\\engine\\evaluateDeviation.ts",
+      "accessCount": 7,
+      "lastAccessed": 1781720584393,
+      "type": "file"
+    },
+    {
+      "path": "",
+      "accessCount": 6,
+      "lastAccessed": 1781720568792,
+      "type": "directory"
+    },
+    {
+      "path": "packages\\route-engine",
+      "accessCount": 6,
+      "lastAccessed": 1781720591221,
+      "type": "directory"
+    },
+    {
+      "path": "packages\\route-engine\\src",
+      "accessCount": 6,
+      "lastAccessed": 1781720591877,
+      "type": "directory"
+    },
+    {
+      "path": "package.json",
+      "accessCount": 5,
+      "lastAccessed": 1781720514073,
+      "type": "file"
+    },
+    {
+      "path": "streamlit_walk_engine\\scenarios.py",
+      "accessCount": 5,
+      "lastAccessed": 1781720594061,
+      "type": "file"
+    },
+    {
+      "path": "streamlit_walk_engine\\gps_filter.py",
+      "accessCount": 5,
+      "lastAccessed": 1781720620557,
+      "type": "file"
+    },
+    {
+      "path": "packages\\route-engine\\src\\simulator\\scenarios.ts",
+      "accessCount": 4,
+      "lastAccessed": 1781720519283,
+      "type": "file"
+    },
+    {
+      "path": "tsconfig.json",
+      "accessCount": 4,
+      "lastAccessed": 1781720578079,
+      "type": "file"
+    },
+    {
+      "path": "packages\\route-engine\\src\\index.ts",
+      "accessCount": 4,
+      "lastAccessed": 1781720580225,
+      "type": "file"
+    },
+    {
+      "path": "packages\\route-engine\\src\\engine\\routeDeviationEngine.ts",
+      "accessCount": 4,
+      "lastAccessed": 1781720601021,
+      "type": "file"
+    },
+    {
+      "path": "C:\\Users\\ekth3\\.claude\\projects\\d--walk\\memory\\walk-core-requirements.md",
+      "accessCount": 3,
+      "lastAccessed": 1781720314436,
+      "type": "file"
+    },
+    {
+      "path": "AGENTS.md",
+      "accessCount": 3,
+      "lastAccessed": 1781720325645,
+      "type": "file"
+    },
+    {
+      "path": "packages\\route-engine\\src\\types\\models.ts",
+      "accessCount": 3,
+      "lastAccessed": 1781720456498,
+      "type": "file"
+    },
+    {
+      "path": "C:\\Users\\ekth3\\.claude\\projects\\d--walk\\memory\\walk-visual-verdict-resume.md",
+      "accessCount": 2,
+      "lastAccessed": 1781719731942,
+      "type": "file"
+    },
+    {
+      "path": ".streamlit\\secrets.toml.example",
+      "accessCount": 2,
+      "lastAccessed": 1781720438297,
+      "type": "file"
+    },
+    {
+      "path": "packages\\route-engine\\src\\geometry\\geo.ts",
+      "accessCount": 2,
+      "lastAccessed": 1781720461693,
+      "type": "file"
+    },
+    {
+      "path": "PLAN.md",
+      "accessCount": 2,
+      "lastAccessed": 1781720499274,
+      "type": "file"
+    },
+    {
+      "path": "streamlit_walk_engine\\tests\\test_gps_filter.py",
+      "accessCount": 2,
+      "lastAccessed": 1781720549507,
+      "type": "file"
+    },
+    {
+      "path": "packages\\route-engine\\tests",
+      "accessCount": 2,
+      "lastAccessed": 1781720551161,
+      "type": "directory"
+    },
+    {
+      "path": "packages\\route-engine\\tests\\geometry.test.ts",
+      "accessCount": 2,
+      "lastAccessed": 1781720570246,
+      "type": "file"
+    },
+    {
+      "path": "packages\\route-engine\\tests\\engine.test.ts",
+      "accessCount": 2,
+      "lastAccessed": 1781720570720,
+      "type": "file"
+    },
+    {
+      "path": "streamlit_walk_engine\\requirements.txt",
+      "accessCount": 2,
+      "lastAccessed": 1781720592926,
+      "type": "file"
+    },
+    {
+      "path": "streamlit_walk_engine\\alert_voice.py",
+      "accessCount": 2,
+      "lastAccessed": 1781720599856,
+      "type": "file"
+    },
+    {
+      "path": "RESUME.md",
+      "accessCount": 2,
+      "lastAccessed": 1781720629768,
+      "type": "file"
+    },
+    {
+      "path": "packages\\route-engine\\src\\domain\\routeAnalysis.ts",
+      "accessCount": 1,
+      "lastAccessed": 1781720335776,
+      "type": "file"
+    },
+    {
+      "path": "packages\\route-engine\\src\\simulator\\runSimulator.ts",
+      "accessCount": 1,
+      "lastAccessed": 1781720342082,
+      "type": "file"
+    },
+    {
+      "path": "packages\\route-engine\\src\\simulator",
+      "accessCount": 1,
+      "lastAccessed": 1781720356715,
+      "type": "directory"
+    },
+    {
+      "path": "packages\\route-engine\\src\\geometry\\index.ts",
+      "accessCount": 1,
+      "lastAccessed": 1781720364210,
+      "type": "file"
+    },
+    {
+      "path": "packages\\route-engine\\src\\domain\\index.ts",
+      "accessCount": 1,
+      "lastAccessed": 1781720364793,
+      "type": "file"
+    },
+    {
+      "path": "packages\\route-engine\\src\\types\\index.ts",
+      "accessCount": 1,
+      "lastAccessed": 1781720364957,
+      "type": "file"
+    },
+    {
+      "path": "streamlit_walk_engine\\tests",
+      "accessCount": 1,
+      "lastAccessed": 1781720488099,
+      "type": "directory"
+    },
+    {
+      "path": "streamlit_walk_engine\\README.md",
+      "accessCount": 1,
+      "lastAccessed": 1781720530428,
+      "type": "file"
+    },
+    {
+      "path": "C:\\Python314\\Lib\\site-packages\\streamlit_js_eval\\__init__.py",
+      "accessCount": 1,
+      "lastAccessed": 1781720546746,
+      "type": "file"
+    },
+    {
+      "path": "C:\\Python314\\Lib\\site-packages\\streamlit_js_eval\\index.html",
+      "accessCount": 1,
+      "lastAccessed": 1781720576958,
+      "type": "file"
+    },
+    {
+      "path": "requirements.txt",
+      "accessCount": 1,
+      "lastAccessed": 1781720592666,
+      "type": "file"
+    }
+  ],
   "userDirectives": []
 }
