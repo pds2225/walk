@@ -1,7 +1,7 @@
 {
   "version": "1.0.0",
-  "lastScanned": 1781247156156,
-  "projectRoot": "D:\\walk",
+  "lastScanned": 1781719205001,
+  "projectRoot": "d:\\walk",
   "techStack": {
     "languages": [
       {
@@ -78,35 +78,35 @@
       "path": "apps",
       "purpose": null,
       "fileCount": 0,
-      "lastAccessed": 1781247156062,
+      "lastAccessed": 1781719204914,
       "keyFiles": []
     },
     "docs": {
       "path": "docs",
       "purpose": "Documentation",
       "fileCount": 1,
-      "lastAccessed": 1781247156077,
+      "lastAccessed": 1781719204916,
       "keyFiles": []
     },
     "docs - 복사본": {
       "path": "docs - 복사본",
       "purpose": null,
       "fileCount": 0,
-      "lastAccessed": 1781247156078,
+      "lastAccessed": 1781719204935,
       "keyFiles": []
     },
     "packages": {
       "path": "packages",
       "purpose": null,
       "fileCount": 0,
-      "lastAccessed": 1781247156080,
+      "lastAccessed": 1781719204936,
       "keyFiles": []
     },
     "scripts": {
       "path": "scripts",
       "purpose": "Build/utility scripts",
       "fileCount": 1,
-      "lastAccessed": 1781247156080,
+      "lastAccessed": 1781719204938,
       "keyFiles": [
         "git_auto_backup.ps1"
       ]
@@ -115,7 +115,7 @@
       "path": "streamlit_task_organizer",
       "purpose": null,
       "fileCount": 4,
-      "lastAccessed": 1781247156082,
+      "lastAccessed": 1781719204938,
       "keyFiles": [
         "app.py",
         "README.md",
@@ -126,28 +126,28 @@
     "streamlit_walk_engine": {
       "path": "streamlit_walk_engine",
       "purpose": null,
-      "fileCount": 10,
-      "lastAccessed": 1781247156086,
+      "fileCount": 11,
+      "lastAccessed": 1781719204939,
       "keyFiles": [
+        "alert_voice.py",
         "app.py",
         "engine.py",
         "gps_filter.py",
-        "install_requirements.py",
-        "README.md"
+        "install_requirements.py"
       ]
     },
     "apps\\api": {
       "path": "apps\\api",
       "purpose": "API routes",
       "fileCount": 0,
-      "lastAccessed": 1781247156092,
+      "lastAccessed": 1781719204941,
       "keyFiles": []
     },
     "streamlit_task_organizer\\schemas": {
       "path": "streamlit_task_organizer\\schemas",
       "purpose": "Schema definitions",
       "fileCount": 3,
-      "lastAccessed": 1781247156104,
+      "lastAccessed": 1781719204944,
       "keyFiles": [
         "export_schema.py",
         "result_schema.py",
@@ -158,7 +158,7 @@
       "path": "streamlit_task_organizer\\services",
       "purpose": "Business logic services",
       "fileCount": 4,
-      "lastAccessed": 1781247156107,
+      "lastAccessed": 1781719204944,
       "keyFiles": [
         "export_service.py",
         "history_service.py",
@@ -169,7 +169,7 @@
       "path": "streamlit_task_organizer\\tests",
       "purpose": "Test files",
       "fileCount": 7,
-      "lastAccessed": 1781247156109,
+      "lastAccessed": 1781719204947,
       "keyFiles": [
         "test_checklist_parser.py",
         "test_contact_parser.py",
@@ -180,7 +180,7 @@
       "path": "streamlit_task_organizer\\utils",
       "purpose": "Utility functions",
       "fileCount": 5,
-      "lastAccessed": 1781247156111,
+      "lastAccessed": 1781719204948,
       "keyFiles": [
         "constants.py",
         "date_utils.py",
@@ -191,7 +191,7 @@
       "path": "streamlit_walk_engine\\pages",
       "purpose": "Page components",
       "fileCount": 1,
-      "lastAccessed": 1781247156115,
+      "lastAccessed": 1781719204950,
       "keyFiles": [
         "1_Navigation.py"
       ]
