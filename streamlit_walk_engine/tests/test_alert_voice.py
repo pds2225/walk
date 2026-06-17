@@ -26,6 +26,12 @@ class TestTtsPhrase:
         phrases = [tts_phrase(s) for s in ("drifting", "deviated", "passed_turn")]
         assert len(set(phrases)) == 3
 
+    def test_arrived_has_korean_phrase(self):
+        # 도착 안내 — 이탈 문구들과 구분되는 별도 문구
+        phrase = tts_phrase("arrived")
+        assert phrase is not None and phrase.strip() != ""
+        assert phrase not in {tts_phrase(s) for s in ("drifting", "deviated", "passed_turn")}
+
     def test_on_route_returns_none(self):
         assert tts_phrase("on_route") is None
 

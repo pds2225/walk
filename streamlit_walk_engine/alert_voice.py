@@ -11,17 +11,18 @@ from __future__ import annotations
 import json
 from typing import Optional
 
-# 이탈 상태별 한국어 음성 안내 문구 (engine.DeviationState 부분집합).
-# on_route 등 정상 상태는 의도적으로 제외한다(안내하지 않음).
+# 알림 상태별 한국어 음성 안내 문구 (engine.DeviationState 부분집합 + 도착).
+# on_route 등 정상 진행 상태는 의도적으로 제외한다(안내하지 않음).
 _TTS_PHRASES = {
     "drifting": "경로를 벗어나기 시작했습니다. 경로를 확인하세요.",
     "deviated": "경로를 이탈했습니다. 재탐색이 필요합니다.",
     "passed_turn": "회전 지점을 지나쳤습니다. 되돌아가세요.",
+    "arrived": "목적지에 도착했습니다. 안내를 종료합니다.",
 }
 
 
 def tts_phrase(state: str) -> Optional[str]:
-    """이탈 상태에 대응하는 한국어 음성 안내 문구를 반환한다.
+    """알림 상태에 대응하는 한국어 음성 안내 문구를 반환한다.
 
     정의되지 않은 상태(on_route 포함)는 ``None``을 반환해 음성 안내를 생략한다.
     """
