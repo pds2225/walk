@@ -361,7 +361,9 @@ def main() -> None:
         st.divider()
         st.header("엔진 임계값")
         drift_t = st.slider("이탈 시작 거리 (m)", 5, 20, 10)
-        dev_t = st.slider("이탈 확정 거리 (m)", 10, 30, 15)
+        # 이탈 확정 거리는 시작 거리 이상·강한 이탈 거리(기본 25m) 이하라야 판정이 일관됨
+        # (TS 엔진 validateWalkingEngineConfig와 동일한 drift<=deviation<=strong 불변식 유지).
+        dev_t = st.slider("이탈 확정 거리 (m)", drift_t, 25, max(15, drift_t))
         min_consec = st.slider("최소 연속 샘플", 1, 5, 3)
         min_dur = st.slider("최소 이탈 지속 (ms)", 1000, 8000, 4000, step=500)
 
