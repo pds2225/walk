@@ -275,7 +275,9 @@
       "agent_type": "workflow-subagent",
       "started_at": "2026-06-17T18:21:53.835Z",
       "parent_mode": "none",
-      "status": "running"
+      "status": "completed",
+      "completed_at": "2026-06-17T18:23:58.010Z",
+      "duration_ms": 124175
     },
     {
       "agent_id": "a68ad9d4ef31f3200",
@@ -381,7 +383,9 @@
       "agent_type": "workflow-subagent",
       "started_at": "2026-06-17T18:22:57.839Z",
       "parent_mode": "none",
-      "status": "running"
+      "status": "completed",
+      "completed_at": "2026-06-17T18:23:58.664Z",
+      "duration_ms": 60825
     },
     {
       "agent_id": "a3c18404fb46d68b6",
@@ -415,7 +419,9 @@
       "agent_type": "workflow-subagent",
       "started_at": "2026-06-17T18:23:12.268Z",
       "parent_mode": "none",
-      "status": "running"
+      "status": "completed",
+      "completed_at": "2026-06-17T18:24:05.623Z",
+      "duration_ms": 53355
     },
     {
       "agent_id": "a32a6537c8d10a377",
@@ -431,11 +437,22 @@
       "agent_type": "workflow-subagent",
       "started_at": "2026-06-17T18:23:31.701Z",
       "parent_mode": "none",
-      "status": "running"
+      "status": "completed",
+      "completed_at": "2026-06-17T18:24:10.864Z",
+      "duration_ms": 39163
+    },
+    {
+      "agent_id": "a3c8d4cab4489908f",
+      "agent_type": "oh-my-claudecode:code-reviewer",
+      "started_at": "2026-06-17T18:31:52.282Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-06-17T18:35:08.768Z",
+      "duration_ms": 196486
     }
   ],
-  "total_spawned": 37,
-  "total_completed": 44,
+  "total_spawned": 38,
+  "total_completed": 49,
   "total_failed": 0,
-  "last_updated": "2026-06-17T18:23:54.779Z"
+  "last_updated": "2026-06-17T18:35:08.874Z"
 }

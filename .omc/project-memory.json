@@ -41,7 +41,7 @@
   },
   "build": {
     "buildCommand": null,
-    "testCommand": "python -m pytest streamlit_walk_engine/tests -q --co 2>/dev/null | tail -5",
+    "testCommand": "cd /d/walk-fix && echo \"===PYTEST M2===\" && python -m pytest streamlit_walk_engine/tests -q 2>&1 | tail -15",
     "lintCommand": "npm run lint",
     "devCommand": null,
     "scripts": {
@@ -331,6 +331,12 @@
       "type": "file"
     },
     {
+      "path": "RESUME.md",
+      "accessCount": 3,
+      "lastAccessed": 1781721513558,
+      "type": "file"
+    },
+    {
       "path": "C:\\Users\\ekth3\\.claude\\projects\\d--walk\\memory\\walk-visual-verdict-resume.md",
       "accessCount": 2,
       "lastAccessed": 1781719731942,
@@ -391,9 +397,9 @@
       "type": "file"
     },
     {
-      "path": "RESUME.md",
+      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\f7e454dd-30ec-4cc6-89dd-1c4bfe62386d\\tasks\\wc916u20c.output",
       "accessCount": 2,
-      "lastAccessed": 1781720629768,
+      "lastAccessed": 1781720746949,
       "type": "file"
     },
     {

@@ -95,3 +95,9 @@
 {"t":0,"agent":"a32a653","agent_type":"workflow-subagent","event":"agent_stop","success":true,"duration_ms":37740}
 {"t":0,"agent":"ad5cdec","agent_type":"workflow-subagent","event":"agent_stop","success":true,"duration_ms":44868}
 {"t":0,"agent":"a783813","agent_type":"workflow-subagent","event":"agent_stop","success":true,"duration_ms":48393}
+{"t":0,"agent":"a8c19c3","agent_type":"workflow-subagent","event":"agent_stop","success":true,"duration_ms":124175}
+{"t":0,"agent":"a05b262","agent_type":"workflow-subagent","event":"agent_stop","success":true,"duration_ms":60825}
+{"t":0,"agent":"a855310","agent_type":"workflow-subagent","event":"agent_stop","success":true,"duration_ms":53355}
+{"t":0,"agent":"a8ef7ed","agent_type":"workflow-subagent","event":"agent_stop","success":true,"duration_ms":39163}
+{"t":0,"agent":"a3c8d4c","agent_type":"code-reviewer","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"a3c8d4c","agent_type":"code-reviewer","event":"agent_stop","success":true,"duration_ms":196486}
