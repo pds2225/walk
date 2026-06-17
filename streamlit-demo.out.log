@@ -1,0 +1,10 @@
+
+> walk@1.0.0 web:demo
+> python streamlit_walk_engine/run_demo.py
+
+
+  You can now view your Streamlit app in your browser.
+
+  Local URL: http://localhost:8512
+  Network URL: http://192.168.35.63:8512
+

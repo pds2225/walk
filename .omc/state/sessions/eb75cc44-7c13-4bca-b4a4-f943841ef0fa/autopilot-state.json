@@ -1,0 +1,11 @@
+{
+  "active": true,
+  "started_at": "2026-06-07T12:44:28.509Z",
+  "original_prompt": "/trace /deepinit 미커밋변경중에 커밋,PR,머지 실행하는데 문제되는사항들 해결해 중대한 결정이 있을떄만 승인요청한다 /autopilot",
+  "session_id": "eb75cc44-7c13-4bca-b4a4-f943841ef0fa",
+  "project_path": "D:\\walk",
+  "reinforcement_count": 0,
+  "awaiting_confirmation": true,
+  "awaiting_confirmation_set_at": "2026-06-07T12:44:28.509Z",
+  "last_checked_at": "2026-06-07T12:44:28.509Z"
+}

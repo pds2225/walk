@@ -1,0 +1,7 @@
+{
+  "tool_name": "EnterWorktree",
+  "tool_input_preview": "{\"name\":\"visual-verdict-nav-ui\"}",
+  "error": "EEXIST: file already exists, mkdir 'D:\\walk\\.claude\\worktrees'",
+  "timestamp": "2026-06-12T06:53:42.430Z",
+  "retry_count": 2
+}
