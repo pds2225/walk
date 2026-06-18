@@ -41,7 +41,7 @@
   },
   "build": {
     "buildCommand": null,
-    "testCommand": "cd /d/walk-qa && python -m pytest streamlit_task_organizer/tests -q 2>&1 | tail -2",
+    "testCommand": "cd \"D:/walk-geo/streamlit_walk_engine\" && python -m pytest -q 2>&1 | tail -15",
     "lintCommand": "npm run lint",
     "devCommand": null,
     "scripts": {
@@ -229,6 +229,12 @@
       "type": "file"
     },
     {
+      "path": "RESUME.md",
+      "accessCount": 14,
+      "lastAccessed": 1781775805150,
+      "type": "file"
+    },
+    {
       "path": "PROMPT.md",
       "accessCount": 12,
       "lastAccessed": 1781720507063,
@@ -245,12 +251,6 @@
       "accessCount": 10,
       "lastAccessed": 1781720611982,
       "type": "directory"
-    },
-    {
-      "path": "RESUME.md",
-      "accessCount": 10,
-      "lastAccessed": 1781757377141,
-      "type": "file"
     },
     {
       "path": "packages\\route-engine\\src\\engine\\evaluateDeviation.ts",
@@ -401,6 +401,12 @@
       "accessCount": 2,
       "lastAccessed": 1781720746949,
       "type": "file"
+    },
+    {
+      "path": "C:\\Python314\\Lib\\site-packages\\streamlit\\elements\\widgets\\selectbox.py",
+      "accessCount": 2,
+      "lastAccessed": 1781775162440,
+      "type": "directory"
     },
     {
       "path": "packages\\route-engine\\src\\domain\\routeAnalysis.ts",

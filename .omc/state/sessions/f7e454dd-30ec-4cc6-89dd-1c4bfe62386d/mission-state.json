@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-06-18T03:12:37.007Z",
+  "updatedAt": "2026-06-18T09:34:11.173Z",
   "missions": [
     {
       "id": "session:f7e454dd-30ec-4cc6-89dd-1c4bfe62386d:none",
@@ -7,15 +7,15 @@
       "name": "none",
       "objective": "Session mission",
       "createdAt": "2026-06-17T18:18:27.125Z",
-      "updatedAt": "2026-06-18T03:12:37.007Z",
+      "updatedAt": "2026-06-18T09:34:11.173Z",
       "status": "done",
-      "workerCount": 53,
+      "workerCount": 54,
       "taskCounts": {
-        "total": 53,
+        "total": 54,
         "pending": 0,
         "blocked": 0,
         "inProgress": 0,
-        "completed": 53,
+        "completed": 54,
         "failed": 0
       },
       "agents": [
@@ -548,25 +548,19 @@
           "latestUpdate": "completed",
           "completedSummary": null,
           "updatedAt": "2026-06-18T03:12:37.007Z"
+        },
+        {
+          "name": "code-reviewer:a4ed7b2",
+          "role": "code-reviewer",
+          "ownership": "a4ed7b23b3e5525f5",
+          "status": "done",
+          "currentStep": null,
+          "latestUpdate": "completed",
+          "completedSummary": null,
+          "updatedAt": "2026-06-18T09:34:11.173Z"
         }
       ],
       "timeline": [
-        {
-          "id": "session-stop:a1317d1cfd58627f0:2026-06-18T03:10:43.280Z",
-          "at": "2026-06-18T03:10:43.280Z",
-          "kind": "completion",
-          "agent": "workflow-subagent:a1317d1",
-          "detail": "completed",
-          "sourceKey": "session-stop:a1317d1cfd58627f0"
-        },
-        {
-          "id": "session-stop:afc6ae62d2555e1a2:2026-06-18T03:11:33.681Z",
-          "at": "2026-06-18T03:11:33.681Z",
-          "kind": "completion",
-          "agent": "workflow-subagent:afc6ae6",
-          "detail": "completed",
-          "sourceKey": "session-stop:afc6ae62d2555e1a2"
-        },
         {
           "id": "session-start:a603062870288bef9:2026-06-18T03:11:33.969Z",
           "at": "2026-06-18T03:11:33.969Z",
@@ -582,6 +576,22 @@
           "agent": "workflow-subagent:a603062",
           "detail": "completed",
           "sourceKey": "session-stop:a603062870288bef9"
+        },
+        {
+          "id": "session-start:a4ed7b23b3e5525f5:2026-06-18T09:31:23.388Z",
+          "at": "2026-06-18T09:31:23.388Z",
+          "kind": "update",
+          "agent": "code-reviewer:a4ed7b2",
+          "detail": "started code-reviewer:a4ed7b2",
+          "sourceKey": "session-start:a4ed7b23b3e5525f5"
+        },
+        {
+          "id": "session-stop:a4ed7b23b3e5525f5:2026-06-18T09:34:11.173Z",
+          "at": "2026-06-18T09:34:11.173Z",
+          "kind": "completion",
+          "agent": "code-reviewer:a4ed7b2",
+          "detail": "completed",
+          "sourceKey": "session-stop:a4ed7b23b3e5525f5"
         }
       ]
     }
