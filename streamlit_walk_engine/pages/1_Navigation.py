@@ -831,7 +831,8 @@ def _sidebar_bookings(favorites: list, origin: Optional[Coordinate]) -> None:
 # ── 메인 ─────────────────────────────────────────────────────────────────────
 
 def main() -> None:
-    st.set_page_config(page_title="Walk 내비게이션", page_icon="🗺️", layout="wide")
+    st.set_page_config(page_title="Walk 내비게이션", page_icon="🗺️", layout="wide",
+                       initial_sidebar_state="collapsed")
     if _MISSING_DEPENDENCIES:
         render_dependency_error()
         st.stop()
@@ -866,8 +867,32 @@ def main() -> None:
     st.markdown("## 🗺️ Walk — 실시간 내비게이션")
     st.caption("목적지를 입력하고 경로를 생성하면 이탈 감지 엔진이 자동으로 연결됩니다.")
 
-    # ── 사이드바 ──────────────────────────────────────────────────────────────
-    with st.sidebar:
+    # 모바일: 사이드바·햄버거 제거 → 컨트롤을 본문에 표시, 컨트롤 행은 가로 스크롤.
+    st.markdown(
+        """
+        <style>
+        /* 사이드바·햄버거(펼침 버튼) 완전 제거 — 네이밍 변형 모두 커버 */
+        [data-testid="stSidebar"],
+        section[data-testid="stSidebar"],
+        [data-testid="stSidebarCollapsedControl"],
+        [data-testid="collapsedControl"],
+        [data-testid="stSidebarCollapseButton"],
+        button[kind="header"],
+        button[kind="headerNoPadding"] { display: none !important; }
+        /* 상단 헤더 공간 회수(모바일 한 화면 확보) */
+        [data-testid="stHeader"], header[data-testid="stHeader"] { height: 0 !important; min-height: 0 !important; }
+        .block-container { padding: 0.5rem 0.7rem 3rem !important; max-width: 100% !important; }
+        /* 컨트롤 행은 줄바꿈 대신 가로 스크롤 */
+        .st-key-nav_ctrl_row { overflow-x: auto !important; flex-wrap: nowrap !important;
+            gap: .9rem !important; padding-bottom: .4rem; }
+        .st-key-nav_ctrl_row > div { flex: 0 0 auto !important; min-width: 8.5rem; }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # ── 컨트롤 (사이드바 제거 → 본문 표시) ──────────────────────────────────────
+    with st.container():
         favorites = st.session_state["nav_favorites"]
 
         _sidebar_destination(favorites)
@@ -945,29 +970,25 @@ def main() -> None:
         _sidebar_bookings(favorites, origin)
 
         st.divider()
-        st.header("자동 재경로")
-        reroute_on = st.toggle("이탈 시 자동 재탐색", value=st.session_state["nav_reroute_enabled"])
+        st.markdown("**⚙️ 알림 · 재경로 · 임계값**　·　옆으로 스크롤 →")
+        # 토글·슬라이더를 한 줄 가로 스크롤로 배치(긴 설명은 help 툴팁으로 압축).
+        with st.container(horizontal=True, horizontal_alignment="left", key="nav_ctrl_row"):
+            reroute_on = st.toggle(
+                "자동 재경로", value=st.session_state["nav_reroute_enabled"],
+                help="경로 이탈·회전 미이행 감지 시 현재 위치 기준으로 재탐색 (15초 쿨다운)")
+            alert_on = st.toggle(
+                "경고 알림", value=st.session_state["nav_alert_enabled"],
+                help="소리+진동 · 이탈 시작 1회 비프 / 경로 이탈 2회 / 회전 미이행 3회 연속")
+            tts_on = st.toggle(
+                "음성 안내", value=st.session_state["nav_tts_enabled"],
+                help="이탈 상태를 한국어 음성(TTS)으로 안내 (브라우저 음성 합성)")
+            drift_t = st.slider("이탈 시작(m)", 5, 20, 10)
+            # 확정 거리는 시작 거리 이상·강한 이탈 거리(기본 25m) 이하(drift<=deviation<=strong).
+            dev_t = st.slider("이탈 확정(m)", drift_t, 25, max(15, drift_t))
+            min_consec = st.slider("연속 샘플", 1, 5, 3)
         st.session_state["nav_reroute_enabled"] = reroute_on
-        if reroute_on:
-            st.caption("경로 이탈·회전 미이행 감지 시 현재 위치 기준으로 재탐색 (15초 쿨다운)")
-
-        st.divider()
-        st.header("알림 설정")
-        alert_on = st.toggle("경고 알림 (소리 + 진동)", value=st.session_state["nav_alert_enabled"])
         st.session_state["nav_alert_enabled"] = alert_on
-        if alert_on:
-            st.caption("이탈 시작: 1회 비프 | 경로 이탈: 2회 에스컬레이션 | 회전 미이행: 3회 연속")
-        tts_on = st.toggle("음성 안내 (TTS)", value=st.session_state["nav_tts_enabled"])
         st.session_state["nav_tts_enabled"] = tts_on
-        if tts_on:
-            st.caption("이탈 상태를 한국어 음성으로 안내합니다 (브라우저 음성 합성 사용)")
-
-        st.divider()
-        st.header("엔진 임계값")
-        drift_t    = st.slider("이탈 시작 거리 (m)", 5, 20, 10)
-        # 이탈 확정 거리는 시작 거리 이상·강한 이탈 거리(기본 25m) 이하로 제약(drift<=deviation<=strong).
-        dev_t      = st.slider("이탈 확정 거리 (m)", drift_t, 25, max(15, drift_t))
-        min_consec = st.slider("최소 연속 샘플", 1, 5, 3)
         st.session_state["nav_config"] = EngineConfig(
             route_drift_distance_threshold_meters=float(drift_t),
             route_deviation_distance_threshold_meters=float(dev_t),
