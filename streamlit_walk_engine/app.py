@@ -334,6 +334,12 @@ def main() -> None:
         render_dependency_error()
         st.stop()
 
+    # 앱 진입 시 메인 화면을 내비게이션으로 (세션당 1회 자동 이동).
+    # 시뮬레이터는 사이드바의 'app' 항목으로 계속 접근 가능 — 재방문 시엔 이동하지 않는다.
+    if not st.session_state.get("_walk_landed_on_nav"):
+        st.session_state["_walk_landed_on_nav"] = True
+        st.switch_page("pages/1_Navigation.py")
+
     apply_styles()
 
     st.markdown("## 🚶 Walk — 경로이탈 감지 엔진 시뮬레이터")
