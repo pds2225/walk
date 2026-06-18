@@ -51,11 +51,23 @@ _naver_keys_cache: dict[str, str] | None | bool = False  # False=미로드, None
 
 
 def _naver_headers() -> dict[str, str] | None:
-    """NCP 인증 헤더. 환경변수 우선, 없으면 마스터 .env에서 로드(1회 캐시)."""
+    """NCP 인증 헤더. 환경변수 → Streamlit secrets → 마스터 .env 순으로 로드(1회 캐시).
+
+    Streamlit Cloud에는 환경변수·마스터 .env가 없으므로 st.secrets 경로가 있어야
+    Naver 지오코딩이 동작한다(없으면 Nominatim으로 폴백 — 클라우드 IP는 차단될 수 있음).
+    """
     global _naver_keys_cache
     if _naver_keys_cache is False:
         cid = os.environ.get("NAVER_MAPS_CLIENT_ID", "")
         sec = os.environ.get("NAVER_MAPS_CLIENT_SECRET", "")
+        if not (cid and sec):
+            # Streamlit Cloud: Settings → Secrets 에 넣은 키 사용(로컬 .env 미존재 환경)
+            try:
+                import streamlit as st
+                cid = cid or str(st.secrets.get("NAVER_MAPS_CLIENT_ID", "") or "")
+                sec = sec or str(st.secrets.get("NAVER_MAPS_CLIENT_SECRET", "") or "")
+            except Exception:
+                pass
         if not (cid and sec) and _ENV_SHARED.is_file():
             try:
                 for line in _ENV_SHARED.read_text(encoding="utf-8").splitlines():
