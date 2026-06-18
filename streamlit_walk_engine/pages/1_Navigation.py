@@ -34,7 +34,10 @@ from engine import (
 )
 import gps_filter
 from alert_voice import build_tts_script, tts_phrase
-from route_builder import fetch_walking_route_with_engine, geocode_address, reverse_geocode, route_engine_label
+from route_builder import (
+    fetch_walking_route_with_engine, geocode_address, geocode_suggestions,
+    reverse_geocode, route_engine_label,
+)
 
 try:
     from streamlit_js_eval import get_geolocation, streamlit_js_eval as _js_eval
@@ -696,14 +699,38 @@ def _try_activate_booking(origin: Optional[Coordinate]) -> None:
 
 # ── 사이드바 섹션 ─────────────────────────────────────────────────────────────
 
+@st.cache_data(ttl=300, show_spinner=False)
+def _suggest_destinations(query: str) -> list:
+    """검색어 후보 목록(캐시). 같은 검색어는 재호출 없이 즉시 반환 — API 절약·rerun 안전."""
+    return geocode_suggestions(query, 5)
+
+
 def _sidebar_destination(favorites: list) -> None:
-    """목적지 입력 + 즐겨찾기 선택 → 자동 채움 + 검색 히스토리 버튼."""
+    """목적지 입력 + (경로 탐색 전) 후보 미리보기 + 즐겨찾기/검색 히스토리."""
     st.header("목적지")
     st.text_input(
         "주소 또는 장소명",
         placeholder="예) 경복궁, 강남역 10번출구",
         key="nav_dest_input",
     )
+
+    # 경로 탐색 전 미리보기: 입력한 장소가 검색되는지 + 후보를 즉시 보여준다.
+    dest_q = (st.session_state.get("nav_dest_input") or "").strip()
+    if dest_q:
+        try:
+            suggestions = _suggest_destinations(dest_q)
+        except Exception:
+            suggestions = []
+        if suggestions:
+            st.success(f"✅ '{dest_q}' 검색됨 — 후보 {len(suggestions)}곳. 목적지를 고르세요.")
+            labels = [disp for _, disp in suggestions]
+            choice = st.selectbox("검색 결과에서 목적지 선택", labels, key="nav_dest_pick")
+            st.session_state["nav_dest_picked"] = suggestions[labels.index(choice)]
+        else:
+            st.warning(f"❌ '{dest_q}' — 일치하는 장소를 찾지 못했습니다. 다른 주소·장소명으로 입력해 보세요.")
+            st.session_state["nav_dest_picked"] = None
+    else:
+        st.session_state["nav_dest_picked"] = None
 
     if favorites:
         fav_opts = ["선택 안 함"] + [f"{f['name']} · {f['address']}" for f in favorites]
@@ -1000,7 +1027,9 @@ def main() -> None:
         if st.button("🔍 경로 탐색", disabled=(not dest_text or origin is None)):
             with st.spinner("경로 탐색 중..."):
                 try:
-                    result = geocode_address(dest_text)
+                    # 미리보기에서 고른 후보가 있으면 그 좌표로 바로 경로 생성(재지오코딩 생략).
+                    picked = st.session_state.get("nav_dest_picked")
+                    result = picked if picked is not None else geocode_address(dest_text)
                     if result is None:
                         st.error("목적지를 찾을 수 없습니다. 다른 주소나 장소명으로 다시 시도해 주세요.")
                     else:
