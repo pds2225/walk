@@ -15,7 +15,7 @@
 - `engine.py`: TypeScript 엔진의 Python 포팅 — 동일한 4상태/4액션, 동일 기본 임계값(8개 수치 일치), 완전한 타입 힌트(`any` 없음).
 - `gps_filter.py`: GPS fix 사용성/정확도 게이트, 도착 판정(`is_arrival`), 재경로 워밍업 가드(`in_reroute_warmup`), 알림 레벨 결정.
 - `alert_voice.py`: 이탈/도착 상태별 한국어 TTS 문구.
-- 검증: `python -m pytest streamlit_walk_engine\tests -q` 116 passed.
+- 검증: `python -m pytest streamlit_walk_engine\tests -q` 121 passed.
 
 ## 2. What remains out of scope (PROMPT/DONE F3 기준)
 
