@@ -10,20 +10,20 @@
         ]
       },
       {
-        "matcher": "startup|resume|compact|clear",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python \"C:\\Users\\ekth3\\.claude\\skills\\session-resume-auto\\scripts\\resume_restore.py\""
-          }
-        ]
-      },
-      {
         "matcher": "startup|resume|clear|compact",
         "hooks": [
           {
             "type": "command",
             "command": "python \"C:\\Users\\ekth3\\.claude\\skills\\session-guard\\scripts\\guard_session_start.py\""
+          }
+        ]
+      },
+      {
+        "matcher": "startup|resume|compact|clear",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"C:\\Users\\ekth3\\.claude\\skills\\session-resume-auto\\scripts\\resume_restore.py\""
           }
         ]
       }
@@ -56,7 +56,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python \"C:\\Users\\ekth3\\.claude\\skills\\session-resume-auto\\scripts\\resume_prompt.py\""
+            "command": "python \"C:\\Users\\ekth3\\.claude\\skills\\session-guard\\scripts\\guard_prompt.py\""
           }
         ]
       },
@@ -65,7 +65,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python \"C:\\Users\\ekth3\\.claude\\skills\\session-guard\\scripts\\guard_prompt.py\""
+            "command": "python \"C:\\Users\\ekth3\\.claude\\skills\\session-resume-auto\\scripts\\resume_prompt.py\""
           }
         ]
       }
@@ -87,7 +87,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python \"C:\\Users\\ekth3\\.claude\\skills\\session-resume-auto\\scripts\\resume_session_end.py\""
+            "command": "python \"C:\\Users\\ekth3\\.claude\\skills\\session-guard\\scripts\\guard_session_end.py\""
           }
         ]
       },
@@ -96,7 +96,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python \"C:\\Users\\ekth3\\.claude\\skills\\session-guard\\scripts\\guard_session_end.py\""
+            "command": "python \"C:\\Users\\ekth3\\.claude\\skills\\session-resume-auto\\scripts\\resume_session_end.py\""
           }
         ]
       }
