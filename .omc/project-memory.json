@@ -41,7 +41,7 @@
   },
   "build": {
     "buildCommand": null,
-    "testCommand": "cd /d/walk-fix && echo \"===PYTEST M2===\" && python -m pytest streamlit_walk_engine/tests -q 2>&1 | tail -15",
+    "testCommand": "cd /d/walk-qa && python -m pytest streamlit_task_organizer/tests -q 2>&1 | tail -2",
     "lintCommand": "npm run lint",
     "devCommand": null,
     "scripts": {
@@ -289,6 +289,12 @@
       "type": "file"
     },
     {
+      "path": "RESUME.md",
+      "accessCount": 5,
+      "lastAccessed": 1781752418643,
+      "type": "file"
+    },
+    {
       "path": "packages\\route-engine\\src\\simulator\\scenarios.ts",
       "accessCount": 4,
       "lastAccessed": 1781720519283,
@@ -328,12 +334,6 @@
       "path": "packages\\route-engine\\src\\types\\models.ts",
       "accessCount": 3,
       "lastAccessed": 1781720456498,
-      "type": "file"
-    },
-    {
-      "path": "RESUME.md",
-      "accessCount": 3,
-      "lastAccessed": 1781721513558,
       "type": "file"
     },
     {

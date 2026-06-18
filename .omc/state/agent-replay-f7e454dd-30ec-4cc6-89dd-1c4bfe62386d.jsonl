@@ -101,3 +101,13 @@
 {"t":0,"agent":"a8ef7ed","agent_type":"workflow-subagent","event":"agent_stop","success":true,"duration_ms":39163}
 {"t":0,"agent":"a3c8d4c","agent_type":"code-reviewer","event":"agent_start","parent_mode":"none"}
 {"t":0,"agent":"a3c8d4c","agent_type":"code-reviewer","event":"agent_stop","success":true,"duration_ms":196486}
+{"t":0,"agent":"afc6ae6","agent_type":"workflow-subagent","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"a7eb408","agent_type":"workflow-subagent","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"ac02c92","agent_type":"workflow-subagent","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"ac02c92","agent_type":"workflow-subagent","event":"agent_stop","success":true,"duration_ms":79242}
+{"t":0,"agent":"a1317d1","agent_type":"workflow-subagent","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"a7eb408","agent_type":"workflow-subagent","event":"agent_stop","success":true,"duration_ms":105617}
+{"t":0,"agent":"a1317d1","agent_type":"workflow-subagent","event":"agent_stop","success":true,"duration_ms":64341}
+{"t":0,"agent":"afc6ae6","agent_type":"workflow-subagent","event":"agent_stop","success":true,"duration_ms":194458}
+{"t":0,"agent":"a603062","agent_type":"workflow-subagent","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"a603062","agent_type":"workflow-subagent","event":"agent_stop","success":true,"duration_ms":63038}

@@ -18,6 +18,13 @@
    - 검증: pytest 116 passed, code-reviewer APPROVE.
    - 감사 critical/high 3건(GPS 멈춤·도착 미배선·워밍업 미배선)은 PR #13이 이미 수정 → 스테일이라 제외.
 
+## /ultraqa 재실행 — 완료 (ULTRAQA COMPLETE)
+
+- 현재 코드 origin/main(00171e4) 기준 재검증 완료. Cycle1에서 목표 충족.
+- pytest 136 passed·py_compile exit0·직전 결함 6건(GPS/도착/워밍업/슬라이더/progress-notes/README) 전부 해소 확인.
+- 3축 정밀 재검증(나브 실사용/슬라이더·엔진/요구사항) + 적대 확인 → **전부 CLEAN, 실사용 파괴 0건**. 스테일 아닌 실제 코드로 PR#13 통합부(GPS버킷·도착종료·워밍업) 정확성 입증.
+- 유일 확정 1건: engine.py EngineConfig에 __post_init__ 검증 없음(UI 슬라이더가 유일 enforcement) — **low·실사용 영향 없음·deferred**(비-UI 호출자 생길 때만). 미반영.
+
 ## 보류된 사용자 요청
 
 - **"메인화면이 네비게이션으로"** — 앱 진입을 시뮬레이터(app.py)→내비(1_Navigation.py)로. SSOT(앱구조 임의변경 금지·1_Navigation.py 최소변경)와 충돌해 확인 대기. 권장 최소안: app.py에 세션 1회 `st.switch_page`. ultraqa/autopilot 미션과 별개로 미처리.
