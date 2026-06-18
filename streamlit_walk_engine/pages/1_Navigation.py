@@ -706,7 +706,42 @@ def _suggest_destinations(query: str) -> list:
 
 
 def _sidebar_destination(favorites: list) -> None:
-    """목적지 입력 + (경로 탐색 전) 후보 미리보기 + 즐겨찾기/검색 히스토리."""
+    """출발지(기본 현재 위치·변경 가능) + 목적지 입력 + 경로 탐색 전 후보 미리보기 + 즐겨찾기/히스토리."""
+    # ── 출발지 (도착지 위) — 비우면 현재 위치, 입력하면 목적지와 동일한 후보 미리보기 ──
+    origin_now = st.session_state.get("nav_origin")
+    origin_addr = st.session_state.get("nav_origin_address")
+    if origin_addr:
+        cur_hint = origin_addr
+    elif origin_now is not None:
+        cur_hint = f"{origin_now.latitude:.5f}, {origin_now.longitude:.5f}"
+    else:
+        cur_hint = "현재 위치 취득 중…"
+
+    st.header("출발지")
+    st.text_input(
+        "출발지 (비우면 현재 위치 사용)",
+        placeholder=f"📍 {cur_hint}",
+        key="nav_start_input",
+    )
+    start_q = (st.session_state.get("nav_start_input") or "").strip()
+    if start_q:
+        try:
+            s_sugg = _suggest_destinations(start_q)
+        except Exception:
+            s_sugg = []
+        if s_sugg:
+            st.success(f"✅ 출발지 '{start_q}' 검색됨 — 후보 {len(s_sugg)}곳. 출발지를 고르세요.")
+            s_labels = [disp for _, disp in s_sugg]
+            s_choice = st.selectbox("검색 결과에서 출발지 선택", s_labels, key="nav_start_pick")
+            st.session_state["nav_start_picked"] = s_sugg[s_labels.index(s_choice)]
+        else:
+            st.warning(f"❌ 출발지 '{start_q}' — 찾지 못했습니다. 비우면 현재 위치가 출발지로 쓰입니다.")
+            st.session_state["nav_start_picked"] = None
+    else:
+        st.session_state["nav_start_picked"] = None
+        st.caption(f"📍 현재 위치를 출발지로 사용: {cur_hint}")
+
+    st.divider()
     st.header("목적지")
     st.text_input(
         "주소 또는 장소명",
@@ -1034,7 +1069,11 @@ def main() -> None:
                         st.error("목적지를 찾을 수 없습니다. 다른 주소나 장소명으로 다시 시도해 주세요.")
                     else:
                         dest, display_name = result
-                        route = _fetch_route(origin, dest)
+                        # 출발지: 입력+선택 후보가 있으면 그 좌표, 없으면 현재 위치(GPS).
+                        start_picked = st.session_state.get("nav_start_picked")
+                        start_input = (st.session_state.get("nav_start_input") or "").strip()
+                        start_coord = start_picked[0] if (start_input and start_picked) else origin
+                        route = _fetch_route(start_coord, dest)
                         confirmed = _exit_label(dest_text, display_name)
                         st.session_state.update({
                             "nav_dest":         dest,
