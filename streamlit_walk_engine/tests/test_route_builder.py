@@ -297,3 +297,48 @@ class TestGeocodeSuggestions:
         monkeypatch.setattr(route_builder.requests, "get", _raise)
         # 예외가 호출부로 전파되지 않고 [] 반환
         assert route_builder.geocode_suggestions("아무거나") == []
+
+
+class _FakeSecrets:
+    def __init__(self, data):
+        self._data = data
+
+    def get(self, key, default=None):
+        return self._data.get(key, default)
+
+
+class TestNaverHeaders:
+    """Naver 키 공급원: 환경변수 → st.secrets(Streamlit Cloud) → 마스터 .env."""
+
+    def test_env_vars_provide_headers(self, monkeypatch):
+        monkeypatch.setattr(route_builder, "_naver_keys_cache", False)
+        monkeypatch.setenv("NAVER_MAPS_CLIENT_ID", "cid-env")
+        monkeypatch.setenv("NAVER_MAPS_CLIENT_SECRET", "sec-env")
+        h = route_builder._naver_headers()
+        assert h is not None
+        assert h["X-NCP-APIGW-API-KEY-ID"] == "cid-env"
+        assert h["X-NCP-APIGW-API-KEY"] == "sec-env"
+
+    def test_streamlit_secrets_provide_headers_on_cloud(self, monkeypatch, tmp_path):
+        # Cloud 시나리오: 환경변수·마스터 .env 없음, st.secrets 만 키 제공 → 헤더 생성돼야 함
+        monkeypatch.setattr(route_builder, "_naver_keys_cache", False)
+        monkeypatch.delenv("NAVER_MAPS_CLIENT_ID", raising=False)
+        monkeypatch.delenv("NAVER_MAPS_CLIENT_SECRET", raising=False)
+        monkeypatch.setattr(route_builder, "_ENV_SHARED", tmp_path / "absent.env")
+        import streamlit
+        monkeypatch.setattr(streamlit, "secrets", _FakeSecrets(
+            {"NAVER_MAPS_CLIENT_ID": "cid-cloud", "NAVER_MAPS_CLIENT_SECRET": "sec-cloud"}))
+        h = route_builder._naver_headers()
+        assert h is not None
+        assert h["X-NCP-APIGW-API-KEY-ID"] == "cid-cloud"
+        assert h["X-NCP-APIGW-API-KEY"] == "sec-cloud"
+
+    def test_none_when_no_source(self, monkeypatch, tmp_path):
+        # 어떤 공급원도 키를 주지 않으면 None → geocode_address가 Nominatim으로 폴백
+        monkeypatch.setattr(route_builder, "_naver_keys_cache", False)
+        monkeypatch.delenv("NAVER_MAPS_CLIENT_ID", raising=False)
+        monkeypatch.delenv("NAVER_MAPS_CLIENT_SECRET", raising=False)
+        monkeypatch.setattr(route_builder, "_ENV_SHARED", tmp_path / "absent.env")
+        import streamlit
+        monkeypatch.setattr(streamlit, "secrets", _FakeSecrets({}))
+        assert route_builder._naver_headers() is None
