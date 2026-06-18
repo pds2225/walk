@@ -334,6 +334,12 @@ def main() -> None:
         render_dependency_error()
         st.stop()
 
+    # 앱 진입 시 메인 화면을 내비게이션으로 (세션당 1회 자동 이동).
+    # 시뮬레이터는 사이드바의 'app' 항목으로 계속 접근 가능 — 재방문 시엔 이동하지 않는다.
+    if not st.session_state.get("_walk_landed_on_nav"):
+        st.session_state["_walk_landed_on_nav"] = True
+        st.switch_page("pages/1_Navigation.py")
+
     apply_styles()
 
     st.markdown("## 🚶 Walk — 경로이탈 감지 엔진 시뮬레이터")
@@ -361,7 +367,9 @@ def main() -> None:
         st.divider()
         st.header("엔진 임계값")
         drift_t = st.slider("이탈 시작 거리 (m)", 5, 20, 10)
-        dev_t = st.slider("이탈 확정 거리 (m)", 10, 30, 15)
+        # 이탈 확정 거리는 시작 거리 이상·강한 이탈 거리(기본 25m) 이하라야 판정이 일관됨
+        # (TS 엔진 validateWalkingEngineConfig와 동일한 drift<=deviation<=strong 불변식 유지).
+        dev_t = st.slider("이탈 확정 거리 (m)", drift_t, 25, max(15, drift_t))
         min_consec = st.slider("최소 연속 샘플", 1, 5, 3)
         min_dur = st.slider("최소 이탈 지속 (ms)", 1000, 8000, 4000, step=500)
 

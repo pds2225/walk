@@ -247,6 +247,12 @@
       "type": "directory"
     },
     {
+      "path": "RESUME.md",
+      "accessCount": 10,
+      "lastAccessed": 1781757377141,
+      "type": "file"
+    },
+    {
       "path": "packages\\route-engine\\src\\engine\\evaluateDeviation.ts",
       "accessCount": 7,
       "lastAccessed": 1781720584393,
@@ -269,12 +275,6 @@
       "accessCount": 6,
       "lastAccessed": 1781720591877,
       "type": "directory"
-    },
-    {
-      "path": "RESUME.md",
-      "accessCount": 6,
-      "lastAccessed": 1781756132852,
-      "type": "file"
     },
     {
       "path": "package.json",

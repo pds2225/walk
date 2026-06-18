@@ -40,7 +40,7 @@ npm run typecheck
 
 검증 결과:
 
-- `streamlit_walk_engine` 테스트: 97개 통과
+- `streamlit_walk_engine` 테스트: 116개 통과
 - `streamlit_task_organizer` 테스트: 20개 통과
 - TypeScript/Vitest 테스트: 81개 통과
 - TypeScript 타입 검사: 통과
