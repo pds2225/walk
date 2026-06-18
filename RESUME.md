@@ -5,7 +5,7 @@
 ## Current State
 
 - Repo root: `D:\walk`, branch `main`. ⚠️ 같은 repo·main에 다른 세션 활동 중 → 메인 워킹트리 보호(직접 편집/pull 자제, 격리 워크트리 사용).
-- **origin/main = `58eed47`** (PR #13/#14/#15/#17/#18/#19/#20 병합 반영). 로컬 main은 `666f5a3`로 뒤처짐 — 동시 세션 보호로 pull 안 함. 다른 세션 정리 후 `git pull` 권장.
+- **origin/main = `58eed47`** (PR #13/#14/#15/#17/#18/#19/#20 병합 반영). 로컬 main은 `425acc3`(behind 6) — 동시 세션 보호 + 미커밋(.claude/settings.json)으로 pull 보류. 다른 세션 정리 후 `git pull --ff-only`로 무손실 회수(behind 6 = PR #18/#19/#20).
 - 열린 PR 0건.
 
 ## 이번 세션 완료 (PR 3건 병합)

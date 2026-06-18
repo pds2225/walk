@@ -113,3 +113,4 @@
 {"t":0,"agent":"a603062","agent_type":"workflow-subagent","event":"agent_stop","success":true,"duration_ms":63038}
 {"t":0,"agent":"a4ed7b2","agent_type":"code-reviewer","event":"agent_start","parent_mode":"none"}
 {"t":0,"agent":"a4ed7b2","agent_type":"code-reviewer","event":"agent_stop","success":true,"duration_ms":167785}
+{"t":0,"agent":"system","event":"skill_invoked","skill_name":"gsync"}
