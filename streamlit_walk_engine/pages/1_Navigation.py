@@ -882,10 +882,6 @@ def main() -> None:
         /* 상단 헤더 공간 회수(모바일 한 화면 확보) */
         [data-testid="stHeader"], header[data-testid="stHeader"] { height: 0 !important; min-height: 0 !important; }
         .block-container { padding: 0.5rem 0.7rem 3rem !important; max-width: 100% !important; }
-        /* 컨트롤 행은 줄바꿈 대신 가로 스크롤 */
-        .st-key-nav_ctrl_row { overflow-x: auto !important; flex-wrap: nowrap !important;
-            gap: .9rem !important; padding-bottom: .4rem; }
-        .st-key-nav_ctrl_row > div { flex: 0 0 auto !important; min-width: 8.5rem; }
         </style>
         """,
         unsafe_allow_html=True,
@@ -970,9 +966,9 @@ def main() -> None:
         _sidebar_bookings(favorites, origin)
 
         st.divider()
-        st.markdown("**⚙️ 알림 · 재경로 · 임계값**　·　옆으로 스크롤 →")
-        # 토글·슬라이더를 한 줄 가로 스크롤로 배치(긴 설명은 help 툴팁으로 압축).
-        with st.container(horizontal=True, horizontal_alignment="left", key="nav_ctrl_row"):
+        st.markdown("**⚙️ 알림 · 재경로 · 임계값**")
+        # 토글·슬라이더를 세로로 쌓아 표시(긴 설명은 help 툴팁으로 압축).
+        with st.container():
             reroute_on = st.toggle(
                 "자동 재경로", value=st.session_state["nav_reroute_enabled"],
                 help="경로 이탈·회전 미이행 감지 시 현재 위치 기준으로 재탐색 (15초 쿨다운)")
