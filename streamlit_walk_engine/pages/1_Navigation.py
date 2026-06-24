@@ -34,7 +34,10 @@ from engine import (
 )
 import gps_filter
 from alert_voice import build_tts_script, tts_phrase
-from route_builder import fetch_walking_route_with_engine, geocode_address, reverse_geocode, route_engine_label
+from route_builder import (
+    fetch_walking_route_with_engine, geocode_address, geocode_suggestions,
+    reverse_geocode, route_engine_label,
+)
 
 try:
     from streamlit_js_eval import get_geolocation, streamlit_js_eval as _js_eval
@@ -696,14 +699,73 @@ def _try_activate_booking(origin: Optional[Coordinate]) -> None:
 
 # ── 사이드바 섹션 ─────────────────────────────────────────────────────────────
 
+@st.cache_data(ttl=300, show_spinner=False)
+def _suggest_destinations(query: str) -> list:
+    """검색어 후보 목록(캐시). 같은 검색어는 재호출 없이 즉시 반환 — API 절약·rerun 안전."""
+    return geocode_suggestions(query, 5)
+
+
 def _sidebar_destination(favorites: list) -> None:
-    """목적지 입력 + 즐겨찾기 선택 → 자동 채움 + 검색 히스토리 버튼."""
+    """출발지(기본 현재 위치·변경 가능) + 목적지 입력 + 경로 탐색 전 후보 미리보기 + 즐겨찾기/히스토리."""
+    # ── 출발지 (도착지 위) — 비우면 현재 위치, 입력하면 목적지와 동일한 후보 미리보기 ──
+    origin_now = st.session_state.get("nav_origin")
+    origin_addr = st.session_state.get("nav_origin_address")
+    if origin_addr:
+        cur_hint = origin_addr
+    elif origin_now is not None:
+        cur_hint = f"{origin_now.latitude:.5f}, {origin_now.longitude:.5f}"
+    else:
+        cur_hint = "현재 위치 취득 중…"
+
+    st.header("출발지")
+    st.text_input(
+        "출발지 (비우면 현재 위치 사용)",
+        placeholder=f"📍 {cur_hint}",
+        key="nav_start_input",
+    )
+    start_q = (st.session_state.get("nav_start_input") or "").strip()
+    if start_q:
+        try:
+            s_sugg = _suggest_destinations(start_q)
+        except Exception:
+            s_sugg = []
+        if s_sugg:
+            st.success(f"✅ 출발지 '{start_q}' 검색됨 — 후보 {len(s_sugg)}곳. 출발지를 고르세요.")
+            s_labels = [disp for _, disp in s_sugg]
+            s_choice = st.selectbox("검색 결과에서 출발지 선택", s_labels, key="nav_start_pick")
+            st.session_state["nav_start_picked"] = s_sugg[s_labels.index(s_choice)]
+        else:
+            st.warning(f"❌ 출발지 '{start_q}' — 찾지 못했습니다. 비우면 현재 위치가 출발지로 쓰입니다.")
+            st.session_state["nav_start_picked"] = None
+    else:
+        st.session_state["nav_start_picked"] = None
+        st.caption(f"📍 현재 위치를 출발지로 사용: {cur_hint}")
+
+    st.divider()
     st.header("목적지")
     st.text_input(
         "주소 또는 장소명",
         placeholder="예) 경복궁, 강남역 10번출구",
         key="nav_dest_input",
     )
+
+    # 경로 탐색 전 미리보기: 입력한 장소가 검색되는지 + 후보를 즉시 보여준다.
+    dest_q = (st.session_state.get("nav_dest_input") or "").strip()
+    if dest_q:
+        try:
+            suggestions = _suggest_destinations(dest_q)
+        except Exception:
+            suggestions = []
+        if suggestions:
+            st.success(f"✅ '{dest_q}' 검색됨 — 후보 {len(suggestions)}곳. 목적지를 고르세요.")
+            labels = [disp for _, disp in suggestions]
+            choice = st.selectbox("검색 결과에서 목적지 선택", labels, key="nav_dest_pick")
+            st.session_state["nav_dest_picked"] = suggestions[labels.index(choice)]
+        else:
+            st.warning(f"❌ '{dest_q}' — 일치하는 장소를 찾지 못했습니다. 다른 주소·장소명으로 입력해 보세요.")
+            st.session_state["nav_dest_picked"] = None
+    else:
+        st.session_state["nav_dest_picked"] = None
 
     if favorites:
         fav_opts = ["선택 안 함"] + [f"{f['name']} · {f['address']}" for f in favorites]
@@ -882,10 +944,6 @@ def main() -> None:
         /* 상단 헤더 공간 회수(모바일 한 화면 확보) */
         [data-testid="stHeader"], header[data-testid="stHeader"] { height: 0 !important; min-height: 0 !important; }
         .block-container { padding: 0.5rem 0.7rem 3rem !important; max-width: 100% !important; }
-        /* 컨트롤 행은 줄바꿈 대신 가로 스크롤 */
-        .st-key-nav_ctrl_row { overflow-x: auto !important; flex-wrap: nowrap !important;
-            gap: .9rem !important; padding-bottom: .4rem; }
-        .st-key-nav_ctrl_row > div { flex: 0 0 auto !important; min-width: 8.5rem; }
         </style>
         """,
         unsafe_allow_html=True,
@@ -970,9 +1028,9 @@ def main() -> None:
         _sidebar_bookings(favorites, origin)
 
         st.divider()
-        st.markdown("**⚙️ 알림 · 재경로 · 임계값**　·　옆으로 스크롤 →")
-        # 토글·슬라이더를 한 줄 가로 스크롤로 배치(긴 설명은 help 툴팁으로 압축).
-        with st.container(horizontal=True, horizontal_alignment="left", key="nav_ctrl_row"):
+        st.markdown("**⚙️ 알림 · 재경로 · 임계값**")
+        # 토글·슬라이더를 세로로 쌓아 표시(긴 설명은 help 툴팁으로 압축).
+        with st.container():
             reroute_on = st.toggle(
                 "자동 재경로", value=st.session_state["nav_reroute_enabled"],
                 help="경로 이탈·회전 미이행 감지 시 현재 위치 기준으로 재탐색 (15초 쿨다운)")
@@ -1004,12 +1062,18 @@ def main() -> None:
         if st.button("🔍 경로 탐색", disabled=(not dest_text or origin is None)):
             with st.spinner("경로 탐색 중..."):
                 try:
-                    result = geocode_address(dest_text)
+                    # 미리보기에서 고른 후보가 있으면 그 좌표로 바로 경로 생성(재지오코딩 생략).
+                    picked = st.session_state.get("nav_dest_picked")
+                    result = picked if picked is not None else geocode_address(dest_text)
                     if result is None:
                         st.error("목적지를 찾을 수 없습니다. 다른 주소나 장소명으로 다시 시도해 주세요.")
                     else:
                         dest, display_name = result
-                        route = _fetch_route(origin, dest)
+                        # 출발지: 입력+선택 후보가 있으면 그 좌표, 없으면 현재 위치(GPS).
+                        start_picked = st.session_state.get("nav_start_picked")
+                        start_input = (st.session_state.get("nav_start_input") or "").strip()
+                        start_coord = start_picked[0] if (start_input and start_picked) else origin
+                        route = _fetch_route(start_coord, dest)
                         confirmed = _exit_label(dest_text, display_name)
                         st.session_state.update({
                             "nav_dest":         dest,

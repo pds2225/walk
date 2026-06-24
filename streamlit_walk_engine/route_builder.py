@@ -51,11 +51,23 @@ _naver_keys_cache: dict[str, str] | None | bool = False  # False=미로드, None
 
 
 def _naver_headers() -> dict[str, str] | None:
-    """NCP 인증 헤더. 환경변수 우선, 없으면 마스터 .env에서 로드(1회 캐시)."""
+    """NCP 인증 헤더. 환경변수 → Streamlit secrets → 마스터 .env 순으로 로드(1회 캐시).
+
+    Streamlit Cloud에는 환경변수·마스터 .env가 없으므로 st.secrets 경로가 있어야
+    Naver 지오코딩이 동작한다(없으면 Nominatim으로 폴백 — 클라우드 IP는 차단될 수 있음).
+    """
     global _naver_keys_cache
     if _naver_keys_cache is False:
         cid = os.environ.get("NAVER_MAPS_CLIENT_ID", "")
         sec = os.environ.get("NAVER_MAPS_CLIENT_SECRET", "")
+        if not (cid and sec):
+            # Streamlit Cloud: Settings → Secrets 에 넣은 키 사용(로컬 .env 미존재 환경)
+            try:
+                import streamlit as st
+                cid = cid or str(st.secrets.get("NAVER_MAPS_CLIENT_ID", "") or "")
+                sec = sec or str(st.secrets.get("NAVER_MAPS_CLIENT_SECRET", "") or "")
+            except Exception:
+                pass
         if not (cid and sec) and _ENV_SHARED.is_file():
             try:
                 for line in _ENV_SHARED.read_text(encoding="utf-8").splitlines():
@@ -143,6 +155,74 @@ def geocode_address(query: str) -> tuple[Coordinate, str] | None:
                 hits[0].get("display_name", candidate),
             )
     return None
+
+
+def geocode_suggestions(query: str, limit: int = 5) -> list[tuple[Coordinate, str]]:
+    """검색어로 후보 장소 목록을 반환(경로 탐색 전 미리보기/자동완성용).
+
+    Naver(주소 전용, addresses 배열) 우선 → 부족하면 Nominatim 변형 검색으로 보충.
+    키 없음·네트워크 오류·결과 없음이면 빈 리스트(예외를 호출부로 전파하지 않음).
+    """
+    q = (query or "").strip()
+    if not q:
+        return []
+    out: list[tuple[Coordinate, str]] = []
+    seen: set[tuple[float, float]] = set()
+
+    def _add(lat: float, lon: float, display: str) -> None:
+        key = (round(lat, 6), round(lon, 6))
+        if key in seen:
+            return
+        seen.add(key)
+        out.append((Coordinate(latitude=lat, longitude=lon), display))
+
+    # 1) Naver addresses 배열(여러 후보)
+    headers = _naver_headers()
+    if headers is not None:
+        try:
+            resp = requests.get(
+                _NAVER_GEOCODE, params={"query": q, "count": limit},
+                headers=headers, timeout=_TIMEOUT,
+            )
+            if resp.status_code == 200:
+                for hit in resp.json().get("addresses", [])[:limit]:
+                    try:
+                        lat, lon = float(hit["y"]), float(hit["x"])
+                    except (KeyError, ValueError, TypeError):
+                        continue
+                    _add(lat, lon, hit.get("roadAddress") or hit.get("jibunAddress") or q)
+        except (requests.RequestException, KeyError, ValueError):
+            pass
+
+    # 2) Naver 결과가 전혀 없을 때만 Nominatim 변형 검색으로 폴백
+    #    (혼합 출처의 근접 중복 후보 방지 + 결과 나오면 추가 변형 호출 생략으로 API 절약)
+    if not out:
+        for candidate in _subway_candidates(q):
+            if len(out) >= limit:
+                break
+            try:
+                resp = requests.get(
+                    _NOMINATIM_SEARCH,
+                    params={"q": candidate, "format": "json",
+                            "limit": limit, "countrycodes": _GEOCODE_COUNTRY},
+                    headers=_HEADERS_KO, timeout=_TIMEOUT,
+                )
+                if resp.status_code != 200:
+                    continue
+                hits = resp.json()
+            except (requests.RequestException, KeyError, ValueError):
+                continue
+            for hit in hits:
+                if len(out) >= limit:
+                    break
+                try:
+                    lat, lon = float(hit["lat"]), float(hit["lon"])
+                except (KeyError, ValueError, TypeError):
+                    continue
+                _add(lat, lon, hit.get("display_name", candidate))
+            if out:
+                break
+    return out
 
 
 # ── reverse geocoding ─────────────────────────────────────────────────────────

@@ -237,3 +237,108 @@ class TestTmapAppKey:
         monkeypatch.delenv("TMAP_APP_KEY", raising=False)
         # secrets 파일이 없는 환경에서는 st.secrets 접근이 예외 → None
         assert route_builder._tmap_app_key() is None
+
+
+class _FakeResp:
+    def __init__(self, status_code, payload):
+        self.status_code = status_code
+        self._payload = payload
+
+    def json(self):
+        return self._payload
+
+
+class TestGeocodeSuggestions:
+    """경로 탐색 전 후보 미리보기용 다중 후보 검색."""
+
+    def test_empty_query_returns_empty_without_network(self, monkeypatch):
+        # 빈/공백 검색어는 네트워크 호출 없이 즉시 [] — get이 불리면 실패하도록 강제
+        def _boom(*a, **k):
+            raise AssertionError("빈 검색어에 네트워크를 호출하면 안 됨")
+        monkeypatch.setattr(route_builder.requests, "get", _boom)
+        assert route_builder.geocode_suggestions("") == []
+        assert route_builder.geocode_suggestions("   ") == []
+
+    def test_naver_returns_multiple_candidates(self, monkeypatch):
+        monkeypatch.setattr(route_builder, "_naver_headers", lambda: {"X": "y"})
+        payload = {"addresses": [
+            {"y": "37.5759", "x": "126.9769", "roadAddress": "서울 종로구 사직로 161"},
+            {"y": "37.5765", "x": "126.9770", "jibunAddress": "서울 종로구 세종로 1-1"},
+        ]}
+        monkeypatch.setattr(route_builder.requests, "get", lambda *a, **k: _FakeResp(200, payload))
+        out = route_builder.geocode_suggestions("경복궁", limit=5)
+        assert len(out) == 2
+        assert out[0][1] == "서울 종로구 사직로 161"
+        assert abs(out[0][0].latitude - 37.5759) < 1e-6
+
+    def test_falls_back_to_nominatim_without_naver_key(self, monkeypatch):
+        monkeypatch.setattr(route_builder, "_naver_headers", lambda: None)
+        hits = [{"lat": "37.4979", "lon": "127.0276", "display_name": "강남역"}]
+        monkeypatch.setattr(route_builder.requests, "get", lambda *a, **k: _FakeResp(200, hits))
+        out = route_builder.geocode_suggestions("강남역", limit=5)
+        assert len(out) == 1
+        assert out[0][1] == "강남역"
+
+    def test_dedupes_by_coordinate(self, monkeypatch):
+        monkeypatch.setattr(route_builder, "_naver_headers", lambda: {"X": "y"})
+        payload = {"addresses": [
+            {"y": "37.5", "x": "127.0", "roadAddress": "동일좌표 A"},
+            {"y": "37.5", "x": "127.0", "roadAddress": "동일좌표 B"},
+        ]}
+        monkeypatch.setattr(route_builder.requests, "get", lambda *a, **k: _FakeResp(200, payload))
+        out = route_builder.geocode_suggestions("중복", limit=5)
+        assert len(out) == 1  # 같은 좌표는 1개로 합쳐짐
+
+    def test_network_error_returns_empty_gracefully(self, monkeypatch):
+        monkeypatch.setattr(route_builder, "_naver_headers", lambda: None)
+
+        def _raise(*a, **k):
+            raise route_builder.requests.RequestException("boom")
+        monkeypatch.setattr(route_builder.requests, "get", _raise)
+        # 예외가 호출부로 전파되지 않고 [] 반환
+        assert route_builder.geocode_suggestions("아무거나") == []
+
+
+class _FakeSecrets:
+    def __init__(self, data):
+        self._data = data
+
+    def get(self, key, default=None):
+        return self._data.get(key, default)
+
+
+class TestNaverHeaders:
+    """Naver 키 공급원: 환경변수 → st.secrets(Streamlit Cloud) → 마스터 .env."""
+
+    def test_env_vars_provide_headers(self, monkeypatch):
+        monkeypatch.setattr(route_builder, "_naver_keys_cache", False)
+        monkeypatch.setenv("NAVER_MAPS_CLIENT_ID", "cid-env")
+        monkeypatch.setenv("NAVER_MAPS_CLIENT_SECRET", "sec-env")
+        h = route_builder._naver_headers()
+        assert h is not None
+        assert h["X-NCP-APIGW-API-KEY-ID"] == "cid-env"
+        assert h["X-NCP-APIGW-API-KEY"] == "sec-env"
+
+    def test_streamlit_secrets_provide_headers_on_cloud(self, monkeypatch, tmp_path):
+        # Cloud 시나리오: 환경변수·마스터 .env 없음, st.secrets 만 키 제공 → 헤더 생성돼야 함
+        monkeypatch.setattr(route_builder, "_naver_keys_cache", False)
+        monkeypatch.delenv("NAVER_MAPS_CLIENT_ID", raising=False)
+        monkeypatch.delenv("NAVER_MAPS_CLIENT_SECRET", raising=False)
+        monkeypatch.setattr(route_builder, "_ENV_SHARED", tmp_path / "absent.env")
+        import streamlit
+        monkeypatch.setattr(streamlit, "secrets", _FakeSecrets(
+            {"NAVER_MAPS_CLIENT_ID": "cid-cloud", "NAVER_MAPS_CLIENT_SECRET": "sec-cloud"}))
+        h = route_builder._naver_headers()
+        assert h is not None
+        assert h["X-NCP-APIGW-API-KEY-ID"] == "cid-cloud"
+        assert h["X-NCP-APIGW-API-KEY"] == "sec-cloud"
+
+    def test_none_when_no_source(self, monkeypatch, tmp_path):
+        # 어떤 공급원도 키를 주지 않으면 None → geocode_address가 Nominatim으로 폴백
+        monkeypatch.setattr(route_builder, "_naver_keys_cache", False)
+        monkeypatch.delenv("NAVER_MAPS_CLIENT_ID", raising=False)
+        monkeypatch.delenv("NAVER_MAPS_CLIENT_SECRET", raising=False)
+        monkeypatch.setattr(route_builder, "_ENV_SHARED", tmp_path / "absent.env")
+        import streamlit
+        monkeypatch.setattr(streamlit, "secrets", _FakeSecrets({}))
+        assert route_builder._naver_headers() is None

@@ -1,12 +1,12 @@
 # RESUME.md - D:\walk checkpoint
 
-> Updated: 2026-06-18
+> Updated: 2026-06-24
 
 ## Current State
 
 - Repo root: `D:\walk`, branch `main`. ⚠️ 같은 repo·main에 다른 세션 활동 중 → 메인 워킹트리 보호(직접 편집/pull 자제, 격리 워크트리 사용).
-- **origin/main = `0ac7045`** (PR #13~#21 중 #16 제외 전부 병합). 로컬 main은 `425acc3`(behind 다수) — 동시 세션 보호 + 미커밋(.claude/settings.json)으로 pull 보류. 다른 세션 정리 후 `git pull --ff-only`로 무손실 회수.
-- 열린 PR 0건.
+- **로컬 main = origin/main = `0ac7045`** (PR #13~#21 중 #16 제외 전부 병합). 2026-06-24 `git pull --ff-only`로 425acc3→0ac7045 동기화 완료(미커밋 settings.json 보존, pytest 124 passed). #19 후보미리보기·#20 출발지입력·#21 클라우드키 이제 로컬 반영됨.
+- 열린 PR: #16(DRAFT 자동테스트 훅 chore) 1건.
 
 ## 이번 세션 완료 (PR 3건 병합)
 
@@ -30,6 +30,23 @@
 
 ## Next Actions
 
-1. 다른 세션 정리 후 로컬 main `git pull`로 origin(381fe7f) 동기화.
+1. 다른 세션 정리 후 로컬 main `git pull --ff-only`로 origin(0ac7045) 동기화. 로컬 425acc3 = 8커밋 behind, 0 ahead → 무손실 회수 가능.
 2. 실시간 GPS 내비·메인화면 리다이렉트는 **실기기/브라우저 실측 QA** 권장(progress-notes에 기록).
 3. 검증용 잔여 폴더(D:\walk-{pr13,fix,qa,nav,8})는 git 등록 해제됨·파일 잠금으로 폴더만 남음 → PC 재시작 후 수동 삭제 또는 folder-cleanup.
+
+## 2026-06-24 현황 점검 (조회만, 수정 없음)
+
+- M1(TS 엔진)·M2(Streamlit 데모) DONE 기준 충족 완료. 이후 내비 UX 개편(#13~#21, #16 제외) 전부 origin/main 병합. 6/18 이후 신규 병합 없음.
+- 열린 PR: **#16**(DRAFT, streamlit_walk_engine 자동 테스트 훅 chore) 1건. 열린 이슈: #3(PWA+FastAPI MVP 설계), #1(자동개발 운영 세팅).
+- 사용자 지정 방향: **"위치 부정확 개선 + 출발지/목적지 검색 UI/UX 개선"**. 단 #19/#20으로 후보 미리보기·출발지 입력·즐겨찾기·히스토리·예약은 이미 구현됨(동기화로 로컬 반영).
+- **다음 기능 1개(쪼개기 완료, 구현 대기):** 검색 후보에 "현재 위치 기준 거리" 표시 + 가까운 순 정렬 — 같은 이름 동명 장소 중 엉뚱한 곳 선택 방지(위치 부정확 ↓) + selectbox 라벨로 어느 후보가 맞는지 직관화(검색 UX ↑). 쪼개기: ①`_label_with_distance(suggestions, origin)` 헬퍼(거리계산·포맷·가까운순 정렬·origin None 폴백)+단위테스트(15분) ②`_sidebar_destination` 출발지/목적지 selectbox 라벨 교체(15분) ③pytest+py_compile(10분).
+- 보류 후보: (B) 검색 실패 사유 구분 안내(키없음/0건/네트워크), (C) 임계값 슬라이더 strong·heading 노출, (D) engine.py EngineConfig `__post_init__` 검증(low).
+
+## 왜 로컬이 origin보다 뒤처졌나 (2026-06-24 원인 진단)
+
+- `.git-auto-backup.log` 자동백업 스킬은 **push(올리기) 전용** — origin→로컬 pull(내려받기)을 안 함. 게다가 **2026-05-01 22:07 이후 멈춤**(미실행), 실행 시에도 `git stash failed` 다수.
+- 개발이 전부 별도 브랜치→GitHub PR→main 병합 흐름(커밋 작성자 pds2225). 로컬 main을 직접 안 건드려서 수동 pull 없으면 계속 behind.
+- `.claude/settings.json` 자동 훅은 session-guard(guard_pregit.py)뿐 — **자동 pull/sync 훅 없음**. `pull.ff=false`.
+- 워크트리 2개 잔존: naver-maps-api(9e04a33), visual-verdict-nav-ui(966cde3) — 별도 브랜치라 main과 무관.
+- → 결론: "연동 고장"이 아니라 **내려받기 자동화 부재 + 올리기 백업마저 5/1 정지**. 재발 방지책(1=SessionStart 자동 pull 훅 / 2=양방향 자동백업 수리 / 3=수동 gsync) 사용자 선택 대기 — 1번 추천.
+- ⚠️ 2026-06-24 세션가드: 다른 클로드 세션(f312d1d3) 같은 repo·main 동시 활동 중. 양방향 자동백업(2번)은 갈라짐(divergence) 충돌 위험 → 1번(pull만) 권장. main 직접 편집 자제·격리 워크트리 권장.
