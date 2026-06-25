@@ -1,12 +1,12 @@
 # RESUME.md - D:\walk checkpoint
 
-> Updated: 2026-06-24
+> Updated: 2026-06-25
 
 ## Current State
 
 - Repo root: `D:\walk`, branch `main`. ⚠️ 같은 repo·main에 다른 세션 활동 중 → 메인 워킹트리 보호(직접 편집/pull 자제, 격리 워크트리 사용).
-- **로컬 main = origin/main = `0ac7045`** (PR #13~#21 중 #16 제외 전부 병합). 2026-06-24 `git pull --ff-only`로 425acc3→0ac7045 동기화 완료(미커밋 settings.json 보존, pytest 124 passed). #19 후보미리보기·#20 출발지입력·#21 클라우드키 이제 로컬 반영됨.
-- 열린 PR: #16(DRAFT 자동테스트 훅 chore) 1건.
+- **로컬 main = origin/main = `0ac7045`** (PR #13~#21 중 #16 제외 전부 병합). 2026-06-25 재확인: `ahead/behind = 0/0` 완전 동기화. 미커밋은 `.claude/settings.json`(M) 1건 + untracked 로그/`.omc`/`.codex`/`.vscode`/RESUME.md(전부 git 비추적).
+- 열린 PR: #16(DRAFT 자동테스트 훅 chore) 1건. 코드 변경·신규 작업 없음(이번 세션=세션 정리만).
 
 ## 이번 세션 완료 (PR 3건 병합)
 
