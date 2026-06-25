@@ -1,0 +1,181 @@
+{
+  "version": "1.0.0",
+  "lastScanned": 1781255857023,
+  "projectRoot": "D:\\walk\\.claude\\worktrees\\visual-verdict-nav-ui",
+  "techStack": {
+    "languages": [
+      {
+        "name": "JavaScript/TypeScript",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "package.json"
+        ]
+      },
+      {
+        "name": "TypeScript",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "tsconfig.json"
+        ]
+      },
+      {
+        "name": "Python",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "requirements.txt"
+        ]
+      }
+    ],
+    "frameworks": [
+      {
+        "name": "vitest",
+        "version": "3.2.4",
+        "category": "testing"
+      }
+    ],
+    "packageManager": "npm",
+    "runtime": null
+  },
+  "build": {
+    "buildCommand": null,
+    "testCommand": "npm test",
+    "lintCommand": "npm run lint",
+    "devCommand": null,
+    "scripts": {
+      "test": "vitest",
+      "test:run": "vitest run",
+      "lint": "eslint .",
+      "typecheck": "tsc --noEmit",
+      "simulate": "tsx packages/route-engine/src/simulator/runSimulator.ts",
+      "web:install": "python streamlit_walk_engine/install_requirements.py",
+      "web:demo": "python streamlit_walk_engine/run_demo.py"
+    }
+  },
+  "conventions": {
+    "namingStyle": null,
+    "importStyle": null,
+    "testPattern": null,
+    "fileOrganization": null
+  },
+  "structure": {
+    "isMonorepo": false,
+    "workspaces": [],
+    "mainDirectories": [
+      "docs",
+      "scripts"
+    ],
+    "gitBranches": {
+      "defaultBranch": "main",
+      "branchingStrategy": null
+    }
+  },
+  "customNotes": [],
+  "directoryMap": {
+    "docs": {
+      "path": "docs",
+      "purpose": "Documentation",
+      "fileCount": 1,
+      "lastAccessed": 1781255856958,
+      "keyFiles": []
+    },
+    "packages": {
+      "path": "packages",
+      "purpose": null,
+      "fileCount": 0,
+      "lastAccessed": 1781255856959,
+      "keyFiles": []
+    },
+    "scripts": {
+      "path": "scripts",
+      "purpose": "Build/utility scripts",
+      "fileCount": 1,
+      "lastAccessed": 1781255856973,
+      "keyFiles": [
+        "git_auto_backup.ps1"
+      ]
+    },
+    "streamlit_task_organizer": {
+      "path": "streamlit_task_organizer",
+      "purpose": null,
+      "fileCount": 4,
+      "lastAccessed": 1781255856974,
+      "keyFiles": [
+        "app.py",
+        "README.md",
+        "requirements.txt",
+        "__init__.py"
+      ]
+    },
+    "streamlit_walk_engine": {
+      "path": "streamlit_walk_engine",
+      "purpose": null,
+      "fileCount": 10,
+      "lastAccessed": 1781255856976,
+      "keyFiles": [
+        "app.py",
+        "engine.py",
+        "gps_filter.py",
+        "install_requirements.py",
+        "README.md"
+      ]
+    },
+    "streamlit_task_organizer\\schemas": {
+      "path": "streamlit_task_organizer\\schemas",
+      "purpose": "Schema definitions",
+      "fileCount": 3,
+      "lastAccessed": 1781255856977,
+      "keyFiles": [
+        "export_schema.py",
+        "result_schema.py",
+        "__init__.py"
+      ]
+    },
+    "streamlit_task_organizer\\services": {
+      "path": "streamlit_task_organizer\\services",
+      "purpose": "Business logic services",
+      "fileCount": 4,
+      "lastAccessed": 1781255856979,
+      "keyFiles": [
+        "export_service.py",
+        "history_service.py",
+        "sample_service.py"
+      ]
+    },
+    "streamlit_task_organizer\\tests": {
+      "path": "streamlit_task_organizer\\tests",
+      "purpose": "Test files",
+      "fileCount": 7,
+      "lastAccessed": 1781255856980,
+      "keyFiles": [
+        "test_checklist_parser.py",
+        "test_contact_parser.py",
+        "test_date_parser.py"
+      ]
+    },
+    "streamlit_task_organizer\\utils": {
+      "path": "streamlit_task_organizer\\utils",
+      "purpose": "Utility functions",
+      "fileCount": 5,
+      "lastAccessed": 1781255856981,
+      "keyFiles": [
+        "constants.py",
+        "date_utils.py",
+        "formatter.py"
+      ]
+    },
+    "streamlit_walk_engine\\pages": {
+      "path": "streamlit_walk_engine\\pages",
+      "purpose": "Page components",
+      "fileCount": 1,
+      "lastAccessed": 1781255856982,
+      "keyFiles": [
+        "1_Navigation.py"
+      ]
+    }
+  },
+  "hotPaths": [],
+  "userDirectives": []
+}

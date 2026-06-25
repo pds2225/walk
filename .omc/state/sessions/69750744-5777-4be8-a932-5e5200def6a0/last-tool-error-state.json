@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"ls -la \\\"/d/auto_dev\\\"/{RESUME.md,HANDOFF.md,CLAUDE.md,README.md} 2>/dev/null\",\"description\":\"Check for key project doc files\"}",
+  "error": "Exit code 2\n-rw-r--r-- 1 ekth3 197609  1219 May 24 15:27 /d/auto_dev/CLAUDE.md\n-rw-r--r-- 1 ekth3 197609 12154 Jun 14 22:26 /d/auto_dev/README.md\n-rw-r--r-- 1 ekth3 197609  1473 Jun  6 16:03 /d/auto_dev/RESUME.md",
+  "timestamp": "2026-06-25T02:53:13.983Z",
+  "retry_count": 2
+}
