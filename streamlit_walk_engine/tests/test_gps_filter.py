@@ -23,12 +23,17 @@ from gps_filter import (
     ARRIVAL_RADIUS_M,
     REROUTE_WARMUP_SAMPLES,
     REROUTE_WARMUP_MS,
+    JUMP_REJECT_STREAK_ESCAPE,
+    JUMP_ELAPSED_ESCAPE_MS,
+    WALK_SPEED_DEFAULT,
     accuracy_quality,
     alert_level,
     decide_alert,
     is_fix_usable,
     is_arrival,
     in_reroute_warmup,
+    is_plausible_step,
+    sanitize_motion,
 )
 
 
@@ -329,3 +334,87 @@ class TestInRerouteWarmup:
 
     def test_boundary_just_below_both(self):
         assert in_reroute_warmup(REROUTE_WARMUP_SAMPLES - 1, REROUTE_WARMUP_MS - 1) is True
+
+
+class TestIsPlausibleStep:
+    # 서울시청 근방 기준점 (위도 1도 ≈ 111km)
+    P_LAT, P_LON = 37.5665, 126.9780
+
+    def test_normal_walk_step_is_plausible(self):
+        # 약 10m 이동, 3초, accuracy 20+20 → 허용 내(allowed≈59m)
+        assert is_plausible_step(
+            self.P_LAT, self.P_LON, self.P_LAT + 0.00009, self.P_LON,
+            elapsed_ms=3000, new_accuracy_m=20, prev_accuracy_m=20,
+        ) is True
+
+    def test_teleport_is_rejected(self):
+        # 약 150m 점프, 3초, accuracy 5+5 → 기각(allowed≈29m)
+        assert is_plausible_step(
+            self.P_LAT, self.P_LON, self.P_LAT + 0.00135, self.P_LON,
+            elapsed_ms=3000, new_accuracy_m=5, prev_accuracy_m=5,
+        ) is False
+
+    def test_zero_elapsed_is_clamped(self):
+        # elapsed 0(비단조/동일 timestamp)도 min_elapsed로 클램프 → 작은 이동 통과
+        assert is_plausible_step(
+            self.P_LAT, self.P_LON, self.P_LAT + 0.00003, self.P_LON,
+            elapsed_ms=0, new_accuracy_m=None, prev_accuracy_m=None,
+        ) is True
+
+    def test_accuracy_none_treated_as_zero(self):
+        # accuracy None은 0으로 처리(마진 없음) — base_margin으로 작은 이동 통과
+        assert is_plausible_step(
+            self.P_LAT, self.P_LON, self.P_LAT + 0.00005, self.P_LON,
+            elapsed_ms=3000, new_accuracy_m=None, prev_accuracy_m=None,
+        ) is True
+
+    def test_same_point_is_plausible(self):
+        assert is_plausible_step(
+            self.P_LAT, self.P_LON, self.P_LAT, self.P_LON,
+            elapsed_ms=3000, new_accuracy_m=10, prev_accuracy_m=10,
+        ) is True
+
+    def test_reject_streak_escape_accepts_jump(self):
+        # 연속 기각 누적 시 텔레포트여도 강제 수용(고착 방지)
+        assert is_plausible_step(
+            self.P_LAT, self.P_LON, self.P_LAT + 0.01, self.P_LON,
+            elapsed_ms=3000, new_accuracy_m=5, prev_accuracy_m=5,
+            reject_streak=JUMP_REJECT_STREAK_ESCAPE,
+        ) is True
+
+    def test_large_elapsed_escape_accepts_jump(self):
+        # 오래 멈춘 뒤 복귀 — 큰 경과면 큰 이동도 수용
+        assert is_plausible_step(
+            self.P_LAT, self.P_LON, self.P_LAT + 0.01, self.P_LON,
+            elapsed_ms=JUMP_ELAPSED_ESCAPE_MS, new_accuracy_m=5, prev_accuracy_m=5,
+        ) is True
+
+
+class TestSanitizeMotion:
+    def test_trusts_normal_gps(self):
+        assert sanitize_motion(90.0, 1.2, None, None) == (90.0, 1.2)
+
+    def test_low_speed_gps_falls_back_to_derived(self):
+        # GPS speed 0.1(<0.5) → heading 노이즈 불신, 파생값 사용
+        assert sanitize_motion(270.0, 0.1, 45.0, 1.0) == (45.0, 1.0)
+
+    def test_overspeed_gps_falls_back_to_derived(self):
+        # GPS speed 10(>7) → 신뢰 윈도우 밖, 파생값 사용
+        assert sanitize_motion(270.0, 10.0, 30.0, 2.0) == (30.0, 2.0)
+
+    def test_no_gps_uses_derived_with_speed_clamp(self):
+        # 파생 speed가 비현실적이면 보행 상한(3.0)으로 클램프
+        assert sanitize_motion(None, None, 80.0, 20.0) == (80.0, 3.0)
+
+    def test_nothing_usable_returns_default(self):
+        assert sanitize_motion(None, None, None, None) == (0.0, WALK_SPEED_DEFAULT)
+
+    def test_gps_speed_lower_boundary_trusted(self):
+        assert sanitize_motion(120.0, 0.5, None, None) == (120.0, 0.5)
+
+    def test_gps_speed_upper_boundary_trusted_and_clamped(self):
+        # 경계 7.0 → 신뢰하되 speed는 3.0 클램프
+        assert sanitize_motion(120.0, 7.0, None, None) == (120.0, 3.0)
+
+    def test_overspeed_gps_no_derived_returns_default(self):
+        assert sanitize_motion(270.0, 10.0, None, None) == (0.0, WALK_SPEED_DEFAULT)
