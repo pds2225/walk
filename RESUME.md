@@ -2,12 +2,18 @@
 
 > Updated: 2026-06-28
 
-## 🚀 2026-06-28 — GPS 정확도·속도·UI 개선 착수 (실제사용승인루프 모드)
-- **사용자 목표:** ①GPS 위치 정확도 ②체감 속도/성능 ③쉽고 단순한 UI. "끝까지 자동(구현→테스트→PR)" 모드.
-- **진행:** `walk-improve-audit` 워크플로우 실행 중(3렌즈 병렬 감사 + 안전성 적대검증). 결과의 `implement_now` 항목부터 격리 워크트리에서 구현→`python -m pytest streamlit_walk_engine -q`→PR.
-- **gsync:** behind 1(#16 = `.claude/settings.json` chore, 실사용 영향 0)은 로컬 설정 충돌로 회수 보류(사용자 선택=로컬 유지). 열린 PR 0.
-- **night-autodev:** 예약 정상(매일 0:30), 손댈 것 없음.
-- **안전 불변:** engine.py 코어 비침습 / 안전기능(accuracy 게이팅·is_fix_usable·재경로 워밍업·is_arrival·decide_alert) 보존 / 1_Navigation.py 최소변경 / pytest 통과 유지.
+## ✅ 2026-06-28 — GPS 정확도·속도·UI 개선 완료 (PR #22 머지)
+- **사용자 목표:** ①GPS 위치 정확도 ②속도 ③쉽고 단순한 UI — 9건 구현·머지 완료(실제사용승인루프 모드).
+- **머지됨(PR #22 → origin/main):**
+  - GPS: `gps_filter.py` 순수함수 2종(`is_plausible_step` 점프제거+고착방지 escape, `sanitize_motion` 모션 신뢰) +단위테스트 15건, `1_Navigation.py` 점프가드 배선·`_make_sample` 교체.
+  - 속도: 지도 트레이스 N→1 병합, 역지오코딩 캐시, 샘플 상한 500, 경로 타임아웃 15→8초.
+  - UI: 민감도 슬라이더 '고급 설정' 접기, 토글 쉬운 말, 즐겨찾기·최근검색 묶기. +도착 소요시간 '여정 시작' 기준(trim 영향 제거, reviewer 지적 fast-follow).
+- **검증:** pytest 139 passed(기존 124+신규 15) · py_compile · AppTest 렌더 OK. code-reviewer APPROVE(🔴 0).
+- **2차 보류(미구현):** gps-1(JS 다중샘플·실기기 필요), gps-3/gps-5(엔진 입력 영향·상호 의존), nav-2/nav-3(동선 재배치·중위험). 감사 전체결과: `tasks/wian3sb04.output`.
+- **실기기 QA 권장:** GPS 점프가드·heading은 브라우저 전용이라 자동테스트 미커버 — 실제 폰 보행 실측 권장.
+- **정리 잔재:** `D:\walk-improve` 워크트리 폴더가 파일잠금으로 물리삭제 실패(git 등록·브랜치는 정리완료). PC 재시작 후 수동 삭제.
+- **gsync:** behind 1(#16 settings.json, 실사용 영향 0)은 로컬 유지 보류(사용자 선택). 이제 origin/main은 PR#22 포함 → 로컬 `D:\walk` main은 그만큼 더 behind(미pull, 사용자 선택대로).
+- **안전 불변(유지됨):** engine.py 코어 비침습 / 안전기능(accuracy 게이팅·is_fix_usable·재경로 워밍업·is_arrival·decide_alert) 보존 / 1_Navigation.py 최소변경 / pytest green.
 
 ## 🧹 2026-06-25 세션정리 — 닫아도 안전 ✅
 - 코드 변경 0·로컬 main=origin/main(0/0) 동기화 확인. 이 창은 **지금 닫거나 /clear 해도 손실 없음**.
