@@ -58,6 +58,9 @@ except ImportError:
 # 잡혀 내비 중 갱신되지 않는다. 이 주기로 바뀌는 토큰을 표현식에 덧붙여 재측정을 유도한다.
 _GPS_POLL_BUCKET_SEC = 3
 
+# 위치 샘플/판정 누적 상한 — 장시간 보행 시 메모리·지도 렌더 무한 증가 차단.
+_MAX_SAMPLES = 500
+
 
 def _get_geolocation_high_accuracy(component_key: str = "walk_hi_acc_geo"):
     """현재 위치를 enableHighAccuracy로 요청한다 (실패 시 스톡 get_geolocation 폴백).
@@ -132,6 +135,7 @@ def _init() -> None:
     for k, v in {
         "nav_origin": None,
         "nav_raw_gps": None,
+        "nav_jump_reject_streak": 0,
         "nav_dest": None,
         "nav_route": None,
         "nav_engine": None,
@@ -162,6 +166,7 @@ def _init() -> None:
         "nav_route_engine": None,
         "nav_route_info": None,
         "nav_arrival_summary": None,
+        "nav_start_ts_ms": None,
     }.items():
         if k not in st.session_state:
             st.session_state[k] = v
@@ -180,6 +185,7 @@ def _reset() -> None:
     st.session_state["nav_last_reroute_ts_ms"] = None
     st.session_state["nav_reroute_count"] = 0
     st.session_state["nav_arrival_summary"] = None
+    st.session_state["nav_start_ts_ms"] = None
 
 
 def _activate_route(
@@ -390,8 +396,12 @@ def _maybe_finish_arrival(origin: Coordinate) -> bool:
 
     parts: list[str] = []
     samples = st.session_state["nav_samples"]
-    if samples:
-        elapsed_min = (int(time.time() * 1000) - samples[0].timestamp_ms) / 60_000
+    # 여정 시작 시각 기준(샘플 상한 trim과 무관) — 없으면 현재 버퍼 첫 샘플로 폴백.
+    start_ts = st.session_state.get("nav_start_ts_ms")
+    if start_ts is None and samples:
+        start_ts = samples[0].timestamp_ms
+    if start_ts is not None:
+        elapsed_min = (int(time.time() * 1000) - start_ts) / 60_000
         parts.append(f"소요 약 {max(1, round(elapsed_min))}분")
     if st.session_state.get("nav_reroute_count", 0) > 0:
         parts.append(f"재경로 {st.session_state['nav_reroute_count']}회")
@@ -419,22 +429,23 @@ def _make_sample(
     gps_heading = gps_c.get("heading")
     gps_speed   = gps_c.get("speed")
 
-    if gps_heading is not None and gps_speed is not None and float(gps_speed) > 0.2:
-        heading = float(gps_heading)
-        speed   = float(gps_speed)
-    elif prev_coord is not None and distance_meters(prev_coord, coord) > 0.5:
-        heading = bearing_degrees(prev_coord, coord)
+    # 파생값(직전 좌표 기반) — 충분히 이동했을 때만 계산
+    derived_heading: Optional[float] = None
+    derived_speed: Optional[float] = None
+    if prev_coord is not None and distance_meters(prev_coord, coord) > 0.5:
+        derived_heading = bearing_degrees(prev_coord, coord)
         elapsed = (ts_ms - prev_ts_ms) / 1000.0 if prev_ts_ms and ts_ms > prev_ts_ms else 1.0
-        speed   = distance_meters(prev_coord, coord) / elapsed
-    else:
-        heading = 0.0
-        speed   = 1.4
+        derived_speed = distance_meters(prev_coord, coord) / elapsed
+
+    # GPS heading/speed 신뢰 윈도우(저속 노이즈·극단 과속 배제) + 보행 상한 클램프
+    heading, speed = gps_filter.sanitize_motion(
+        gps_heading, gps_speed, derived_heading, derived_speed)
 
     return PositionSample(
         latitude=coord.latitude,
         longitude=coord.longitude,
         heading_degrees=heading,
-        speed_meters_per_second=min(max(speed, 0.0), 15.0),
+        speed_meters_per_second=speed,
         timestamp_ms=ts_ms,
     )
 
@@ -479,12 +490,20 @@ def _build_map(
         text=["목적지"], textposition="top right", name="목적지", showlegend=False,
     ))
 
-    for i, (r, s) in enumerate(zip(results[:-1], samples[:-1])):
+    # 과거 샘플을 트레이스 1개로 병합(샘플당 트레이스 추가 → figure 비대·렌더 지연 방지).
+    hist_r, hist_s = results[:-1], samples[:-1]
+    if hist_s:
         fig.add_trace(go.Scattermap(
-            lat=[s.latitude], lon=[s.longitude], mode="markers",
-            marker=dict(size=9, color=STATE_COLOR[r.state], opacity=0.55),
+            lat=[s.latitude for s in hist_s],
+            lon=[s.longitude for s in hist_s],
+            mode="markers",
+            marker=dict(size=9, color=[STATE_COLOR[r.state] for r in hist_r], opacity=0.55),
             showlegend=False,
-            hovertemplate=f"샘플 {i+1} | {STATE_LABEL[r.state]} | {r.metrics.distance_from_route_meters:.1f}m<extra></extra>",
+            hovertext=[
+                f"샘플 {i+1} | {STATE_LABEL[r.state]} | {r.metrics.distance_from_route_meters:.1f}m"
+                for i, r in enumerate(hist_r)
+            ],
+            hoverinfo="text",
         ))
 
     if results:
@@ -699,6 +718,12 @@ def _try_activate_booking(origin: Optional[Coordinate]) -> None:
 
 # ── 사이드바 섹션 ─────────────────────────────────────────────────────────────
 
+@st.cache_data(ttl=600, show_spinner=False)
+def _reverse_geocode_cached(lat: float, lon: float) -> Optional[str]:
+    """좌표→주소 역지오코딩(캐시). 같은 위치 반복 호출 시 네트워크·지연 절약."""
+    return reverse_geocode(Coordinate(latitude=lat, longitude=lon))
+
+
 @st.cache_data(ttl=300, show_spinner=False)
 def _suggest_destinations(query: str) -> list:
     """검색어 후보 목록(캐시). 같은 검색어는 재호출 없이 즉시 반환 — API 절약·rerun 안전."""
@@ -767,23 +792,24 @@ def _sidebar_destination(favorites: list) -> None:
     else:
         st.session_state["nav_dest_picked"] = None
 
-    if favorites:
-        fav_opts = ["선택 안 함"] + [f"{f['name']} · {f['address']}" for f in favorites]
-        sel = st.selectbox("즐겨찾기에서 선택", fav_opts, key="fav_dest_sel")
-        if sel != "선택 안 함":
-            addr = favorites[fav_opts.index(sel) - 1]["address"]
-            if st.button("목적지에 입력", key="fav_to_dest", use_container_width=True):
-                st.session_state["nav_dest_input"] = addr
-                st.rerun()
-
     history = st.session_state["nav_search_history"]
-    if history:
-        st.caption("최근 검색")
-        for i, h in enumerate(history[:5]):
-            label = f"🕐 {h['query']}{_exit_tag(h['query'])}"
-            if st.button(label, key=f"hist_{i}", use_container_width=True):
-                st.session_state["nav_pending_hist"] = h
-                st.rerun()
+    if favorites or history:
+        with st.expander("⭐ 즐겨찾기 · 최근 검색", expanded=False):
+            if favorites:
+                fav_opts = ["선택 안 함"] + [f"{f['name']} · {f['address']}" for f in favorites]
+                sel = st.selectbox("즐겨찾기에서 선택", fav_opts, key="fav_dest_sel")
+                if sel != "선택 안 함":
+                    addr = favorites[fav_opts.index(sel) - 1]["address"]
+                    if st.button("목적지에 입력", key="fav_to_dest", use_container_width=True):
+                        st.session_state["nav_dest_input"] = addr
+                        st.rerun()
+            if history:
+                st.caption("최근 검색")
+                for i, h in enumerate(history[:5]):
+                    label = f"🕐 {h['query']}{_exit_tag(h['query'])}"
+                    if st.button(label, key=f"hist_{i}", use_container_width=True):
+                        st.session_state["nav_pending_hist"] = h
+                        st.rerun()
 
 
 def _sidebar_favorites(favorites: list) -> None:
@@ -968,8 +994,27 @@ def main() -> None:
                     acc = c.get("accuracy")
                     if gps_filter.is_fix_usable(acc):
                         new_origin = Coordinate(latitude=float(c["latitude"]), longitude=float(c["longitude"]))
-                        st.session_state["nav_origin"] = new_origin
-                        st.session_state["nav_raw_gps"] = geo
+                        # 점프(텔레포트) 가드 — 비현실적으로 튄 fix는 위치 갱신에서 제외.
+                        # 단 연속 기각·장시간 경과 시엔 강제 수용(고착 방지, is_plausible_step 내부 escape).
+                        prev = st.session_state["nav_origin"]
+                        prev_raw = st.session_state["nav_raw_gps"] or {}
+                        prev_acc = prev_raw.get("coords", {}).get("accuracy")
+                        prev_ts = prev_raw.get("timestamp")
+                        new_ts = geo.get("timestamp")
+                        elapsed_ms = (new_ts - prev_ts) if (prev_ts and new_ts and new_ts > prev_ts) else 0
+                        plausible = prev is None or gps_filter.is_plausible_step(
+                            prev.latitude, prev.longitude,
+                            new_origin.latitude, new_origin.longitude,
+                            elapsed_ms, acc, prev_acc,
+                            reject_streak=st.session_state["nav_jump_reject_streak"],
+                        )
+                        if plausible:
+                            st.session_state["nav_origin"] = new_origin
+                            st.session_state["nav_raw_gps"] = geo
+                            st.session_state["nav_jump_reject_streak"] = 0
+                        else:
+                            st.session_state["nav_jump_reject_streak"] += 1
+                            st.caption("⚠️ 이번 측정 위치가 비현실적으로 튀어 무시했습니다 — 이전 위치 유지")
                     elif st.session_state["nav_origin"] is None:
                         st.warning(
                             f"GPS 정확도 낮음 (±{acc:.0f}m > {gps_filter.USABLE_ACCURACY_M:.0f}m) — "
@@ -1003,7 +1048,7 @@ def main() -> None:
             cached_coord: Optional[Coordinate] = st.session_state["nav_origin_address_coord"]
             if cached_coord is None or distance_meters(cached_coord, origin) > 100:
                 try:
-                    addr = reverse_geocode(origin)
+                    addr = _reverse_geocode_cached(round(origin.latitude, 5), round(origin.longitude, 5))
                     st.session_state["nav_origin_address"]       = addr
                     st.session_state["nav_origin_address_coord"] = origin
                 except Exception:
@@ -1028,22 +1073,24 @@ def main() -> None:
         _sidebar_bookings(favorites, origin)
 
         st.divider()
-        st.markdown("**⚙️ 알림 · 재경로 · 임계값**")
-        # 토글·슬라이더를 세로로 쌓아 표시(긴 설명은 help 툴팁으로 압축).
+        st.markdown("**⚙️ 알림 설정**")
+        # 자주 쓰는 토글은 본문에, 민감도 슬라이더는 '고급 설정'으로 접어 화면을 단순화.
         with st.container():
             reroute_on = st.toggle(
-                "자동 재경로", value=st.session_state["nav_reroute_enabled"],
+                "길 벗어나면 자동 재탐색", value=st.session_state["nav_reroute_enabled"],
                 help="경로 이탈·회전 미이행 감지 시 현재 위치 기준으로 재탐색 (15초 쿨다운)")
             alert_on = st.toggle(
-                "경고 알림", value=st.session_state["nav_alert_enabled"],
+                "이탈 시 소리·진동 경고", value=st.session_state["nav_alert_enabled"],
                 help="소리+진동 · 이탈 시작 1회 비프 / 경로 이탈 2회 / 회전 미이행 3회 연속")
             tts_on = st.toggle(
                 "음성 안내", value=st.session_state["nav_tts_enabled"],
                 help="이탈 상태를 한국어 음성(TTS)으로 안내 (브라우저 음성 합성)")
-            drift_t = st.slider("이탈 시작(m)", 5, 20, 10)
-            # 확정 거리는 시작 거리 이상·강한 이탈 거리(기본 25m) 이하(drift<=deviation<=strong).
-            dev_t = st.slider("이탈 확정(m)", drift_t, 25, max(15, drift_t))
-            min_consec = st.slider("연속 샘플", 1, 5, 3)
+            with st.expander("🔧 고급 설정 (이탈 감지 민감도)", expanded=False):
+                st.caption("GPS가 얼마나 벗어나야 경고할지 — 보통은 기본값 그대로 두세요")
+                drift_t = st.slider("이탈 시작(m)", 5, 20, 10)
+                # 확정 거리는 시작 거리 이상·강한 이탈 거리(기본 25m) 이하(drift<=deviation<=strong).
+                dev_t = st.slider("이탈 확정(m)", drift_t, 25, max(15, drift_t))
+                min_consec = st.slider("연속 샘플", 1, 5, 3)
         st.session_state["nav_reroute_enabled"] = reroute_on
         st.session_state["nav_alert_enabled"] = alert_on
         st.session_state["nav_tts_enabled"] = tts_on
@@ -1120,6 +1167,7 @@ def main() -> None:
                         "nav_results":  [],
                         "nav_samples":  [],
                         "nav_arrival_summary": None,
+                        "nav_start_ts_ms": None,
                     })
                     st.rerun()
 
@@ -1149,6 +1197,12 @@ def main() -> None:
             st.session_state["nav_samples"].append(sample)
             st.session_state["nav_prev_coord"]   = origin
             st.session_state["nav_prev_ts_ms"]   = sample.timestamp_ms
+            if st.session_state["nav_start_ts_ms"] is None:
+                st.session_state["nav_start_ts_ms"] = sample.timestamp_ms  # 여정 시작(전체 소요시간 기준)
+            # 누적 상한(슬라이싱 호환 위해 list 유지) — 장시간 보행 시 렌더·메모리 폭증 차단.
+            if len(st.session_state["nav_results"]) > _MAX_SAMPLES:
+                st.session_state["nav_results"] = st.session_state["nav_results"][-_MAX_SAMPLES:]
+                st.session_state["nav_samples"] = st.session_state["nav_samples"][-_MAX_SAMPLES:]
 
             acc = (st.session_state["nav_raw_gps"] or {}).get("coords", {}).get("accuracy")
             lvl = gps_filter.alert_level(acc, result.state)
