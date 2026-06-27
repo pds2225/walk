@@ -166,6 +166,7 @@ def _init() -> None:
         "nav_route_engine": None,
         "nav_route_info": None,
         "nav_arrival_summary": None,
+        "nav_start_ts_ms": None,
     }.items():
         if k not in st.session_state:
             st.session_state[k] = v
@@ -184,6 +185,7 @@ def _reset() -> None:
     st.session_state["nav_last_reroute_ts_ms"] = None
     st.session_state["nav_reroute_count"] = 0
     st.session_state["nav_arrival_summary"] = None
+    st.session_state["nav_start_ts_ms"] = None
 
 
 def _activate_route(
@@ -394,8 +396,12 @@ def _maybe_finish_arrival(origin: Coordinate) -> bool:
 
     parts: list[str] = []
     samples = st.session_state["nav_samples"]
-    if samples:
-        elapsed_min = (int(time.time() * 1000) - samples[0].timestamp_ms) / 60_000
+    # 여정 시작 시각 기준(샘플 상한 trim과 무관) — 없으면 현재 버퍼 첫 샘플로 폴백.
+    start_ts = st.session_state.get("nav_start_ts_ms")
+    if start_ts is None and samples:
+        start_ts = samples[0].timestamp_ms
+    if start_ts is not None:
+        elapsed_min = (int(time.time() * 1000) - start_ts) / 60_000
         parts.append(f"소요 약 {max(1, round(elapsed_min))}분")
     if st.session_state.get("nav_reroute_count", 0) > 0:
         parts.append(f"재경로 {st.session_state['nav_reroute_count']}회")
@@ -1161,6 +1167,7 @@ def main() -> None:
                         "nav_results":  [],
                         "nav_samples":  [],
                         "nav_arrival_summary": None,
+                        "nav_start_ts_ms": None,
                     })
                     st.rerun()
 
@@ -1190,6 +1197,8 @@ def main() -> None:
             st.session_state["nav_samples"].append(sample)
             st.session_state["nav_prev_coord"]   = origin
             st.session_state["nav_prev_ts_ms"]   = sample.timestamp_ms
+            if st.session_state["nav_start_ts_ms"] is None:
+                st.session_state["nav_start_ts_ms"] = sample.timestamp_ms  # 여정 시작(전체 소요시간 기준)
             # 누적 상한(슬라이싱 호환 위해 list 유지) — 장시간 보행 시 렌더·메모리 폭증 차단.
             if len(st.session_state["nav_results"]) > _MAX_SAMPLES:
                 st.session_state["nav_results"] = st.session_state["nav_results"][-_MAX_SAMPLES:]
