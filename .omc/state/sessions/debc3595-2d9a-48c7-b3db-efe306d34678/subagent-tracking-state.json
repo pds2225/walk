@@ -1,0 +1,29 @@
+{
+  "agents": [
+    {
+      "agent_id": "a5af2ffc7da3e2741",
+      "agent_type": "workflow-subagent",
+      "started_at": "2026-06-27T18:42:44.129Z",
+      "parent_mode": "none",
+      "status": "running"
+    },
+    {
+      "agent_id": "a3d013c0fde863ddb",
+      "agent_type": "workflow-subagent",
+      "started_at": "2026-06-27T18:42:44.095Z",
+      "parent_mode": "none",
+      "status": "running"
+    },
+    {
+      "agent_id": "aed58b40d9a3ed231",
+      "agent_type": "workflow-subagent",
+      "started_at": "2026-06-27T18:42:44.201Z",
+      "parent_mode": "none",
+      "status": "running"
+    }
+  ],
+  "total_spawned": 1,
+  "total_completed": 0,
+  "total_failed": 0,
+  "last_updated": "2026-06-27T18:42:44.317Z"
+}

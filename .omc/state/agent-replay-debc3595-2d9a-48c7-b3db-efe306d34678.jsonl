@@ -1,0 +1,4 @@
+{"t":0,"agent":"system","event":"skill_invoked","skill_name":"gsync"}
+{"t":0,"agent":"a3d013c","agent_type":"workflow-subagent","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"a5af2ff","agent_type":"workflow-subagent","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"aed58b4","agent_type":"workflow-subagent","event":"agent_start","parent_mode":"none"}

@@ -1,6 +1,13 @@
 # RESUME.md - D:\walk checkpoint
 
-> Updated: 2026-06-25
+> Updated: 2026-06-28
+
+## 🚀 2026-06-28 — GPS 정확도·속도·UI 개선 착수 (실제사용승인루프 모드)
+- **사용자 목표:** ①GPS 위치 정확도 ②체감 속도/성능 ③쉽고 단순한 UI. "끝까지 자동(구현→테스트→PR)" 모드.
+- **진행:** `walk-improve-audit` 워크플로우 실행 중(3렌즈 병렬 감사 + 안전성 적대검증). 결과의 `implement_now` 항목부터 격리 워크트리에서 구현→`python -m pytest streamlit_walk_engine -q`→PR.
+- **gsync:** behind 1(#16 = `.claude/settings.json` chore, 실사용 영향 0)은 로컬 설정 충돌로 회수 보류(사용자 선택=로컬 유지). 열린 PR 0.
+- **night-autodev:** 예약 정상(매일 0:30), 손댈 것 없음.
+- **안전 불변:** engine.py 코어 비침습 / 안전기능(accuracy 게이팅·is_fix_usable·재경로 워밍업·is_arrival·decide_alert) 보존 / 1_Navigation.py 최소변경 / pytest 통과 유지.
 
 ## 🧹 2026-06-25 세션정리 — 닫아도 안전 ✅
 - 코드 변경 0·로컬 main=origin/main(0/0) 동기화 확인. 이 창은 **지금 닫거나 /clear 해도 손실 없음**.
