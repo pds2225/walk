@@ -202,8 +202,8 @@
   "hotPaths": [
     {
       "path": "streamlit_walk_engine\\pages\\1_Navigation.py",
-      "accessCount": 66,
-      "lastAccessed": 1782585792527,
+      "accessCount": 112,
+      "lastAccessed": 1782586094548,
       "type": "file"
     },
     {
@@ -217,6 +217,12 @@
       "accessCount": 26,
       "lastAccessed": 1782585840463,
       "type": "file"
+    },
+    {
+      "path": "streamlit_walk_engine",
+      "accessCount": 24,
+      "lastAccessed": 1782586001157,
+      "type": "directory"
     },
     {
       "path": "DONE.md",
@@ -249,15 +255,9 @@
       "type": "file"
     },
     {
-      "path": "streamlit_walk_engine",
-      "accessCount": 12,
-      "lastAccessed": 1782585786284,
-      "type": "directory"
-    },
-    {
       "path": "streamlit_walk_engine\\gps_filter.py",
-      "accessCount": 8,
-      "lastAccessed": 1782585776424,
+      "accessCount": 10,
+      "lastAccessed": 1782585939672,
       "type": "file"
     },
     {
@@ -285,15 +285,15 @@
       "type": "directory"
     },
     {
-      "path": "package.json",
-      "accessCount": 5,
-      "lastAccessed": 1781720514073,
+      "path": "streamlit_walk_engine\\scenarios.py",
+      "accessCount": 6,
+      "lastAccessed": 1782586132831,
       "type": "file"
     },
     {
-      "path": "streamlit_walk_engine\\scenarios.py",
+      "path": "package.json",
       "accessCount": 5,
-      "lastAccessed": 1781720594061,
+      "lastAccessed": 1781720514073,
       "type": "file"
     },
     {
@@ -318,6 +318,12 @@
       "path": "packages\\route-engine\\src\\engine\\routeDeviationEngine.ts",
       "accessCount": 4,
       "lastAccessed": 1781720601021,
+      "type": "file"
+    },
+    {
+      "path": "streamlit_walk_engine\\tests\\test_gps_filter.py",
+      "accessCount": 4,
+      "lastAccessed": 1782585993393,
       "type": "file"
     },
     {
@@ -348,12 +354,6 @@
       "path": "streamlit_walk_engine\\requirements.txt",
       "accessCount": 3,
       "lastAccessed": 1782585629650,
-      "type": "file"
-    },
-    {
-      "path": "streamlit_walk_engine\\tests\\test_gps_filter.py",
-      "accessCount": 3,
-      "lastAccessed": 1782585804993,
       "type": "file"
     },
     {
@@ -409,6 +409,12 @@
       "accessCount": 2,
       "lastAccessed": 1781775162440,
       "type": "directory"
+    },
+    {
+      "path": "requirements.txt",
+      "accessCount": 2,
+      "lastAccessed": 1782585940466,
+      "type": "file"
     },
     {
       "path": "packages\\route-engine\\src\\domain\\routeAnalysis.ts",
@@ -468,12 +474,6 @@
       "path": "C:\\Python314\\Lib\\site-packages\\streamlit_js_eval\\index.html",
       "accessCount": 1,
       "lastAccessed": 1781720576958,
-      "type": "file"
-    },
-    {
-      "path": "requirements.txt",
-      "accessCount": 1,
-      "lastAccessed": 1781720592666,
       "type": "file"
     },
     {
