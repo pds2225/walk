@@ -40,7 +40,7 @@ _NOMINATIM_REVERSE = "https://nominatim.openstreetmap.org/reverse"
 _VALHALLA = "https://valhalla1.openstreetmap.de/route"
 _TMAP_PEDESTRIAN = "https://apis.openapi.sk.com/tmap/routes/pedestrian"
 _UA = "walk-navi-mvp/1.0"
-_TIMEOUT = 15
+_TIMEOUT = 8  # 응답은 보통 1~3초 — 상한을 줄여 실패 시 체감 대기 시간 단축
 _HEADERS_KO = {"User-Agent": _UA, "Accept-Language": "ko-KR,ko;q=0.9,en;q=0.8"}
 _GEOCODE_COUNTRY = "kr"  # Nominatim countrycodes — 동명 해외 지명 오선택 방지
 
