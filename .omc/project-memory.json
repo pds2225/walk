@@ -202,8 +202,8 @@
   "hotPaths": [
     {
       "path": "streamlit_walk_engine\\pages\\1_Navigation.py",
-      "accessCount": 112,
-      "lastAccessed": 1782586094548,
+      "accessCount": 115,
+      "lastAccessed": 1782634447855,
       "type": "file"
     },
     {
@@ -220,8 +220,8 @@
     },
     {
       "path": "streamlit_walk_engine",
-      "accessCount": 24,
-      "lastAccessed": 1782586001157,
+      "accessCount": 27,
+      "lastAccessed": 1782634617218,
       "type": "directory"
     },
     {

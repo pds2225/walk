@@ -2,8 +2,32 @@
   "version": 1,
   "entries": {
     "79a93d4a2f8f50b95f852280616242fee1855dc99a3c75211917f55e72e95fae": {
-      "last_emitted_at_ms": 1782633848228,
+      "last_emitted_at_ms": 1782634981463,
       "message": "Use parallel execution for independent tasks. Use run_in_background for long operations (npm install, builds, tests)."
+    },
+    "466399dafa2d20f60587180bad0a07358eb7f2bce724df0ff682f038ad33f5ad": {
+      "last_emitted_at_ms": 1782634971154,
+      "message": "Read multiple files in parallel when possible for faster analysis."
+    },
+    "459c54e5f35d6a58dcd90d2aecc21fa6d1f35d241bc5b134c506f87dc7b6d67b": {
+      "last_emitted_at_ms": 1782634843604,
+      "message": "Combine searches in parallel when investigating multiple patterns."
+    },
+    "445ed27a3872b681d98190bae61ccb84954e1bc4e140df5370be958dee776b3a": {
+      "last_emitted_at_ms": 1782634642638,
+      "message": "Verify changes work after editing. Test functionality before marking complete."
+    },
+    "b2c00acb3f6214acbbea16e60227824b800a6b4a0499462e7b7fc2bde57ffbe6": {
+      "last_emitted_at_ms": 1782634400369,
+      "message": "Spawning agent: oh-my-claudecode:critic (opus) | Task: 출발지 주소표시 계획 Critic 평가"
+    },
+    "9e9381664c5b5f5ec5646874b58f99038f051b39119ea5a26cfe1fe886b04411": {
+      "last_emitted_at_ms": 1782634233387,
+      "message": "Spawning agent: oh-my-claudecode:architect (opus) | Task: 출발지 주소표시 계획 Architect 리뷰"
+    },
+    "0737ba4cb66fd0f7bb4bd28972aed504448f9f70e5a9f1b0c0fab2793852614c": {
+      "last_emitted_at_ms": 1782633945039,
+      "message": "Spawning agent: oh-my-claudecode:analyst (inherit) | Task: Gap analysis for reverse-geocode address display"
     },
     "07ea4bd8f2a7ce5a5751b8789ed6422c5d31fc346c4d7d623365c7f70f6276ba": {
       "last_emitted_at_ms": 1782633840024,
@@ -14,5 +38,5 @@
       "message": "The boulder never stops. Continue until all tasks complete."
     }
   },
-  "updated_at": "2026-06-28T08:04:08.228Z"
+  "updated_at": "2026-06-28T08:23:01.463Z"
 }
