@@ -62,7 +62,7 @@ _GPS_POLL_BUCKET_SEC = 3
 _MAX_SAMPLES = 500
 
 
-def _get_geolocation_high_accuracy(component_key: str = "walk_hi_acc_geo"):
+def _get_geolocation_high_accuracy(component_key: str = "walk_hi_acc_geo", multi: bool = False):
     """현재 위치를 enableHighAccuracy로 요청한다 (실패 시 스톡 get_geolocation 폴백).
 
     스톡 get_geolocation()은 getCurrentPosition을 옵션 없이 호출해 고정밀을 요청하지
@@ -70,23 +70,48 @@ def _get_geolocation_high_accuracy(component_key: str = "walk_hi_acc_geo"):
     반환 형태는 get_geolocation()과 동일: {"coords": {...}, "timestamp": ...} /
     {"error": {...}} / None. (_HAS_GEO 가 True일 때만 호출된다.)
 
+    multi=True: watchPosition으로 짧게(최대 ~2초·최대 4fix) 여러 측정을 모아 accuracy가
+    가장 작은(가장 정확한) fix를 고른다. enableHighAccuracy 첫 fix가 흔히 ±40~50m로
+    부정확한 문제를 완화한다 — '최초 위치 취득(nav_origin 미정)' 시에만 쓰고, 라이브
+    폴링은 단일 fix(빠른 응답)를 유지해 샘플 빈도를 떨어뜨리지 않는다.
+
     내비 중 위치가 갱신되도록 표현식 끝에 _GPS_POLL_BUCKET_SEC 주기로 바뀌는 주석
     토큰을 붙인다 — 같은 버킷 안에서는 문자열이 같아 값-변경발 무한 rerun이 없고,
-    버킷이 바뀔 때마다 프런트엔드가 재평가해 새 fix를 받는다.
+    버킷이 바뀔 때마다 프런트엔드가 재평가해 새 fix를 받는다(multi/single 공통 보존).
     """
     bucket = int(time.time() // _GPS_POLL_BUCKET_SEC)
-    js = (
-        "new Promise((resolve)=>{"
-        "if(!navigator.geolocation){resolve({error:{code:0,message:'no geolocation'}});return;}"
-        "navigator.geolocation.getCurrentPosition("
-        "(p)=>resolve({coords:{accuracy:p.coords.accuracy,altitude:p.coords.altitude,"
+    coords_js = (
+        "coords:{accuracy:p.coords.accuracy,altitude:p.coords.altitude,"
         "altitudeAccuracy:p.coords.altitudeAccuracy,heading:p.coords.heading,"
         "latitude:p.coords.latitude,longitude:p.coords.longitude,speed:p.coords.speed},"
-        "timestamp:p.timestamp}),"
-        "(e)=>resolve({error:{code:e.code,message:e.message}}),"
-        "{enableHighAccuracy:true,maximumAge:0,timeout:10000});"
-        f"}})/* {bucket} */"
+        "timestamp:p.timestamp"
     )
+    if multi:
+        js = (
+            "new Promise((resolve)=>{"
+            "if(!navigator.geolocation){resolve({error:{code:0,message:'no geolocation'}});return;}"
+            "var best=null,n=0,done=false;"
+            "var fin=function(){if(done)return;done=true;"
+            "try{navigator.geolocation.clearWatch(wid);}catch(e){}"
+            "resolve(best||{error:{code:3,message:'timeout'}});};"
+            "var wid=navigator.geolocation.watchPosition("
+            "(p)=>{if(best===null||p.coords.accuracy<best.coords.accuracy){best={" + coords_js + "};}"
+            "n++;if(n>=4){fin();}},"
+            "(e)=>{if(best===null&&!done){done=true;resolve({error:{code:e.code,message:e.message}});}},"
+            "{enableHighAccuracy:true,maximumAge:0,timeout:10000});"
+            "setTimeout(fin,2000);"
+            f"}})/* {bucket} */"
+        )
+    else:
+        js = (
+            "new Promise((resolve)=>{"
+            "if(!navigator.geolocation){resolve({error:{code:0,message:'no geolocation'}});return;}"
+            "navigator.geolocation.getCurrentPosition("
+            "(p)=>resolve({" + coords_js + "}),"
+            "(e)=>resolve({error:{code:e.code,message:e.message}}),"
+            "{enableHighAccuracy:true,maximumAge:0,timeout:10000});"
+            f"}})/* {bucket} */"
+        )
     geo = None
     if _js_eval is not None:
         try:
@@ -167,6 +192,7 @@ def _init() -> None:
         "nav_route_info": None,
         "nav_arrival_summary": None,
         "nav_start_ts_ms": None,
+        "nav_recent_fixes": [],
     }.items():
         if k not in st.session_state:
             st.session_state[k] = v
@@ -186,6 +212,7 @@ def _reset() -> None:
     st.session_state["nav_reroute_count"] = 0
     st.session_state["nav_arrival_summary"] = None
     st.session_state["nav_start_ts_ms"] = None
+    st.session_state["nav_recent_fixes"] = []
 
 
 def _activate_route(
@@ -846,8 +873,7 @@ def _sidebar_favorites(favorites: list) -> None:
 
 def _sidebar_bookings(favorites: list, origin: Optional[Coordinate]) -> None:
     """예약 경로 추가·관리 패널 + 자동 활성화 트리거."""
-    st.header("예약 경로")
-    with st.expander("출발지-목적지 예약", expanded=False):
+    with st.expander("🗓️ 예약 경로 (자주 가는 길 저장)", expanded=False):
 
         # 즐겨찾기 → 예약 입력칸 자동 채움
         if favorites:
@@ -910,8 +936,6 @@ def _sidebar_bookings(favorites: list, origin: Optional[Coordinate]) -> None:
                     if st.session_state.get("nav_active_booking_id") == booking["id"]:
                         st.session_state["nav_active_booking_id"] = None
                     st.rerun()
-    else:
-        st.caption("예약된 경로가 없습니다.")
 
     _try_activate_booking(origin)
 
@@ -980,7 +1004,6 @@ def main() -> None:
         favorites = st.session_state["nav_favorites"]
 
         _sidebar_destination(favorites)
-        _sidebar_favorites(favorites)
 
         st.divider()
         st.header("현재 위치")
@@ -988,7 +1011,8 @@ def main() -> None:
             # nav 실행 중이거나 아직 위치 미취득 때만 watchPosition 활성화
             need_gps_poll = st.session_state["nav_running"] or st.session_state["nav_origin"] is None
             if need_gps_poll:
-                geo = _get_geolocation_high_accuracy()
+                # 최초 취득 시에만 다중 샘플로 best fix 선택(첫 fix 부정확 완화), 라이브는 단일.
+                geo = _get_geolocation_high_accuracy(multi=(st.session_state["nav_origin"] is None))
                 if geo and geo.get("coords"):
                     c = geo["coords"]
                     acc = c.get("accuracy")
@@ -1009,7 +1033,29 @@ def main() -> None:
                             reject_streak=st.session_state["nav_jump_reject_streak"],
                         )
                         if plausible:
-                            st.session_state["nav_origin"] = new_origin
+                            # 위치 스무딩: raw_gps는 raw 보존(accuracy 게이팅 일관성), nav_origin만 안정화.
+                            #  큰 이동→raw(코너링/급이동 지연 방지) / 정지→median(이상치 억제) / 보통→accuracy 가중 blend.
+                            #  recent 버퍼=raw fix(median 대표점용), 이동거리(moved) 판정=smoothed prev 기준(의도).
+                            recent = st.session_state["nav_recent_fixes"]
+                            recent.append((new_origin.latitude, new_origin.longitude))
+                            if len(recent) > gps_filter.SMOOTH_RECENT_WINDOW:
+                                del recent[:-gps_filter.SMOOTH_RECENT_WINDOW]
+                            if prev is None:
+                                smoothed = new_origin
+                            else:
+                                moved = distance_meters(prev, new_origin)
+                                if moved >= gps_filter.SMOOTH_SKIP_MOVE_M:
+                                    smoothed = new_origin
+                                elif (moved < gps_filter.SMOOTH_STATIONARY_MOVE_M
+                                      and len(recent) >= gps_filter.SMOOTH_MEDIAN_MIN_FIXES):
+                                    mlat, mlon = gps_filter.median_position(recent)
+                                    smoothed = Coordinate(latitude=mlat, longitude=mlon)
+                                else:
+                                    blat, blon = gps_filter.accuracy_weighted_blend(
+                                        prev.latitude, prev.longitude, prev_acc,
+                                        new_origin.latitude, new_origin.longitude, acc)
+                                    smoothed = Coordinate(latitude=blat, longitude=blon)
+                            st.session_state["nav_origin"] = smoothed
                             st.session_state["nav_raw_gps"] = geo
                             st.session_state["nav_jump_reject_streak"] = 0
                         else:
@@ -1068,9 +1114,6 @@ def main() -> None:
                 st.caption(f"🔴 정확도 낮음 (±{acc:.0f}m) — 약한 경고만")
             else:
                 st.caption("⚪ 수동 입력")
-
-        st.divider()
-        _sidebar_bookings(favorites, origin)
 
         st.divider()
         st.markdown("**⚙️ 알림 설정**")
@@ -1179,6 +1222,11 @@ def main() -> None:
             st.session_state["nav_running"] = False
             st.session_state["nav_arrival_summary"] = None
             st.rerun()
+
+    # ── 자주 가는 길·관리 (핵심 동선 아래로 배치) ─────────────────────────────
+    st.divider()
+    _sidebar_favorites(favorites)
+    _sidebar_bookings(favorites, origin)
 
     # ── 도착 판정 (이탈 판정보다 우선) ────────────────────────────────────────
     arrived_now = False

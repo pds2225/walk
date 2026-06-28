@@ -34,6 +34,8 @@ from gps_filter import (
     in_reroute_warmup,
     is_plausible_step,
     sanitize_motion,
+    accuracy_weighted_blend,
+    median_position,
 )
 
 
@@ -418,3 +420,46 @@ class TestSanitizeMotion:
 
     def test_overspeed_gps_no_derived_returns_default(self):
         assert sanitize_motion(270.0, 10.0, None, None) == (0.0, WALK_SPEED_DEFAULT)
+
+
+class TestAccuracyWeightedBlend:
+    def test_equal_accuracy_midpoint(self):
+        assert accuracy_weighted_blend(0.0, 0.0, 10.0, 10.0, 10.0, 10.0) == (5.0, 5.0)
+
+    def test_new_more_accurate_biases_to_new(self):
+        # new(acc 1) ≪ prev(acc 100) → 결과가 new(10,10) 쪽으로 강하게 치우침
+        lat, lon = accuracy_weighted_blend(0.0, 0.0, 100.0, 10.0, 10.0, 1.0)
+        assert lat > 9.0 and lon > 9.0
+
+    def test_prev_acc_none_returns_new(self):
+        assert accuracy_weighted_blend(0.0, 0.0, None, 7.0, 8.0, 5.0) == (7.0, 8.0)
+
+    def test_new_acc_none_returns_new(self):
+        assert accuracy_weighted_blend(0.0, 0.0, 5.0, 7.0, 8.0, None) == (7.0, 8.0)
+
+    def test_zero_total_returns_new(self):
+        assert accuracy_weighted_blend(0.0, 0.0, 0.0, 7.0, 8.0, 0.0) == (7.0, 8.0)
+
+    def test_same_point_returns_same(self):
+        assert accuracy_weighted_blend(3.0, 4.0, 10.0, 3.0, 4.0, 10.0) == (3.0, 4.0)
+
+
+class TestMedianPosition:
+    def test_odd_count(self):
+        assert median_position([(1.0, 1.0), (2.0, 2.0), (3.0, 3.0)]) == (2.0, 2.0)
+
+    def test_even_count_averages_middle(self):
+        assert median_position([(1.0, 1.0), (3.0, 3.0)]) == (2.0, 2.0)
+
+    def test_outlier_resilience(self):
+        # 근접 2개 + 멀리 1개 → median이 근접쪽(이상치 무시)
+        lat, lon = median_position([(1.0, 1.0), (1.1, 1.1), (5.0, 5.0)])
+        assert lat == 1.1 and lon == 1.1
+
+    def test_single_point(self):
+        assert median_position([(2.5, 3.5)]) == (2.5, 3.5)
+
+    def test_empty_raises(self):
+        import pytest
+        with pytest.raises(ValueError):
+            median_position([])
