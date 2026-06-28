@@ -1,18 +1,30 @@
 {
   "version": 1,
   "entries": {
-    "466399dafa2d20f60587180bad0a07358eb7f2bce724df0ff682f038ad33f5ad": {
-      "last_emitted_at_ms": 1782609637413,
-      "message": "Read multiple files in parallel when possible for faster analysis."
-    },
     "4f7a67fba0a8473e9883d9e8dffbb2d72e00a4a1eeb4fa80cb14213b167dc90f": {
-      "last_emitted_at_ms": 1782609551830,
+      "last_emitted_at_ms": 1782610558836,
       "message": "Mark todos in_progress BEFORE starting, completed IMMEDIATELY after finishing."
     },
     "445ed27a3872b681d98190bae61ccb84954e1bc4e140df5370be958dee776b3a": {
-      "last_emitted_at_ms": 1782609502835,
+      "last_emitted_at_ms": 1782610404119,
       "message": "Verify changes work after editing. Test functionality before marking complete."
+    },
+    "459c54e5f35d6a58dcd90d2aecc21fa6d1f35d241bc5b134c506f87dc7b6d67b": {
+      "last_emitted_at_ms": 1782610266100,
+      "message": "Combine searches in parallel when investigating multiple patterns."
+    },
+    "79a93d4a2f8f50b95f852280616242fee1855dc99a3c75211917f55e72e95fae": {
+      "last_emitted_at_ms": 1782610161532,
+      "message": "Use parallel execution for independent tasks. Use run_in_background for long operations (npm install, builds, tests)."
+    },
+    "a2d25ff2929a48401485fcac6540370a1aa962381c05c3f506c64e256e74298d": {
+      "last_emitted_at_ms": 1782610154111,
+      "message": "Spawning agent: oh-my-claudecode:code-reviewer (opus) | Task: PR #23 독립 코드 검토"
+    },
+    "466399dafa2d20f60587180bad0a07358eb7f2bce724df0ff682f038ad33f5ad": {
+      "last_emitted_at_ms": 1782609978229,
+      "message": "Read multiple files in parallel when possible for faster analysis."
     }
   },
-  "updated_at": "2026-06-28T01:20:37.413Z"
+  "updated_at": "2026-06-28T01:35:58.836Z"
 }

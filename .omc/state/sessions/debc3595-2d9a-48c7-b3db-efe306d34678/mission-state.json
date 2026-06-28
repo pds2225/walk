@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-06-27T19:09:44.987Z",
+  "updatedAt": "2026-06-28T01:32:27.571Z",
   "missions": [
     {
       "id": "session:debc3595-2d9a-48c7-b3db-efe306d34678:none",
@@ -7,15 +7,15 @@
       "name": "none",
       "objective": "Session mission",
       "createdAt": "2026-06-27T18:42:44.095Z",
-      "updatedAt": "2026-06-27T19:09:44.987Z",
+      "updatedAt": "2026-06-28T01:32:27.571Z",
       "status": "done",
-      "workerCount": 19,
+      "workerCount": 20,
       "taskCounts": {
-        "total": 19,
+        "total": 20,
         "pending": 0,
         "blocked": 0,
         "inProgress": 0,
-        "completed": 19,
+        "completed": 20,
         "failed": 0
       },
       "agents": [
@@ -208,25 +208,19 @@
           "latestUpdate": "completed",
           "completedSummary": null,
           "updatedAt": "2026-06-27T19:09:44.987Z"
+        },
+        {
+          "name": "code-reviewer:a19eeff",
+          "role": "code-reviewer",
+          "ownership": "a19eeffa911033bf0",
+          "status": "done",
+          "currentStep": null,
+          "latestUpdate": "completed",
+          "completedSummary": null,
+          "updatedAt": "2026-06-28T01:32:27.571Z"
         }
       ],
       "timeline": [
-        {
-          "id": "session-stop:a272b20d535a7b0f5:2026-06-27T18:49:11.855Z",
-          "at": "2026-06-27T18:49:11.855Z",
-          "kind": "completion",
-          "agent": "workflow-subagent:a272b20",
-          "detail": "completed",
-          "sourceKey": "session-stop:a272b20d535a7b0f5"
-        },
-        {
-          "id": "session-stop:a3413f63d73951b6b:2026-06-27T18:49:41.669Z",
-          "at": "2026-06-27T18:49:41.669Z",
-          "kind": "completion",
-          "agent": "workflow-subagent:a3413f6",
-          "detail": "completed",
-          "sourceKey": "session-stop:a3413f63d73951b6b"
-        },
         {
           "id": "session-start:ae35e3469f9741101:2026-06-27T19:07:09.434Z",
           "at": "2026-06-27T19:07:09.434Z",
@@ -242,6 +236,22 @@
           "agent": "code-reviewer:ae35e34",
           "detail": "completed",
           "sourceKey": "session-stop:ae35e3469f9741101"
+        },
+        {
+          "id": "session-start:a19eeffa911033bf0:2026-06-28T01:29:17.519Z",
+          "at": "2026-06-28T01:29:17.519Z",
+          "kind": "update",
+          "agent": "code-reviewer:a19eeff",
+          "detail": "started code-reviewer:a19eeff",
+          "sourceKey": "session-start:a19eeffa911033bf0"
+        },
+        {
+          "id": "session-stop:a19eeffa911033bf0:2026-06-28T01:32:27.571Z",
+          "at": "2026-06-28T01:32:27.571Z",
+          "kind": "completion",
+          "agent": "code-reviewer:a19eeff",
+          "detail": "completed",
+          "sourceKey": "session-stop:a19eeffa911033bf0"
         }
       ]
     }

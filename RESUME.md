@@ -2,17 +2,19 @@
 
 > Updated: 2026-06-28
 
-## ✅ 2026-06-28 — GPS 정확도·속도·UI 개선 완료 (PR #22 머지)
-- **사용자 목표:** ①GPS 위치 정확도 ②속도 ③쉽고 단순한 UI — 9건 구현·머지 완료(실제사용승인루프 모드).
+## ✅ 2026-06-28 — GPS 정확도·속도·UI 개선 1·2차 완료 (PR #22·#23 머지)
+- **사용자 목표:** GPS 위치 정확도·속도·쉬운 UI — 1차 9건 + 2차 5건 = **14건 구현·머지 완료**(실제사용승인루프).
+- **2차(PR #23):** GPS 최초취득 다중샘플(gps-1)·정지 median/가중 blend 스무딩(gps-3/5, 큰 이동은 raw로 코너링 지연 방지), 동선 재배열(nav-2 즐겨찾기·예약을 핵심동선 아래로)·예약 섹션 접기(nav-3). pytest 150 passed(순수함수 신규 11). code-reviewer APPROVE(🔴0).
+- **1차(PR #22):** ①GPS 위치 정확도 ②속도 ③쉽고 단순한 UI — 9건 구현·머지 완료(실제사용승인루프 모드).
 - **머지됨(PR #22 → origin/main):**
   - GPS: `gps_filter.py` 순수함수 2종(`is_plausible_step` 점프제거+고착방지 escape, `sanitize_motion` 모션 신뢰) +단위테스트 15건, `1_Navigation.py` 점프가드 배선·`_make_sample` 교체.
   - 속도: 지도 트레이스 N→1 병합, 역지오코딩 캐시, 샘플 상한 500, 경로 타임아웃 15→8초.
   - UI: 민감도 슬라이더 '고급 설정' 접기, 토글 쉬운 말, 즐겨찾기·최근검색 묶기. +도착 소요시간 '여정 시작' 기준(trim 영향 제거, reviewer 지적 fast-follow).
 - **검증:** pytest 139 passed(기존 124+신규 15) · py_compile · AppTest 렌더 OK. code-reviewer APPROVE(🔴 0).
-- **2차 보류(미구현):** gps-1(JS 다중샘플·실기기 필요), gps-3/gps-5(엔진 입력 영향·상호 의존), nav-2/nav-3(동선 재배치·중위험). 감사 전체결과: `tasks/wian3sb04.output`.
-- **실기기 QA 권장:** GPS 점프가드·heading은 브라우저 전용이라 자동테스트 미커버 — 실제 폰 보행 실측 권장.
-- **정리 잔재:** `D:\walk-improve` 워크트리 폴더가 파일잠금으로 물리삭제 실패(git 등록·브랜치는 정리완료). PC 재시작 후 수동 삭제.
-- **gsync:** behind 1(#16 settings.json, 실사용 영향 0)은 로컬 유지 보류(사용자 선택). 이제 origin/main은 PR#22 포함 → 로컬 `D:\walk` main은 그만큼 더 behind(미pull, 사용자 선택대로).
+- **감사 전체결과:** `tasks/wian3sb04.output` (15건 중 14건 구현 완료 — gps-1~5·perf-1~4·nav-1~5).
+- **⚠️ 실기기 QA 미완(필수, 다음 액션):** GPS watchPosition(gps-1)·nav_origin 스무딩(gps-3/5)·점프가드는 브라우저 전용 → pytest 미커버. 실폰 보행에서 ①최초위치 정확·취득속도 ②정지 핀 안정 ③코너링 시 이탈감지 지연無 ④동선(목적지→탐색→시작) 확인 권장.
+- **정리 잔재:** `D:\walk-improve`·`D:\walk-gps2` 워크트리 폴더가 파일잠금으로 물리삭제 실패(git 등록·브랜치는 정리완료). PC 재시작 후 수동 삭제.
+- **gsync:** behind(#16 settings.json, 실사용 영향 0)은 로컬 유지 보류(사용자 선택). origin/main은 PR #22·#23 포함 → 로컬 `D:\walk` main은 그만큼 더 behind(미pull, 사용자 선택대로).
 - **안전 불변(유지됨):** engine.py 코어 비침습 / 안전기능(accuracy 게이팅·is_fix_usable·재경로 워밍업·is_arrival·decide_alert) 보존 / 1_Navigation.py 최소변경 / pytest green.
 
 ## 🧹 2026-06-25 세션정리 — 닫아도 안전 ✅

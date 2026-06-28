@@ -37,3 +37,5 @@
 {"t":0,"agent":"a3413f6","agent_type":"workflow-subagent","event":"agent_stop","success":true,"duration_ms":250913}
 {"t":0,"agent":"ae35e34","agent_type":"code-reviewer","event":"agent_start","parent_mode":"none"}
 {"t":0,"agent":"ae35e34","agent_type":"code-reviewer","event":"agent_stop","success":true,"duration_ms":155553}
+{"t":0,"agent":"a19eeff","agent_type":"code-reviewer","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"a19eeff","agent_type":"code-reviewer","event":"agent_stop","success":true,"duration_ms":190052}
