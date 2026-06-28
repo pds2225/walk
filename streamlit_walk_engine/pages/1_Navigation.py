@@ -589,22 +589,6 @@ def _build_placeholder_map(center: Optional[Coordinate]) -> go.Figure:
 
 # ── 판정 패널 ─────────────────────────────────────────────────────────────────
 
-def _render_status_badge(results: list[EngineResult]) -> None:
-    if not results:
-        return
-    last = results[-1]
-    st.markdown(
-        f'<div style="background:{STATE_COLOR[last.state]};color:white;font-weight:bold;'
-        f'padding:14px 18px;border-radius:10px;text-align:center;font-size:1.15rem;'
-        f'margin-bottom:8px">'
-        f'{STATE_LABEL[last.state]}'
-        f'<span style="font-size:0.85rem;font-weight:normal;margin-left:12px;opacity:0.9">'
-        f'{ACTION_LABEL[last.suggested_next_action]}'
-        f'</span></div>',
-        unsafe_allow_html=True,
-    )
-
-
 def _render_metrics(results: list[EngineResult]) -> None:
     if not results:
         if st.session_state.get("nav_running"):
@@ -613,6 +597,7 @@ def _render_metrics(results: list[EngineResult]) -> None:
             st.info("내비게이션을 시작하면 실시간 판정이 표시됩니다.")
         return
     last = results[-1]
+    # ── 상태(가장 큰 시각 요소) ──
     st.markdown(
         f'<div style="background:{STATE_COLOR[last.state]};color:white;font-weight:bold;'
         f'padding:10px 18px;border-radius:10px;text-align:center;font-size:1.05rem;'
@@ -625,21 +610,37 @@ def _render_metrics(results: list[EngineResult]) -> None:
         f'🔔 {ACTION_LABEL[last.suggested_next_action]}</div>',
         unsafe_allow_html=True,
     )
-    st.divider()
-    st.metric("이탈 점수",    f"{last.score:.3f}")
-    st.metric("경로까지 거리", f"{last.metrics.distance_from_route_meters:.1f} m")
-    st.metric("헤딩 차이",    f"{last.metrics.heading_difference_degrees:.0f}°")
-    st.metric("샘플 수",      len(results))
-    if last.metrics.distance_to_next_turn_point_meters is not None:
-        st.metric("다음 회전", f"{last.metrics.distance_to_next_turn_point_meters:.0f} m")
+
+    # ── 보행자 핵심 지표 (크게 위에): 다음 회전 = '지금 할 일', 경로까지 거리 ──
+    next_turn_m = last.metrics.distance_to_next_turn_point_meters
+    if next_turn_m is not None:
         info = st.session_state.get("nav_route_info")
         turn_id = last.metrics.nearest_turn_point_id
-        if info is not None and turn_id and info.turn_descriptions.get(turn_id):
-            st.caption(f"↪️ {info.turn_descriptions[turn_id]}")
+        turn_desc = (
+            info.turn_descriptions.get(turn_id)
+            if (info is not None and turn_id) else None
+        )
+        st.markdown(
+            f'<div style="background:#1d6fb8;color:white;border-radius:10px;'
+            f'padding:12px 16px;text-align:center;margin:8px 0 4px">'
+            f'<div style="font-size:0.8rem;opacity:0.9">↪️ 다음 회전까지</div>'
+            f'<div style="font-size:1.6rem;font-weight:bold">{next_turn_m:.0f} m</div>'
+            + (f'<div style="font-size:0.9rem;margin-top:2px">{turn_desc}</div>' if turn_desc else "")
+            + '</div>',
+            unsafe_allow_html=True,
+        )
+    cols = st.columns(2)
+    cols[0].metric("경로까지 거리", f"{last.metrics.distance_from_route_meters:.1f} m")
     if last.metrics.drift_duration_ms > 0:
-        st.metric("이탈 지속", f"{last.metrics.drift_duration_ms / 1000:.1f}s")
-    if st.session_state.get("nav_reroute_count", 0) > 0:
-        st.metric("재탐색 횟수", f"{st.session_state['nav_reroute_count']}회")
+        cols[1].metric("이탈 지속", f"{last.metrics.drift_duration_ms / 1000:.1f}s")
+
+    # ── 상세 지표 (개발/디버그용 — 기본 접음) ──
+    with st.expander("상세 지표", expanded=False):
+        st.metric("이탈 점수", f"{last.score:.3f}")
+        st.metric("헤딩 차이", f"{last.metrics.heading_difference_degrees:.0f}°")
+        st.metric("샘플 수",   len(results))
+        if st.session_state.get("nav_reroute_count", 0) > 0:
+            st.metric("재탐색 횟수", f"{st.session_state['nav_reroute_count']}회")
 
 
 # ── 예약 추가 헬퍼 ────────────────────────────────────────────────────────────
@@ -761,20 +762,8 @@ def _suggest_destinations(query: str) -> list:
     return geocode_suggestions(query, 5)
 
 
-def _sidebar_destination(favorites: list) -> None:
-    """목적지 입력(최상단) + 출발지(기본 현재 위치·접기) + 경로 찾기 전 후보 미리보기 + 즐겨찾기/히스토리."""
-    # 현재 위치 힌트 (출발지 placeholder·기본값 안내에 공통 사용)
-    origin_now = st.session_state.get("nav_origin")
-    origin_addr = st.session_state.get("nav_origin_address")
-    if origin_addr:
-        cur_hint = origin_addr
-    elif origin_now is not None:
-        cur_hint = f"{origin_now.latitude:.5f}, {origin_now.longitude:.5f}"
-    else:
-        cur_hint = "현재 위치 취득 중…"
-
-    # ── 목적지 (최상단: 첫 행동을 가장 위에) ──
-    st.header("목적지")
+def _render_dest_inputs() -> None:
+    """목적지 text_input + 후보 미리보기 (running 분기와 무관하게 위젯/키 동일)."""
     st.text_input(
         "주소 또는 장소명",
         placeholder="예) 경복궁, 강남역 10번출구",
@@ -798,6 +787,34 @@ def _sidebar_destination(favorites: list) -> None:
             st.session_state["nav_dest_picked"] = None
     else:
         st.session_state["nav_dest_picked"] = None
+
+
+def _sidebar_destination(favorites: list, running: bool = False) -> None:
+    """목적지 입력(최상단) + 출발지(기본 현재 위치·접기) + 경로 찾기 전 후보 미리보기 + 즐겨찾기/히스토리.
+
+    running=True(내비 진행 중)이면 입력 영역을 접어 지도·판정이 한 화면에 보이게 한다.
+    이때 목적지 text_input은 접힌 expander 안에 그대로 마운트해 위젯·세션키를 보존하고,
+    출발지/즐겨찾기 하위 expander는 설정 단계 전용이라 렌더를 생략한다(중첩 expander 금지).
+    """
+    # 현재 위치 힌트 (출발지 placeholder·기본값 안내에 공통 사용)
+    origin_now = st.session_state.get("nav_origin")
+    origin_addr = st.session_state.get("nav_origin_address")
+    if origin_addr:
+        cur_hint = origin_addr
+    elif origin_now is not None:
+        cur_hint = f"{origin_now.latitude:.5f}, {origin_now.longitude:.5f}"
+    else:
+        cur_hint = "현재 위치 취득 중…"
+
+    # ── 내비 진행 중: 입력 영역을 접어 화면을 비운다(위젯은 마운트 유지) ──
+    if running:
+        with st.expander("📍 목적지 바꾸기", expanded=False):
+            _render_dest_inputs()
+        return
+
+    # ── 목적지 (최상단: 첫 행동을 가장 위에) ──
+    st.subheader("목적지")
+    _render_dest_inputs()
 
     # ── 출발지 (기본은 현재 위치이므로 접어 둠 — 바꿀 때만 펼침) ──
     with st.expander("출발지 바꾸기 (기본: 현재 위치)", expanded=False):
@@ -958,89 +975,90 @@ def _render_action_buttons() -> None:
     origin: Optional[Coordinate] = st.session_state["nav_origin"]
     dest_text: str = st.session_state.get("nav_dest_input", "")
 
-    c1, c2, c3 = st.columns([2, 1, 1])
-
-    with c1:
-        if origin is None:
-            st.caption("📍 현재 위치 확인 중 — 잡히면 '경로 찾기'가 활성화됩니다")
-        elif not dest_text:
-            st.caption("먼저 목적지를 입력하세요")
-        if st.button("🔍 경로 찾기", disabled=(not dest_text or origin is None)):
-            with st.spinner("경로 찾는 중..."):
-                try:
-                    # 미리보기에서 고른 후보가 있으면 그 좌표로 바로 경로 생성(재지오코딩 생략).
-                    picked = st.session_state.get("nav_dest_picked")
-                    result = picked if picked is not None else geocode_address(dest_text)
-                    if result is None:
-                        st.error("목적지를 찾을 수 없습니다. 다른 주소나 장소명으로 다시 시도해 주세요.")
-                    else:
-                        dest, display_name = result
-                        # 출발지: 입력+선택 후보가 있으면 그 좌표, 없으면 현재 위치(GPS).
-                        start_picked = st.session_state.get("nav_start_picked")
-                        start_input = (st.session_state.get("nav_start_input") or "").strip()
-                        start_coord = start_picked[0] if (start_input and start_picked) else origin
-                        route = _fetch_route(start_coord, dest)
-                        confirmed = _exit_label(dest_text, display_name)
-                        st.session_state.update({
-                            "nav_dest":         dest,
-                            "nav_dest_display": confirmed,
-                            "nav_route":        route,
-                            "nav_engine":       RouteDeviationEngine(route, st.session_state["nav_config"]),
-                        })
-                        _reset()
-                        hist = [h for h in st.session_state["nav_search_history"] if h["query"] != dest_text]
-                        hist.insert(0, {"query": dest_text, "display_name": confirmed,
-                                        "lat": dest.latitude, "lon": dest.longitude})
-                        st.session_state["nav_search_history"] = hist[:10]
-                        _save_list_to_ls(_LS_KEY, hist[:10])
-                        summary = _route_summary_text()
-                        st.success(
-                            f"경로를 찾았어요 — {summary}. ▶ 시작을 누르면 안내가 시작됩니다"
-                            if summary else
-                            "경로를 찾았어요. ▶ 시작을 누르면 안내가 시작됩니다"
-                        )
-                except requests.exceptions.Timeout:
-                    st.error("네트워크 시간 초과. 인터넷 연결을 확인하고 다시 시도해 주세요.")
-                except requests.exceptions.ConnectionError:
-                    st.error("네트워크에 연결할 수 없습니다.")
-                except Exception as e:
-                    st.error(f"경로 찾기 실패: {e}")
-
-        if st.session_state.get("nav_dest_display"):
-            st.info(f"📌 {st.session_state['nav_dest_display']}")
-            summary = _route_summary_text()
-            if summary:
-                st.caption(f"🚶 {summary}")
-        st.caption(f"경로 엔진: {st.session_state.get('nav_route_engine') or route_engine_label()}")
-
-    with c2:
-        route: Optional[RouteModel] = st.session_state["nav_route"]
-        if route is not None:
-            if st.session_state["nav_running"]:
-                if st.button("⏹ 중지"):
-                    st.session_state["nav_running"] = False
-                    st.rerun()
-            else:
-                if st.button("▶ 시작", disabled=(origin is None)):
+    # 모바일 친화: 가로 3열(폰에서 좁음) 대신 세로 스택 + 전폭 버튼으로 터치 타깃 확대.
+    # 경로 찾기(주)는 가장 크게, 시작/초기화는 그 아래.
+    if origin is None:
+        st.caption("📍 현재 위치 확인 중 — 잡히면 '경로 찾기'가 활성화됩니다")
+    elif not dest_text:
+        st.caption("먼저 목적지를 입력하세요")
+    if st.button("🔍 경로 찾기", disabled=(not dest_text or origin is None), use_container_width=True):
+        with st.spinner("경로 찾는 중..."):
+            try:
+                # 미리보기에서 고른 후보가 있으면 그 좌표로 바로 경로 생성(재지오코딩 생략).
+                picked = st.session_state.get("nav_dest_picked")
+                result = picked if picked is not None else geocode_address(dest_text)
+                if result is None:
+                    st.error("목적지를 찾을 수 없습니다. 다른 주소나 장소명으로 다시 시도해 주세요.")
+                else:
+                    dest, display_name = result
+                    # 출발지: 입력+선택 후보가 있으면 그 좌표, 없으면 현재 위치(GPS).
+                    start_picked = st.session_state.get("nav_start_picked")
+                    start_input = (st.session_state.get("nav_start_input") or "").strip()
+                    start_coord = start_picked[0] if (start_input and start_picked) else origin
+                    route = _fetch_route(start_coord, dest)
+                    confirmed = _exit_label(dest_text, display_name)
                     st.session_state.update({
-                        "nav_running":  True,
-                        "nav_engine":   RouteDeviationEngine(route, st.session_state["nav_config"]),
-                        "nav_results":  [],
-                        "nav_samples":  [],
-                        "nav_arrival_summary": None,
-                        "nav_start_ts_ms": None,
+                        "nav_dest":         dest,
+                        "nav_dest_display": confirmed,
+                        "nav_route":        route,
+                        "nav_engine":       RouteDeviationEngine(route, st.session_state["nav_config"]),
                     })
-                    st.toast("🚶 안내를 시작합니다")
-                    st.rerun()
+                    _reset()
+                    hist = [h for h in st.session_state["nav_search_history"] if h["query"] != dest_text]
+                    hist.insert(0, {"query": dest_text, "display_name": confirmed,
+                                    "lat": dest.latitude, "lon": dest.longitude})
+                    st.session_state["nav_search_history"] = hist[:10]
+                    _save_list_to_ls(_LS_KEY, hist[:10])
+                    summary = _route_summary_text()
+                    st.success(
+                        f"경로를 찾았어요 — {summary}. ▶ 시작을 누르면 안내가 시작됩니다"
+                        if summary else
+                        "경로를 찾았어요. ▶ 시작을 누르면 안내가 시작됩니다"
+                    )
+            except requests.exceptions.Timeout:
+                st.error("네트워크 시간 초과. 인터넷 연결을 확인하고 다시 시도해 주세요.")
+            except requests.exceptions.ConnectionError:
+                st.error("네트워크에 연결할 수 없습니다.")
+            except Exception as e:
+                st.error(f"경로 찾기 실패: {e}")
 
-    with c3:
-        if st.button("↺ 초기화"):
-            for k in ("nav_route", "nav_dest", "nav_engine", "nav_results",
-                      "nav_samples", "nav_prev_coord", "nav_prev_ts_ms", "nav_route_info"):
-                st.session_state[k] = [] if "results" in k or "samples" in k else None
-            st.session_state["nav_running"] = False
-            st.session_state["nav_arrival_summary"] = None
-            st.rerun()
+    if st.session_state.get("nav_dest_display"):
+        st.info(f"📌 {st.session_state['nav_dest_display']}")
+        summary = _route_summary_text()
+        if summary:
+            st.caption(f"🚶 {summary}")
+
+    # 시작/중지 (경로가 있을 때만) — 전폭으로 한 손 탭 쉽게. 보행 중 '중지'는 크게 강조.
+    route: Optional[RouteModel] = st.session_state["nav_route"]
+    if route is not None:
+        if st.session_state["nav_running"]:
+            if st.button("⏹ 중지", use_container_width=True, type="primary"):
+                st.session_state["nav_running"] = False
+                st.rerun()
+        else:
+            if st.button("▶ 시작", disabled=(origin is None), use_container_width=True, type="primary"):
+                st.session_state.update({
+                    "nav_running":  True,
+                    "nav_engine":   RouteDeviationEngine(route, st.session_state["nav_config"]),
+                    "nav_results":  [],
+                    "nav_samples":  [],
+                    "nav_arrival_summary": None,
+                    "nav_start_ts_ms": None,
+                })
+                st.toast("🚶 안내를 시작합니다")
+                st.rerun()
+
+    # 초기화는 보조 동작 — 시작/중지 아래 전폭으로 분리(오탭 방지).
+    if st.button("↺ 초기화", use_container_width=True):
+        for k in ("nav_route", "nav_dest", "nav_engine", "nav_results",
+                  "nav_samples", "nav_prev_coord", "nav_prev_ts_ms", "nav_route_info"):
+            st.session_state[k] = [] if "results" in k or "samples" in k else None
+        st.session_state["nav_running"] = False
+        st.session_state["nav_arrival_summary"] = None
+        st.rerun()
+
+    # 경로 엔진명(기술 정보)은 보조 정보 — 작은 캡션으로 맨 아래.
+    st.caption(f"경로 엔진: {st.session_state.get('nav_route_engine') or route_engine_label()}")
 
 
 def main() -> None:
@@ -1115,13 +1133,16 @@ def main() -> None:
     # ── 컨트롤 (사이드바 제거 → 본문 표시) ──────────────────────────────────────
     with st.container():
         favorites = st.session_state["nav_favorites"]
+        running = bool(st.session_state["nav_running"])
 
-        _sidebar_destination(favorites)
+        _sidebar_destination(favorites, running=running)
         # 핵심 동선: 도착지 입력 바로 아래에 경로 탐색/시작 버튼 (GPS·알림설정은 그 아래로).
         _render_action_buttons()
 
-        st.divider()
-        st.header("현재 위치")
+        # 내비 진행 중엔 '현재 위치' 헤더/구분선을 숨겨 지도·판정에 자리를 양보.
+        if not running:
+            st.divider()
+            st.markdown("**현재 위치**")
         if _HAS_GEO:
             # nav 실행 중이거나 아직 위치 미취득 때만 watchPosition 활성화
             need_gps_poll = st.session_state["nav_running"] or st.session_state["nav_origin"] is None
@@ -1210,23 +1231,32 @@ def main() -> None:
                     # 네트워크/파싱 실패 → 주소 미설정, 좌표 폴백 유지(예상외 예외는 삼키지 않고 표면화).
                     pass
             addr = st.session_state["nav_origin_address"]
-            if addr:
-                st.success(f"📍 {addr}")
-            else:
-                st.caption(f"📍 {origin.latitude:.5f}, {origin.longitude:.5f}")
             acc = (st.session_state["nav_raw_gps"] or {}).get("coords", {}).get("accuracy")
             q = gps_filter.accuracy_quality(acc)
-            if q == "good":
-                st.caption(f"🟢 위치 정확 (±{acc:.0f}m)")
-            elif q == "fair":
-                st.caption(f"🟡 위치 보통 (±{acc:.0f}m) — 실내·고층에선 잠깐 부정확할 수 있어요")
-            elif q == "poor":
-                st.caption(f"🔴 위치 약함 (±{acc:.0f}m) — 하늘이 트인 곳으로 나오면 정확해져요")
+            # 내비 중엔 현재 위치 카드(주소·정확도)를 한 줄 caption으로 축약 — 지도에 마커로도 보임.
+            if running:
+                where = addr or f"{origin.latitude:.5f}, {origin.longitude:.5f}"
+                dot = {"good": "🟢", "fair": "🟡", "poor": "🔴"}.get(q, "⚪")
+                st.caption(f"📍 {where}  {dot}")
             else:
-                st.caption("⚪ 수동 입력")
+                if addr:
+                    st.success(f"📍 {addr}")
+                else:
+                    st.caption(f"📍 {origin.latitude:.5f}, {origin.longitude:.5f}")
+                if q == "good":
+                    st.caption(f"🟢 위치 정확 (±{acc:.0f}m)")
+                elif q == "fair":
+                    st.caption(f"🟡 위치 보통 (±{acc:.0f}m) — 실내·고층에선 잠깐 부정확할 수 있어요")
+                elif q == "poor":
+                    st.caption(f"🔴 위치 약함 (±{acc:.0f}m) — 하늘이 트인 곳으로 나오면 정확해져요")
+                else:
+                    st.caption("⚪ 수동 입력")
 
-        st.divider()
-        st.markdown("**⚙️ 알림 설정**")
+        # 알림 설정: nav_config·민감도 슬라이더는 매 rerun 실행돼야 하므로(엔진 재구성)
+        # 위젯 자체는 항상 렌더하고, 헤더/구분선만 내비 중 숨겨 화면을 단순화한다.
+        if not running:
+            st.divider()
+            st.markdown("**⚙️ 알림 설정**")
         # 자주 쓰는 토글은 본문에, 민감도 슬라이더는 '고급 설정'으로 접어 화면을 단순화.
         with st.container():
             reroute_on = st.toggle(
@@ -1254,9 +1284,12 @@ def main() -> None:
         )
 
     # ── 자주 가는 길·관리 (핵심 동선 아래로 배치) ─────────────────────────────
-    st.divider()
-    _sidebar_favorites(favorites)
-    _sidebar_bookings(favorites, origin)
+    # 내비 진행 중엔 관리 패널을 숨긴다 — 예약 자동활성화(_try_activate_booking)는
+    # nav_running=True에서 즉시 return하므로 기능 손실 없이 화면만 비운다.
+    if not running:
+        st.divider()
+        _sidebar_favorites(favorites)
+        _sidebar_bookings(favorites, origin)
 
     # ── 도착 판정 (이탈 판정보다 우선) ────────────────────────────────────────
     arrived_now = False
@@ -1341,25 +1374,31 @@ def main() -> None:
         st.plotly_chart(_build_placeholder_map(origin), use_container_width=True)
         return
 
-    if st.session_state["nav_running"]:
-        if st.session_state["nav_results"]:
-            _render_status_badge(st.session_state["nav_results"])
-        else:
-            # 시작 직후~첫 GPS 샘플 전: '눌렸나?' 혼란 방지용 생존 신호.
-            st.info("🧭 안내 중 — 위치를 받는 중입니다. 곧 첫 판정이 표시됩니다")
-    elif st.session_state.get("nav_arrival_summary"):
+    if (not st.session_state["nav_running"]) and st.session_state.get("nav_arrival_summary"):
         st.success(st.session_state["nav_arrival_summary"])
         st.caption("새 목적지를 입력하거나 ↺ 초기화로 다시 시작하세요")
 
-    map_col, metric_col = st.columns([3, 1], gap="large")
-    with map_col:
+    # 모바일: 가로 [3,1] 분할은 판정 패널이 찌그러진다 → 세로 스택.
+    #   - 보행 중: '지금 할 일'(판정)을 지도 위로 올려 가장 먼저 보이게.
+    #   - 그 외: 지도를 먼저, 판정/요약은 아래로.
+    def _render_map() -> None:
         st.plotly_chart(
             _build_map(route, dest, st.session_state["nav_results"], st.session_state["nav_samples"]),
             use_container_width=True,
         )
-    with metric_col:
-        arrived = (not st.session_state["nav_running"]) and bool(st.session_state.get("nav_arrival_summary"))
-        st.markdown("### 도착 — 안내 종료" if arrived else "### 현재 판정")
+
+    arrived = (not st.session_state["nav_running"]) and bool(st.session_state.get("nav_arrival_summary"))
+    if st.session_state["nav_running"]:
+        if st.session_state["nav_results"]:
+            # 판정(상태·다음 회전·핵심 지표)을 지도 위 가장 큰 요소로.
+            _render_metrics(st.session_state["nav_results"])
+        else:
+            # 시작 직후~첫 GPS 샘플 전: '눌렸나?' 혼란 방지용 생존 신호.
+            st.info("🧭 안내 중 — 위치를 받는 중입니다. 곧 첫 판정이 표시됩니다")
+        _render_map()
+    else:
+        _render_map()
+        st.markdown("#### 도착 — 안내 종료" if arrived else "#### 현재 판정")
         _render_metrics(st.session_state["nav_results"])
 
 
