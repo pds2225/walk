@@ -39,3 +39,5 @@
 {"t":0,"agent":"ae35e34","agent_type":"code-reviewer","event":"agent_stop","success":true,"duration_ms":155553}
 {"t":0,"agent":"a19eeff","agent_type":"code-reviewer","event":"agent_start","parent_mode":"none"}
 {"t":0,"agent":"a19eeff","agent_type":"code-reviewer","event":"agent_stop","success":true,"duration_ms":190052}
+{"t":0,"agent":"system","event":"keyword_detected","keyword":"autopilot"}
+{"t":0,"agent":"system","event":"mode_change","mode_from":"none","mode_to":"autopilot"}
