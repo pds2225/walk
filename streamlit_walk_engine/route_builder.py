@@ -281,6 +281,23 @@ def reverse_geocode(coord: Coordinate) -> str | None:
     return data.get("display_name")
 
 
+# 쉼표로 둘러싸인 한국 5자리 우편번호(Nominatim display_name의 `, 06141,`)만 매칭.
+_POSTCODE_COMMA_RE = re.compile(r",\s*\d{5}(?=\s*,)")
+
+
+def strip_postcode(address: str | None) -> str | None:
+    """주소에서 쉼표로 둘러싸인 한국 5자리 우편번호 세그먼트만 제거한다.
+
+    Nominatim display_name 형식의 `..., 06141, 대한민국`처럼 쉼표 경계의 5자리만
+    대상으로 한다(앞 쉼표·공백·5자리 제거, 뒤 쉼표는 lookahead로 보존). 공백형(Naver)
+    주소는 우편번호를 포함하지 않으므로 건드리지 않고, 쉼표로 둘러싸이지 않은 5자리
+    (건물번호 등)도 보존한다. None/빈 문자열은 그대로 반환(멱등).
+    """
+    if not address:
+        return address
+    return _POSTCODE_COMMA_RE.sub("", address)
+
+
 # ── Valhalla polyline6 디코더 ─────────────────────────────────────────────────
 
 def _decode_polyline6(encoded: str) -> list[Coordinate]:

@@ -19,7 +19,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import route_builder
 from engine import Coordinate, RouteModel
-from route_builder import RouteInfo, _route_from_tmap_features
+from route_builder import RouteInfo, _route_from_tmap_features, strip_postcode
 
 
 def _point(turn_type, lon, lat, description="", **extra_props):
@@ -36,6 +36,42 @@ def _line(*coords):
         "geometry": {"type": "LineString", "coordinates": [list(c) for c in coords]},
         "properties": {},
     }
+
+
+class TestStripPostcode:
+    """우편번호 제거 순수함수 — 쉼표 경계 5자리만 제거, 나머지 보존."""
+
+    def test_removes_comma_bounded_postcode(self):
+        assert strip_postcode("A, 06141, B") == "A, B"
+
+    def test_removes_postcode_in_full_nominatim_address(self):
+        addr = "No Brand Burger, 테헤란로, 역삼1동, 강남구, 서울특별시, 06141, 대한민국"
+        expected = "No Brand Burger, 테헤란로, 역삼1동, 강남구, 서울특별시, 대한민국"
+        assert strip_postcode(addr) == expected
+
+    def test_preserves_space_form_5digits(self):
+        # 공백형(Naver) 주소 — 우편번호 없음, 쉼표 경계 아닌 5자리는 보존
+        assert strip_postcode("서울특별시 강남구 테헤란로 12345") == "서울특별시 강남구 테헤란로 12345"
+
+    def test_preserves_3digit_building_number(self):
+        assert strip_postcode("테헤란로 152, 강남구") == "테헤란로 152, 강남구"
+
+    def test_preserves_5digit_not_comma_bounded(self):
+        # 5자리지만 뒤가 쉼표가 아니면(문자) 보존
+        assert strip_postcode("A, 12345 동, B") == "A, 12345 동, B"
+
+    def test_idempotent_without_postcode(self):
+        assert strip_postcode("A, B") == "A, B"
+
+    def test_idempotent_after_strip(self):
+        once = strip_postcode("A, 06141, B")
+        assert strip_postcode(once) == once
+
+    def test_none_passthrough(self):
+        assert strip_postcode(None) is None
+
+    def test_empty_passthrough(self):
+        assert strip_postcode("") == ""
 
 
 # 실제 TMAP 응답 구조: Point(SP) → LineString → Point(GP) → LineString → ... → Point(EP)
