@@ -1035,6 +1035,7 @@ def main() -> None:
                         if plausible:
                             # 위치 스무딩: raw_gps는 raw 보존(accuracy 게이팅 일관성), nav_origin만 안정화.
                             #  큰 이동→raw(코너링/급이동 지연 방지) / 정지→median(이상치 억제) / 보통→accuracy 가중 blend.
+                            #  recent 버퍼=raw fix(median 대표점용), 이동거리(moved) 판정=smoothed prev 기준(의도).
                             recent = st.session_state["nav_recent_fixes"]
                             recent.append((new_origin.latitude, new_origin.longitude))
                             if len(recent) > gps_filter.SMOOTH_RECENT_WINDOW:

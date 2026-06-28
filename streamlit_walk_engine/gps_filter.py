@@ -293,6 +293,9 @@ def sanitize_motion(
 
 
 # ── 위치 스무딩(떨림 억제·정지 안정) 파라미터 ──────────────────────────────
+# 주의: SMOOTH_SKIP_MOVE_M(8m)은 이탈 시작 임계(기본 drift 10m)보다 작게 유지한다 —
+# blend 정상상태 lag가 이탈 임계에 못 미쳐 정당한 deviated 감지를 지연시키지 않도록.
+# 이탈 임계를 8m 이하로 낮추면 이 값도 함께 낮춰야 한다.
 SMOOTH_RECENT_WINDOW = 5          # 정지 median 계산용 최근 fix 버퍼 길이
 SMOOTH_SKIP_MOVE_M = 8.0          # 이 이상 이동하면 스무딩 생략(코너링·급이동 지연 방지)
 SMOOTH_STATIONARY_MOVE_M = 2.0    # 이 미만 이동이면 정지로 보고 median 사용
