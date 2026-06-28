@@ -948,7 +948,8 @@ def _render_action_buttons() -> None:
 
     origin/dest_text/nav_config 는 세션에서 읽어 위젯 위치와 독립적으로 동작한다.
     슬라이더(고급설정)가 이 버튼보다 아래에 있어도, 버튼 클릭은 별도 rerun이라
-    직전 확정된 nav_config 가 쓰여 stale 이 발생하지 않는다.
+    직전 확정된 nav_config 가 쓰여 stale 이 발생하지 않는다(슬라이더는 collapsed
+    expander 안이라도 매 rerun 실행되어 nav_config 가 매번 재기록됨).
     """
     origin: Optional[Coordinate] = st.session_state["nav_origin"]
     dest_text: str = st.session_state.get("nav_dest_input", "")
@@ -956,6 +957,8 @@ def _render_action_buttons() -> None:
     c1, c2, c3 = st.columns([2, 1, 1])
 
     with c1:
+        if origin is None:
+            st.caption("📍 현재 위치 확인 중 — 잡히면 '경로 탐색'이 활성화됩니다")
         if st.button("🔍 경로 탐색", disabled=(not dest_text or origin is None)):
             with st.spinner("경로 탐색 중..."):
                 try:
