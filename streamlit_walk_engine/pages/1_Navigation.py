@@ -36,7 +36,7 @@ import gps_filter
 from alert_voice import build_tts_script, tts_phrase
 from route_builder import (
     fetch_walking_route_with_engine, geocode_address, geocode_suggestions,
-    reverse_geocode, route_engine_label,
+    reverse_geocode, route_engine_label, strip_postcode,
 )
 
 try:
@@ -1188,10 +1188,13 @@ def main() -> None:
             cached_coord: Optional[Coordinate] = st.session_state["nav_origin_address_coord"]
             if cached_coord is None or distance_meters(cached_coord, origin) > 100:
                 try:
-                    addr = _reverse_geocode_cached(round(origin.latitude, 5), round(origin.longitude, 5))
+                    # 표시 직전 1회 우편번호 제거(Interpretation A) — 두 표시처가 같은 값을 읽어 자동 전파.
+                    addr = strip_postcode(
+                        _reverse_geocode_cached(round(origin.latitude, 5), round(origin.longitude, 5)))
                     st.session_state["nav_origin_address"]       = addr
                     st.session_state["nav_origin_address_coord"] = origin
-                except Exception:
+                except (requests.exceptions.RequestException, ValueError, KeyError):
+                    # 네트워크/파싱 실패 → 주소 미설정, 좌표 폴백 유지(예상외 예외는 삼키지 않고 표면화).
                     pass
             addr = st.session_state["nav_origin_address"]
             if addr:
