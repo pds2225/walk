@@ -290,3 +290,59 @@ def sanitize_motion(
         speed = walk_speed_default
     speed = min(max(speed, 0.0), speed_clamp_max)
     return heading, speed
+
+
+# ── 위치 스무딩(떨림 억제·정지 안정) 파라미터 ──────────────────────────────
+SMOOTH_RECENT_WINDOW = 5          # 정지 median 계산용 최근 fix 버퍼 길이
+SMOOTH_SKIP_MOVE_M = 8.0          # 이 이상 이동하면 스무딩 생략(코너링·급이동 지연 방지)
+SMOOTH_STATIONARY_MOVE_M = 2.0    # 이 미만 이동이면 정지로 보고 median 사용
+SMOOTH_MEDIAN_MIN_FIXES = 3       # median에 필요한 최소 fix 수
+
+
+def accuracy_weighted_blend(
+    prev_lat: float,
+    prev_lon: float,
+    prev_accuracy_m: Optional[float],
+    new_lat: float,
+    new_lon: float,
+    new_accuracy_m: Optional[float],
+) -> tuple[float, float]:
+    """직전 위치와 새 fix를 accuracy 가중으로 섞어 떨림(jitter)을 줄인다.
+
+    더 정확한(accuracy가 작은) 쪽에 더 큰 비중. 새 fix 가중치
+    w_new = prev_acc / (prev_acc + new_acc). prev/new accuracy 중 하나라도
+    None이거나 합이 0이면 새 fix를 그대로 반환(보존).
+    반환은 (lat, lon)만 — accuracy/raw_gps는 호출부가 raw로 유지(게이팅 일관성).
+    """
+    if prev_accuracy_m is None or new_accuracy_m is None:
+        return new_lat, new_lon
+    total = prev_accuracy_m + new_accuracy_m
+    if total <= 0:
+        return new_lat, new_lon
+    w_new = prev_accuracy_m / total
+    w_prev = 1.0 - w_new
+    return (
+        prev_lat * w_prev + new_lat * w_new,
+        prev_lon * w_prev + new_lon * w_new,
+    )
+
+
+def median_position(points: list[tuple[float, float]]) -> tuple[float, float]:
+    """좌표 목록의 축별 중앙값 위치(이상치에 강한 대표점)를 반환한다.
+
+    각 축(lat, lon)을 독립 정렬해 median을 취한다(짝수면 중앙 2개 평균).
+    정지 상태에서 단발 이상치 fix가 핀을 흔드는 것을 억제한다.
+    빈 목록은 호출 금지(ValueError) — 호출부가 길이를 보장한다.
+    """
+    if not points:
+        raise ValueError("median_position: empty points")
+
+    def _median(vals: list[float]) -> float:
+        s = sorted(vals)
+        n = len(s)
+        mid = n // 2
+        if n % 2 == 1:
+            return s[mid]
+        return (s[mid - 1] + s[mid]) / 2.0
+
+    return _median([p[0] for p in points]), _median([p[1] for p in points])
