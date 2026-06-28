@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-06-28T01:32:27.571Z",
+  "updatedAt": "2026-06-28T08:04:03.032Z",
   "missions": [
     {
       "id": "session:debc3595-2d9a-48c7-b3db-efe306d34678:none",
@@ -7,14 +7,14 @@
       "name": "none",
       "objective": "Session mission",
       "createdAt": "2026-06-27T18:42:44.095Z",
-      "updatedAt": "2026-06-28T01:32:27.571Z",
-      "status": "done",
-      "workerCount": 20,
+      "updatedAt": "2026-06-28T08:04:03.032Z",
+      "status": "running",
+      "workerCount": 21,
       "taskCounts": {
-        "total": 20,
+        "total": 21,
         "pending": 0,
         "blocked": 0,
-        "inProgress": 0,
+        "inProgress": 1,
         "completed": 20,
         "failed": 0
       },
@@ -218,25 +218,19 @@
           "latestUpdate": "completed",
           "completedSummary": null,
           "updatedAt": "2026-06-28T01:32:27.571Z"
+        },
+        {
+          "name": "planner:a87e40b",
+          "role": "planner",
+          "ownership": "a87e40be5a8a17f82",
+          "status": "running",
+          "currentStep": null,
+          "latestUpdate": null,
+          "completedSummary": null,
+          "updatedAt": "2026-06-28T08:04:03.032Z"
         }
       ],
       "timeline": [
-        {
-          "id": "session-start:ae35e3469f9741101:2026-06-27T19:07:09.434Z",
-          "at": "2026-06-27T19:07:09.434Z",
-          "kind": "update",
-          "agent": "code-reviewer:ae35e34",
-          "detail": "started code-reviewer:ae35e34",
-          "sourceKey": "session-start:ae35e3469f9741101"
-        },
-        {
-          "id": "session-stop:ae35e3469f9741101:2026-06-27T19:09:44.987Z",
-          "at": "2026-06-27T19:09:44.987Z",
-          "kind": "completion",
-          "agent": "code-reviewer:ae35e34",
-          "detail": "completed",
-          "sourceKey": "session-stop:ae35e3469f9741101"
-        },
         {
           "id": "session-start:a19eeffa911033bf0:2026-06-28T01:29:17.519Z",
           "at": "2026-06-28T01:29:17.519Z",
@@ -252,6 +246,14 @@
           "agent": "code-reviewer:a19eeff",
           "detail": "completed",
           "sourceKey": "session-stop:a19eeffa911033bf0"
+        },
+        {
+          "id": "session-start:a87e40be5a8a17f82:2026-06-28T08:04:03.032Z",
+          "at": "2026-06-28T08:04:03.032Z",
+          "kind": "update",
+          "agent": "planner:a87e40b",
+          "detail": "started planner:a87e40b",
+          "sourceKey": "session-start:a87e40be5a8a17f82"
         }
       ]
     }

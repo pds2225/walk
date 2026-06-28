@@ -179,10 +179,17 @@
       "status": "completed",
       "completed_at": "2026-06-28T01:32:27.571Z",
       "duration_ms": 190052
+    },
+    {
+      "agent_id": "a87e40be5a8a17f82",
+      "agent_type": "oh-my-claudecode:planner",
+      "started_at": "2026-06-28T08:04:03.032Z",
+      "parent_mode": "none",
+      "status": "running"
     }
   ],
-  "total_spawned": 7,
+  "total_spawned": 8,
   "total_completed": 20,
   "total_failed": 0,
-  "last_updated": "2026-06-28T01:32:27.678Z"
+  "last_updated": "2026-06-28T08:04:03.150Z"
 }
