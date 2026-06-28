@@ -2,6 +2,13 @@
 
 > Updated: 2026-06-28
 
+## 📋 2026-06-28 — 출발지 주소표시 계획 합의완료(구현 대기)
+- **요구:** 출발지 '현재 위치'를 좌표→주소(사용자 예시 = Nominatim POI 포함 형식), 우편번호 제거.
+- **ralplan 합의 APPROVE**(Planner→Architect→Critic). 계획: `.omc/plans/walk-origin-address-display.md` / 미해결: `.omc/plans/open-questions.md`.
+- **핵심 진단:** 좌표만 보이는 진짜 원인이 '형식'이 아니라 '주소 미충전' 가능성(클라우드 Nominatim 403/429 예외를 `1_Navigation.py` try/except:pass가 삼켜 nav_origin_address=None) → **진단 hard gate 선행** 후 strip_postcode(쉼표 경계 5자리만, route_builder 순수함수) + provider-agnostic 표시 정규화.
+- **변경 후보:** route_builder.py(strip_postcode)·1_Navigation.py(저장 직전 1회 strip)·test 1. engine 비침습·좌표 폴백 불변.
+- **사용자 확인 필요(구현 전):** ①클라우드 Naver 키 유무(H3 — 있으면 주소 신뢰O·형식 도로명/POI없음, 없으면 POI형식이나 차단 위험) ②'POI(가게명) 포함' 필수 vs best-effort. **구현 미착수(승인 대기).**
+
 ## ✅ 2026-06-28 — GPS 정확도·속도·UI 개선 1·2차 완료 (PR #22·#23 머지)
 - **사용자 목표:** GPS 위치 정확도·속도·쉬운 UI — 1차 9건 + 2차 5건 = **14건 구현·머지 완료**(실제사용승인루프).
 - **2차(PR #23):** GPS 최초취득 다중샘플(gps-1)·정지 median/가중 blend 스무딩(gps-3/5, 큰 이동은 raw로 코너링 지연 방지), 동선 재배열(nav-2 즐겨찾기·예약을 핵심동선 아래로)·예약 섹션 접기(nav-3). pytest 150 passed(순수함수 신규 11). code-reviewer APPROVE(🔴0).

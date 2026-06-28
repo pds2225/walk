@@ -1,6 +1,10 @@
 {
   "version": 1,
   "entries": {
+    "445ed27a3872b681d98190bae61ccb84954e1bc4e140df5370be958dee776b3a": {
+      "last_emitted_at_ms": 1782635093646,
+      "message": "Verify changes work after editing. Test functionality before marking complete."
+    },
     "79a93d4a2f8f50b95f852280616242fee1855dc99a3c75211917f55e72e95fae": {
       "last_emitted_at_ms": 1782634981463,
       "message": "Use parallel execution for independent tasks. Use run_in_background for long operations (npm install, builds, tests)."
@@ -12,10 +16,6 @@
     "459c54e5f35d6a58dcd90d2aecc21fa6d1f35d241bc5b134c506f87dc7b6d67b": {
       "last_emitted_at_ms": 1782634843604,
       "message": "Combine searches in parallel when investigating multiple patterns."
-    },
-    "445ed27a3872b681d98190bae61ccb84954e1bc4e140df5370be958dee776b3a": {
-      "last_emitted_at_ms": 1782634642638,
-      "message": "Verify changes work after editing. Test functionality before marking complete."
     },
     "b2c00acb3f6214acbbea16e60227824b800a6b4a0499462e7b7fc2bde57ffbe6": {
       "last_emitted_at_ms": 1782634400369,
@@ -38,5 +38,5 @@
       "message": "The boulder never stops. Continue until all tasks complete."
     }
   },
-  "updated_at": "2026-06-28T08:23:01.463Z"
+  "updated_at": "2026-06-28T08:24:53.646Z"
 }
