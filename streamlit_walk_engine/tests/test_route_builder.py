@@ -19,7 +19,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import route_builder
 from engine import Coordinate, RouteModel
-from route_builder import RouteInfo, _route_from_tmap_features, strip_postcode
+from route_builder import RouteInfo, _route_from_tmap_features, strip_postcode, format_place_label
 
 
 def _point(turn_type, lon, lat, description="", **extra_props):
@@ -72,6 +72,36 @@ class TestStripPostcode:
 
     def test_empty_passthrough(self):
         assert strip_postcode("") == ""
+
+
+class TestFormatPlaceLabel:
+    """검색 후보 라벨 정제 — POI·동·구만, 우편번호·국가·광역시도 제거."""
+
+    def test_nominatim_full_address_to_poi_dong_gu(self):
+        d = "합정역, 양화로, 홍대, 서교동, 마포구, 서울특별시, 04037, 대한민국"
+        assert format_place_label(d) == "합정역 · 서교동 · 마포구"
+
+    def test_another_dong_distinguished(self):
+        d = "합정역, 양화로, 합정동, 마포구, 서울특별시, 04027, 대한민국"
+        assert format_place_label(d) == "합정역 · 합정동 · 마포구"
+
+    def test_poi_only(self):
+        assert format_place_label("경복궁, 대한민국") == "경복궁"
+
+    def test_no_postcode_gu_only(self):
+        assert format_place_label("강남역, 강남구, 서울특별시, 대한민국") == "강남역 · 강남구"
+
+    def test_space_form_naver_unchanged(self):
+        # 공백형(Naver roadAddress)은 쉼표가 없어 그대로(우편번호만 제거)
+        assert format_place_label("서울특별시 마포구 양화로 45") == "서울특별시 마포구 양화로 45"
+
+    def test_none_and_empty(self):
+        assert format_place_label(None) == ""
+        assert format_place_label("") == ""
+
+    def test_max_three_parts(self):
+        d = "A역, B로, 다동, 라구, 서울특별시, 대한민국"
+        assert format_place_label(d) == "A역 · 다동 · 라구"
 
 
 # 실제 TMAP 응답 구조: Point(SP) → LineString → Point(GP) → LineString → ... → Point(EP)

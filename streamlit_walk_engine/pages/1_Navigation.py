@@ -36,7 +36,7 @@ import gps_filter
 from alert_voice import build_tts_script, tts_phrase
 from route_builder import (
     fetch_walking_route_with_engine, geocode_address, geocode_suggestions,
-    reverse_geocode, route_engine_label, strip_postcode,
+    format_place_label, reverse_geocode, route_engine_label, strip_postcode,
 )
 
 try:
@@ -779,9 +779,13 @@ def _render_dest_inputs() -> None:
         except Exception:
             suggestions = []
         if suggestions:
-            labels = [disp for _, disp in suggestions]
-            choice = st.selectbox(f"도착지 선택 (후보 {len(suggestions)}곳)", labels, key="nav_dest_pick")
-            st.session_state["nav_dest_picked"] = suggestions[labels.index(choice)]
+            choice_idx = st.selectbox(
+                f"도착지 선택 (후보 {len(suggestions)}곳)",
+                range(len(suggestions)),
+                format_func=lambda i: format_place_label(suggestions[i][1]),
+                key="nav_dest_pick",
+            )
+            st.session_state["nav_dest_picked"] = suggestions[choice_idx]
         else:
             st.warning(f"'{dest_q}' — 일치하는 장소를 찾지 못했습니다. 다른 이름이나 가까운 지하철역 출구로 검색해 보세요.")
             st.session_state["nav_dest_picked"] = None
@@ -831,9 +835,13 @@ def _sidebar_destination(favorites: list, running: bool = False) -> None:
             except Exception:
                 s_sugg = []
             if s_sugg:
-                s_labels = [disp for _, disp in s_sugg]
-                s_choice = st.selectbox(f"출발지 선택 (후보 {len(s_sugg)}곳)", s_labels, key="nav_start_pick")
-                st.session_state["nav_start_picked"] = s_sugg[s_labels.index(s_choice)]
+                s_choice_idx = st.selectbox(
+                    f"출발지 선택 (후보 {len(s_sugg)}곳)",
+                    range(len(s_sugg)),
+                    format_func=lambda i: format_place_label(s_sugg[i][1]),
+                    key="nav_start_pick",
+                )
+                st.session_state["nav_start_picked"] = s_sugg[s_choice_idx]
             else:
                 st.warning(f"'{start_q}' — 찾지 못했습니다. 비우면 현재 위치가 출발지로 쓰입니다.")
                 st.session_state["nav_start_picked"] = None
