@@ -298,6 +298,44 @@ def strip_postcode(address: str | None) -> str | None:
     return _POSTCODE_COMMA_RE.sub("", address)
 
 
+# 검색 후보 라벨에서 빼는 군더더기 토큰: 국가·광역시도.
+_LABEL_DROP_TOKENS = frozenset({
+    "대한민국", "South Korea",
+    "서울특별시", "부산광역시", "대구광역시", "인천광역시", "광주광역시",
+    "대전광역시", "울산광역시", "세종특별자치시",
+    "경기도", "강원도", "강원특별자치도", "충청북도", "충청남도",
+    "전라북도", "전북특별자치도", "전라남도", "경상북도", "경상남도",
+    "제주특별자치도", "제주도",
+})
+
+
+def format_place_label(display: str | None, max_parts: int = 3) -> str:
+    """검색 후보 표시 라벨을 핵심(장소·동/가·구)만 남겨 짧게 정제한다.
+
+    Nominatim display_name(쉼표형: 'POI, 로, 동네, 동, 구, 시도, 우편, 국가')에서
+    우편번호·국가·광역시도를 빼고 'POI · 동 · 구' 형태로 압축한다. 동/구가 없으면 있는
+    것만, POI만 있으면 그대로. 공백형(Naver roadAddress)은 우편번호만 제거해 반환한다.
+    None/빈 문자열은 빈 문자열.
+    """
+    s = (strip_postcode(display) or "").strip()
+    if not s:
+        return ""
+    if "," not in s:
+        return s  # 공백형(Naver) — 우편번호만 제거
+    toks = [t.strip() for t in s.split(",") if t.strip() and t.strip() not in _LABEL_DROP_TOKENS]
+    if not toks:
+        return s
+    poi = toks[0]
+    rest = toks[1:]
+    dong = next((t for t in rest if t.endswith(("동", "가", "읍", "면", "리"))), None)
+    gu = next((t for t in rest if t.endswith(("구", "군", "시"))), None)
+    out: list[str] = []
+    for p in (poi, dong, gu):
+        if p and p not in out:
+            out.append(p)
+    return " · ".join(out[:max_parts])
+
+
 # ── Valhalla polyline6 디코더 ─────────────────────────────────────────────────
 
 def _decode_polyline6(encoded: str) -> list[Coordinate]:
