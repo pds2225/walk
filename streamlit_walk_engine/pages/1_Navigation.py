@@ -52,6 +52,12 @@ try:
 except ImportError:
     _HAS_REFRESH = False
 
+try:
+    from streamlit_searchbox import st_searchbox
+    _HAS_SEARCHBOX = True
+except ImportError:
+    _HAS_SEARCHBOX = False
+
 
 # GPS 재측정 주기(초). streamlit_js_eval 프런트엔드는 '같은 js_expressions 문자열'은
 # 다시 평가하지 않으므로(once-per-string 가드), 표현식을 고정하면 위치가 세션당 1회만
@@ -762,8 +768,53 @@ def _suggest_destinations(query: str) -> list:
     return geocode_suggestions(query, 5)
 
 
+def _search_places(query: str) -> list:
+    """st_searchbox 콜백 — 입력 즉시 자동완성 후보를 (라벨, 값) 목록으로 반환.
+
+    라벨=format_place_label(상세, 후보 구분), 값=(Coordinate, display) 튜플.
+    _suggest_destinations 가 @st.cache_data 라 같은 검색어는 즉시 반환된다.
+    빈 입력·오류는 빈 리스트(searchbox가 안전하게 빈 목록을 표시).
+    """
+    q = (query or "").strip()
+    if not q:
+        return []
+    try:
+        return [
+            (format_place_label(disp), (coord, disp))
+            for coord, disp in _suggest_destinations(q)
+        ]
+    except Exception:
+        return []
+
+
 def _render_dest_inputs() -> None:
-    """목적지 text_input + 후보 미리보기 (running 분기와 무관하게 위젯/키 동일)."""
+    """목적지 입력 + 후보 미리보기 (running 분기와 무관하게 위젯/키 동일).
+
+    streamlit-searchbox 설치 시: 입력 즉시 자동완성 드롭다운(_search_places). 선택 시
+    nav_dest_picked=(coord,disp)·nav_dest_input=disp 로 기존 세션키에 매핑한다.
+    미설치 시: 기존 text_input + selectbox 미리보기 흐름을 100% 그대로 유지(폴백 안전).
+    """
+    if _HAS_SEARCHBOX:
+        sel = st_searchbox(
+            _search_places,
+            placeholder="예) 경복궁, 강남역 10번출구",
+            label="주소 또는 장소명",
+            key="nav_dest_sb",
+        )
+        if sel is not None:
+            coord, disp = sel
+            st.session_state["nav_dest_picked"] = (coord, disp)
+            st.session_state["nav_dest_input"] = disp
+        else:
+            # nav_dest_input 은 의도적으로 건드리지 않는다: 즐겨찾기·타이핑 텍스트가
+            # 세션에 남아 있을 때 경로 찾기의 geocode 폴백(geocode_address)이 사용해야
+            # 하기 때문이다. 출발지처럼 ""로 비우면 그 폴백 경로가 깨진다.
+            st.session_state["nav_dest_picked"] = None
+        # (1) 즐겨찾기·히스토리가 nav_dest_input만 설정했을 때(picked=None) 사용자 인지 안내
+        if st.session_state.get("nav_dest_input") and not st.session_state.get("nav_dest_picked"):
+            st.caption(f"📌 선택된 목적지: {st.session_state['nav_dest_input']}")
+        return
+
     st.text_input(
         "주소 또는 장소명",
         placeholder="예) 경복궁, 강남역 10번출구",
@@ -822,32 +873,50 @@ def _sidebar_destination(favorites: list, running: bool = False) -> None:
 
     # ── 출발지 (기본은 현재 위치이므로 접어 둠 — 바꿀 때만 펼침) ──
     with st.expander("출발지 바꾸기 (기본: 현재 위치)", expanded=False):
-        st.text_input(
-            "출발지 (비우면 현재 위치 사용)",
-            placeholder=f"📍 {cur_hint}",
-            key="nav_start_input",
-        )
-        start_q = (st.session_state.get("nav_start_input") or "").strip()
-        if start_q:
-            try:
-                with st.spinner("장소 검색 중…"):
-                    s_sugg = _suggest_destinations(start_q)
-            except Exception:
-                s_sugg = []
-            if s_sugg:
-                s_choice_idx = st.selectbox(
-                    f"출발지 선택 (후보 {len(s_sugg)}곳)",
-                    range(len(s_sugg)),
-                    format_func=lambda i: format_place_label(s_sugg[i][1]),
-                    key="nav_start_pick",
-                )
-                st.session_state["nav_start_picked"] = s_sugg[s_choice_idx]
+        if _HAS_SEARCHBOX:
+            # 자동완성: 선택 시 nav_start_input+picked 둘 다 설정(경로 찾기 분기 조건 충족),
+            # 미선택이면 둘 다 비워 현재 위치를 출발지로 사용(기존 동작 보존).
+            s_sel = st_searchbox(
+                _search_places,
+                placeholder=f"📍 {cur_hint} (비우면 현재 위치)",
+                label="출발지 (비우면 현재 위치 사용)",
+                key="nav_start_sb",
+            )
+            if s_sel is not None:
+                s_coord, s_disp = s_sel
+                st.session_state["nav_start_picked"] = (s_coord, s_disp)
+                st.session_state["nav_start_input"] = s_disp
             else:
-                st.warning(f"'{start_q}' — 찾지 못했습니다. 비우면 현재 위치가 출발지로 쓰입니다.")
                 st.session_state["nav_start_picked"] = None
+                st.session_state["nav_start_input"] = ""
+                st.caption(f"📍 현재 위치를 출발지로 사용: {cur_hint}")
         else:
-            st.session_state["nav_start_picked"] = None
-            st.caption(f"📍 현재 위치를 출발지로 사용: {cur_hint}")
+            st.text_input(
+                "출발지 (비우면 현재 위치 사용)",
+                placeholder=f"📍 {cur_hint}",
+                key="nav_start_input",
+            )
+            start_q = (st.session_state.get("nav_start_input") or "").strip()
+            if start_q:
+                try:
+                    with st.spinner("장소 검색 중…"):
+                        s_sugg = _suggest_destinations(start_q)
+                except Exception:
+                    s_sugg = []
+                if s_sugg:
+                    s_choice_idx = st.selectbox(
+                        f"출발지 선택 (후보 {len(s_sugg)}곳)",
+                        range(len(s_sugg)),
+                        format_func=lambda i: format_place_label(s_sugg[i][1]),
+                        key="nav_start_pick",
+                    )
+                    st.session_state["nav_start_picked"] = s_sugg[s_choice_idx]
+                else:
+                    st.warning(f"'{start_q}' — 찾지 못했습니다. 비우면 현재 위치가 출발지로 쓰입니다.")
+                    st.session_state["nav_start_picked"] = None
+            else:
+                st.session_state["nav_start_picked"] = None
+                st.caption(f"📍 현재 위치를 출발지로 사용: {cur_hint}")
 
     history = st.session_state["nav_search_history"]
     if favorites or history:
