@@ -41,7 +41,7 @@
   },
   "build": {
     "buildCommand": null,
-    "testCommand": "cd \"D:/walk-sb/streamlit_walk_engine\" && python -m pytest -q 2>&1 | tail -30",
+    "testCommand": "cd D:/walk-sb/streamlit_walk_engine && python -m pytest -q 2>&1 | tail -5",
     "lintCommand": "npm run lint",
     "devCommand": null,
     "scripts": {
@@ -213,6 +213,12 @@
       "type": "file"
     },
     {
+      "path": "RESUME.md",
+      "accessCount": 2,
+      "lastAccessed": 1782705006601,
+      "type": "file"
+    },
+    {
       "path": "C:\\Users\\ekth3\\.claude\\skills",
       "accessCount": 1,
       "lastAccessed": 1782692589773,
@@ -321,12 +327,6 @@
       "type": "file"
     },
     {
-      "path": "RESUME.md",
-      "accessCount": 1,
-      "lastAccessed": 1782702946407,
-      "type": "file"
-    },
-    {
       "path": "PROMPT.md",
       "accessCount": 1,
       "lastAccessed": 1782703415700,
@@ -342,6 +342,12 @@
       "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\debc3595-2d9a-48c7-b3db-efe306d34678\\scratchpad\\orig_render.txt",
       "accessCount": 1,
       "lastAccessed": 1782704517603,
+      "type": "file"
+    },
+    {
+      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\debc3595-2d9a-48c7-b3db-efe306d34678\\scratchpad\\pr_body_sb.md",
+      "accessCount": 1,
+      "lastAccessed": 1782704932595,
       "type": "file"
     }
   ],

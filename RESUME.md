@@ -1,7 +1,7 @@
 # RESUME.md - D:\walk checkpoint
 
 > Updated: 2026-06-29
-> ✅ **검색 후보 라벨 정제 (PR #28 머지)**: `route_builder.format_place_label`로 드롭다운 후보를 `POI · 동 · 구`로 압축(우편번호·국가·광역시도 제거), 목적지/출발지 selectbox를 인덱스 기반(`format_func`)으로 바꿔 동명 후보 중복 선택 버그도 해소. 표시만 정제(선택 좌표 원본 보존). pytest **166 passed**. code-reviewer APPROVE.
+> ✅ **검색 UX 개선 완료 (PR #28·#29·#30 머지)**: ①후보 라벨 정제(#28)→②과압축 되돌려 **도로·번지·동 상세 유지로 후보 구분**(#29, `format_place_label`)→③**입력 즉시 자동완성 streamlit-searchbox 도입**(#30, `_search_places` + `_HAS_SEARCHBOX` 미설치 폴백 가드). selectbox 인덱스 기반(동명 중복 선택 버그 해소). pytest 165·AppTest(설치/미설치)·code-reviewer APPROVE. ⚠️ **실기기 확인**: 자동완성 드롭다운 동작 + 클라우드 `streamlit-searchbox` 설치(미설치 시 기존 입력칸 폴백).
 > ✅ **UI/UX 개선 1·2차 완료 (PR #26·#27 머지)**: 감사 49건 중 채택분 — 1차(첫화면 캡션·목적지 우선 동선·버튼 비활성 사유·동작용어 '경로 찾기' 통일·성공메시지 거리/시간·검색후보 정리·GPS 정확도 압축·시작 '안내중' 신호·검색 spinner·도착 후 안내·접근성 CSS = 13건), 2차(액션버튼 세로 전폭·내비중 입력폼 접기·지도/판정 세로·다음 회전 큰 카드·상세지표 expander·헤더 정리 = 6항목). **engine/gps_filter 0줄·pytest 159·code-reviewer APPROVE**(양 PR). ⚠️ **모바일 실기기 렌더 확인 권장**(터치감·한 화면 가시). 미채택: adopt_with_care 잔여·defer/reject. 감사 전체 `tasks/wqoffpyyh.output`. 워크트리 잔재 폴더 다수 파일잠금(PC 재시작 후 `D:\walk-*` 정리). ultraqa --tests=159 passed.
 
 ## ✅ 2026-06-28 — 경로버튼 위치 이동 + 현재위치 로딩단축 완료 (PR #24 머지)
