@@ -41,7 +41,7 @@
   },
   "build": {
     "buildCommand": null,
-    "testCommand": "cd D:/walk-sb/streamlit_walk_engine && python -m pytest -q 2>&1 | tail -5",
+    "testCommand": "cd /d/walk/streamlit_walk_engine && python -m pytest tests -q --co 2>&1 | tail -5",
     "lintCommand": "npm run lint",
     "devCommand": null,
     "scripts": {
@@ -201,6 +201,12 @@
   },
   "hotPaths": [
     {
+      "path": "streamlit_walk_engine\\pages\\1_Navigation.py",
+      "accessCount": 33,
+      "lastAccessed": 1782710525850,
+      "type": "file"
+    },
+    {
       "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\39be12a9-b5e6-4f69-af74-f186cc82511a\\tasks\\wfiurutut.output",
       "accessCount": 4,
       "lastAccessed": 1782694234395,
@@ -208,15 +214,27 @@
     },
     {
       "path": "RESUME.md",
-      "accessCount": 3,
-      "lastAccessed": 1782709414976,
+      "accessCount": 4,
+      "lastAccessed": 1782709647542,
       "type": "file"
     },
     {
-      "path": "streamlit_walk_engine\\pages\\1_Navigation.py",
-      "accessCount": 2,
-      "lastAccessed": 1782702368512,
+      "path": "streamlit_walk_engine\\engine.py",
+      "accessCount": 4,
+      "lastAccessed": 1782709953369,
       "type": "file"
+    },
+    {
+      "path": "streamlit_walk_engine\\gps_filter.py",
+      "accessCount": 3,
+      "lastAccessed": 1782709941341,
+      "type": "file"
+    },
+    {
+      "path": "streamlit_walk_engine",
+      "accessCount": 2,
+      "lastAccessed": 1782709829443,
+      "type": "directory"
     },
     {
       "path": "C:\\Users\\ekth3\\.claude\\skills",
@@ -246,12 +264,6 @@
       "path": "streamlit_walk_engine\\app.py",
       "accessCount": 1,
       "lastAccessed": 1782693410144,
-      "type": "file"
-    },
-    {
-      "path": "streamlit_walk_engine\\engine.py",
-      "accessCount": 1,
-      "lastAccessed": 1782693474552,
       "type": "file"
     },
     {
@@ -294,12 +306,6 @@
       "path": "C:\\Users\\ekth3\\.claude",
       "accessCount": 1,
       "lastAccessed": 1782694787451,
-      "type": "directory"
-    },
-    {
-      "path": "streamlit_walk_engine",
-      "accessCount": 1,
-      "lastAccessed": 1782700193559,
       "type": "directory"
     },
     {
@@ -349,6 +355,12 @@
       "accessCount": 1,
       "lastAccessed": 1782704932595,
       "type": "file"
+    },
+    {
+      "path": "streamlit_walk_engine\\tests",
+      "accessCount": 1,
+      "lastAccessed": 1782709641861,
+      "type": "directory"
     }
   ],
   "userDirectives": []

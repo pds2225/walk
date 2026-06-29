@@ -4,6 +4,15 @@
 > ✅ **검색 UX 개선 완료 (PR #28·#29·#30 머지)**: ①후보 라벨 정제(#28)→②과압축 되돌려 **도로·번지·동 상세 유지로 후보 구분**(#29, `format_place_label`)→③**입력 즉시 자동완성 streamlit-searchbox 도입**(#30, `_search_places` + `_HAS_SEARCHBOX` 미설치 폴백 가드). selectbox 인덱스 기반(동명 중복 선택 버그 해소). pytest 165·AppTest(설치/미설치)·code-reviewer APPROVE. ⚠️ **실기기 확인**: 자동완성 드롭다운 동작 + 클라우드 `streamlit-searchbox` 설치(미설치 시 기존 입력칸 폴백).
 > ✅ **UI/UX 개선 1·2차 완료 (PR #26·#27 머지)**: 감사 49건 중 채택분 — 1차(첫화면 캡션·목적지 우선 동선·버튼 비활성 사유·동작용어 '경로 찾기' 통일·성공메시지 거리/시간·검색후보 정리·GPS 정확도 압축·시작 '안내중' 신호·검색 spinner·도착 후 안내·접근성 CSS = 13건), 2차(액션버튼 세로 전폭·내비중 입력폼 접기·지도/판정 세로·다음 회전 큰 카드·상세지표 expander·헤더 정리 = 6항목). **engine/gps_filter 0줄·pytest 159·code-reviewer APPROVE**(양 PR). ⚠️ **모바일 실기기 렌더 확인 권장**(터치감·한 화면 가시). 미채택: adopt_with_care 잔여·defer/reject. 감사 전체 `tasks/wqoffpyyh.output`. 워크트리 잔재 폴더 다수 파일잠금(PC 재시작 후 `D:\walk-*` 정리). ultraqa --tests=159 passed.
 
+## 🔵 2026-06-29 진행중 — 대중교통+도보 연결 설계 (브레인스토밍 → ralplan 합의계획)
+- **사용자 목표:** 출발지→대중교통(지하철/버스)→도보→목적지 전체 여정을 walk **한 앱**에서 연결. "앱 2개 켜는 복잡함" 회피가 핵심 동기.
+- **합의된 방향 = 옵션1(승인됨):** 전체 여정을 leg 단위로 한 화면 표시, **실시간 GPS 이탈감지(기존 엔진)는 도보 leg에서만** 작동. 대중교통 leg는 외부 API에서 받아 표시만(지하 GPS 불가 → 수동 진행).
+  - 대중교통 소스 3단계 폴백: ①기존 TMAP 앱키로 transit/routes 재사용 시도 → ②ODsay 폴백 → ③둘 다 없으면 도보 전용 강등(앱 안 깨짐).
+  - 도보 leg는 기존 `fetch_walking_route_with_engine` 재호출로 turn-by-turn 생성(강점 재사용). 신규 `transit_builder.py` + `1_Navigation.py` 최소 가산 변경. 기존 도보전용 흐름은 토글로 보존.
+  - **2단계(후속, 이번 범위 아님):** GPS 없는 가벼운 하차 알림(목적지 역 예상시간 카운트다운+진동).
+- **현재 단계:** ralplan 합의 워크플로 백그라운드 실행 중(Run wf_e574612a-3de, Planner→Architect→Critic 반복). 완료 시 `pending approval` 계획 제시 → 사용자가 호출한 `/team`으로 구현.
+- **결정 대기:** 대중교통 API 키(TMAP transit 활성화 or ODsay 키)는 외부 의존성·사용자 액션. 코드는 키 없어도 도보 강등으로 동작하게 설계.
+
 ## ✅ 2026-06-28 — 경로버튼 위치 이동 + 현재위치 로딩단축 완료 (PR #24 머지)
 - 경로탐색/시작/초기화 버튼을 **도착지 입력 바로 아래로** 이동(`_render_action_buttons()` 헬퍼 추출 — origin/nav_config를 세션에서 읽어 위치 독립·stale 없음). GPS현재위치·알림설정은 그 아래로.
 - 현재위치 로딩 단축: gps-1 다중샘플을 **≤20m fix 즉시 반환 + 상한 2초/4fix→1.2초/3fix**.

@@ -1,0 +1,69 @@
+{
+  "agents": [
+    {
+      "agent_id": "a40f07634531a8fa8",
+      "agent_type": "oh-my-claudecode:planner",
+      "started_at": "2026-06-29T05:07:00.827Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-06-29T05:10:05.440Z",
+      "duration_ms": 184613
+    },
+    {
+      "agent_id": "aafcd70d29b4d7898",
+      "agent_type": "oh-my-claudecode:architect",
+      "started_at": "2026-06-29T05:10:06.459Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-06-29T05:11:59.541Z",
+      "duration_ms": 113082
+    },
+    {
+      "agent_id": "afedd6301653cdad2",
+      "agent_type": "oh-my-claudecode:critic",
+      "started_at": "2026-06-29T05:11:59.991Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-06-29T05:13:56.643Z",
+      "duration_ms": 116652
+    },
+    {
+      "agent_id": "a0a7db8fabf8cdb9d",
+      "agent_type": "oh-my-claudecode:planner",
+      "started_at": "2026-06-29T05:13:57.060Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-06-29T05:18:07.002Z",
+      "duration_ms": 249942
+    },
+    {
+      "agent_id": "a76081fac520c4bef",
+      "agent_type": "oh-my-claudecode:architect",
+      "started_at": "2026-06-29T05:18:07.493Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-06-29T05:21:11.389Z",
+      "duration_ms": 183896
+    },
+    {
+      "agent_id": "a04e1ed6482f0081f",
+      "agent_type": "oh-my-claudecode:critic",
+      "started_at": "2026-06-29T05:21:11.915Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-06-29T05:23:08.721Z",
+      "duration_ms": 116806
+    },
+    {
+      "agent_id": "a75abb882304fb247",
+      "agent_type": "oh-my-claudecode:planner",
+      "started_at": "2026-06-29T05:23:09.648Z",
+      "parent_mode": "none",
+      "status": "running"
+    }
+  ],
+  "total_spawned": 7,
+  "total_completed": 6,
+  "total_failed": 0,
+  "last_updated": "2026-06-29T05:23:09.759Z"
+}
