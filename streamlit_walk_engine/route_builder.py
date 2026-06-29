@@ -309,31 +309,25 @@ _LABEL_DROP_TOKENS = frozenset({
 })
 
 
-def format_place_label(display: str | None, max_parts: int = 3) -> str:
-    """검색 후보 표시 라벨을 핵심(장소·동/가·구)만 남겨 짧게 정제한다.
+def format_place_label(display: str | None) -> str:
+    """검색 후보 표시 라벨을 정제한다 — 우편번호·국가·광역시도만 제거하고 나머지는 유지.
 
-    Nominatim display_name(쉼표형: 'POI, 로, 동네, 동, 구, 시도, 우편, 국가')에서
-    우편번호·국가·광역시도를 빼고 'POI · 동 · 구' 형태로 압축한다. 동/구가 없으면 있는
-    것만, POI만 있으면 그대로. 공백형(Naver roadAddress)은 우편번호만 제거해 반환한다.
-    None/빈 문자열은 빈 문자열.
+    동·구만 남기면 동명 후보가 똑같아 보여 구분이 안 되므로, 후보를 구분할 수 있게
+    도로명·번지·동 등 상세를 보존한다. Nominatim 쉼표형은 국가·광역시도 토큰만 빼고
+    나머지(도로·번지·동·구)를 그대로 잇고, Naver 공백형(도로명주소)은 앞쪽 광역시도
+    접두만 떼어 'OO구 OO로 12' 형태로 남긴다. None/빈 문자열은 빈 문자열.
     """
     s = (strip_postcode(display) or "").strip()
     if not s:
         return ""
-    if "," not in s:
-        return s  # 공백형(Naver) — 우편번호만 제거
-    toks = [t.strip() for t in s.split(",") if t.strip() and t.strip() not in _LABEL_DROP_TOKENS]
-    if not toks:
-        return s
-    poi = toks[0]
-    rest = toks[1:]
-    dong = next((t for t in rest if t.endswith(("동", "가", "읍", "면", "리"))), None)
-    gu = next((t for t in rest if t.endswith(("구", "군", "시"))), None)
-    out: list[str] = []
-    for p in (poi, dong, gu):
-        if p and p not in out:
-            out.append(p)
-    return " · ".join(out[:max_parts])
+    if "," in s:  # Nominatim 쉼표형 — 국가·광역시도만 제거, 나머지(도로·번지·동·구) 유지
+        toks = [t.strip() for t in s.split(",") if t.strip() and t.strip() not in _LABEL_DROP_TOKENS]
+        return ", ".join(toks) if toks else s
+    # Naver 공백형(도로명주소) — 앞쪽 광역시도 접두만 제거(번지까지 보존)
+    for w in _LABEL_DROP_TOKENS:
+        if s.startswith(w + " "):
+            return s[len(w):].strip()
+    return s
 
 
 # ── Valhalla polyline6 디코더 ─────────────────────────────────────────────────
