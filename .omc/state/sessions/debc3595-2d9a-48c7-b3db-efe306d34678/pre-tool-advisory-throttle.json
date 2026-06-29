@@ -1,30 +1,42 @@
 {
   "version": 1,
   "entries": {
-    "4f7a67fba0a8473e9883d9e8dffbb2d72e00a4a1eeb4fa80cb14213b167dc90f": {
-      "last_emitted_at_ms": 1782702958423,
-      "message": "Mark todos in_progress BEFORE starting, completed IMMEDIATELY after finishing."
-    },
-    "445ed27a3872b681d98190bae61ccb84954e1bc4e140df5370be958dee776b3a": {
-      "last_emitted_at_ms": 1782702945972,
-      "message": "Verify changes work after editing. Test functionality before marking complete."
-    },
     "459c54e5f35d6a58dcd90d2aecc21fa6d1f35d241bc5b134c506f87dc7b6d67b": {
-      "last_emitted_at_ms": 1782702741004,
+      "last_emitted_at_ms": 1782704474392,
       "message": "Combine searches in parallel when investigating multiple patterns."
     },
     "466399dafa2d20f60587180bad0a07358eb7f2bce724df0ff682f038ad33f5ad": {
-      "last_emitted_at_ms": 1782702739991,
+      "last_emitted_at_ms": 1782704467385,
       "message": "Read multiple files in parallel when possible for faster analysis."
     },
     "79a93d4a2f8f50b95f852280616242fee1855dc99a3c75211917f55e72e95fae": {
-      "last_emitted_at_ms": 1782702726348,
+      "last_emitted_at_ms": 1782704450078,
       "message": "Use parallel execution for independent tasks. Use run_in_background for long operations (npm install, builds, tests)."
+    },
+    "c08f96ca7cb853f297f447e6e867687d819d6d8767a6f99a33451de2d64e41b8": {
+      "last_emitted_at_ms": 1782704441134,
+      "message": "Spawning agent: oh-my-claudecode:code-reviewer (opus) | Task: searchbox 도입 독립 검토"
+    },
+    "4f7a67fba0a8473e9883d9e8dffbb2d72e00a4a1eeb4fa80cb14213b167dc90f": {
+      "last_emitted_at_ms": 1782704377239,
+      "message": "Mark todos in_progress BEFORE starting, completed IMMEDIATELY after finishing."
+    },
+    "6fb64f6e7dac2e04a6e7ac1d950e88847e4be2358d7376bdc5e06242795b7fc3": {
+      "last_emitted_at_ms": 1782704346828,
+      "message": "[SLOP WARNING] Detected fallback/workaround language in this tool input. Do not make potential slop: avoid ad-hoc fallback layers, workaround shims, or environment-specific patches unless explicitly justified. For architecture concerns, consult the architect for a concrete design first. If this seems environment-specific, ask the user to confirm constraints before proceeding.\n\nUse parallel execution for independent tasks. Use run_in_background for long operations (npm install, builds, tests)."
+    },
+    "445ed27a3872b681d98190bae61ccb84954e1bc4e140df5370be958dee776b3a": {
+      "last_emitted_at_ms": 1782704172757,
+      "message": "Verify changes work after editing. Test functionality before marking complete."
+    },
+    "aa77db5f067c5f743183282126abea9f0e94f6ba37f5a8496dfab4123ccb34cc": {
+      "last_emitted_at_ms": 1782704096856,
+      "message": "Spawning agent: oh-my-claudecode:executor (opus) | Task: streamlit-searchbox 자동완성 도입"
     },
     "ba2ed6d685fb277a3de23259df214055b2b547a838af7feab9df53af634f8762": {
       "last_emitted_at_ms": 1782702717969,
       "message": "Spawning agent: oh-my-claudecode:code-reviewer (opus) | Task: PR #28 독립 코드 검토"
     }
   },
-  "updated_at": "2026-06-29T03:15:58.423Z"
+  "updated_at": "2026-06-29T03:41:14.392Z"
 }

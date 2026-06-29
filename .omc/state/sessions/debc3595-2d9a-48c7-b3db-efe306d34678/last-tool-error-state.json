@@ -1,7 +1,7 @@
 {
   "tool_name": "mcp__plugin_oh-my-claudecode_t__lsp_diagnostics",
-  "tool_input_preview": "{\"file\":\"D:\\\\walk-label\\\\streamlit_walk_engine\\\\pages\\\\1_Navigation.py\"}",
+  "tool_input_preview": "{\"file\":\"D:/walk-sb/streamlit_walk_engine/pages/1_Navigation.py\"}",
   "error": "Language server 'ty' not found.\nInstall with: Install ty from https://github.com/astral-sh/ty",
-  "timestamp": "2026-06-29T03:12:50.921Z",
-  "retry_count": 2
+  "timestamp": "2026-06-29T03:42:28.798Z",
+  "retry_count": 1
 }
