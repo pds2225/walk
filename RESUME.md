@@ -1,13 +1,20 @@
 # RESUME.md - D:\walk checkpoint
 
-> Updated: 2026-06-28
+> Updated: 2026-06-29
+> ✅ **UI/UX 개선 1·2차 완료 (PR #26·#27 머지)**: 감사 49건 중 채택분 — 1차(첫화면 캡션·목적지 우선 동선·버튼 비활성 사유·동작용어 '경로 찾기' 통일·성공메시지 거리/시간·검색후보 정리·GPS 정확도 압축·시작 '안내중' 신호·검색 spinner·도착 후 안내·접근성 CSS = 13건), 2차(액션버튼 세로 전폭·내비중 입력폼 접기·지도/판정 세로·다음 회전 큰 카드·상세지표 expander·헤더 정리 = 6항목). **engine/gps_filter 0줄·pytest 159·code-reviewer APPROVE**(양 PR). ⚠️ **모바일 실기기 렌더 확인 권장**(터치감·한 화면 가시). 미채택: adopt_with_care 잔여·defer/reject. 감사 전체 `tasks/wqoffpyyh.output`. 워크트리 잔재 폴더 다수 파일잠금(PC 재시작 후 `D:\walk-*` 정리). ultraqa --tests=159 passed.
 
-## 📋 2026-06-28 — 출발지 주소표시 계획 합의완료(구현 대기)
-- **요구:** 출발지 '현재 위치'를 좌표→주소(사용자 예시 = Nominatim POI 포함 형식), 우편번호 제거.
-- **ralplan 합의 APPROVE**(Planner→Architect→Critic). 계획: `.omc/plans/walk-origin-address-display.md` / 미해결: `.omc/plans/open-questions.md`.
-- **핵심 진단:** 좌표만 보이는 진짜 원인이 '형식'이 아니라 '주소 미충전' 가능성(클라우드 Nominatim 403/429 예외를 `1_Navigation.py` try/except:pass가 삼켜 nav_origin_address=None) → **진단 hard gate 선행** 후 strip_postcode(쉼표 경계 5자리만, route_builder 순수함수) + provider-agnostic 표시 정규화.
-- **변경 후보:** route_builder.py(strip_postcode)·1_Navigation.py(저장 직전 1회 strip)·test 1. engine 비침습·좌표 폴백 불변.
-- **사용자 확인 필요(구현 전):** ①클라우드 Naver 키 유무(H3 — 있으면 주소 신뢰O·형식 도로명/POI없음, 없으면 POI형식이나 차단 위험) ②'POI(가게명) 포함' 필수 vs best-effort. **구현 미착수(승인 대기).**
+## ✅ 2026-06-28 — 경로버튼 위치 이동 + 현재위치 로딩단축 완료 (PR #24 머지)
+- 경로탐색/시작/초기화 버튼을 **도착지 입력 바로 아래로** 이동(`_render_action_buttons()` 헬퍼 추출 — origin/nav_config를 세션에서 읽어 위치 독립·stale 없음). GPS현재위치·알림설정은 그 아래로.
+- 현재위치 로딩 단축: gps-1 다중샘플을 **≤20m fix 즉시 반환 + 상한 2초/4fix→1.2초/3fix**.
+- 검증: pytest 150·py_compile·AppTest OK. code-reviewer APPROVE(🔴0). fast-follow: GPS 미취득 시 버튼 활성 안내 캡션 + docstring 보강.
+- ⚠️ 실기기 확인 권장: watchPosition 첫 위치 속도·정확도는 실폰에서 확인.
+- 정리 잔재: `D:\walk-rbtn` 워크트리 폴더 파일잠금(브랜치·git 등록 정리완료). PC 재시작 후 삭제.
+
+## ✅ 2026-06-28 — 출발지 현재위치 주소표시 + 우편번호 제거 완료 (PR #25 머지)
+- `strip_postcode`(route_builder 순수함수, **쉼표 경계 5자리만** 제거·공백형/건물번호/비경계 5자리 보존·멱등) + `nav_origin_address` **저장 직전 1회** 적용(placeholder·캡션 자동 전파). reverse except를 RequestException/ValueError/KeyError로 구체화(예상외 예외 표면화). 단위테스트 9건(pytest 159 passed). code-reviewer APPROVE(🔴0).
+- **진단 결론:** 로컬 reverse는 이미 POI 포함 형식 반환(우편번호만 끼어 있음)→제거로 사용자 예시 일치. Naver reverse는 키 있어도 None(서비스 미활성)이라 Nominatim 경로로 POI 출현.
+- **⚠️ R3(사용자 확인 필요):** 사용자 폰(클라우드)서 좌표만 보였다면 = 클라우드 Nominatim 차단(H1, 로컬 재현불가). 복구하려면 Naver Cloud 콘솔 **Reverse Geocoding 활성화** + st.secrets 키(d17c67d 경로). 배포설정이라 코드 밖.
+- 계획: `.omc/plans/walk-origin-address-display.md`. 정리 잔재: `D:\walk-addr` 워크트리 폴더 파일잠금(브랜치·git 정리완료).
 
 ## ✅ 2026-06-28 — GPS 정확도·속도·UI 개선 1·2차 완료 (PR #22·#23 머지)
 - **사용자 목표:** GPS 위치 정확도·속도·쉬운 UI — 1차 9건 + 2차 5건 = **14건 구현·머지 완료**(실제사용승인루프).

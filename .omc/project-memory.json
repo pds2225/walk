@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastScanned": 1782584526168,
+  "lastScanned": 1782692526830,
   "projectRoot": "d:\\walk",
   "techStack": {
     "languages": [
@@ -41,7 +41,7 @@
   },
   "build": {
     "buildCommand": null,
-    "testCommand": "cd /d/walk-gps2/streamlit_walk_engine && python -m pytest tests/test_gps_filter.py -q 2>&1 | tail -20",
+    "testCommand": "find \"D:\\auto_dev\" -maxdepth 2 -type d -not -path \"*/\\.git*\" -not -path \"*/__pycache__*\" -not -path \"*/.pytest*\" 2>/dev/null | sort",
     "lintCommand": "npm run lint",
     "devCommand": null,
     "scripts": {
@@ -78,14 +78,14 @@
       "path": "apps",
       "purpose": null,
       "fileCount": 0,
-      "lastAccessed": 1782584526051,
+      "lastAccessed": 1782692526257,
       "keyFiles": []
     },
     "docs": {
       "path": "docs",
       "purpose": "Documentation",
       "fileCount": 2,
-      "lastAccessed": 1782584526068,
+      "lastAccessed": 1782692526261,
       "keyFiles": [
         "progress-notes.md"
       ]
@@ -94,21 +94,21 @@
       "path": "docs - 복사본",
       "purpose": null,
       "fileCount": 0,
-      "lastAccessed": 1782584526069,
+      "lastAccessed": 1782692526328,
       "keyFiles": []
     },
     "packages": {
       "path": "packages",
       "purpose": null,
       "fileCount": 0,
-      "lastAccessed": 1782584526070,
+      "lastAccessed": 1782692526334,
       "keyFiles": []
     },
     "scripts": {
       "path": "scripts",
       "purpose": "Build/utility scripts",
       "fileCount": 1,
-      "lastAccessed": 1782584526071,
+      "lastAccessed": 1782692526339,
       "keyFiles": [
         "git_auto_backup.ps1"
       ]
@@ -117,7 +117,7 @@
       "path": "streamlit_task_organizer",
       "purpose": null,
       "fileCount": 4,
-      "lastAccessed": 1782584526072,
+      "lastAccessed": 1782692526341,
       "keyFiles": [
         "app.py",
         "README.md",
@@ -129,7 +129,7 @@
       "path": "streamlit_walk_engine",
       "purpose": null,
       "fileCount": 11,
-      "lastAccessed": 1782584526073,
+      "lastAccessed": 1782692526362,
       "keyFiles": [
         "alert_voice.py",
         "app.py",
@@ -142,14 +142,14 @@
       "path": "apps\\api",
       "purpose": "API routes",
       "fileCount": 0,
-      "lastAccessed": 1782584526074,
+      "lastAccessed": 1782692526368,
       "keyFiles": []
     },
     "streamlit_task_organizer\\schemas": {
       "path": "streamlit_task_organizer\\schemas",
       "purpose": "Schema definitions",
       "fileCount": 3,
-      "lastAccessed": 1782584526078,
+      "lastAccessed": 1782692526601,
       "keyFiles": [
         "export_schema.py",
         "result_schema.py",
@@ -160,7 +160,7 @@
       "path": "streamlit_task_organizer\\services",
       "purpose": "Business logic services",
       "fileCount": 4,
-      "lastAccessed": 1782584526079,
+      "lastAccessed": 1782692526786,
       "keyFiles": [
         "export_service.py",
         "history_service.py",
@@ -171,7 +171,7 @@
       "path": "streamlit_task_organizer\\tests",
       "purpose": "Test files",
       "fileCount": 7,
-      "lastAccessed": 1782584526085,
+      "lastAccessed": 1782692526803,
       "keyFiles": [
         "test_checklist_parser.py",
         "test_contact_parser.py",
@@ -182,7 +182,7 @@
       "path": "streamlit_task_organizer\\utils",
       "purpose": "Utility functions",
       "fileCount": 5,
-      "lastAccessed": 1782584526091,
+      "lastAccessed": 1782692526803,
       "keyFiles": [
         "constants.py",
         "date_utils.py",
@@ -193,7 +193,7 @@
       "path": "streamlit_walk_engine\\pages",
       "purpose": "Page components",
       "fileCount": 1,
-      "lastAccessed": 1782584526110,
+      "lastAccessed": 1782692526805,
       "keyFiles": [
         "1_Navigation.py"
       ]
@@ -201,304 +201,112 @@
   },
   "hotPaths": [
     {
-      "path": "streamlit_walk_engine\\pages\\1_Navigation.py",
-      "accessCount": 115,
-      "lastAccessed": 1782634447855,
+      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\39be12a9-b5e6-4f69-af74-f186cc82511a\\tasks\\wfiurutut.output",
+      "accessCount": 4,
+      "lastAccessed": 1782694234395,
       "type": "file"
     },
     {
-      "path": "streamlit_walk_engine\\engine.py",
-      "accessCount": 31,
-      "lastAccessed": 1782585829883,
-      "type": "file"
-    },
-    {
-      "path": "RESUME.md",
-      "accessCount": 30,
-      "lastAccessed": 1782635094094,
-      "type": "file"
-    },
-    {
-      "path": "streamlit_walk_engine",
-      "accessCount": 27,
-      "lastAccessed": 1782634617218,
+      "path": "C:\\Users\\ekth3\\.claude\\skills",
+      "accessCount": 1,
+      "lastAccessed": 1782692589773,
       "type": "directory"
     },
     {
-      "path": "DONE.md",
-      "accessCount": 17,
-      "lastAccessed": 1782276151548,
-      "type": "file"
-    },
-    {
-      "path": "streamlit_walk_engine\\app.py",
-      "accessCount": 16,
-      "lastAccessed": 1782585626072,
-      "type": "file"
-    },
-    {
-      "path": "README.md",
-      "accessCount": 15,
-      "lastAccessed": 1781720569387,
-      "type": "file"
-    },
-    {
-      "path": "PROMPT.md",
-      "accessCount": 12,
-      "lastAccessed": 1781720507063,
-      "type": "file"
-    },
-    {
-      "path": "packages\\route-engine\\src\\config\\walkingConfig.ts",
-      "accessCount": 12,
-      "lastAccessed": 1781720584776,
-      "type": "file"
-    },
-    {
-      "path": "streamlit_walk_engine\\gps_filter.py",
-      "accessCount": 10,
-      "lastAccessed": 1782585939672,
-      "type": "file"
-    },
-    {
-      "path": "packages\\route-engine\\src\\engine\\evaluateDeviation.ts",
-      "accessCount": 7,
-      "lastAccessed": 1781720584393,
-      "type": "file"
-    },
-    {
-      "path": "",
-      "accessCount": 6,
-      "lastAccessed": 1781720568792,
-      "type": "directory"
-    },
-    {
-      "path": "packages\\route-engine",
-      "accessCount": 6,
-      "lastAccessed": 1781720591221,
-      "type": "directory"
-    },
-    {
-      "path": "packages\\route-engine\\src",
-      "accessCount": 6,
-      "lastAccessed": 1781720591877,
-      "type": "directory"
-    },
-    {
-      "path": "streamlit_walk_engine\\scenarios.py",
-      "accessCount": 6,
-      "lastAccessed": 1782586132831,
-      "type": "file"
-    },
-    {
-      "path": "package.json",
-      "accessCount": 5,
-      "lastAccessed": 1781720514073,
-      "type": "file"
-    },
-    {
-      "path": "packages\\route-engine\\src\\simulator\\scenarios.ts",
-      "accessCount": 4,
-      "lastAccessed": 1781720519283,
-      "type": "file"
-    },
-    {
-      "path": "tsconfig.json",
-      "accessCount": 4,
-      "lastAccessed": 1781720578079,
-      "type": "file"
-    },
-    {
-      "path": "packages\\route-engine\\src\\index.ts",
-      "accessCount": 4,
-      "lastAccessed": 1781720580225,
-      "type": "file"
-    },
-    {
-      "path": "packages\\route-engine\\src\\engine\\routeDeviationEngine.ts",
-      "accessCount": 4,
-      "lastAccessed": 1781720601021,
-      "type": "file"
-    },
-    {
-      "path": "streamlit_walk_engine\\tests\\test_gps_filter.py",
-      "accessCount": 4,
-      "lastAccessed": 1782585993393,
-      "type": "file"
-    },
-    {
-      "path": "C:\\Users\\ekth3\\.claude\\projects\\d--walk\\memory\\walk-core-requirements.md",
-      "accessCount": 3,
-      "lastAccessed": 1781720314436,
-      "type": "file"
-    },
-    {
-      "path": "AGENTS.md",
-      "accessCount": 3,
-      "lastAccessed": 1781720325645,
-      "type": "file"
-    },
-    {
-      "path": "packages\\route-engine\\src\\types\\models.ts",
-      "accessCount": 3,
-      "lastAccessed": 1781720456498,
-      "type": "file"
-    },
-    {
-      "path": "PLAN.md",
-      "accessCount": 3,
-      "lastAccessed": 1782276141791,
-      "type": "file"
-    },
-    {
-      "path": "streamlit_walk_engine\\requirements.txt",
-      "accessCount": 3,
-      "lastAccessed": 1782585629650,
-      "type": "file"
-    },
-    {
-      "path": "C:\\Users\\ekth3\\.claude\\projects\\d--walk\\memory\\walk-visual-verdict-resume.md",
-      "accessCount": 2,
-      "lastAccessed": 1781719731942,
-      "type": "file"
-    },
-    {
-      "path": ".streamlit\\secrets.toml.example",
-      "accessCount": 2,
-      "lastAccessed": 1781720438297,
-      "type": "file"
-    },
-    {
-      "path": "packages\\route-engine\\src\\geometry\\geo.ts",
-      "accessCount": 2,
-      "lastAccessed": 1781720461693,
-      "type": "file"
-    },
-    {
-      "path": "packages\\route-engine\\tests",
-      "accessCount": 2,
-      "lastAccessed": 1781720551161,
-      "type": "directory"
-    },
-    {
-      "path": "packages\\route-engine\\tests\\geometry.test.ts",
-      "accessCount": 2,
-      "lastAccessed": 1781720570246,
-      "type": "file"
-    },
-    {
-      "path": "packages\\route-engine\\tests\\engine.test.ts",
-      "accessCount": 2,
-      "lastAccessed": 1781720570720,
-      "type": "file"
-    },
-    {
-      "path": "streamlit_walk_engine\\alert_voice.py",
-      "accessCount": 2,
-      "lastAccessed": 1781720599856,
-      "type": "file"
-    },
-    {
-      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\f7e454dd-30ec-4cc6-89dd-1c4bfe62386d\\tasks\\wc916u20c.output",
-      "accessCount": 2,
-      "lastAccessed": 1781720746949,
-      "type": "file"
-    },
-    {
-      "path": "C:\\Python314\\Lib\\site-packages\\streamlit\\elements\\widgets\\selectbox.py",
-      "accessCount": 2,
-      "lastAccessed": 1781775162440,
+      "path": "C:\\Users\\ekth3\\.claude\\skills\\omc-learned\\mail-llm-cost-accuracy-dial.md",
+      "accessCount": 1,
+      "lastAccessed": 1782692603111,
       "type": "directory"
     },
     {
       "path": "requirements.txt",
-      "accessCount": 2,
-      "lastAccessed": 1782585940466,
+      "accessCount": 1,
+      "lastAccessed": 1782692979130,
       "type": "file"
-    },
-    {
-      "path": "packages\\route-engine\\src\\domain\\routeAnalysis.ts",
-      "accessCount": 1,
-      "lastAccessed": 1781720335776,
-      "type": "file"
-    },
-    {
-      "path": "packages\\route-engine\\src\\simulator\\runSimulator.ts",
-      "accessCount": 1,
-      "lastAccessed": 1781720342082,
-      "type": "file"
-    },
-    {
-      "path": "packages\\route-engine\\src\\simulator",
-      "accessCount": 1,
-      "lastAccessed": 1781720356715,
-      "type": "directory"
-    },
-    {
-      "path": "packages\\route-engine\\src\\geometry\\index.ts",
-      "accessCount": 1,
-      "lastAccessed": 1781720364210,
-      "type": "file"
-    },
-    {
-      "path": "packages\\route-engine\\src\\domain\\index.ts",
-      "accessCount": 1,
-      "lastAccessed": 1781720364793,
-      "type": "file"
-    },
-    {
-      "path": "packages\\route-engine\\src\\types\\index.ts",
-      "accessCount": 1,
-      "lastAccessed": 1781720364957,
-      "type": "file"
-    },
-    {
-      "path": "streamlit_walk_engine\\tests",
-      "accessCount": 1,
-      "lastAccessed": 1781720488099,
-      "type": "directory"
     },
     {
       "path": "streamlit_walk_engine\\README.md",
       "accessCount": 1,
-      "lastAccessed": 1781720530428,
+      "lastAccessed": 1782693407981,
       "type": "file"
     },
     {
-      "path": "C:\\Python314\\Lib\\site-packages\\streamlit_js_eval\\__init__.py",
+      "path": "streamlit_walk_engine\\app.py",
       "accessCount": 1,
-      "lastAccessed": 1781720546746,
+      "lastAccessed": 1782693410144,
       "type": "file"
     },
     {
-      "path": "C:\\Python314\\Lib\\site-packages\\streamlit_js_eval\\index.html",
+      "path": "streamlit_walk_engine\\engine.py",
       "accessCount": 1,
-      "lastAccessed": 1781720576958,
+      "lastAccessed": 1782693474552,
       "type": "file"
     },
     {
-      "path": "C:\\Users\\ekth3\\.claude\\skills\\omc-learned\\gsync-repo-check.md",
+      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\f312d1d3-2636-41a8-a372-bc381f6dbd89\\tasks\\bby6wzrc0.output",
       "accessCount": 1,
-      "lastAccessed": 1781777397368,
+      "lastAccessed": 1782693742850,
       "type": "file"
     },
     {
-      "path": "docs\\progress-notes.md",
+      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\39be12a9-b5e6-4f69-af74-f186cc82511a\\tasks\\bjh8a2v7q.output",
       "accessCount": 1,
-      "lastAccessed": 1782276151445,
+      "lastAccessed": 1782693744307,
       "type": "file"
     },
     {
-      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\6fb834d2-c032-496b-89eb-9473019aae5e\\tasks\\b4eadgn1g.output",
+      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\39be12a9-b5e6-4f69-af74-f186cc82511a\\tasks\\b3xm7h4k3.output",
       "accessCount": 1,
-      "lastAccessed": 1782276769625,
+      "lastAccessed": 1782693745322,
       "type": "file"
     },
     {
-      "path": ".claude\\settings.json",
+      "path": "streamlit_walk_engine\\pages\\1_Navigation.py",
       "accessCount": 1,
-      "lastAccessed": 1782289078996,
+      "lastAccessed": 1782693786025,
+      "type": "file"
+    },
+    {
+      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\39be12a9-b5e6-4f69-af74-f186cc82511a\\tasks\\bso8wywmb.output",
+      "accessCount": 1,
+      "lastAccessed": 1782693893159,
+      "type": "file"
+    },
+    {
+      "path": "D:",
+      "accessCount": 1,
+      "lastAccessed": 1782693987531,
       "type": "directory"
+    },
+    {
+      "path": "AGENTS.md",
+      "accessCount": 1,
+      "lastAccessed": 1782694001464,
+      "type": "file"
+    },
+    {
+      "path": "C:\\Users\\ekth3\\.claude",
+      "accessCount": 1,
+      "lastAccessed": 1782694787451,
+      "type": "directory"
+    },
+    {
+      "path": "streamlit_walk_engine",
+      "accessCount": 1,
+      "lastAccessed": 1782700193559,
+      "type": "directory"
+    },
+    {
+      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\f312d1d3-2636-41a8-a372-bc381f6dbd89\\tasks\\byu6p975j.output",
+      "accessCount": 1,
+      "lastAccessed": 1782700342301,
+      "type": "file"
+    },
+    {
+      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\f312d1d3-2636-41a8-a372-bc381f6dbd89\\tasks\\ba6pt5egi.output",
+      "accessCount": 1,
+      "lastAccessed": 1782700546858,
+      "type": "file"
     }
   ],
   "userDirectives": []
