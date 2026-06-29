@@ -41,7 +41,7 @@
   },
   "build": {
     "buildCommand": null,
-    "testCommand": "cd /d/walk/streamlit_walk_engine && python -m pytest tests -q --co 2>&1 | tail -5",
+    "testCommand": "cd /d/walk/streamlit_walk_engine && python -m pytest tests --co -q 2>&1 | tail -5",
     "lintCommand": "npm run lint",
     "devCommand": null,
     "scripts": {
@@ -202,8 +202,20 @@
   "hotPaths": [
     {
       "path": "streamlit_walk_engine\\pages\\1_Navigation.py",
-      "accessCount": 33,
-      "lastAccessed": 1782710525850,
+      "accessCount": 41,
+      "lastAccessed": 1782711139055,
+      "type": "file"
+    },
+    {
+      "path": "streamlit_walk_engine\\engine.py",
+      "accessCount": 5,
+      "lastAccessed": 1782710900799,
+      "type": "file"
+    },
+    {
+      "path": "streamlit_walk_engine\\gps_filter.py",
+      "accessCount": 5,
+      "lastAccessed": 1782711090391,
       "type": "file"
     },
     {
@@ -219,21 +231,9 @@
       "type": "file"
     },
     {
-      "path": "streamlit_walk_engine\\engine.py",
-      "accessCount": 4,
-      "lastAccessed": 1782709953369,
-      "type": "file"
-    },
-    {
-      "path": "streamlit_walk_engine\\gps_filter.py",
-      "accessCount": 3,
-      "lastAccessed": 1782709941341,
-      "type": "file"
-    },
-    {
       "path": "streamlit_walk_engine",
-      "accessCount": 2,
-      "lastAccessed": 1782709829443,
+      "accessCount": 3,
+      "lastAccessed": 1782710930829,
       "type": "directory"
     },
     {
@@ -361,6 +361,12 @@
       "accessCount": 1,
       "lastAccessed": 1782709641861,
       "type": "directory"
+    },
+    {
+      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\8b5a0e6e-1c4f-4020-a7a7-74f8508de10c\\tasks\\wr8syhp9w.output",
+      "accessCount": 1,
+      "lastAccessed": 1782711216189,
+      "type": "file"
     }
   ],
   "userDirectives": []
