@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import math
 import os
 import re
 import sys
@@ -24,7 +25,7 @@ from urllib.parse import quote
 import requests
 
 sys.path.insert(0, str(Path(__file__).parent))
-from engine import Coordinate, RouteModel, TurnPoint
+from engine import Coordinate, RouteModel, TurnPoint, distance_meters
 
 
 @dataclass(frozen=True)
@@ -328,6 +329,62 @@ def format_place_label(display: str | None) -> str:
         if s.startswith(w + " "):
             return s[len(w):].strip()
     return s
+
+
+# ── 검색 후보: 현재 위치 기준 거리 표시·정렬 ──────────────────────────────────
+# 동명(同名) 장소가 여러 곳일 때 현재 위치에서 가까운 후보를 위로 올리고 라벨에
+# 거리를 붙여, 엉뚱한 곳을 고르는 오선택(위치 부정확)을 줄이고 어느 후보가 맞는지
+# 직관적으로 구분하게 한다. 거리 계산은 엔진의 distance_meters(haversine)를 재사용.
+
+def format_distance(meters: float) -> str:
+    """사람이 읽는 거리 문자열. 995m 미만은 10m 단위 반올림한 'NNNm'(최소 10m),
+    995m 이상은 소수 1자리 'N.Nkm'. 숫자가 아니거나 inf/nan이면 빈 문자열,
+    음수는 0m로 취급(방어). 995~999m를 'NNNm' 대신 '1.0km'로 정돈한다."""
+    try:
+        m = float(meters)
+    except (TypeError, ValueError):
+        return ""
+    if not math.isfinite(m):
+        return ""
+    if m < 0:
+        m = 0.0
+    if m < 995:
+        rounded = int(round(m / 10.0)) * 10
+        return f"{max(10, rounded)}m"
+    return f"{m / 1000:.1f}km"
+
+
+def label_with_distance(
+    display: str | None,
+    coord: Coordinate | None = None,
+    origin: Coordinate | None = None,
+) -> str:
+    """검색 후보 라벨(format_place_label) 뒤에 현재 위치 기준 거리를 접미한다.
+
+    origin/coord 중 하나라도 없으면 거리 없이 기존 라벨만 반환(기존 동작 보존).
+    라벨이 비어 있으면 거리만 반환한다. 예: '테헤란로 152 · 250m'.
+    """
+    base = format_place_label(display)
+    if origin is None or coord is None:
+        return base
+    dist = format_distance(distance_meters(origin, coord))
+    if not dist:
+        return base
+    return f"{base} · {dist}" if base else dist
+
+
+def sort_suggestions_by_distance(
+    suggestions: list[tuple[Coordinate, str]],
+    origin: Coordinate | None,
+) -> list[tuple[Coordinate, str]]:
+    """검색 후보를 origin(현재 위치) 기준 가까운 순으로 정렬한다.
+
+    origin이 None이면 원래 순서를 그대로 유지한다(정렬하지 않음). 같은 거리는
+    파이썬 안정 정렬로 입력 순서를 보존한다. 원본 리스트는 변형하지 않는다.
+    """
+    if origin is None:
+        return list(suggestions)
+    return sorted(suggestions, key=lambda item: distance_meters(origin, item[0]))
 
 
 # ── Valhalla polyline6 디코더 ─────────────────────────────────────────────────

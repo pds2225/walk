@@ -36,7 +36,8 @@ import gps_filter
 from alert_voice import build_tts_script, tts_phrase
 from route_builder import (
     fetch_walking_route_with_engine, geocode_address, geocode_suggestions,
-    format_place_label, reverse_geocode, route_engine_label, strip_postcode,
+    label_with_distance, reverse_geocode, route_engine_label,
+    sort_suggestions_by_distance, strip_postcode,
 )
 
 try:
@@ -771,7 +772,9 @@ def _suggest_destinations(query: str) -> list:
 def _search_places(query: str) -> list:
     """st_searchbox 콜백 — 입력 즉시 자동완성 후보를 (라벨, 값) 목록으로 반환.
 
-    라벨=format_place_label(상세, 후보 구분), 값=(Coordinate, display) 튜플.
+    현재 위치(nav_origin)가 있으면 가까운 순으로 정렬하고 라벨에 거리를 붙여
+    (label_with_distance), 동명 장소 오선택을 줄인다. 현재 위치가 없으면 기존 순서·
+    라벨(format_place_label 상당)로 동작한다. 값=(Coordinate, display) 튜플.
     _suggest_destinations 가 @st.cache_data 라 같은 검색어는 즉시 반환된다.
     빈 입력·오류는 빈 리스트(searchbox가 안전하게 빈 목록을 표시).
     """
@@ -779,9 +782,11 @@ def _search_places(query: str) -> list:
     if not q:
         return []
     try:
+        origin = st.session_state.get("nav_origin")
+        suggestions = sort_suggestions_by_distance(_suggest_destinations(q), origin)
         return [
-            (format_place_label(disp), (coord, disp))
-            for coord, disp in _suggest_destinations(q)
+            (label_with_distance(disp, coord, origin), (coord, disp))
+            for coord, disp in suggestions
         ]
     except Exception:
         return []
@@ -829,11 +834,14 @@ def _render_dest_inputs() -> None:
                 suggestions = _suggest_destinations(dest_q)
         except Exception:
             suggestions = []
+        origin = st.session_state.get("nav_origin")
+        suggestions = sort_suggestions_by_distance(suggestions, origin)
         if suggestions:
             choice_idx = st.selectbox(
                 f"도착지 선택 (후보 {len(suggestions)}곳)",
                 range(len(suggestions)),
-                format_func=lambda i: format_place_label(suggestions[i][1]),
+                format_func=lambda i: label_with_distance(
+                    suggestions[i][1], suggestions[i][0], origin),
                 key="nav_dest_pick",
             )
             st.session_state["nav_dest_picked"] = suggestions[choice_idx]
@@ -903,11 +911,14 @@ def _sidebar_destination(favorites: list, running: bool = False) -> None:
                         s_sugg = _suggest_destinations(start_q)
                 except Exception:
                     s_sugg = []
+                s_origin = st.session_state.get("nav_origin")
+                s_sugg = sort_suggestions_by_distance(s_sugg, s_origin)
                 if s_sugg:
                     s_choice_idx = st.selectbox(
                         f"출발지 선택 (후보 {len(s_sugg)}곳)",
                         range(len(s_sugg)),
-                        format_func=lambda i: format_place_label(s_sugg[i][1]),
+                        format_func=lambda i: label_with_distance(
+                            s_sugg[i][1], s_sugg[i][0], s_origin),
                         key="nav_start_pick",
                     )
                     st.session_state["nav_start_picked"] = s_sugg[s_choice_idx]
