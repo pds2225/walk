@@ -1,0 +1,7 @@
+{
+  "tool_name": "mcp__plugin_oh-my-claudecode_t__lsp_diagnostics",
+  "tool_input_preview": "{\"file\":\"D:\\\\walk-night-auto\\\\streamlit_walk_engine\\\\tests\\\\test_route_builder.py\"}",
+  "error": "Language server 'ty' not found.\nInstall with: Install ty from https://github.com/astral-sh/ty",
+  "timestamp": "2026-07-01T18:37:02.759Z",
+  "retry_count": 3
+}

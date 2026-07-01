@@ -41,7 +41,7 @@
   },
   "build": {
     "buildCommand": null,
-    "testCommand": "npm test",
+    "testCommand": "cd /d/walk-night-auto/streamlit_walk_engine && python -m py_compile route_builder.py pages/1_Navigation.py tests/test_route_builder.py && echo \"PY_COMPILE_OK\" && echo \"\" && echo \"===== running new-function tests + full suite (quick) =====\" && python -m pytest tests/test_route_builder.py -q 2>&1 | tail -15",
     "lintCommand": "npm run lint",
     "devCommand": null,
     "scripts": {
