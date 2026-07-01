@@ -19,7 +19,10 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import route_builder
 from engine import Coordinate, RouteModel
-from route_builder import RouteInfo, _route_from_tmap_features, strip_postcode, format_place_label
+from route_builder import (
+    RouteInfo, _route_from_tmap_features, strip_postcode, format_place_label,
+    format_distance, label_with_distance, sort_suggestions_by_distance,
+)
 
 
 def _point(turn_type, lon, lat, description="", **extra_props):
@@ -405,3 +408,96 @@ class TestNaverHeaders:
         import streamlit
         monkeypatch.setattr(streamlit, "secrets", _FakeSecrets({}))
         assert route_builder._naver_headers() is None
+
+
+class TestFormatDistance:
+    """거리(m) → 사람이 읽는 문자열. 1km 미만은 10m단위 'NNNm', 이상은 'N.Nkm'."""
+
+    def test_meters_rounded_to_ten(self):
+        assert format_distance(253) == "250m"
+        assert format_distance(258) == "260m"
+
+    def test_small_distance_floors_to_10m(self):
+        # 10m 미만·0도 최소 '10m'로 표시해 '0m' 같은 어색한 표기를 피한다.
+        assert format_distance(3) == "10m"
+        assert format_distance(0) == "10m"
+
+    def test_kilometers_one_decimal(self):
+        assert format_distance(1000) == "1.0km"
+        assert format_distance(1234) == "1.2km"
+        assert format_distance(5600) == "5.6km"
+
+    def test_negative_is_clamped(self):
+        assert format_distance(-10) == "10m"
+
+    def test_non_numeric_returns_empty(self):
+        assert format_distance("abc") == ""
+        assert format_distance(None) == ""
+
+    def test_non_finite_returns_empty(self):
+        assert format_distance(float("inf")) == ""
+        assert format_distance(float("nan")) == ""
+
+    def test_km_boundary_rounds_up(self):
+        # 995~999m는 반올림 'NNNm'(1000m)이 아니라 '1.0km'로 표시(km 경계 정돈).
+        assert format_distance(999) == "1.0km"
+        assert format_distance(994) == "990m"
+
+
+class TestLabelWithDistance:
+    """검색 후보 라벨에 현재 위치 기준 거리 접미(origin/coord 없으면 라벨만)."""
+
+    _DEST = Coordinate(latitude=37.5665, longitude=126.9780)
+
+    def test_no_origin_returns_plain_label(self):
+        disp = "테헤란로 152, 강남구"
+        assert label_with_distance(disp, self._DEST, None) == format_place_label(disp)
+
+    def test_no_coord_returns_plain_label(self):
+        disp = "테헤란로 152, 강남구"
+        assert label_with_distance(disp, None, self._DEST) == format_place_label(disp)
+
+    def test_appends_distance_when_origin_present(self):
+        origin = Coordinate(latitude=37.5665, longitude=126.9780)  # 목적지와 동일 → 0m→'10m'
+        result = label_with_distance("서울특별시 중구 세종대로 110", self._DEST, origin)
+        assert result.startswith("중구 세종대로 110")
+        assert result.endswith(" · 10m")
+
+    def test_distance_only_when_label_empty(self):
+        origin = Coordinate(latitude=37.5000, longitude=127.0000)
+        dest = Coordinate(latitude=37.5000, longitude=127.0000)
+        # 표시문자열이 비면 라벨 없이 거리만(' · ' 접두 없이).
+        assert label_with_distance("", dest, origin) == "10m"
+        assert label_with_distance(None, dest, origin) == "10m"
+
+
+class TestSortSuggestionsByDistance:
+    """origin(현재 위치) 기준 가까운 순 정렬. origin None이면 원순서·안정."""
+
+    _ORIGIN = Coordinate(latitude=37.5000, longitude=127.0000)
+    _NEAR = Coordinate(latitude=37.5001, longitude=127.0000)   # 약 11m
+    _FAR = Coordinate(latitude=37.5100, longitude=127.0000)    # 약 1.1km
+
+    def test_none_origin_keeps_order(self):
+        sugg = [(self._FAR, "far"), (self._NEAR, "near")]
+        assert sort_suggestions_by_distance(sugg, None) == sugg
+
+    def test_sorts_nearest_first(self):
+        sugg = [(self._FAR, "far"), (self._NEAR, "near")]
+        out = sort_suggestions_by_distance(sugg, self._ORIGIN)
+        assert [d for _, d in out] == ["near", "far"]
+
+    def test_empty_list(self):
+        assert sort_suggestions_by_distance([], self._ORIGIN) == []
+
+    def test_stable_for_equal_distance(self):
+        same = Coordinate(latitude=37.5050, longitude=127.0000)
+        sugg = [(same, "a"), (same, "b")]
+        out = sort_suggestions_by_distance(sugg, self._ORIGIN)
+        assert [d for _, d in out] == ["a", "b"]
+
+    def test_does_not_mutate_input(self):
+        sugg = [(self._FAR, "far"), (self._NEAR, "near")]
+        original = list(sugg)
+        sort_suggestions_by_distance(sugg, self._ORIGIN)
+        assert sugg == original
