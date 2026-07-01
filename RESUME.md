@@ -1,8 +1,15 @@
 # RESUME.md - D:\walk checkpoint
 
-> Updated: 2026-06-29
+> Updated: 2026-07-02
 > ✅ **검색 UX 개선 완료 (PR #28·#29·#30 머지)**: ①후보 라벨 정제(#28)→②과압축 되돌려 **도로·번지·동 상세 유지로 후보 구분**(#29, `format_place_label`)→③**입력 즉시 자동완성 streamlit-searchbox 도입**(#30, `_search_places` + `_HAS_SEARCHBOX` 미설치 폴백 가드). selectbox 인덱스 기반(동명 중복 선택 버그 해소). pytest 165·AppTest(설치/미설치)·code-reviewer APPROVE. ⚠️ **실기기 확인**: 자동완성 드롭다운 동작 + 클라우드 `streamlit-searchbox` 설치(미설치 시 기존 입력칸 폴백).
 > ✅ **UI/UX 개선 1·2차 완료 (PR #26·#27 머지)**: 감사 49건 중 채택분 — 1차(첫화면 캡션·목적지 우선 동선·버튼 비활성 사유·동작용어 '경로 찾기' 통일·성공메시지 거리/시간·검색후보 정리·GPS 정확도 압축·시작 '안내중' 신호·검색 spinner·도착 후 안내·접근성 CSS = 13건), 2차(액션버튼 세로 전폭·내비중 입력폼 접기·지도/판정 세로·다음 회전 큰 카드·상세지표 expander·헤더 정리 = 6항목). **engine/gps_filter 0줄·pytest 159·code-reviewer APPROVE**(양 PR). ⚠️ **모바일 실기기 렌더 확인 권장**(터치감·한 화면 가시). 미채택: adopt_with_care 잔여·defer/reject. 감사 전체 `tasks/wqoffpyyh.output`. 워크트리 잔재 폴더 다수 파일잠금(PC 재시작 후 `D:\walk-*` 정리). ultraqa --tests=159 passed.
+
+## ✅ 2026-07-02 야간 자동개발 — 검색 후보 거리 표시·정렬 완료 (PR #31 머지)
+- **검색 후보(목적지·출발지)에 "현재 위치 기준 거리" 표시 + 가까운 순 정렬** 구현·머지(origin/main `23f5bf8`). 동명 장소 오선택↓·검색UX↑.
+- route_builder.py 순수함수 3개(`format_distance`/`label_with_distance`/`sort_suggestions_by_distance`, 거리는 `engine.distance_meters`(haversine) 재사용) + 1_Navigation.py 3곳(searchbox 콜백·selectbox 폴백 목적지/출발지) 배선. **nav_origin None이면 기존 순서·라벨 그대로(회귀 없음)**.
+- 검증: pytest **181 passed**(165+신규 16)·py_compile OK·code-reviewer(opus) **APPROVE**(🔴0). engine.py 비침습·최소변경. MEDIUM 2건(inf/nan·995~999m 경계)도 반영.
+- 작업 방식: origin/main이 로컬 main보다 24 behind → **격리 워크트리 `D:\walk-night-auto`**(브랜치 night/search-distance, origin/main 기준)에서 작업 후 머지·원격브랜치 삭제. 로컬 `D:\walk` main은 여전히 origin보다 behind(사용자 선택 영역, 미접촉).
+- ⚠️ **실기기 확인 권장**: 자동완성 드롭다운·selectbox의 거리 라벨/가까운순 정렬 실제 렌더는 브라우저·실폰에서 확인(순수함수 로직은 pytest 커버).
 
 ## 🔵 2026-06-29 진행중 — 대중교통+도보 연결 설계 (브레인스토밍 → ralplan 합의계획)
 - **사용자 목표:** 출발지→대중교통(지하철/버스)→도보→목적지 전체 여정을 walk **한 앱**에서 연결. "앱 2개 켜는 복잡함" 회피가 핵심 동기.
