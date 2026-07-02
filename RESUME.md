@@ -1,102 +1,46 @@
 # RESUME.md - D:\walk checkpoint
 
-> Updated: 2026-07-02
-> ✅ **검색 UX 개선 완료 (PR #28·#29·#30 머지)**: ①후보 라벨 정제(#28)→②과압축 되돌려 **도로·번지·동 상세 유지로 후보 구분**(#29, `format_place_label`)→③**입력 즉시 자동완성 streamlit-searchbox 도입**(#30, `_search_places` + `_HAS_SEARCHBOX` 미설치 폴백 가드). selectbox 인덱스 기반(동명 중복 선택 버그 해소). pytest 165·AppTest(설치/미설치)·code-reviewer APPROVE. ⚠️ **실기기 확인**: 자동완성 드롭다운 동작 + 클라우드 `streamlit-searchbox` 설치(미설치 시 기존 입력칸 폴백).
-> ✅ **UI/UX 개선 1·2차 완료 (PR #26·#27 머지)**: 감사 49건 중 채택분 — 1차(첫화면 캡션·목적지 우선 동선·버튼 비활성 사유·동작용어 '경로 찾기' 통일·성공메시지 거리/시간·검색후보 정리·GPS 정확도 압축·시작 '안내중' 신호·검색 spinner·도착 후 안내·접근성 CSS = 13건), 2차(액션버튼 세로 전폭·내비중 입력폼 접기·지도/판정 세로·다음 회전 큰 카드·상세지표 expander·헤더 정리 = 6항목). **engine/gps_filter 0줄·pytest 159·code-reviewer APPROVE**(양 PR). ⚠️ **모바일 실기기 렌더 확인 권장**(터치감·한 화면 가시). 미채택: adopt_with_care 잔여·defer/reject. 감사 전체 `tasks/wqoffpyyh.output`. 워크트리 잔재 폴더 다수 파일잠금(PC 재시작 후 `D:\walk-*` 정리). ultraqa --tests=159 passed.
-
-## ✅ 2026-07-02 야간 자동개발 — 검색 후보 거리 표시·정렬 완료 (PR #31 머지)
-- **검색 후보(목적지·출발지)에 "현재 위치 기준 거리" 표시 + 가까운 순 정렬** 구현·머지(origin/main `23f5bf8`). 동명 장소 오선택↓·검색UX↑.
-- route_builder.py 순수함수 3개(`format_distance`/`label_with_distance`/`sort_suggestions_by_distance`, 거리는 `engine.distance_meters`(haversine) 재사용) + 1_Navigation.py 3곳(searchbox 콜백·selectbox 폴백 목적지/출발지) 배선. **nav_origin None이면 기존 순서·라벨 그대로(회귀 없음)**.
-- 검증: pytest **181 passed**(165+신규 16)·py_compile OK·code-reviewer(opus) **APPROVE**(🔴0). engine.py 비침습·최소변경. MEDIUM 2건(inf/nan·995~999m 경계)도 반영.
-- 작업 방식: origin/main이 로컬 main보다 24 behind → **격리 워크트리 `D:\walk-night-auto`**(브랜치 night/search-distance, origin/main 기준)에서 작업 후 머지·원격브랜치 삭제. 로컬 `D:\walk` main은 여전히 origin보다 behind(사용자 선택 영역, 미접촉).
-- ⚠️ **실기기 확인 권장**: 자동완성 드롭다운·selectbox의 거리 라벨/가까운순 정렬 실제 렌더는 브라우저·실폰에서 확인(순수함수 로직은 pytest 커버).
-
-## 🔵 2026-06-29 진행중 — 대중교통+도보 연결 설계 (브레인스토밍 → ralplan 합의계획)
-- **사용자 목표:** 출발지→대중교통(지하철/버스)→도보→목적지 전체 여정을 walk **한 앱**에서 연결. "앱 2개 켜는 복잡함" 회피가 핵심 동기.
-- **합의된 방향 = 옵션1(승인됨):** 전체 여정을 leg 단위로 한 화면 표시, **실시간 GPS 이탈감지(기존 엔진)는 도보 leg에서만** 작동. 대중교통 leg는 외부 API에서 받아 표시만(지하 GPS 불가 → 수동 진행).
-  - 대중교통 소스 3단계 폴백: ①기존 TMAP 앱키로 transit/routes 재사용 시도 → ②ODsay 폴백 → ③둘 다 없으면 도보 전용 강등(앱 안 깨짐).
-  - 도보 leg는 기존 `fetch_walking_route_with_engine` 재호출로 turn-by-turn 생성(강점 재사용). 신규 `transit_builder.py` + `1_Navigation.py` 최소 가산 변경. 기존 도보전용 흐름은 토글로 보존.
-  - **2단계(후속, 이번 범위 아님):** GPS 없는 가벼운 하차 알림(목적지 역 예상시간 카운트다운+진동).
-- **현재 단계:** ralplan 합의 워크플로 백그라운드 실행 중(Run wf_e574612a-3de, Planner→Architect→Critic 반복). 완료 시 `pending approval` 계획 제시 → 사용자가 호출한 `/team`으로 구현.
-- **결정 대기:** 대중교통 API 키(TMAP transit 활성화 or ODsay 키)는 외부 의존성·사용자 액션. 코드는 키 없어도 도보 강등으로 동작하게 설계.
-
-## ✅ 2026-06-28 — 경로버튼 위치 이동 + 현재위치 로딩단축 완료 (PR #24 머지)
-- 경로탐색/시작/초기화 버튼을 **도착지 입력 바로 아래로** 이동(`_render_action_buttons()` 헬퍼 추출 — origin/nav_config를 세션에서 읽어 위치 독립·stale 없음). GPS현재위치·알림설정은 그 아래로.
-- 현재위치 로딩 단축: gps-1 다중샘플을 **≤20m fix 즉시 반환 + 상한 2초/4fix→1.2초/3fix**.
-- 검증: pytest 150·py_compile·AppTest OK. code-reviewer APPROVE(🔴0). fast-follow: GPS 미취득 시 버튼 활성 안내 캡션 + docstring 보강.
-- ⚠️ 실기기 확인 권장: watchPosition 첫 위치 속도·정확도는 실폰에서 확인.
-- 정리 잔재: `D:\walk-rbtn` 워크트리 폴더 파일잠금(브랜치·git 등록 정리완료). PC 재시작 후 삭제.
-
-## ✅ 2026-06-28 — 출발지 현재위치 주소표시 + 우편번호 제거 완료 (PR #25 머지)
-- `strip_postcode`(route_builder 순수함수, **쉼표 경계 5자리만** 제거·공백형/건물번호/비경계 5자리 보존·멱등) + `nav_origin_address` **저장 직전 1회** 적용(placeholder·캡션 자동 전파). reverse except를 RequestException/ValueError/KeyError로 구체화(예상외 예외 표면화). 단위테스트 9건(pytest 159 passed). code-reviewer APPROVE(🔴0).
-- **진단 결론:** 로컬 reverse는 이미 POI 포함 형식 반환(우편번호만 끼어 있음)→제거로 사용자 예시 일치. Naver reverse는 키 있어도 None(서비스 미활성)이라 Nominatim 경로로 POI 출현.
-- **⚠️ R3(사용자 확인 필요):** 사용자 폰(클라우드)서 좌표만 보였다면 = 클라우드 Nominatim 차단(H1, 로컬 재현불가). 복구하려면 Naver Cloud 콘솔 **Reverse Geocoding 활성화** + st.secrets 키(d17c67d 경로). 배포설정이라 코드 밖.
-- 계획: `.omc/plans/walk-origin-address-display.md`. 정리 잔재: `D:\walk-addr` 워크트리 폴더 파일잠금(브랜치·git 정리완료).
-
-## ✅ 2026-06-28 — GPS 정확도·속도·UI 개선 1·2차 완료 (PR #22·#23 머지)
-- **사용자 목표:** GPS 위치 정확도·속도·쉬운 UI — 1차 9건 + 2차 5건 = **14건 구현·머지 완료**(실제사용승인루프).
-- **2차(PR #23):** GPS 최초취득 다중샘플(gps-1)·정지 median/가중 blend 스무딩(gps-3/5, 큰 이동은 raw로 코너링 지연 방지), 동선 재배열(nav-2 즐겨찾기·예약을 핵심동선 아래로)·예약 섹션 접기(nav-3). pytest 150 passed(순수함수 신규 11). code-reviewer APPROVE(🔴0).
-- **1차(PR #22):** ①GPS 위치 정확도 ②속도 ③쉽고 단순한 UI — 9건 구현·머지 완료(실제사용승인루프 모드).
-- **머지됨(PR #22 → origin/main):**
-  - GPS: `gps_filter.py` 순수함수 2종(`is_plausible_step` 점프제거+고착방지 escape, `sanitize_motion` 모션 신뢰) +단위테스트 15건, `1_Navigation.py` 점프가드 배선·`_make_sample` 교체.
-  - 속도: 지도 트레이스 N→1 병합, 역지오코딩 캐시, 샘플 상한 500, 경로 타임아웃 15→8초.
-  - UI: 민감도 슬라이더 '고급 설정' 접기, 토글 쉬운 말, 즐겨찾기·최근검색 묶기. +도착 소요시간 '여정 시작' 기준(trim 영향 제거, reviewer 지적 fast-follow).
-- **검증:** pytest 139 passed(기존 124+신규 15) · py_compile · AppTest 렌더 OK. code-reviewer APPROVE(🔴 0).
-- **감사 전체결과:** `tasks/wian3sb04.output` (15건 중 14건 구현 완료 — gps-1~5·perf-1~4·nav-1~5).
-- **⚠️ 실기기 QA 미완(필수, 다음 액션):** GPS watchPosition(gps-1)·nav_origin 스무딩(gps-3/5)·점프가드는 브라우저 전용 → pytest 미커버. 실폰 보행에서 ①최초위치 정확·취득속도 ②정지 핀 안정 ③코너링 시 이탈감지 지연無 ④동선(목적지→탐색→시작) 확인 권장.
-- **정리 잔재:** `D:\walk-improve`·`D:\walk-gps2` 워크트리 폴더가 파일잠금으로 물리삭제 실패(git 등록·브랜치는 정리완료). PC 재시작 후 수동 삭제.
-- **gsync:** behind(#16 settings.json, 실사용 영향 0)은 로컬 유지 보류(사용자 선택). origin/main은 PR #22·#23 포함 → 로컬 `D:\walk` main은 그만큼 더 behind(미pull, 사용자 선택대로).
-- **안전 불변(유지됨):** engine.py 코어 비침습 / 안전기능(accuracy 게이팅·is_fix_usable·재경로 워밍업·is_arrival·decide_alert) 보존 / 1_Navigation.py 최소변경 / pytest green.
-
-## 🧹 2026-06-25 세션정리 — 닫아도 안전 ✅
-- 코드 변경 0·로컬 main=origin/main(0/0) 동기화 확인. 이 창은 **지금 닫거나 /clear 해도 손실 없음**.
-- 미정리(선택, 안전가드 승인 후): ①워크트리 2개(naver-maps-api·visual-verdict-nav-ui, 둘 다 별도 브랜치) ②잔재 검증폴더 5개 `D:\walk-{fix,nav,pr13,qa,ui}` ③streamlit-*.log 11개(~30KB) ④DRAFT PR #16 처리 결정.
+> Updated: 2026-07-02 13:03 KST
+> Purpose: `/clear` 후에도 walk 작업을 바로 이어가기 위한 압축 체크포인트. Secret/API Key/.env 값 금지.
 
 ## Current State
 
-- Repo root: `D:\walk`, branch `main`. ⚠️ 같은 repo·main에 다른 세션 활동 중 → 메인 워킹트리 보호(직접 편집/pull 자제, 격리 워크트리 사용).
-- **로컬 main = origin/main = `0ac7045`** (PR #13~#21 중 #16 제외 전부 병합). 2026-06-25 재확인: `ahead/behind = 0/0` 완전 동기화. 미커밋은 `.claude/settings.json`(M) 1건 + untracked 로그/`.omc`/`.codex`/`.vscode`/RESUME.md(전부 git 비추적).
-- 열린 PR: #16(DRAFT 자동테스트 훅 chore) 1건. 코드 변경·신규 작업 없음(이번 세션=세션 정리만).
+- Repo root verified: `D:\walk` (`git -C D:\walk rev-parse --show-toplevel` -> `D:/walk`).
+- Shell location can drift to `D:\`; use explicit commands such as `git -C D:\walk ...` or `cd D:\walk` before running project commands.
+- Local repo has non-code/session artifacts: `.claude/settings.json` modified plus untracked `.claude/`, `.omc/`, `.vscode/`, `RESUME.md`. Do not revert user/session changes without explicit request.
+- Repo rules from `D:\walk\AGENTS.md`: keep project name `walk`, preserve Streamlit page structure, minimize changes to `streamlit_walk_engine/pages/1_Navigation.py`, do not edit `.env*` or workflows unless explicitly requested, do not commit/push unless requested.
 
-## 이번 세션 완료 (PR 3건 병합)
+## Recent Completed Context
 
-1. **PR #13** — 내비 GPS 재폴링 + 도착 판정 화면 연결.
-2. **PR #14** (/ultraqa+/autopilot 감사) — 슬라이더 비정상 config 클램프(drift<=dev<=strong), docs/progress-notes.md 신규(DONE E2/H6 필수 산출물), README 테스트수 97→116.
-3. **PR #15** — **메인 화면을 네비게이션으로**: app.py에 세션 1회 `st.switch_page("pages/1_Navigation.py")`. 앱 진입 시 내비가 메인.
-4. **PR #17 + #18** — **모바일 UI**: 1_Navigation.py 사이드바·햄버거 제거(CSS+collapsed), 컨트롤 본문 이동(`with st.sidebar:`→`with st.container():`). 알림/재경로/임계값은 #17에서 가로 스크롤로 했다가 **#18에서 세로 스택으로 변경**(사용자 요청). 트레이드오프: 사이드바 숨김으로 시뮬레이터 페이지 전환 메뉴도 안 보임.
-5. **PR #19** — **목적지 검색 전 후보 미리보기**: route_builder `geocode_suggestions`(Naver 다중후보→Nominatim 폴백), 1_Navigation에 `@st.cache_data` 미리보기(✅검색됨 N곳+selectbox/❌못찾음), 경로 탐색이 선택 후보 사용. 테스트 5건 추가(121 passed). code-reviewer APPROVE.
-6. **PR #20** — **출발지 입력**(도착지 위): 기본 현재 위치(GPS)·비우면 현재위치 사용·입력하면 도착지와 동일 미리보기. 경로 탐색이 `_fetch_route(start_coord, dest)`로 출발지 사용(비움=기존동작).
-7. **PR #21** — **Cloud 주소 검색 실패 해결**: Cloud에서 합정동·합정역 등 검색 실패 원인 = `_naver_headers`가 st.secrets를 안 읽어 Naver 비활성→Nominatim(클라우드 IP 차단). `_naver_headers`에 st.secrets 경로 추가(env→st.secrets→.env.shared), secrets.toml.example에 NAVER 키 문서화. 테스트 3건(124 passed). **사용자 액션 필요**: Cloud Settings→Secrets에 NAVER_MAPS_CLIENT_ID/SECRET 넣고 Reboot.
+- Search UX improvements are already recorded as completed and merged through PR #31: candidate labels refined, `streamlit-searchbox` autocomplete added with fallback, and destination/origin suggestions display distance from current location and sort nearest first.
+- Validation previously recorded for that work: `pytest 181 passed`, `py_compile` OK, reviewer approved. Real-device/mobile rendering still needs manual confirmation.
+- Pending product direction from earlier planning: transit + walking route in one walk screen, with GPS deviation detection only on walking legs; transit leg is display/manual-progress only. API keys must be optional so the app falls back to walking-only behavior.
 
-## 검증 (현재 코드 00171e4~381fe7f 기준)
+## This Turn
 
-- pytest streamlit_walk_engine 116 / task_organizer 20 passed. npm test:run 81 / typecheck OK / lint exit0 / simulate exit0(TS 미변경). py_compile exit0.
-- PR #15: AppTest로 app.py 무예외 실행 + switch_page 경로 유효성 대조군 확인(정상경로 통과/오경로 Could not find page). ⚠️ 브라우저 실측 전환은 환경상 미수행.
-- /ultraqa 재검증(현재 코드 기준 3축+적대): 전부 CLEAN, 실사용 파괴 0건.
+- User ran `/skills`; response listed available high-value skills.
+- User invoked `omc-auto-router` via `C:\Users\ekth3\.agents\skills\omc-auto-router\SKILL.md`.
+- `omc-auto-router` was read. It is a hook/router skill for SessionStart/UserPromptSubmit/PostToolUse/PreToolUse behavior: injected OMC rules, everyday phrase to harness routing, turn recap hints, wiki auto-reference, and git/PR sync reminders.
+- User invoked `session-closeout-auto` via `C:\Users\ekth3\.agents\skills\session-closeout-auto\SKILL.md`.
+- `session-closeout-auto` was read. It installs/removes/status-checks Codex closeout hooks for automatic 4-part session saving: skill harvest, wiki capture, `SESSION_RECAP.md`, and `RESUME.md`.
+- User invoked `oh-my-claudecode:autopilot` via `C:\Users\ekth3\.codex\plugins\cache\omc\oh-my-claudecode\4.15.1\skills\autopilot\SKILL.md`.
+- `autopilot` was read. It is a full autonomous lifecycle skill: expand idea, plan, execute, QA, multi-review, cleanup. In Plan Mode, use it to create an execution plan only; do not implement code until Plan Mode ends.
+- Autopilot precheck: `.omc\plans` exists, but no `ralplan-*.md` or `consensus-*.md` was found, so a future autopilot run would need a concrete target or use an existing non-consensus plan as input by explicit choice.
+- Closeout precheck: global closeout auto is `ON`; `D:\walk` project-local closeout auto is `OFF`; recent active-session detector returned `d:\auto_write`.
+- No hook installation, code edit, commit, push, PR, or test run was requested or performed in this turn, except checkpoint updates.
 
-## 미해결 1건 (deferred, 미반영)
+## Resume Commands
 
-- engine.py EngineConfig에 `__post_init__` 검증 없음 — UI 슬라이더가 유일 enforcement라 실사용 영향 0. 비-UI 호출자 생길 때만 추가 권고(low).
+```powershell
+cd D:\walk
+git -C D:\walk status --short
+git -C D:\walk fetch --prune
+python -m pytest streamlit_walk_engine\tests -q
+```
 
 ## Next Actions
 
-1. 다른 세션 정리 후 로컬 main `git pull --ff-only`로 origin(0ac7045) 동기화. 로컬 425acc3 = 8커밋 behind, 0 ahead → 무손실 회수 가능.
-2. 실시간 GPS 내비·메인화면 리다이렉트는 **실기기/브라우저 실측 QA** 권장(progress-notes에 기록).
-3. 검증용 잔여 폴더(D:\walk-{pr13,fix,qa,nav,8})는 git 등록 해제됨·파일 잠금으로 폴더만 남음 → PC 재시작 후 수동 삭제 또는 folder-cleanup.
-
-## 2026-06-24 현황 점검 (조회만, 수정 없음)
-
-- M1(TS 엔진)·M2(Streamlit 데모) DONE 기준 충족 완료. 이후 내비 UX 개편(#13~#21, #16 제외) 전부 origin/main 병합. 6/18 이후 신규 병합 없음.
-- 열린 PR: **#16**(DRAFT, streamlit_walk_engine 자동 테스트 훅 chore) 1건. 열린 이슈: #3(PWA+FastAPI MVP 설계), #1(자동개발 운영 세팅).
-- 사용자 지정 방향: **"위치 부정확 개선 + 출발지/목적지 검색 UI/UX 개선"**. 단 #19/#20으로 후보 미리보기·출발지 입력·즐겨찾기·히스토리·예약은 이미 구현됨(동기화로 로컬 반영).
-- **다음 기능 1개(쪼개기 완료, 구현 대기):** 검색 후보에 "현재 위치 기준 거리" 표시 + 가까운 순 정렬 — 같은 이름 동명 장소 중 엉뚱한 곳 선택 방지(위치 부정확 ↓) + selectbox 라벨로 어느 후보가 맞는지 직관화(검색 UX ↑). 쪼개기: ①`_label_with_distance(suggestions, origin)` 헬퍼(거리계산·포맷·가까운순 정렬·origin None 폴백)+단위테스트(15분) ②`_sidebar_destination` 출발지/목적지 selectbox 라벨 교체(15분) ③pytest+py_compile(10분).
-- 보류 후보: (B) 검색 실패 사유 구분 안내(키없음/0건/네트워크), (C) 임계값 슬라이더 strong·heading 노출, (D) engine.py EngineConfig `__post_init__` 검증(low).
-
-## 왜 로컬이 origin보다 뒤처졌나 (2026-06-24 원인 진단)
-
-- `.git-auto-backup.log` 자동백업 스킬은 **push(올리기) 전용** — origin→로컬 pull(내려받기)을 안 함. 게다가 **2026-05-01 22:07 이후 멈춤**(미실행), 실행 시에도 `git stash failed` 다수.
-- 개발이 전부 별도 브랜치→GitHub PR→main 병합 흐름(커밋 작성자 pds2225). 로컬 main을 직접 안 건드려서 수동 pull 없으면 계속 behind.
-- `.claude/settings.json` 자동 훅은 session-guard(guard_pregit.py)뿐 — **자동 pull/sync 훅 없음**. `pull.ff=false`.
-- 워크트리 2개 잔존: naver-maps-api(9e04a33), visual-verdict-nav-ui(966cde3) — 별도 브랜치라 main과 무관.
-- → 결론: "연동 고장"이 아니라 **내려받기 자동화 부재 + 올리기 백업마저 5/1 정지**. 재발 방지책(1=SessionStart 자동 pull 훅 / 2=양방향 자동백업 수리 / 3=수동 gsync) 사용자 선택 대기 — 1번 추천.
-- ⚠️ 2026-06-24 세션가드: 다른 클로드 세션(f312d1d3) 같은 repo·main 동시 활동 중. 양방향 자동백업(2번)은 갈라짐(divergence) 충돌 위험 → 1번(pull만) 권장. main 직접 편집 자제·격리 워크트리 권장.
+1. If the user wants autopilot execution, first lock the target: existing transit+walk plan, a new product idea, or a specific bug/fix. Then create/confirm `.omc/autopilot/spec.md` and `.omc/plans/autopilot-impl.md` before implementation.
+2. If the user wants `session-closeout-auto` installed locally for `D:\walk`, use `manage_closeout_hooks.py install-local D:\walk` only after explicit approval; global is already ON.
+3. If the user wants `omc-auto-router` installed, confirm target scope: current repo only (`D:\walk`) or default multi-folder install.
+4. If the user wants walk implementation work, start with `git -C D:\walk status --short` and `git -C D:\walk fetch --prune`; use a separate branch/worktree for code changes and run `python -m pytest streamlit_walk_engine\tests -q`.
