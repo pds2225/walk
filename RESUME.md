@@ -1,6 +1,6 @@
 # RESUME.md - D:\walk checkpoint
 
-> Updated: 2026-07-02 13:03 KST
+> Updated: 2026-07-02 13:20 KST
 > Purpose: `/clear` 후에도 walk 작업을 바로 이어가기 위한 압축 체크포인트. Secret/API Key/.env 값 금지.
 
 ## Current State
@@ -8,6 +8,7 @@
 - Repo root verified: `D:\walk` (`git -C D:\walk rev-parse --show-toplevel` -> `D:/walk`).
 - Shell location can drift to `D:\`; use explicit commands such as `git -C D:\walk ...` or `cd D:\walk` before running project commands.
 - Local repo has non-code/session artifacts: `.claude/settings.json` modified plus untracked `.claude/`, `.omc/`, `.vscode/`, `RESUME.md`. Do not revert user/session changes without explicit request.
+- Local `main` is behind `origin/main` by 26 commits. Do not implement directly in `D:\walk`; use a fresh worktree from `origin/main`.
 - Repo rules from `D:\walk\AGENTS.md`: keep project name `walk`, preserve Streamlit page structure, minimize changes to `streamlit_walk_engine/pages/1_Navigation.py`, do not edit `.env*` or workflows unless explicitly requested, do not commit/push unless requested.
 
 ## Recent Completed Context
@@ -27,7 +28,9 @@
 - `autopilot` was read. It is a full autonomous lifecycle skill: expand idea, plan, execute, QA, multi-review, cleanup. In Plan Mode, use it to create an execution plan only; do not implement code until Plan Mode ends.
 - Autopilot precheck: `.omc\plans` exists, but no `ralplan-*.md` or `consensus-*.md` was found, so a future autopilot run would need a concrete target or use an existing non-consensus plan as input by explicit choice.
 - Closeout precheck: global closeout auto is `ON`; `D:\walk` project-local closeout auto is `OFF`; recent active-session detector returned `d:\auto_write`.
-- No hook installation, code edit, commit, push, PR, or test run was requested or performed in this turn, except checkpoint updates.
+- User approved implementation of the Korean plan: add transit+walking journey support to walk, with GPS guidance only on walking legs and transit legs shown as manual cards.
+- Executing-plans and using-git-worktrees skills were read. Work must happen in an isolated worktree/branch, not local `main`.
+- Implementation has not yet touched app code at this checkpoint; only this `RESUME.md` checkpoint was updated in `D:\walk`.
 
 ## Resume Commands
 
@@ -40,7 +43,7 @@ python -m pytest streamlit_walk_engine\tests -q
 
 ## Next Actions
 
-1. If the user wants autopilot execution, first lock the target: existing transit+walk plan, a new product idea, or a specific bug/fix. Then create/confirm `.omc/autopilot/spec.md` and `.omc/plans/autopilot-impl.md` before implementation.
-2. If the user wants `session-closeout-auto` installed locally for `D:\walk`, use `manage_closeout_hooks.py install-local D:\walk` only after explicit approval; global is already ON.
-3. If the user wants `omc-auto-router` installed, confirm target scope: current repo only (`D:\walk`) or default multi-folder install.
-4. If the user wants walk implementation work, start with `git -C D:\walk status --short` and `git -C D:\walk fetch --prune`; use a separate branch/worktree for code changes and run `python -m pytest streamlit_walk_engine\tests -q`.
+1. Create a fresh worktree from latest `origin/main`, likely `D:\walk-transit-journey` on branch `codex/transit-walk-journey`.
+2. Implement only the approved transit+walk scope: new `transit_builder.py`, minimal `1_Navigation.py` additions, tests, no `engine.py`/`route_builder.py` edits.
+3. Validate with `python -m pytest streamlit_walk_engine\tests -q` and `python -m py_compile streamlit_walk_engine\transit_builder.py streamlit_walk_engine\pages\1_Navigation.py`.
+4. Do not install local `session-closeout-auto`; global is already ON.
