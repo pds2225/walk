@@ -33,6 +33,7 @@ from engine import (
     distance_meters,
 )
 import gps_filter
+import transit_builder
 from alert_voice import build_tts_script, tts_phrase
 from route_builder import (
     fetch_walking_route_with_engine, geocode_address, geocode_suggestions,
@@ -201,6 +202,9 @@ def _init() -> None:
         "nav_arrival_summary": None,
         "nav_start_ts_ms": None,
         "nav_recent_fixes": [],
+        "nav_journey": None,
+        "nav_active_leg_index": 0,
+        "nav_transit_enabled": True,
     }.items():
         if k not in st.session_state:
             st.session_state[k] = v
@@ -257,6 +261,98 @@ def _fetch_route(origin: Coordinate, dest: Coordinate) -> RouteModel:
     st.session_state["nav_route_engine"] = engine_label
     st.session_state["nav_route_info"] = route_info
     return route
+
+
+def _clear_journey_state() -> None:
+    st.session_state["nav_journey"] = None
+    st.session_state["nav_active_leg_index"] = 0
+
+
+def _activate_leg(journey: transit_builder.Journey, active_index: int, *, start_now: bool) -> None:
+    """Activate one journey leg. Only tracked walk legs bind the deviation engine."""
+    safe_index = max(0, min(active_index, len(journey.legs) - 1))
+    leg = journey.legs[safe_index]
+    st.session_state["nav_journey"] = journey
+    st.session_state["nav_active_leg_index"] = safe_index
+    st.session_state["nav_route_engine"] = leg.walk_engine_label or journey.source
+    st.session_state["nav_route_info"] = leg.route_info
+
+    if leg.mode == "walk" and leg.tracked and leg.route is not None:
+        _activate_route(leg.start, leg.end, leg.end_label, leg.route, start_now=start_now)
+        return
+
+    st.session_state.update({
+        "nav_dest": leg.end,
+        "nav_dest_display": leg.end_label,
+        "nav_route": None,
+        "nav_engine": None,
+    })
+    _reset()
+
+
+def _activate_journey(journey: transit_builder.Journey, *, start_now: bool) -> None:
+    st.session_state["nav_journey"] = journey
+    st.session_state["nav_active_leg_index"] = 0
+    _activate_leg(journey, 0, start_now=start_now)
+
+
+def _meters_text(value: int | None) -> str:
+    if value is None:
+        return ""
+    return f"{value / 1000:.1f}km" if value >= 1000 else f"{value}m"
+
+
+def _minutes_text(seconds: int | None) -> str:
+    if seconds is None:
+        return ""
+    return f"약 {max(1, round(seconds / 60))}분"
+
+
+def _render_journey(journey: transit_builder.Journey, active_index: int) -> None:
+    """Render the whole journey as compact vertical cards."""
+    if not journey.legs:
+        return
+    active_index = max(0, min(active_index, len(journey.legs) - 1))
+    st.markdown("#### 전체 여정")
+    summary_bits = [_meters_text(journey.total_distance_meters), _minutes_text(journey.total_time_seconds)]
+    summary = " · ".join(bit for bit in summary_bits if bit)
+    st.caption(f"{journey.source}" + (f" · {summary}" if summary else ""))
+    for i, leg in enumerate(journey.legs):
+        active = i == active_index
+        icon = {"walk": "🚶", "subway": "🚇", "bus": "🚌", "transfer": "↔️"}.get(leg.mode, "•")
+        title = f"{icon} {leg.start_label} → {leg.end_label}"
+        detail = ""
+        if leg.transit is not None:
+            parts = [leg.transit.line_name]
+            if leg.transit.station_count:
+                parts.append(f"{leg.transit.station_count}개 정류장")
+            parts.extend([_meters_text(leg.transit.distance_meters), _minutes_text(leg.transit.time_seconds)])
+            detail = " · ".join(part for part in parts if part)
+        elif leg.route_info is not None:
+            detail = " · ".join(
+                part for part in (_meters_text(leg.route_info.total_distance_meters),
+                                  _minutes_text(leg.route_info.total_time_seconds))
+                if part
+            )
+        elif leg.mode == "walk":
+            detail = "실시간 안내를 준비하지 못했습니다"
+        prefix = "현재 구간 · " if active else ""
+        st.markdown(f"**{prefix}{title}**")
+        if detail:
+            st.caption(detail)
+        if active and leg.mode in ("subway", "bus"):
+            st.info(f"{leg.transit.board_station if leg.transit else leg.start_label}에서 타고 "
+                    f"{leg.transit.alight_station if leg.transit else leg.end_label}에서 내리세요.")
+        if active and leg.mode == "walk" and not leg.tracked:
+            st.warning("이 도보 구간은 실시간 안내를 만들지 못했습니다. 실제 길을 확인한 뒤 다음 구간으로 넘어가세요.")
+
+    active_leg = journey.legs[active_index]
+    if active_index < len(journey.legs) - 1 and (
+        active_leg.mode in ("subway", "bus") or (active_leg.mode == "walk" and not active_leg.tracked)
+    ):
+        if st.button("내렸어요 · 다음 구간", use_container_width=True, type="primary"):
+            _activate_leg(journey, active_index + 1, start_now=True)
+            st.rerun()
 
 
 def _route_summary_text() -> str | None:
@@ -727,7 +823,7 @@ def _add_bulk_bookings(bulk_text: str, booking_radius: int) -> None:
 # ── 예약 자동 활성화 ──────────────────────────────────────────────────────────
 
 def _try_activate_booking(origin: Optional[Coordinate]) -> None:
-    if origin is None or st.session_state["nav_running"]:
+    if origin is None or st.session_state["nav_running"] or st.session_state.get("nav_journey") is not None:
         return
     now_ms = int(time.time() * 1000)
     last_check = st.session_state["nav_last_booking_check_ms"]
@@ -747,6 +843,7 @@ def _try_activate_booking(origin: Optional[Coordinate]) -> None:
         with st.spinner(f"예약 경로 활성화 중: {booking['label']}"):
             try:
                 route = _fetch_route(origin, dest)
+                _clear_journey_state()
                 _activate_route(origin, dest, booking["dest_display"], route, start_now=True)
                 st.session_state["nav_active_booking_id"] = booking["id"]
                 st.toast(f"예약 경로 시작: {booking['label']}")
@@ -929,6 +1026,12 @@ def _sidebar_destination(favorites: list, running: bool = False) -> None:
                 st.session_state["nav_start_picked"] = None
                 st.caption(f"📍 현재 위치를 출발지로 사용: {cur_hint}")
 
+    st.toggle(
+        "대중교통 포함",
+        key="nav_transit_enabled",
+        help="켜면 지하철·버스 구간을 함께 보여주고, 도보 구간에서만 실시간 안내를 사용합니다.",
+    )
+
     history = st.session_state["nav_search_history"]
     if favorites or history:
         with st.expander("⭐ 즐겨찾기 · 최근 검색", expanded=False):
@@ -1083,26 +1186,30 @@ def _render_action_buttons() -> None:
                     start_picked = st.session_state.get("nav_start_picked")
                     start_input = (st.session_state.get("nav_start_input") or "").strip()
                     start_coord = start_picked[0] if (start_input and start_picked) else origin
-                    route = _fetch_route(start_coord, dest)
                     confirmed = _exit_label(dest_text, display_name)
-                    st.session_state.update({
-                        "nav_dest":         dest,
-                        "nav_dest_display": confirmed,
-                        "nav_route":        route,
-                        "nav_engine":       RouteDeviationEngine(route, st.session_state["nav_config"]),
-                    })
-                    _reset()
+                    if st.session_state.get("nav_transit_enabled", True):
+                        journey = transit_builder.fetch_transit_journey(start_coord, dest)
+                        _activate_journey(journey, start_now=False)
+                        if journey.source.startswith("도보 강등"):
+                            st.info("대중교통 경로를 사용할 수 없어 도보 안내로 전환했습니다.")
+                    else:
+                        route = _fetch_route(start_coord, dest)
+                        _clear_journey_state()
+                        _activate_route(start_coord, dest, confirmed, route, start_now=False)
                     hist = [h for h in st.session_state["nav_search_history"] if h["query"] != dest_text]
                     hist.insert(0, {"query": dest_text, "display_name": confirmed,
                                     "lat": dest.latitude, "lon": dest.longitude})
                     st.session_state["nav_search_history"] = hist[:10]
                     _save_list_to_ls(_LS_KEY, hist[:10])
-                    summary = _route_summary_text()
-                    st.success(
-                        f"경로를 찾았어요 — {summary}. ▶ 시작을 누르면 안내가 시작됩니다"
-                        if summary else
-                        "경로를 찾았어요. ▶ 시작을 누르면 안내가 시작됩니다"
-                    )
+                    journey_now = st.session_state.get("nav_journey")
+                    if journey_now is not None:
+                        bits = [_meters_text(journey_now.total_distance_meters),
+                                _minutes_text(journey_now.total_time_seconds)]
+                        summary = " · ".join(bit for bit in bits if bit)
+                    else:
+                        summary = _route_summary_text()
+                    suffix = f" — {summary}" if summary else ""
+                    st.success(f"경로를 찾았어요{suffix}. ▶ 시작 또는 구간 버튼으로 안내를 이어가세요")
             except requests.exceptions.Timeout:
                 st.error("네트워크 시간 초과. 인터넷 연결을 확인하고 다시 시도해 주세요.")
             except requests.exceptions.ConnectionError:
@@ -1141,6 +1248,7 @@ def _render_action_buttons() -> None:
         for k in ("nav_route", "nav_dest", "nav_engine", "nav_results",
                   "nav_samples", "nav_prev_coord", "nav_prev_ts_ms", "nav_route_info"):
             st.session_state[k] = [] if "results" in k or "samples" in k else None
+        _clear_journey_state()
         st.session_state["nav_running"] = False
         st.session_state["nav_arrival_summary"] = None
         st.rerun()
@@ -1172,6 +1280,7 @@ def main() -> None:
                 try:
                     hist_dest = Coordinate(latitude=pending_hist["lat"], longitude=pending_hist["lon"])
                     new_route = _fetch_route(hist_origin, hist_dest)
+                    _clear_journey_state()
                     st.session_state.update({
                         "nav_dest":         hist_dest,
                         "nav_dest_display": pending_hist["display_name"],
@@ -1381,6 +1490,15 @@ def main() -> None:
 
     # ── 도착 판정 (이탈 판정보다 우선) ────────────────────────────────────────
     arrived_now = False
+    journey_for_advance = st.session_state.get("nav_journey")
+    if journey_for_advance is not None and st.session_state["nav_running"] and origin is not None:
+        active_idx = st.session_state.get("nav_active_leg_index", 0)
+        if not transit_builder.is_last_leg(journey_for_advance, active_idx):
+            acc = (st.session_state["nav_raw_gps"] or {}).get("coords", {}).get("accuracy")
+            next_idx = transit_builder.advance_leg(journey_for_advance, active_idx, origin, acc)
+            if next_idx != active_idx:
+                _activate_leg(journey_for_advance, next_idx, start_now=True)
+                st.rerun()
     if st.session_state["nav_running"] and origin is not None:
         arrived_now = _maybe_finish_arrival(origin)
 
@@ -1456,9 +1574,16 @@ def main() -> None:
     # ── 지도 + 판정 패널 ──────────────────────────────────────────────────────
     route = st.session_state["nav_route"]
     dest  = st.session_state["nav_dest"]
+    journey = st.session_state.get("nav_journey")
+
+    if journey is not None:
+        _render_journey(journey, st.session_state.get("nav_active_leg_index", 0))
 
     if route is None or dest is None:
-        st.info("목적지를 입력하고 '경로 찾기'를 누르세요. 지도는 현재 위치 기준으로 표시됩니다.")
+        if journey is None:
+            st.info("목적지를 입력하고 '경로 찾기'를 누르세요. 지도는 현재 위치 기준으로 표시됩니다.")
+        else:
+            st.info("현재 구간은 실시간 도보 경로가 없어 지도는 현재 위치 기준으로 표시됩니다.")
         st.plotly_chart(_build_placeholder_map(origin), use_container_width=True)
         return
 
