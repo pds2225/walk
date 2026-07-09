@@ -8,7 +8,14 @@
 - 증상: PC에서 위치 권한 허용해도 "신호 약함"으로 위치가 안 잡힘(walknavi.streamlit.app).
 - 근본원인: PC는 GPS 없음 → Wi-Fi/네트워크 위치라 accuracy가 항상 `USABLE_ACCURACY_M=50m` 초과 → `is_fix_usable` False로 origin 확정 실패, "더 정확한 위치 기다리는 중"에서 정지. 오류 시엔 권한 허용했는데도 "권한 허용" 메시지만 반복.
 - 수정: `streamlit_walk_engine/pages/1_Navigation.py` — 정확 fix 없으면 대략 위치라도 부트스트랩(`nav_origin_coarse` 플래그, 폴링 유지해 정밀 fix로 자동 교체) + 오류코드별 메시지(권한차단 vs 신호없음+Windows 위치설정 안내) + geolocation `maximumAge:0→3000`. gps_filter.py·engine.py 미수정.
-- 검증: py_compile OK, pytest 124 passed. **배포 필요**: Streamlit Cloud 반영하려면 커밋·push 해야 함(미승인 대기).
+- 검증: py_compile OK. **완료: origin/main 기준 워크트리에서 최신 파일에 재적용 → pytest 181 passed → PR #33 병합(main=327b4ff)**. Streamlit Cloud 자동 재배포로 walknavi.streamlit.app 반영.
+- ⚠️ 로컬 D:\walk main 은 여전히 origin보다 뒤처짐 — 직접 편집 말고 origin/main 워크트리 사용.
+
+## 진행 중 (2026-07-09) — UI/UX 재설계 계획 (계획만, 코드변경 금지)
+
+- 요청: Navigation 화면을 **TMAP 자동차용 내비 스타일**(풀스크린 지도·플로팅 원형 버튼·큰 잔여시간 바텀시트·턴 배지·헤딩 퍽)로. 폰 캡처 4장 제공(안내중/경로미리보기/홈/검색).
+- 상태: **계획만** 작성 단계. 코드·구현 금지. 실제사용승인루프는 계획 승인 후 실행.
+- 구현 방식 후보: A) Streamlit+CSS 오버레이(저비용) B) 커스텀 지도 컴포넌트(Leaflet/MapLibre, 진짜 몰입형) C) 하이브리드(A 먼저→B). 스코프 주의: PROMPT.md Milestone1=엔진, UI 대개편은 범위 확대 → 사용자 확인 필요.
 
 ## Current State
 
