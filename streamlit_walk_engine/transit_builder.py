@@ -324,10 +324,11 @@ def _fetch_tmap_transit_raw(origin: Coordinate, dest: Coordinate, app_key: str) 
         _TMAP_TRANSIT,
         headers={"appKey": app_key, "Content-Type": "application/json", "Accept": "application/json"},
         json={
-            "startX": origin.longitude,
-            "startY": origin.latitude,
-            "endX": dest.longitude,
-            "endY": dest.latitude,
+            # TMAP 문서는 좌표를 문자열로 명세 — 운영 검증된 보행자 API와 동일 포맷 사용
+            "startX": f"{origin.longitude:.8f}",
+            "startY": f"{origin.latitude:.8f}",
+            "endX": f"{dest.longitude:.8f}",
+            "endY": f"{dest.latitude:.8f}",
             "format": "json",
         },
         timeout=_TIMEOUT,
