@@ -1,6 +1,6 @@
 # RESUME.md - D:\walk checkpoint
 
-> Updated: 2026-07-09 13:20 KST (PR #32 transit·#33 PC위치·#34 키문서·#35 좌표형식·#36 TMAP POI+Reverse 병합 완료. 로컬 main=origin 0/0·pytest 207. 사용자: SK콘솔 대중교통 활성화+TMAP_APP_KEY 입력 완료. **남은 사용자 액션: ①SK콘솔에서 보행자 경로·POI 통합검색·Reverse Geocoding 상품도 같은 앱에 활성화 ②폰 실측(transit leg 카드·장소검색·주소표시)**)
+> Updated: 2026-07-09 13:20 KST (PR #32 transit·#33 PC위치·#34 키문서·#35 좌표형식·#36 TMAP POI+Reverse 병합 완료. 로컬 main=origin 0/0·pytest 207. SK콘솔 확인 완료: walk_navi 앱에 Free TMAP(보행자·장소검색·지오코딩 포함)+Free TMAP 대중교통 활성화됨+TMAP_APP_KEY Cloud 입력됨 — 콘솔 쪽 작업 전부 끝. **남은 것: 폰 실측 1회(장소검색·주소표시·대중교통 leg 카드·도보 안내). 호출 시 권한 오류가 나면 '별도 계약 API 그룹' 케이스 의심**)
 > Purpose: `/clear` 후에도 walk 작업을 바로 이어가기 위한 압축 체크포인트. Secret/API Key/.env 값 금지.
 
 ## Latest (2026-07-09) — PC 위치 미취득 수정
