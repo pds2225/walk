@@ -988,7 +988,7 @@ def _sidebar_destination(favorites: list, running: bool = False) -> None:
         cols = st.columns(len(recent))
         for i, h in enumerate(recent):
             with cols[i]:
-                if st.button(f"🕐 {h['query']}", key=f"recent_chip_{i}",
+                if st.button(f"🕐 {h['query']}{_exit_tag(h['query'])}", key=f"recent_chip_{i}",
                              use_container_width=True):
                     st.session_state["nav_pending_hist"] = h
                     st.rerun()
