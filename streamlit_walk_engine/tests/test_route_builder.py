@@ -501,3 +501,107 @@ class TestSortSuggestionsByDistance:
         original = list(sugg)
         sort_suggestions_by_distance(sugg, self._ORIGIN)
         assert sugg == original
+
+
+class TestTmapPoiResults:
+    """TMAP 장소(POI) 검색 — 키 없으면 네트워크 없이 빈 리스트, front→noor 좌표 우선."""
+
+    def test_no_key_returns_empty_without_network(self, monkeypatch):
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: None)
+        def _boom(*a, **k):
+            raise AssertionError("키 없으면 네트워크를 호출하면 안 됨")
+        monkeypatch.setattr(route_builder.requests, "get", _boom)
+        assert route_builder._tmap_poi_results("경복궁") == []
+
+    def test_parses_pois_with_front_coords(self, monkeypatch):
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: "k")
+        payload = {"searchPoiInfo": {"pois": {"poi": [
+            {"name": "경복궁", "frontLat": "37.5759", "frontLon": "126.9769",
+             "upperAddrName": "서울", "middleAddrName": "종로구"},
+        ]}}}
+        monkeypatch.setattr(route_builder.requests, "get", lambda *a, **k: _FakeResp(200, payload))
+        out = route_builder._tmap_poi_results("경복궁")
+        assert len(out) == 1
+        coord, display = out[0]
+        assert abs(coord.latitude - 37.5759) < 1e-6
+        assert display == "경복궁, 서울 종로구"
+
+    def test_falls_back_to_noor_when_front_zero(self, monkeypatch):
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: "k")
+        payload = {"searchPoiInfo": {"pois": {"poi": [
+            {"name": "A", "frontLat": "0", "frontLon": "0",
+             "noorLat": "37.5", "noorLon": "127.0"},
+        ]}}}
+        monkeypatch.setattr(route_builder.requests, "get", lambda *a, **k: _FakeResp(200, payload))
+        out = route_builder._tmap_poi_results("A")
+        assert len(out) == 1
+        assert abs(out[0][0].longitude - 127.0) < 1e-6
+
+    def test_non_200_returns_empty(self, monkeypatch):
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: "k")
+        monkeypatch.setattr(route_builder.requests, "get", lambda *a, **k: _FakeResp(403, {}))
+        assert route_builder._tmap_poi_results("경복궁") == []
+
+    def test_skips_poi_without_usable_coords(self, monkeypatch):
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: "k")
+        payload = {"searchPoiInfo": {"pois": {"poi": [
+            {"name": "좌표없음"},
+            {"name": "정상", "noorLat": "37.5", "noorLon": "127.0"},
+        ]}}}
+        monkeypatch.setattr(route_builder.requests, "get", lambda *a, **k: _FakeResp(200, payload))
+        out = route_builder._tmap_poi_results("x")
+        assert [d for _, d in out] == ["정상"]
+
+
+class TestTmapReverse:
+    """TMAP Reverse Geocoding — 키 없으면 None, 성공 시 fullAddress."""
+
+    _COORD = Coordinate(latitude=37.5665, longitude=126.9780)
+
+    def test_no_key_returns_none_without_network(self, monkeypatch):
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: None)
+        def _boom(*a, **k):
+            raise AssertionError("키 없으면 네트워크를 호출하면 안 됨")
+        monkeypatch.setattr(route_builder.requests, "get", _boom)
+        assert route_builder._tmap_reverse(self._COORD) is None
+
+    def test_returns_full_address(self, monkeypatch):
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: "k")
+        payload = {"addressInfo": {"fullAddress": "서울특별시 중구 세종대로 110"}}
+        monkeypatch.setattr(route_builder.requests, "get", lambda *a, **k: _FakeResp(200, payload))
+        assert route_builder._tmap_reverse(self._COORD) == "서울특별시 중구 세종대로 110"
+
+    def test_non_200_returns_none(self, monkeypatch):
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: "k")
+        monkeypatch.setattr(route_builder.requests, "get", lambda *a, **k: _FakeResp(403, {}))
+        assert route_builder._tmap_reverse(self._COORD) is None
+
+    def test_reverse_geocode_uses_tmap_before_nominatim(self, monkeypatch):
+        monkeypatch.setattr(route_builder, "_naver_reverse", lambda c: None)
+        monkeypatch.setattr(route_builder, "_tmap_reverse", lambda c: "TMAP 주소")
+        def _boom(*a, **k):
+            raise AssertionError("TMAP 성공 시 Nominatim을 호출하면 안 됨")
+        monkeypatch.setattr(route_builder.requests, "get", _boom)
+        assert route_builder.reverse_geocode(self._COORD) == "TMAP 주소"
+
+
+class TestGeocodeFallbackChain:
+    """Naver → TMAP POI → Nominatim 폴백 순서 — POI가 잡히면 Nominatim 미호출."""
+
+    def test_suggestions_use_tmap_poi_when_naver_empty(self, monkeypatch):
+        monkeypatch.setattr(route_builder, "_naver_headers", lambda: None)
+        hit = (Coordinate(latitude=37.5, longitude=127.0), "경복궁, 서울 종로구")
+        monkeypatch.setattr(route_builder, "_tmap_poi_results", lambda q, limit=5: [hit])
+        def _boom(*a, **k):
+            raise AssertionError("POI 성공 시 Nominatim을 호출하면 안 됨")
+        monkeypatch.setattr(route_builder.requests, "get", _boom)
+        assert route_builder.geocode_suggestions("경복궁") == [hit]
+
+    def test_geocode_address_uses_tmap_poi_when_naver_none(self, monkeypatch):
+        monkeypatch.setattr(route_builder, "_naver_geocode", lambda q: None)
+        hit = (Coordinate(latitude=37.5, longitude=127.0), "경복궁")
+        monkeypatch.setattr(route_builder, "_tmap_poi_results", lambda q, limit=1: [hit])
+        def _boom(*a, **k):
+            raise AssertionError("POI 성공 시 Nominatim을 호출하면 안 됨")
+        monkeypatch.setattr(route_builder.requests, "get", _boom)
+        assert route_builder.geocode_address("경복궁") == hit
