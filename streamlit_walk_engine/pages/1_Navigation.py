@@ -584,6 +584,9 @@ def _make_sample(
 
 # ── 지도 ─────────────────────────────────────────────────────────────────────
 
+_DIR_ARROW = {"left": "↰", "right": "↱", "straight": "↑"}  # 회전 방향→화살표 (지도 마커·다음회전 배지 공용)
+
+
 def _build_map(
     route: RouteModel,
     dest: Coordinate,
@@ -600,7 +603,7 @@ def _build_map(
         line=dict(width=5, color="#2980b9"), name="경로", hoverinfo="skip",
     ))
 
-    dir_emoji = {"left": "↰", "right": "↱", "straight": "↑"}
+    dir_emoji = _DIR_ARROW
     for tp in route.turn_points:
         fig.add_trace(go.Scattermap(
             lat=[tp.coordinate.latitude], lon=[tp.coordinate.longitude],
@@ -731,7 +734,7 @@ def _render_metrics(results: list[EngineResult]) -> None:
         if route_now is not None and turn_id:
             for tp in route_now.turn_points:
                 if tp.id == turn_id:
-                    arrow = {"left": "↰", "right": "↱", "straight": "↑"}.get(tp.direction, "↑")
+                    arrow = _DIR_ARROW.get(tp.direction, "↑")
                     break
         st.markdown(
             f'<div style="background:#1d6fb8;color:white;border-radius:12px;'
