@@ -118,7 +118,7 @@ def _get_geolocation_high_accuracy(component_key: str = "walk_hi_acc_geo", multi
             "navigator.geolocation.getCurrentPosition("
             "(p)=>resolve({" + coords_js + "}),"
             "(e)=>resolve({error:{code:e.code,message:e.message}}),"
-            "{enableHighAccuracy:true,maximumAge:0,timeout:10000});"
+            "{enableHighAccuracy:true,maximumAge:3000,timeout:10000});"
             f"}})/* {bucket} */"
         )
     geo = None
@@ -168,6 +168,7 @@ def render_dependency_error() -> None:
 def _init() -> None:
     for k, v in {
         "nav_origin": None,
+        "nav_origin_coarse": False,
         "nav_raw_gps": None,
         "nav_jump_reject_streak": 0,
         "nav_dest": None,
@@ -1341,8 +1342,13 @@ def main() -> None:
             st.divider()
             st.markdown("**현재 위치**")
         if _HAS_GEO:
-            # nav 실행 중이거나 아직 위치 미취득 때만 watchPosition 활성화
-            need_gps_poll = st.session_state["nav_running"] or st.session_state["nav_origin"] is None
+            # nav 실행 중, 위치 미취득, 또는 대략 위치(부트스트랩)면 계속 폴링해
+            # 더 정확한 fix로 자동 교체한다. (모바일은 첫 GPS fix로 곧 정밀 위치 확보)
+            need_gps_poll = (
+                st.session_state["nav_running"]
+                or st.session_state["nav_origin"] is None
+                or st.session_state.get("nav_origin_coarse", False)
+            )
             if need_gps_poll:
                 # 최초 취득 시에만 다중 샘플로 best fix 선택(첫 fix 부정확 완화), 라이브는 단일.
                 geo = _get_geolocation_high_accuracy(multi=(st.session_state["nav_origin"] is None))
@@ -1391,16 +1397,41 @@ def main() -> None:
                             st.session_state["nav_origin"] = smoothed
                             st.session_state["nav_raw_gps"] = geo
                             st.session_state["nav_jump_reject_streak"] = 0
+                            st.session_state["nav_origin_coarse"] = False
                         else:
                             st.session_state["nav_jump_reject_streak"] += 1
                             st.toast("위치가 잠깐 크게 튀어 한 번 건너뛰었어요")
-                    elif st.session_state["nav_origin"] is None:
-                        st.warning("GPS 신호가 약해요 — 더 정확한 위치를 기다리는 중…")
+                    elif st.session_state["nav_origin"] is None or st.session_state.get("nav_origin_coarse"):
+                        # 부트스트랩: 정확한 위치가 아직 없으면 대략적 위치라도 표시한다.
+                        # (PC·실내는 GPS가 없어 Wi-Fi/네트워크 위치라 ±50m를 넘는다 —
+                        #  기다리기만 하면 영원히 안 잡히므로 일단 잡고 계속 개선 시도. 정확한
+                        #  fix가 들어오면 위 is_fix_usable 분기에서 스무딩 위치로 교체된다.)
+                        new_origin = Coordinate(latitude=float(c["latitude"]), longitude=float(c["longitude"]))
+                        st.session_state["nav_origin"] = new_origin
+                        st.session_state["nav_raw_gps"] = geo
+                        st.session_state["nav_origin_coarse"] = True
+                        st.caption(
+                            f"⚠️ 대략적 위치 (±{acc:.0f}m) — PC·실내는 정확도가 낮아요. "
+                            "이동하거나 휴대폰에서 열면 정확해집니다."
+                        )
+                elif geo and geo.get("error") and st.session_state["nav_origin"] is None:
+                    code = geo["error"].get("code")
+                    if code == 1:  # PERMISSION_DENIED
+                        st.warning(
+                            "위치 권한이 차단됐어요. 주소창 왼쪽 자물쇠 → 위치 → '허용'으로 바꿔 주세요."
+                        )
+                    else:  # POSITION_UNAVAILABLE(2) / TIMEOUT(3)
+                        st.warning(
+                            "위치 신호를 받지 못했어요. PC는 GPS가 없어 Wi-Fi/네트워크로만 대략 위치를 잡습니다. "
+                            "① Windows '설정 → 개인정보 보호 → 위치'가 켜져 있는지 ② Wi-Fi 연결을 확인하고, "
+                            "정확한 안내는 휴대폰에서 열어 주세요."
+                        )
                 elif st.session_state["nav_origin"] is None:
                     st.warning("브라우저에서 위치 권한을 허용해 주세요.")
             else:
                 if st.button("📍 위치 새로고침", use_container_width=True):
                     st.session_state["nav_origin"] = None
+                    st.session_state["nav_origin_coarse"] = False
                     st.rerun()
         else:
             st.caption("GPS 패키지 미설치 — 수동 입력")
