@@ -3,6 +3,13 @@
 > Updated: 2026-07-02 13:20 KST
 > Purpose: `/clear` 후에도 walk 작업을 바로 이어가기 위한 압축 체크포인트. Secret/API Key/.env 값 금지.
 
+## Latest (2026-07-09) — PC 위치 미취득 수정
+
+- 증상: PC에서 위치 권한 허용해도 "신호 약함"으로 위치가 안 잡힘(walknavi.streamlit.app).
+- 근본원인: PC는 GPS 없음 → Wi-Fi/네트워크 위치라 accuracy가 항상 `USABLE_ACCURACY_M=50m` 초과 → `is_fix_usable` False로 origin 확정 실패, "더 정확한 위치 기다리는 중"에서 정지. 오류 시엔 권한 허용했는데도 "권한 허용" 메시지만 반복.
+- 수정: `streamlit_walk_engine/pages/1_Navigation.py` — 정확 fix 없으면 대략 위치라도 부트스트랩(`nav_origin_coarse` 플래그, 폴링 유지해 정밀 fix로 자동 교체) + 오류코드별 메시지(권한차단 vs 신호없음+Windows 위치설정 안내) + geolocation `maximumAge:0→3000`. gps_filter.py·engine.py 미수정.
+- 검증: py_compile OK, pytest 124 passed. **배포 필요**: Streamlit Cloud 반영하려면 커밋·push 해야 함(미승인 대기).
+
 ## Current State
 
 - Repo root verified: `D:\walk` (`git -C D:\walk rev-parse --show-toplevel` -> `D:/walk`).
