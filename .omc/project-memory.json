@@ -208,14 +208,14 @@
     },
     {
       "path": "streamlit_walk_engine\\pages\\1_Navigation.py",
-      "accessCount": 9,
-      "lastAccessed": 1783579799772,
+      "accessCount": 11,
+      "lastAccessed": 1783581335920,
       "type": "directory"
     },
     {
       "path": "RESUME.md",
-      "accessCount": 7,
-      "lastAccessed": 1783579807650,
+      "accessCount": 8,
+      "lastAccessed": 1783581132892,
       "type": "file"
     },
     {
@@ -237,6 +237,12 @@
       "type": "directory"
     },
     {
+      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\verify_tmap.py",
+      "accessCount": 2,
+      "lastAccessed": 1783581058761,
+      "type": "file"
+    },
+    {
       "path": "streamlit_walk_engine\\gps_filter.py",
       "accessCount": 1,
       "lastAccessed": 1783566002366,
@@ -253,6 +259,12 @@
       "accessCount": 1,
       "lastAccessed": 1783569413039,
       "type": "file"
+    },
+    {
+      "path": "streamlit_walk_engine\\engine.py",
+      "accessCount": 1,
+      "lastAccessed": 1783581103355,
+      "type": "directory"
     }
   ],
   "userDirectives": []

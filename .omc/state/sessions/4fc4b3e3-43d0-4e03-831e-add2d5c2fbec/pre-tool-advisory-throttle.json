@@ -2,7 +2,7 @@
   "version": 1,
   "entries": {
     "4f7a67fba0a8473e9883d9e8dffbb2d72e00a4a1eeb4fa80cb14213b167dc90f": {
-      "last_emitted_at_ms": 1783579858781,
+      "last_emitted_at_ms": 1783581244431,
       "message": "Mark todos in_progress BEFORE starting, completed IMMEDIATELY after finishing."
     },
     "459c54e5f35d6a58dcd90d2aecc21fa6d1f35d241bc5b134c506f87dc7b6d67b": {
@@ -18,5 +18,5 @@
       "message": "Read multiple files in parallel when possible for faster analysis."
     }
   },
-  "updated_at": "2026-07-09T06:50:58.781Z"
+  "updated_at": "2026-07-09T07:14:04.431Z"
 }

@@ -1,7 +1,7 @@
 {
-  "tool_name": "mcp__plugin_oh-my-claudecode_t__lsp_diagnostics",
-  "tool_input_preview": "{\"file\":\"D:\\\\walk-night-auto\\\\streamlit_walk_engine\\\\tests\\\\test_route_builder.py\"}",
-  "error": "Language server 'ty' not found.\nInstall with: Install ty from https://github.com/astral-sh/ty",
-  "timestamp": "2026-07-01T18:37:02.759Z",
-  "retry_count": 3
+  "tool_name": "PowerShell",
+  "tool_input_preview": "{\"command\":\"$env:TMAP_APP_KEY = 'yN7rma7Bqx1MrvVnnROZV2FZxJRlYrey78WfLRJo'\\n$pad = \\\"C:\\\\Users\\\\ekth3\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--walk\\\\96394405-4377-4ea4-9fc2-3285e21d4f16\\\\scratchpad\\\"\\npython...",
+  "error": "Exit code 1\n===== TMAP API ��ȣ�� ���� ��� =====\r\n\u001b[31;1mTraceback (most recent call last):\u001b[0m\r\n\u001b[31;1m  File \"C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\verify_tmap.py\", line 65, in <module>\u001b[0m\r\n\u001b[31;1m    print(f\"[{mark}] {name} \\u2014 {detail}\")\u001b[0m\r\n\u001b[31;1m    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\u001b[0m\r\n\u001b[31;1mUnicodeEncodeError: 'cp949' codec can't encode character '\\u2014' in position 16: illegal multibyte sequence\u001b[0m",
+  "timestamp": "2026-07-09T07:10:11.254Z",
+  "retry_count": 1
 }
