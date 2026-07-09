@@ -1,6 +1,6 @@
 # RESUME.md - D:\walk checkpoint
 
-> Updated: 2026-07-09 13:05 KST (PR #32 transit·#33 PC위치·#34 키문서·#35 TMAP좌표형식 병합 완료, 로컬 main=origin 0/0·pytest 196. 사용자: SK콘솔 대중교통 상품 활성화+Cloud Secrets TMAP_APP_KEY 입력 완료 → 폰 실측 확인만 남음. SK API 추가 추천 진행 중)
+> Updated: 2026-07-09 13:20 KST (PR #32 transit·#33 PC위치·#34 키문서·#35 좌표형식·#36 TMAP POI+Reverse 병합 완료. 로컬 main=origin 0/0·pytest 207. 사용자: SK콘솔 대중교통 활성화+TMAP_APP_KEY 입력 완료. **남은 사용자 액션: ①SK콘솔에서 보행자 경로·POI 통합검색·Reverse Geocoding 상품도 같은 앱에 활성화 ②폰 실측(transit leg 카드·장소검색·주소표시)**)
 > Purpose: `/clear` 후에도 walk 작업을 바로 이어가기 위한 압축 체크포인트. Secret/API Key/.env 값 금지.
 
 ## Latest (2026-07-09) — PC 위치 미취득 수정

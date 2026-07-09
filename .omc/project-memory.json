@@ -202,8 +202,8 @@
   "hotPaths": [
     {
       "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\4fc4b3e3-43d0-4e03-831e-add2d5c2fbec\\scratchpad\\walk-mockup.html",
-      "accessCount": 13,
-      "lastAccessed": 1783570804467,
+      "accessCount": 26,
+      "lastAccessed": 1783579418158,
       "type": "file"
     },
     {
@@ -214,14 +214,20 @@
     },
     {
       "path": "RESUME.md",
-      "accessCount": 5,
-      "lastAccessed": 1783577582490,
+      "accessCount": 6,
+      "lastAccessed": 1783579087098,
       "type": "file"
     },
     {
       "path": ".worktrees\\odsay-doc\\.streamlit\\secrets.toml.example",
       "accessCount": 2,
       "lastAccessed": 1783569478618,
+      "type": "file"
+    },
+    {
+      "path": ".worktrees\\tmap-poi\\.streamlit\\secrets.toml.example",
+      "accessCount": 2,
+      "lastAccessed": 1783578956952,
       "type": "file"
     },
     {
