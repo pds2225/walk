@@ -1296,10 +1296,30 @@ def main() -> None:
     st.markdown("## 🗺️ Walk — 실시간 내비게이션")
     st.caption("가고 싶은 곳을 입력하면 걷는 길을 안내하고, 길을 벗어나면 바로 알려줍니다.")
 
-    # 모바일: 사이드바·햄버거 제거 → 컨트롤을 본문에 표시, 컨트롤 행은 가로 스크롤.
+    # 모바일: 사이드바·햄버거 제거 → 컨트롤을 본문에 표시.
+    # 시각 토큰(색·버튼·카드·타이포)으로 "앱 느낌"을 주되, 로직/DOM 구조는 건드리지 않음.
     st.markdown(
         """
         <style>
+        /* ── 디자인 토큰 (라이트 기본, 다크 자동 대응) ───────────────────────── */
+        :root {
+          --walk-brand: #1d6fb8;         /* 기본 브랜드(파랑) — 경로·강조 */
+          --walk-brand-strong: #14568f;
+          --walk-go: #12a150;            /* 출발·긍정 */
+          --walk-warn: #d9822b;          /* 주의 */
+          --walk-danger: #d64545;        /* 이탈·오류 */
+          --walk-surface: #f6f8fa;       /* 카드 배경 */
+          --walk-border: #e3e7ec;
+          --walk-muted: #4a4a4a;
+          --walk-radius: 14px;
+          --walk-shadow: 0 1px 3px rgba(0,0,0,.09), 0 1px 2px rgba(0,0,0,.05);
+        }
+        @media (prefers-color-scheme: dark) {
+          :root {
+            --walk-surface: #1a1d24; --walk-border: #2a2f3a; --walk-muted: #b3b8c0;
+            --walk-shadow: 0 1px 3px rgba(0,0,0,.5);
+          }
+        }
         /* 사이드바·햄버거(펼침 버튼) 완전 제거 — 네이밍 변형 모두 커버 */
         [data-testid="stSidebar"],
         section[data-testid="stSidebar"],
@@ -1311,18 +1331,46 @@ def main() -> None:
         /* 상단 헤더 공간 회수(모바일 한 화면 확보) */
         [data-testid="stHeader"], header[data-testid="stHeader"] { height: 0 !important; min-height: 0 !important; }
         .block-container { padding: 0.5rem 0.7rem 3rem !important; max-width: 100% !important; }
-        /* 접근성: 키보드 포커스 가시화 (버튼·입력 위주로 범위 한정) */
-        button:focus-visible,
-        input:focus-visible,
-        select:focus-visible,
-        textarea:focus-visible,
-        [tabindex]:focus-visible { outline: 2px solid #1d6fb8 !important; outline-offset: 2px !important; }
-        /* 접근성: 모션 민감 사용자 — 시각 애니메이션/트랜지션 억제 (소리·진동 경고는 무관) */
+
+        /* ── 타이포: 제목 간결·본문 가독 ─────────────────────────────────────── */
+        .block-container h2 { font-weight: 800 !important; letter-spacing: -0.01em; margin: 0.1rem 0 0.1rem !important; }
+        .block-container h3 { font-weight: 700 !important; }
+
+        /* ── 버튼: 크고 둥근 터치 타깃 ───────────────────────────────────────── */
+        .stButton > button {
+          min-height: 46px !important; border-radius: var(--walk-radius) !important;
+          font-weight: 700 !important; font-size: 1rem !important; transition: filter .12s ease;
+        }
+        .stButton > button:active { filter: brightness(0.94); }
+        /* 주요 버튼(경로찾기·시작) — 브랜드색 강조 (kind/data-testid 변형 모두 커버) */
+        .stButton > button[kind="primary"],
+        [data-testid="stBaseButton-primary"] {
+          background: var(--walk-brand) !important; border-color: var(--walk-brand) !important;
+          color: #fff !important; box-shadow: var(--walk-shadow) !important;
+        }
+        .stButton > button[kind="primary"]:hover,
+        [data-testid="stBaseButton-primary"]:hover { background: var(--walk-brand-strong) !important; }
+
+        /* ── 카드감: expander·알림을 부드러운 카드로 ─────────────────────────── */
+        [data-testid="stExpander"] {
+          border: 1px solid var(--walk-border) !important; border-radius: var(--walk-radius) !important;
+          box-shadow: var(--walk-shadow); overflow: hidden;
+        }
+        [data-testid="stExpander"] summary { font-weight: 600 !important; }
+        [data-testid="stAlert"] { border-radius: var(--walk-radius) !important; }
+        /* 입력칸: 살짝 둥글게 + 편안한 높이 */
+        [data-testid="stTextInputRootElement"] input,
+        .stTextInput input { border-radius: 10px !important; min-height: 42px !important; }
+
+        /* ── 접근성 (기존 유지·강화) ─────────────────────────────────────────── */
+        button:focus-visible, input:focus-visible, select:focus-visible,
+        textarea:focus-visible, [tabindex]:focus-visible {
+          outline: 2px solid var(--walk-brand) !important; outline-offset: 2px !important;
+        }
         @media (prefers-reduced-motion: reduce) {
             *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
         }
-        /* 가독성: 작은 회색 caption 대비 약간 강화 */
-        [data-testid="stCaptionContainer"], .stCaption { color: #4a4a4a !important; }
+        [data-testid="stCaptionContainer"], .stCaption { color: var(--walk-muted) !important; }
         </style>
         """,
         unsafe_allow_html=True,
