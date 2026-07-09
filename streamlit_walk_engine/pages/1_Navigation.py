@@ -934,7 +934,11 @@ def _render_dest_inputs() -> None:
             suggestions = []
         origin = st.session_state.get("nav_origin")
         suggestions = sort_suggestions_by_distance(suggestions, origin)
-        if suggestions:
+        if len(suggestions) == 1:
+            # 후보가 하나면 고를 게 없다 — selectbox 단계를 건너뛰어 탭을 줄인다.
+            st.session_state["nav_dest_picked"] = suggestions[0]
+            st.caption(f"✅ {label_with_distance(suggestions[0][1], suggestions[0][0], origin)}")
+        elif suggestions:
             choice_idx = st.selectbox(
                 f"도착지 선택 (후보 {len(suggestions)}곳)",
                 range(len(suggestions)),
@@ -976,6 +980,18 @@ def _sidebar_destination(favorites: list, running: bool = False) -> None:
     # ── 목적지 (최상단: 첫 행동을 가장 위에) ──
     st.subheader("목적지")
     _render_dest_inputs()
+
+    # ── 최근 검색 원탭 칩 — 반복 목적지를 접힌 메뉴 대신 한 번에 다시 안내(검색 마찰↓) ──
+    recent = st.session_state["nav_search_history"][:3]
+    if recent:
+        st.caption("최근")
+        cols = st.columns(len(recent))
+        for i, h in enumerate(recent):
+            with cols[i]:
+                if st.button(f"🕐 {h['query']}", key=f"recent_chip_{i}",
+                             use_container_width=True):
+                    st.session_state["nav_pending_hist"] = h
+                    st.rerun()
 
     # ── 출발지 (기본은 현재 위치이므로 접어 둠 — 바꿀 때만 펼침) ──
     with st.expander("출발지 바꾸기 (기본: 현재 위치)", expanded=False):
@@ -1032,25 +1048,19 @@ def _sidebar_destination(favorites: list, running: bool = False) -> None:
         key="nav_transit_enabled",
         help="켜면 지하철·버스 구간을 함께 보여주고, 도보 구간에서만 실시간 안내를 사용합니다.",
     )
+    # [향후 슬롯] 멀티 provider(검색 소스 선택·지도 언어 토글)는 여기 아래 '고급 설정'
+    # 접기로 추가 예정 — 검색 전면은 단순하게 유지하고 고급 옵션만 접어 둔다.
 
-    history = st.session_state["nav_search_history"]
-    if favorites or history:
-        with st.expander("⭐ 즐겨찾기 · 최근 검색", expanded=False):
-            if favorites:
-                fav_opts = ["선택 안 함"] + [f"{f['name']} · {f['address']}" for f in favorites]
-                sel = st.selectbox("즐겨찾기에서 선택", fav_opts, key="fav_dest_sel")
-                if sel != "선택 안 함":
-                    addr = favorites[fav_opts.index(sel) - 1]["address"]
-                    if st.button("목적지에 입력", key="fav_to_dest", use_container_width=True):
-                        st.session_state["nav_dest_input"] = addr
-                        st.rerun()
-            if history:
-                st.caption("최근 검색")
-                for i, h in enumerate(history[:5]):
-                    label = f"🕐 {h['query']}{_exit_tag(h['query'])}"
-                    if st.button(label, key=f"hist_{i}", use_container_width=True):
-                        st.session_state["nav_pending_hist"] = h
-                        st.rerun()
+    # 즐겨찾기 관리 (최근 검색은 위 원탭 칩으로 대체 — 중복 목록 제거).
+    if favorites:
+        with st.expander("⭐ 즐겨찾기", expanded=False):
+            fav_opts = ["선택 안 함"] + [f"{f['name']} · {f['address']}" for f in favorites]
+            sel = st.selectbox("즐겨찾기에서 선택", fav_opts, key="fav_dest_sel")
+            if sel != "선택 안 함":
+                addr = favorites[fav_opts.index(sel) - 1]["address"]
+                if st.button("목적지에 입력", key="fav_to_dest", use_container_width=True):
+                    st.session_state["nav_dest_input"] = addr
+                    st.rerun()
 
 
 def _sidebar_favorites(favorites: list) -> None:
@@ -1220,9 +1230,19 @@ def _render_action_buttons() -> None:
 
     if st.session_state.get("nav_dest_display"):
         st.info(f"📌 {st.session_state['nav_dest_display']}")
-        summary = _route_summary_text()
-        if summary:
-            st.caption(f"🚶 {summary}")
+        journey_now = st.session_state.get("nav_journey")
+        if journey_now is not None:
+            # 대중교통 여정: '🚶 총 375m'는 정류장까지 첫 도보 구간이라 전체로 오해된다.
+            # 전체 여정 합계를 보여주고, 구간별 상세는 아래 여정 카드로 안내한다.
+            bits = [_meters_text(journey_now.total_distance_meters),
+                    _minutes_text(journey_now.total_time_seconds)]
+            jsummary = " · ".join(b for b in bits if b)
+            if jsummary:
+                st.caption(f"🧭 전체 여정 {jsummary} · 구간별 안내는 아래 카드")
+        else:
+            summary = _route_summary_text()
+            if summary:
+                st.caption(f"🚶 {summary}")
 
     # 시작/중지 (경로가 있을 때만) — 전폭으로 한 손 탭 쉽게. 보행 중 '중지'는 크게 강조.
     route: Optional[RouteModel] = st.session_state["nav_route"]
@@ -1450,18 +1470,15 @@ def main() -> None:
                             st.session_state["nav_jump_reject_streak"] += 1
                             st.toast("위치가 잠깐 크게 튀어 한 번 건너뛰었어요")
                     elif st.session_state["nav_origin"] is None or st.session_state.get("nav_origin_coarse"):
-                        # 부트스트랩: 정확한 위치가 아직 없으면 대략적 위치라도 표시한다.
-                        # (PC·실내는 GPS가 없어 Wi-Fi/네트워크 위치라 ±50m를 넘는다 —
-                        #  기다리기만 하면 영원히 안 잡히므로 일단 잡고 계속 개선 시도. 정확한
-                        #  fix가 들어오면 위 is_fix_usable 분기에서 스무딩 위치로 교체된다.)
+                        # 부트스트랩: 정확한 fix가 아직 없으면 대략 위치라도 잡아 표시한다.
+                        # (실내·지하·약전파에선 Wi-Fi/네트워크 위치라 ±50m를 넘는다 — 기다리기만
+                        #  하면 영원히 안 잡히므로 일단 잡고 폴링 유지 → 정밀 fix가 오면 위
+                        #  is_fix_usable 분기에서 스무딩 위치로 자동 교체된다.)
+                        # 안내 문구는 아래 '현재 위치' 표시부에서 한 번만 낸다(중복 경고 방지).
                         new_origin = Coordinate(latitude=float(c["latitude"]), longitude=float(c["longitude"]))
                         st.session_state["nav_origin"] = new_origin
                         st.session_state["nav_raw_gps"] = geo
                         st.session_state["nav_origin_coarse"] = True
-                        st.caption(
-                            f"⚠️ 대략적 위치 (±{acc:.0f}m) — PC·실내는 정확도가 낮아요. "
-                            "이동하거나 휴대폰에서 열면 정확해집니다."
-                        )
                 elif geo and geo.get("error") and st.session_state["nav_origin"] is None:
                     code = geo["error"].get("code")
                     if code == 1:  # PERMISSION_DENIED
@@ -1509,22 +1526,30 @@ def main() -> None:
             addr = st.session_state["nav_origin_address"]
             acc = (st.session_state["nav_raw_gps"] or {}).get("coords", {}).get("accuracy")
             q = gps_filter.accuracy_quality(acc)
+            coarse = bool(st.session_state.get("nav_origin_coarse"))
+            acc_txt = f" (±{acc:.0f}m)" if acc else ""
             # 내비 중엔 현재 위치 카드(주소·정확도)를 한 줄 caption으로 축약 — 지도에 마커로도 보임.
             if running:
                 where = addr or f"{origin.latitude:.5f}, {origin.longitude:.5f}"
-                dot = {"good": "🟢", "fair": "🟡", "poor": "🔴"}.get(q, "⚪")
-                st.caption(f"📍 {where}  {dot}")
+                dot = "🟡" if coarse else {"good": "🟢", "fair": "🟡", "poor": "🔴"}.get(q, "⚪")
+                st.caption(f"📍 {where}  {dot}" + ("  (대략 위치)" if coarse else ""))
             else:
                 if addr:
                     st.success(f"📍 {addr}")
                 else:
                     st.caption(f"📍 {origin.latitude:.5f}, {origin.longitude:.5f}")
-                if q == "good":
-                    st.caption(f"🟢 위치 정확 (±{acc:.0f}m)")
+                # 위치 상태는 '한 줄'만 낸다 — 대략 위치면 그 안내만(정확도 등급 중복 표시 금지).
+                if coarse:
+                    st.caption(
+                        f"⚠️ 대략적 위치{acc_txt} — 실내·지하·약전파에선 정확도가 낮아요. "
+                        "하늘이 트인 곳으로 나오면 자동으로 정확해집니다."
+                    )
+                elif q == "good":
+                    st.caption(f"🟢 위치 정확{acc_txt}")
                 elif q == "fair":
-                    st.caption(f"🟡 위치 보통 (±{acc:.0f}m) — 실내·고층에선 잠깐 부정확할 수 있어요")
+                    st.caption(f"🟡 위치 보통{acc_txt} — 실내·고층에선 잠깐 부정확할 수 있어요")
                 elif q == "poor":
-                    st.caption(f"🔴 위치 약함 (±{acc:.0f}m) — 하늘이 트인 곳으로 나오면 정확해져요")
+                    st.caption(f"🔴 위치 약함{acc_txt} — 하늘이 트인 곳으로 나오면 정확해져요")
                 else:
                     st.caption("⚪ 수동 입력")
 
