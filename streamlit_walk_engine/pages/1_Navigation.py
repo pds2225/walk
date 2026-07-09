@@ -584,11 +584,15 @@ def _make_sample(
 
 # ── 지도 ─────────────────────────────────────────────────────────────────────
 
+_DIR_ARROW = {"left": "↰", "right": "↱", "straight": "↑"}  # 회전 방향→화살표 (지도 마커·다음회전 배지 공용)
+
+
 def _build_map(
     route: RouteModel,
     dest: Coordinate,
     results: list[EngineResult],
     samples: list[PositionSample],
+    height: int = 560,
 ) -> go.Figure:
     fig  = go.Figure()
     lats = [c.latitude  for c in route.polyline]
@@ -599,7 +603,7 @@ def _build_map(
         line=dict(width=5, color="#2980b9"), name="경로", hoverinfo="skip",
     ))
 
-    dir_emoji = {"left": "↰", "right": "↱", "straight": "↑"}
+    dir_emoji = _DIR_ARROW
     for tp in route.turn_points:
         fig.add_trace(go.Scattermap(
             lat=[tp.coordinate.latitude], lon=[tp.coordinate.longitude],
@@ -657,7 +661,7 @@ def _build_map(
 
     fig.update_layout(
         map=dict(style="open-street-map", center=dict(lat=clat, lon=clon), zoom=15),
-        height=560,
+        height=height,
         margin=dict(l=0, r=0, t=0, b=0),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
                     bgcolor="rgba(255,255,255,0.85)", bordercolor="#ddd", borderwidth=1),
@@ -724,12 +728,20 @@ def _render_metrics(results: list[EngineResult]) -> None:
             info.turn_descriptions.get(turn_id)
             if (info is not None and turn_id) else None
         )
+        # 다음 회전 방향을 큰 화살표로 — route.turn_points에서 방향 조회(없으면 직진 ↑).
+        route_now = st.session_state.get("nav_route")
+        arrow = "↑"
+        if route_now is not None and turn_id:
+            for tp in route_now.turn_points:
+                if tp.id == turn_id:
+                    arrow = _DIR_ARROW.get(tp.direction, "↑")
+                    break
         st.markdown(
-            f'<div style="background:#1d6fb8;color:white;border-radius:10px;'
-            f'padding:12px 16px;text-align:center;margin:8px 0 4px">'
-            f'<div style="font-size:0.8rem;opacity:0.9">↪️ 다음 회전까지</div>'
-            f'<div style="font-size:1.6rem;font-weight:bold">{next_turn_m:.0f} m</div>'
-            + (f'<div style="font-size:0.9rem;margin-top:2px">{turn_desc}</div>' if turn_desc else "")
+            f'<div style="background:#1d6fb8;color:white;border-radius:12px;'
+            f'padding:14px 16px;text-align:center;margin:8px 0 4px">'
+            f'<div style="font-size:0.8rem;opacity:0.9">다음 회전까지</div>'
+            f'<div style="font-size:2.4rem;font-weight:800;line-height:1.15">{arrow} {next_turn_m:.0f}m</div>'
+            + (f'<div style="font-size:0.95rem;margin-top:2px">{turn_desc}</div>' if turn_desc else "")
             + '</div>',
             unsafe_allow_html=True,
         )
@@ -1184,7 +1196,7 @@ def _render_action_buttons() -> None:
     elif not dest_text:
         st.caption("먼저 목적지를 입력하세요")
     if st.button("🔍 경로 찾기", disabled=(not dest_text or origin is None), use_container_width=True):
-        with st.spinner("경로 찾는 중..."):
+        with st.spinner(f"'{dest_text}' 경로 찾는 중…"):
             try:
                 # 미리보기에서 고른 후보가 있으면 그 좌표로 바로 경로 생성(재지오코딩 생략).
                 picked = st.session_state.get("nav_dest_picked")
@@ -1699,8 +1711,11 @@ def main() -> None:
     #   - 보행 중: '지금 할 일'(판정)을 지도 위로 올려 가장 먼저 보이게.
     #   - 그 외: 지도를 먼저, 판정/요약은 아래로.
     def _render_map() -> None:
+        # 보행 중엔 지도를 더 크게(다음 방향 배지가 위에 있으니 지도에 자리 양보).
+        map_h = 640 if st.session_state["nav_running"] else 560
         st.plotly_chart(
-            _build_map(route, dest, st.session_state["nav_results"], st.session_state["nav_samples"]),
+            _build_map(route, dest, st.session_state["nav_results"],
+                       st.session_state["nav_samples"], height=map_h),
             use_container_width=True,
         )
 
