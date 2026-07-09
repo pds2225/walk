@@ -213,6 +213,12 @@
       "type": "file"
     },
     {
+      "path": ".worktrees\\odsay-doc\\.streamlit\\secrets.toml.example",
+      "accessCount": 2,
+      "lastAccessed": 1783569478618,
+      "type": "file"
+    },
+    {
       "path": "streamlit_walk_engine",
       "accessCount": 1,
       "lastAccessed": 1783565991953,
@@ -228,6 +234,18 @@
       "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\pc-location-fix.patch",
       "accessCount": 1,
       "lastAccessed": 1783567504373,
+      "type": "file"
+    },
+    {
+      "path": ".streamlit\\secrets.toml.example",
+      "accessCount": 1,
+      "lastAccessed": 1783569413039,
+      "type": "file"
+    },
+    {
+      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\4fc4b3e3-43d0-4e03-831e-add2d5c2fbec\\scratchpad\\walk-mockup.html",
+      "accessCount": 1,
+      "lastAccessed": 1783569484218,
       "type": "file"
     }
   ],
