@@ -934,7 +934,11 @@ def _render_dest_inputs() -> None:
             suggestions = []
         origin = st.session_state.get("nav_origin")
         suggestions = sort_suggestions_by_distance(suggestions, origin)
-        if suggestions:
+        if len(suggestions) == 1:
+            # 후보가 하나면 고를 게 없다 — selectbox 단계를 건너뛰어 탭을 줄인다.
+            st.session_state["nav_dest_picked"] = suggestions[0]
+            st.caption(f"✅ {label_with_distance(suggestions[0][1], suggestions[0][0], origin)}")
+        elif suggestions:
             choice_idx = st.selectbox(
                 f"도착지 선택 (후보 {len(suggestions)}곳)",
                 range(len(suggestions)),
@@ -976,6 +980,18 @@ def _sidebar_destination(favorites: list, running: bool = False) -> None:
     # ── 목적지 (최상단: 첫 행동을 가장 위에) ──
     st.subheader("목적지")
     _render_dest_inputs()
+
+    # ── 최근 검색 원탭 칩 — 반복 목적지를 접힌 메뉴 대신 한 번에 다시 안내(검색 마찰↓) ──
+    recent = st.session_state["nav_search_history"][:3]
+    if recent:
+        st.caption("최근")
+        cols = st.columns(len(recent))
+        for i, h in enumerate(recent):
+            with cols[i]:
+                if st.button(f"🕐 {h['query']}{_exit_tag(h['query'])}", key=f"recent_chip_{i}",
+                             use_container_width=True):
+                    st.session_state["nav_pending_hist"] = h
+                    st.rerun()
 
     # ── 출발지 (기본은 현재 위치이므로 접어 둠 — 바꿀 때만 펼침) ──
     with st.expander("출발지 바꾸기 (기본: 현재 위치)", expanded=False):
@@ -1032,25 +1048,19 @@ def _sidebar_destination(favorites: list, running: bool = False) -> None:
         key="nav_transit_enabled",
         help="켜면 지하철·버스 구간을 함께 보여주고, 도보 구간에서만 실시간 안내를 사용합니다.",
     )
+    # [향후 슬롯] 멀티 provider(검색 소스 선택·지도 언어 토글)는 여기 아래 '고급 설정'
+    # 접기로 추가 예정 — 검색 전면은 단순하게 유지하고 고급 옵션만 접어 둔다.
 
-    history = st.session_state["nav_search_history"]
-    if favorites or history:
-        with st.expander("⭐ 즐겨찾기 · 최근 검색", expanded=False):
-            if favorites:
-                fav_opts = ["선택 안 함"] + [f"{f['name']} · {f['address']}" for f in favorites]
-                sel = st.selectbox("즐겨찾기에서 선택", fav_opts, key="fav_dest_sel")
-                if sel != "선택 안 함":
-                    addr = favorites[fav_opts.index(sel) - 1]["address"]
-                    if st.button("목적지에 입력", key="fav_to_dest", use_container_width=True):
-                        st.session_state["nav_dest_input"] = addr
-                        st.rerun()
-            if history:
-                st.caption("최근 검색")
-                for i, h in enumerate(history[:5]):
-                    label = f"🕐 {h['query']}{_exit_tag(h['query'])}"
-                    if st.button(label, key=f"hist_{i}", use_container_width=True):
-                        st.session_state["nav_pending_hist"] = h
-                        st.rerun()
+    # 즐겨찾기 관리 (최근 검색은 위 원탭 칩으로 대체 — 중복 목록 제거).
+    if favorites:
+        with st.expander("⭐ 즐겨찾기", expanded=False):
+            fav_opts = ["선택 안 함"] + [f"{f['name']} · {f['address']}" for f in favorites]
+            sel = st.selectbox("즐겨찾기에서 선택", fav_opts, key="fav_dest_sel")
+            if sel != "선택 안 함":
+                addr = favorites[fav_opts.index(sel) - 1]["address"]
+                if st.button("목적지에 입력", key="fav_to_dest", use_container_width=True):
+                    st.session_state["nav_dest_input"] = addr
+                    st.rerun()
 
 
 def _sidebar_favorites(favorites: list) -> None:
@@ -1220,9 +1230,19 @@ def _render_action_buttons() -> None:
 
     if st.session_state.get("nav_dest_display"):
         st.info(f"📌 {st.session_state['nav_dest_display']}")
-        summary = _route_summary_text()
-        if summary:
-            st.caption(f"🚶 {summary}")
+        journey_now = st.session_state.get("nav_journey")
+        if journey_now is not None:
+            # 대중교통 여정: '🚶 총 375m'는 정류장까지 첫 도보 구간이라 전체로 오해된다.
+            # 전체 여정 합계를 보여주고, 구간별 상세는 아래 여정 카드로 안내한다.
+            bits = [_meters_text(journey_now.total_distance_meters),
+                    _minutes_text(journey_now.total_time_seconds)]
+            jsummary = " · ".join(b for b in bits if b)
+            if jsummary:
+                st.caption(f"🧭 전체 여정 {jsummary} · 구간별 안내는 아래 카드")
+        else:
+            summary = _route_summary_text()
+            if summary:
+                st.caption(f"🚶 {summary}")
 
     # 시작/중지 (경로가 있을 때만) — 전폭으로 한 손 탭 쉽게. 보행 중 '중지'는 크게 강조.
     route: Optional[RouteModel] = st.session_state["nav_route"]
@@ -1296,10 +1316,30 @@ def main() -> None:
     st.markdown("## 🗺️ Walk — 실시간 내비게이션")
     st.caption("가고 싶은 곳을 입력하면 걷는 길을 안내하고, 길을 벗어나면 바로 알려줍니다.")
 
-    # 모바일: 사이드바·햄버거 제거 → 컨트롤을 본문에 표시, 컨트롤 행은 가로 스크롤.
+    # 모바일: 사이드바·햄버거 제거 → 컨트롤을 본문에 표시.
+    # 시각 토큰(색·버튼·카드·타이포)으로 "앱 느낌"을 주되, 로직/DOM 구조는 건드리지 않음.
     st.markdown(
         """
         <style>
+        /* ── 디자인 토큰 (라이트 기본, 다크 자동 대응) ───────────────────────── */
+        :root {
+          --walk-brand: #1d6fb8;         /* 기본 브랜드(파랑) — 경로·강조 */
+          --walk-brand-strong: #14568f;
+          --walk-go: #12a150;            /* 출발·긍정 */
+          --walk-warn: #d9822b;          /* 주의 */
+          --walk-danger: #d64545;        /* 이탈·오류 */
+          --walk-surface: #f6f8fa;       /* 카드 배경 */
+          --walk-border: #e3e7ec;
+          --walk-muted: #4a4a4a;
+          --walk-radius: 14px;
+          --walk-shadow: 0 1px 3px rgba(0,0,0,.09), 0 1px 2px rgba(0,0,0,.05);
+        }
+        @media (prefers-color-scheme: dark) {
+          :root {
+            --walk-surface: #1a1d24; --walk-border: #2a2f3a; --walk-muted: #b3b8c0;
+            --walk-shadow: 0 1px 3px rgba(0,0,0,.5);
+          }
+        }
         /* 사이드바·햄버거(펼침 버튼) 완전 제거 — 네이밍 변형 모두 커버 */
         [data-testid="stSidebar"],
         section[data-testid="stSidebar"],
@@ -1311,18 +1351,46 @@ def main() -> None:
         /* 상단 헤더 공간 회수(모바일 한 화면 확보) */
         [data-testid="stHeader"], header[data-testid="stHeader"] { height: 0 !important; min-height: 0 !important; }
         .block-container { padding: 0.5rem 0.7rem 3rem !important; max-width: 100% !important; }
-        /* 접근성: 키보드 포커스 가시화 (버튼·입력 위주로 범위 한정) */
-        button:focus-visible,
-        input:focus-visible,
-        select:focus-visible,
-        textarea:focus-visible,
-        [tabindex]:focus-visible { outline: 2px solid #1d6fb8 !important; outline-offset: 2px !important; }
-        /* 접근성: 모션 민감 사용자 — 시각 애니메이션/트랜지션 억제 (소리·진동 경고는 무관) */
+
+        /* ── 타이포: 제목 간결·본문 가독 ─────────────────────────────────────── */
+        .block-container h2 { font-weight: 800 !important; letter-spacing: -0.01em; margin: 0.1rem 0 0.1rem !important; }
+        .block-container h3 { font-weight: 700 !important; }
+
+        /* ── 버튼: 크고 둥근 터치 타깃 ───────────────────────────────────────── */
+        .stButton > button {
+          min-height: 46px !important; border-radius: var(--walk-radius) !important;
+          font-weight: 700 !important; font-size: 1rem !important; transition: filter .12s ease;
+        }
+        .stButton > button:active { filter: brightness(0.94); }
+        /* 주요 버튼(경로찾기·시작) — 브랜드색 강조 (kind/data-testid 변형 모두 커버) */
+        .stButton > button[kind="primary"],
+        [data-testid="stBaseButton-primary"] {
+          background: var(--walk-brand) !important; border-color: var(--walk-brand) !important;
+          color: #fff !important; box-shadow: var(--walk-shadow) !important;
+        }
+        .stButton > button[kind="primary"]:hover,
+        [data-testid="stBaseButton-primary"]:hover { background: var(--walk-brand-strong) !important; }
+
+        /* ── 카드감: expander·알림을 부드러운 카드로 ─────────────────────────── */
+        [data-testid="stExpander"] {
+          border: 1px solid var(--walk-border) !important; border-radius: var(--walk-radius) !important;
+          box-shadow: var(--walk-shadow); overflow: hidden;
+        }
+        [data-testid="stExpander"] summary { font-weight: 600 !important; }
+        [data-testid="stAlert"] { border-radius: var(--walk-radius) !important; }
+        /* 입력칸: 살짝 둥글게 + 편안한 높이 */
+        [data-testid="stTextInputRootElement"] input,
+        .stTextInput input { border-radius: 10px !important; min-height: 42px !important; }
+
+        /* ── 접근성 (기존 유지·강화) ─────────────────────────────────────────── */
+        button:focus-visible, input:focus-visible, select:focus-visible,
+        textarea:focus-visible, [tabindex]:focus-visible {
+          outline: 2px solid var(--walk-brand) !important; outline-offset: 2px !important;
+        }
         @media (prefers-reduced-motion: reduce) {
             *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
         }
-        /* 가독성: 작은 회색 caption 대비 약간 강화 */
-        [data-testid="stCaptionContainer"], .stCaption { color: #4a4a4a !important; }
+        [data-testid="stCaptionContainer"], .stCaption { color: var(--walk-muted) !important; }
         </style>
         """,
         unsafe_allow_html=True,
@@ -1402,18 +1470,15 @@ def main() -> None:
                             st.session_state["nav_jump_reject_streak"] += 1
                             st.toast("위치가 잠깐 크게 튀어 한 번 건너뛰었어요")
                     elif st.session_state["nav_origin"] is None or st.session_state.get("nav_origin_coarse"):
-                        # 부트스트랩: 정확한 위치가 아직 없으면 대략적 위치라도 표시한다.
-                        # (PC·실내는 GPS가 없어 Wi-Fi/네트워크 위치라 ±50m를 넘는다 —
-                        #  기다리기만 하면 영원히 안 잡히므로 일단 잡고 계속 개선 시도. 정확한
-                        #  fix가 들어오면 위 is_fix_usable 분기에서 스무딩 위치로 교체된다.)
+                        # 부트스트랩: 정확한 fix가 아직 없으면 대략 위치라도 잡아 표시한다.
+                        # (실내·지하·약전파에선 Wi-Fi/네트워크 위치라 ±50m를 넘는다 — 기다리기만
+                        #  하면 영원히 안 잡히므로 일단 잡고 폴링 유지 → 정밀 fix가 오면 위
+                        #  is_fix_usable 분기에서 스무딩 위치로 자동 교체된다.)
+                        # 안내 문구는 아래 '현재 위치' 표시부에서 한 번만 낸다(중복 경고 방지).
                         new_origin = Coordinate(latitude=float(c["latitude"]), longitude=float(c["longitude"]))
                         st.session_state["nav_origin"] = new_origin
                         st.session_state["nav_raw_gps"] = geo
                         st.session_state["nav_origin_coarse"] = True
-                        st.caption(
-                            f"⚠️ 대략적 위치 (±{acc:.0f}m) — PC·실내는 정확도가 낮아요. "
-                            "이동하거나 휴대폰에서 열면 정확해집니다."
-                        )
                 elif geo and geo.get("error") and st.session_state["nav_origin"] is None:
                     code = geo["error"].get("code")
                     if code == 1:  # PERMISSION_DENIED
@@ -1461,22 +1526,30 @@ def main() -> None:
             addr = st.session_state["nav_origin_address"]
             acc = (st.session_state["nav_raw_gps"] or {}).get("coords", {}).get("accuracy")
             q = gps_filter.accuracy_quality(acc)
+            coarse = bool(st.session_state.get("nav_origin_coarse"))
+            acc_txt = f" (±{acc:.0f}m)" if acc else ""
             # 내비 중엔 현재 위치 카드(주소·정확도)를 한 줄 caption으로 축약 — 지도에 마커로도 보임.
             if running:
                 where = addr or f"{origin.latitude:.5f}, {origin.longitude:.5f}"
-                dot = {"good": "🟢", "fair": "🟡", "poor": "🔴"}.get(q, "⚪")
-                st.caption(f"📍 {where}  {dot}")
+                dot = "🟡" if coarse else {"good": "🟢", "fair": "🟡", "poor": "🔴"}.get(q, "⚪")
+                st.caption(f"📍 {where}  {dot}" + ("  (대략 위치)" if coarse else ""))
             else:
                 if addr:
                     st.success(f"📍 {addr}")
                 else:
                     st.caption(f"📍 {origin.latitude:.5f}, {origin.longitude:.5f}")
-                if q == "good":
-                    st.caption(f"🟢 위치 정확 (±{acc:.0f}m)")
+                # 위치 상태는 '한 줄'만 낸다 — 대략 위치면 그 안내만(정확도 등급 중복 표시 금지).
+                if coarse:
+                    st.caption(
+                        f"⚠️ 대략적 위치{acc_txt} — 실내·지하·약전파에선 정확도가 낮아요. "
+                        "하늘이 트인 곳으로 나오면 자동으로 정확해집니다."
+                    )
+                elif q == "good":
+                    st.caption(f"🟢 위치 정확{acc_txt}")
                 elif q == "fair":
-                    st.caption(f"🟡 위치 보통 (±{acc:.0f}m) — 실내·고층에선 잠깐 부정확할 수 있어요")
+                    st.caption(f"🟡 위치 보통{acc_txt} — 실내·고층에선 잠깐 부정확할 수 있어요")
                 elif q == "poor":
-                    st.caption(f"🔴 위치 약함 (±{acc:.0f}m) — 하늘이 트인 곳으로 나오면 정확해져요")
+                    st.caption(f"🔴 위치 약함{acc_txt} — 하늘이 트인 곳으로 나오면 정확해져요")
                 else:
                     st.caption("⚪ 수동 입력")
 
