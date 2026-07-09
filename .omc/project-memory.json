@@ -201,6 +201,12 @@
   },
   "hotPaths": [
     {
+      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\4fc4b3e3-43d0-4e03-831e-add2d5c2fbec\\scratchpad\\walk-mockup.html",
+      "accessCount": 13,
+      "lastAccessed": 1783570804467,
+      "type": "file"
+    },
+    {
       "path": "streamlit_walk_engine\\pages\\1_Navigation.py",
       "accessCount": 8,
       "lastAccessed": 1783566235474,
@@ -240,12 +246,6 @@
       "path": ".streamlit\\secrets.toml.example",
       "accessCount": 1,
       "lastAccessed": 1783569413039,
-      "type": "file"
-    },
-    {
-      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\4fc4b3e3-43d0-4e03-831e-add2d5c2fbec\\scratchpad\\walk-mockup.html",
-      "accessCount": 1,
-      "lastAccessed": 1783569484218,
       "type": "file"
     }
   ],
