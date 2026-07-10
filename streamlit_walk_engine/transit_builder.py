@@ -269,23 +269,32 @@ def parse_odsay_transit(
     if not raw_legs:
         raise ValueError("ODsay 대중교통 구간이 없습니다.")
 
-    # ── 좌표 보간(2-pass) ────────────────────────────────────────────────────
-    # 1) end 없으면 다음 구간의 start(없으면 여정 목적지)로, 2) start 없으면 이전
-    #    구간의 end(없으면 여정 출발지)로 채운다. 연속 도보 구간까지 커버하도록 3) 보정.
+    # ── 좌표 보간 ────────────────────────────────────────────────────────────
+    # 좌표 없는 도보 구간을 앞뒤에서 메운다. 순차 1-pass:
+    #   start ← 직전 구간의 (이미 채워진) end, 첫 구간이면 여정 출발지
+    #   end   ← 뒤쪽에서 처음 알려진 좌표, 없으면 여정 목적지
+    # 뒤를 '내다보는'(look-ahead) 방식이라 좌표 없는 도보 구간이 연속으로 와도 수렴한다
+    # ('end←다음 start / start←이전 end' 식 반복은 그 경우 서로를 기다려 수렴하지 않는다).
+    # origin/dest 가 없으면(직접 호출) 채우지 못한 채 아래 검사에서 ValueError → 안전 실패.
     count = len(raw_legs)
     raw_starts = [_coord_from_prefixed(rl, "start") for rl in raw_legs]
     raw_ends = [_coord_from_prefixed(rl, "end") for rl in raw_legs]
+
+    def _known_after(index: int) -> Coordinate | None:
+        for j in range(index + 1, count):
+            if raw_starts[j] is not None:
+                return raw_starts[j]
+            if raw_ends[j] is not None:
+                return raw_ends[j]
+        return dest
+
     starts: list[Coordinate | None] = list(raw_starts)
     ends: list[Coordinate | None] = list(raw_ends)
     for i in range(count):
-        if ends[i] is None:
-            ends[i] = raw_starts[i + 1] if i + 1 < count else dest
-    for i in range(count):
         if starts[i] is None:
             starts[i] = ends[i - 1] if i > 0 else origin
-    for i in range(count):
-        if ends[i] is None and i + 1 < count:
-            ends[i] = starts[i + 1]
+        if ends[i] is None:
+            ends[i] = _known_after(i)
 
     legs: list[JourneyLeg] = []
     for index, raw_leg in enumerate(raw_legs):

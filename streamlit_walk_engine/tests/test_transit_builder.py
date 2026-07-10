@@ -296,6 +296,27 @@ class TestOdsayWalkLegCoordinateInterpolation:
         with pytest.raises(ValueError):
             transit_builder.parse_odsay_transit(_odsay_payload_walk_without_coords())
 
+    def test_consecutive_coordless_walk_legs_still_resolve(self):
+        # 좌표 없는 도보 구간이 연속으로 오면 '다음 start ↔ 이전 end' 상호참조가
+        # 수렴하지 않는다 → 뒤쪽에서 처음 알려진 좌표를 내다보는 방식이어야 한다.
+        payload = {"result": {"path": [{
+            "info": {"totalDistance": 3000, "totalTime": 30},
+            "subPath": [
+                {"trafficType": 3, "distance": 100, "sectionTime": 2},   # 도보(좌표 없음)
+                {"trafficType": 3, "distance": 100, "sectionTime": 2},   # 도보(좌표 없음) — 연속
+                {"trafficType": 1, "sectionTime": 20, "stationCount": 5,
+                 "startX": 127.02, "startY": 37.50, "endX": 127.06, "endY": 37.52,
+                 "startName": "강남", "endName": "잠실", "lane": [{"name": "2호선"}]},
+            ],
+        }]}}
+        journey = transit_builder.parse_odsay_transit(payload, origin=ORIGIN, dest=DEST)
+
+        # 도보 강등되지 않고 지하철 구간이 살아 있어야 한다(이게 이 수정의 목적).
+        assert [leg.mode for leg in journey.legs] == ["walk", "walk", "subway"]
+        assert journey.legs[0].start == ORIGIN
+        # 두 도보 구간 모두 좌표가 채워져 예외 없이 파싱된다.
+        assert all(leg.start is not None and leg.end is not None for leg in journey.legs)
+
 
 class TestAdvanceLeg:
     def test_tracked_walk_near_end_advances_when_not_last(self):
