@@ -1178,6 +1178,53 @@ def _sidebar_bookings(favorites: list, origin: Optional[Coordinate]) -> None:
 
 # ── 메인 ─────────────────────────────────────────────────────────────────────
 
+def _find_and_activate(dest_text: str, origin: Coordinate, *, start_now: bool) -> bool:
+    """목적지를 찾아 경로/여정을 활성화한다. 성공하면 True.
+
+    start_now=True 면 안내까지 바로 시작한다 — 예약 자동활성화(_try_activate_booking)가
+    이미 쓰는 검증된 경로(_activate_route/_activate_journey)를 그대로 재사용하므로
+    도착판정·엔진 활성 로직에 새 분기를 만들지 않는다.
+    검색 실패는 여기서 안내하고 False를 반환(네트워크 예외는 호출부에서 처리).
+    """
+    # 미리보기에서 고른 후보가 있으면 그 좌표로 바로 경로 생성(재지오코딩 생략).
+    picked = st.session_state.get("nav_dest_picked")
+    result = picked if picked is not None else geocode_address(dest_text)
+    if result is None:
+        st.error("목적지를 찾을 수 없습니다. 다른 주소나 장소명으로 다시 시도해 주세요.")
+        return False
+    dest, display_name = result
+    # 출발지: 입력+선택 후보가 있으면 그 좌표, 없으면 현재 위치(GPS).
+    start_picked = st.session_state.get("nav_start_picked")
+    start_input = (st.session_state.get("nav_start_input") or "").strip()
+    start_coord = start_picked[0] if (start_input and start_picked) else origin
+    confirmed = _exit_label(dest_text, display_name)
+    if st.session_state.get("nav_transit_enabled", True):
+        journey = transit_builder.fetch_transit_journey(start_coord, dest)
+        _activate_journey(journey, start_now=start_now)
+        if journey.source.startswith("도보 강등"):
+            st.info("대중교통 경로를 사용할 수 없어 도보 안내로 전환했습니다.")
+    else:
+        route = _fetch_route(start_coord, dest)
+        _clear_journey_state()
+        _activate_route(start_coord, dest, confirmed, route, start_now=start_now)
+    hist = [h for h in st.session_state["nav_search_history"] if h["query"] != dest_text]
+    hist.insert(0, {"query": dest_text, "display_name": confirmed,
+                    "lat": dest.latitude, "lon": dest.longitude})
+    st.session_state["nav_search_history"] = hist[:10]
+    _save_list_to_ls(_LS_KEY, hist[:10])
+    return True
+
+
+def _plan_summary_text() -> str:
+    """활성 계획 요약 — 여정이면 전체 합계, 아니면 도보 경로 요약(없으면 빈 문자열)."""
+    journey_now = st.session_state.get("nav_journey")
+    if journey_now is not None:
+        bits = [_meters_text(journey_now.total_distance_meters),
+                _minutes_text(journey_now.total_time_seconds)]
+        return " · ".join(bit for bit in bits if bit)
+    return _route_summary_text() or ""
+
+
 def _render_action_buttons() -> None:
     """경로 탐색·시작·초기화 버튼 (도착지 입력 직후 표시).
 
@@ -1191,54 +1238,52 @@ def _render_action_buttons() -> None:
 
     # 모바일 친화: 가로 3열(폰에서 좁음) 대신 세로 스택 + 전폭 버튼으로 터치 타깃 확대.
     # 경로 찾기(주)는 가장 크게, 시작/초기화는 그 아래.
-    if origin is None:
-        st.caption("📍 현재 위치 확인 중 — 잡히면 '경로 찾기'가 활성화됩니다")
-    elif not dest_text:
-        st.caption("먼저 목적지를 입력하세요")
-    if st.button("🔍 경로 찾기", disabled=(not dest_text or origin is None), use_container_width=True):
-        with st.spinner(f"'{dest_text}' 경로 찾는 중…"):
-            try:
-                # 미리보기에서 고른 후보가 있으면 그 좌표로 바로 경로 생성(재지오코딩 생략).
-                picked = st.session_state.get("nav_dest_picked")
-                result = picked if picked is not None else geocode_address(dest_text)
-                if result is None:
-                    st.error("목적지를 찾을 수 없습니다. 다른 주소나 장소명으로 다시 시도해 주세요.")
-                else:
-                    dest, display_name = result
-                    # 출발지: 입력+선택 후보가 있으면 그 좌표, 없으면 현재 위치(GPS).
-                    start_picked = st.session_state.get("nav_start_picked")
-                    start_input = (st.session_state.get("nav_start_input") or "").strip()
-                    start_coord = start_picked[0] if (start_input and start_picked) else origin
-                    confirmed = _exit_label(dest_text, display_name)
-                    if st.session_state.get("nav_transit_enabled", True):
-                        journey = transit_builder.fetch_transit_journey(start_coord, dest)
-                        _activate_journey(journey, start_now=False)
-                        if journey.source.startswith("도보 강등"):
-                            st.info("대중교통 경로를 사용할 수 없어 도보 안내로 전환했습니다.")
-                    else:
-                        route = _fetch_route(start_coord, dest)
-                        _clear_journey_state()
-                        _activate_route(start_coord, dest, confirmed, route, start_now=False)
-                    hist = [h for h in st.session_state["nav_search_history"] if h["query"] != dest_text]
-                    hist.insert(0, {"query": dest_text, "display_name": confirmed,
-                                    "lat": dest.latitude, "lon": dest.longitude})
-                    st.session_state["nav_search_history"] = hist[:10]
-                    _save_list_to_ls(_LS_KEY, hist[:10])
-                    journey_now = st.session_state.get("nav_journey")
-                    if journey_now is not None:
-                        bits = [_meters_text(journey_now.total_distance_meters),
-                                _minutes_text(journey_now.total_time_seconds)]
-                        summary = " · ".join(bit for bit in bits if bit)
-                    else:
-                        summary = _route_summary_text()
-                    suffix = f" — {summary}" if summary else ""
-                    st.success(f"경로를 찾았어요{suffix}. ▶ 시작 또는 구간 버튼으로 안내를 이어가세요")
-            except requests.exceptions.Timeout:
-                st.error("네트워크 시간 초과. 인터넷 연결을 확인하고 다시 시도해 주세요.")
-            except requests.exceptions.ConnectionError:
-                st.error("네트워크에 연결할 수 없습니다.")
-            except Exception as e:
-                st.error(f"경로 찾기 실패: {e}")
+    running = bool(st.session_state["nav_running"])
+    has_plan = (st.session_state["nav_route"] is not None
+                or st.session_state.get("nav_journey") is not None)
+    ready = bool(dest_text) and origin is not None
+    started = False  # st.rerun()은 try 밖에서 호출 — 예외 처리에 삼켜지지 않게.
+
+    # 안내 중에는 탐색 버튼을 숨겨 화면을 비우고 오탭(주행 중 재검색)을 막는다.
+    if not running:
+        if origin is None:
+            st.caption("📍 현재 위치 확인 중 — 잡히면 '바로 출발'이 활성화됩니다")
+        elif not dest_text:
+            st.caption("먼저 목적지를 입력하세요")
+
+        # 단계 병합: '경로 찾기 → 시작' 두 번 누르던 것을 한 번으로.
+        if st.button("🚶 바로 출발", disabled=not ready, use_container_width=True, type="primary"):
+            with st.spinner(f"'{dest_text}' 경로 찾는 중…"):
+                try:
+                    started = _find_and_activate(dest_text, origin, start_now=True)
+                except requests.exceptions.Timeout:
+                    st.error("네트워크 시간 초과. 인터넷 연결을 확인하고 다시 시도해 주세요.")
+                except requests.exceptions.ConnectionError:
+                    st.error("네트워크에 연결할 수 없습니다.")
+                except Exception as e:
+                    st.error(f"경로 찾기 실패: {e}")
+
+        # 출발 전에 경로만 확인하고 싶을 때 (계획이 아직 없을 때만 노출 — 있으면 ▶ 시작 사용).
+        if (not has_plan) and st.button("🔍 경로만 보기", disabled=not ready,
+                                        use_container_width=True):
+            with st.spinner(f"'{dest_text}' 경로 찾는 중…"):
+                try:
+                    if _find_and_activate(dest_text, origin, start_now=False):
+                        summary = _plan_summary_text()
+                        suffix = f" — {summary}" if summary else ""
+                        st.success(f"경로를 찾았어요{suffix}. ▶ 시작을 누르면 안내가 시작됩니다")
+                except requests.exceptions.Timeout:
+                    st.error("네트워크 시간 초과. 인터넷 연결을 확인하고 다시 시도해 주세요.")
+                except requests.exceptions.ConnectionError:
+                    st.error("네트워크에 연결할 수 없습니다.")
+                except Exception as e:
+                    st.error(f"경로 찾기 실패: {e}")
+
+    if started:
+        # 첫 구간이 도보면 안내가 바로 시작되고, 대중교통이면 여정 카드로 진행한다.
+        st.toast("🚶 안내를 시작합니다" if st.session_state["nav_running"]
+                 else "여정을 준비했어요 — 구간 카드에서 진행하세요")
+        st.rerun()
 
     if st.session_state.get("nav_dest_display"):
         st.info(f"📌 {st.session_state['nav_dest_display']}")
