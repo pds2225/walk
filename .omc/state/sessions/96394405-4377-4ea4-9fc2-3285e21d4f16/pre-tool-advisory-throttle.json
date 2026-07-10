@@ -1,34 +1,10 @@
 {
   "version": 1,
   "entries": {
-    "4f7a67fba0a8473e9883d9e8dffbb2d72e00a4a1eeb4fa80cb14213b167dc90f": {
-      "last_emitted_at_ms": 1783681150861,
-      "message": "Mark todos in_progress BEFORE starting, completed IMMEDIATELY after finishing."
-    },
-    "466399dafa2d20f60587180bad0a07358eb7f2bce724df0ff682f038ad33f5ad": {
-      "last_emitted_at_ms": 1783681098350,
-      "message": "Read multiple files in parallel when possible for faster analysis."
-    },
-    "445ed27a3872b681d98190bae61ccb84954e1bc4e140df5370be958dee776b3a": {
-      "last_emitted_at_ms": 1783680975825,
-      "message": "Verify changes work after editing. Test functionality before marking complete."
-    },
-    "79a93d4a2f8f50b95f852280616242fee1855dc99a3c75211917f55e72e95fae": {
-      "last_emitted_at_ms": 1783680619422,
-      "message": "Use parallel execution for independent tasks. Use run_in_background for long operations (npm install, builds, tests)."
-    },
-    "2c36e95eb15cba174336b0bfc272ac1a040b6c45dd375a66a07489a3d433c2f2": {
-      "last_emitted_at_ms": 1783680611026,
-      "message": "Spawning agent: oh-my-claudecode:code-reviewer (opus) | Task: 버그수정 diff 집중 리뷰"
-    },
-    "459c54e5f35d6a58dcd90d2aecc21fa6d1f35d241bc5b134c506f87dc7b6d67b": {
-      "last_emitted_at_ms": 1783680386822,
-      "message": "Combine searches in parallel when investigating multiple patterns."
-    },
-    "a175432b6df1808aa96871dce99ae9c2fad6204a4b4984bd5b9a790826373b5d": {
-      "last_emitted_at_ms": 1783677999595,
-      "message": "Spawning agent: oh-my-claudecode:code-reviewer (opus) | Task: 버그수정 6건 리뷰"
+    "1bb6914bc42b891c26d46c8ae2fd4f44071f59862e89dc550f4c82877b700216": {
+      "last_emitted_at_ms": 1783685884941,
+      "message": "The boulder never stops. Continue until all tasks complete."
     }
   },
-  "updated_at": "2026-07-10T10:59:10.861Z"
+  "updated_at": "2026-07-10T12:18:04.941Z"
 }
