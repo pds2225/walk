@@ -1178,7 +1178,7 @@ def _sidebar_bookings(favorites: list, origin: Optional[Coordinate]) -> None:
 
 # ── 메인 ─────────────────────────────────────────────────────────────────────
 
-def _find_and_activate(dest_text: str, origin: Coordinate, *, start_now: bool) -> bool:
+def _find_and_activate(dest_text: str, origin: Optional[Coordinate], *, start_now: bool) -> bool:
     """목적지를 찾아 경로/여정을 활성화한다. 성공하면 True.
 
     start_now=True 면 안내까지 바로 시작한다 — 예약 자동활성화(_try_activate_booking)가
@@ -1186,6 +1186,9 @@ def _find_and_activate(dest_text: str, origin: Coordinate, *, start_now: bool) -
     도착판정·엔진 활성 로직에 새 분기를 만들지 않는다.
     검색 실패는 여기서 안내하고 False를 반환(네트워크 예외는 호출부에서 처리).
     """
+    if origin is None:  # 버튼이 disabled 되지만 방어적으로(정적 타입도 일치)
+        st.error("현재 위치를 아직 찾지 못했어요. 잠시 후 다시 시도해 주세요.")
+        return False
     # 미리보기에서 고른 후보가 있으면 그 좌표로 바로 경로 생성(재지오코딩 생략).
     picked = st.session_state.get("nav_dest_picked")
     result = picked if picked is not None else geocode_address(dest_text)
@@ -1202,7 +1205,9 @@ def _find_and_activate(dest_text: str, origin: Coordinate, *, start_now: bool) -
         journey = transit_builder.fetch_transit_journey(start_coord, dest)
         _activate_journey(journey, start_now=start_now)
         if journey.source.startswith("도보 강등"):
-            st.info("대중교통 경로를 사용할 수 없어 도보 안내로 전환했습니다.")
+            # 여기서 바로 st.info를 그리면 start_now=True 경로의 st.rerun()에 출력이
+            # 폐기된다. 플래그로 남겨 rerun 이후 렌더에서 한 번만 표시한다.
+            st.session_state["nav_downgrade_notice"] = True
     else:
         route = _fetch_route(start_coord, dest)
         _clear_journey_state()
@@ -1223,6 +1228,24 @@ def _plan_summary_text() -> str:
                 _minutes_text(journey_now.total_time_seconds)]
         return " · ".join(bit for bit in bits if bit)
     return _route_summary_text() or ""
+
+
+def _run_activation(dest_text: str, origin: Optional[Coordinate], *, start_now: bool) -> bool:
+    """스피너 + 네트워크 예외 처리를 감싼 `_find_and_activate` 실행. 성공하면 True.
+
+    `st.rerun()`은 여기서 호출하지 않는다 — RerunException 이 아래 except 에
+    삼켜지지 않도록 호출부가 try 밖에서 처리한다.
+    """
+    with st.spinner(f"'{dest_text}' 경로 찾는 중…"):
+        try:
+            return _find_and_activate(dest_text, origin, start_now=start_now)
+        except requests.exceptions.Timeout:
+            st.error("네트워크 시간 초과. 인터넷 연결을 확인하고 다시 시도해 주세요.")
+        except requests.exceptions.ConnectionError:
+            st.error("네트워크에 연결할 수 없습니다.")
+        except Exception as e:
+            st.error(f"경로 찾기 실패: {e}")
+    return False
 
 
 def _render_action_buttons() -> None:
@@ -1252,38 +1275,30 @@ def _render_action_buttons() -> None:
             st.caption("먼저 목적지를 입력하세요")
 
         # 단계 병합: '경로 찾기 → 시작' 두 번 누르던 것을 한 번으로.
-        if st.button("🚶 바로 출발", disabled=not ready, use_container_width=True, type="primary"):
-            with st.spinner(f"'{dest_text}' 경로 찾는 중…"):
-                try:
-                    started = _find_and_activate(dest_text, origin, start_now=True)
-                except requests.exceptions.Timeout:
-                    st.error("네트워크 시간 초과. 인터넷 연결을 확인하고 다시 시도해 주세요.")
-                except requests.exceptions.ConnectionError:
-                    st.error("네트워크에 연결할 수 없습니다.")
-                except Exception as e:
-                    st.error(f"경로 찾기 실패: {e}")
+        # 이미 계획이 있으면 '▶ 시작'(캐시된 경로)이 주 동작이므로, 이 버튼은
+        # '새 목적지로 다시 찾아 출발'하는 보조 동작으로 라벨·강조를 낮춘다.
+        if st.button("🚶 바로 출발" if not has_plan else "🔄 다시 찾아 출발",
+                     disabled=not ready, use_container_width=True,
+                     type="primary" if not has_plan else "secondary"):
+            started = _run_activation(dest_text, origin, start_now=True)
 
         # 출발 전에 경로만 확인하고 싶을 때 (계획이 아직 없을 때만 노출 — 있으면 ▶ 시작 사용).
         if (not has_plan) and st.button("🔍 경로만 보기", disabled=not ready,
                                         use_container_width=True):
-            with st.spinner(f"'{dest_text}' 경로 찾는 중…"):
-                try:
-                    if _find_and_activate(dest_text, origin, start_now=False):
-                        summary = _plan_summary_text()
-                        suffix = f" — {summary}" if summary else ""
-                        st.success(f"경로를 찾았어요{suffix}. ▶ 시작을 누르면 안내가 시작됩니다")
-                except requests.exceptions.Timeout:
-                    st.error("네트워크 시간 초과. 인터넷 연결을 확인하고 다시 시도해 주세요.")
-                except requests.exceptions.ConnectionError:
-                    st.error("네트워크에 연결할 수 없습니다.")
-                except Exception as e:
-                    st.error(f"경로 찾기 실패: {e}")
+            if _run_activation(dest_text, origin, start_now=False):
+                summary = _plan_summary_text()
+                suffix = f" — {summary}" if summary else ""
+                st.success(f"경로를 찾았어요{suffix}. ▶ 시작을 누르면 안내가 시작됩니다")
 
     if started:
         # 첫 구간이 도보면 안내가 바로 시작되고, 대중교통이면 여정 카드로 진행한다.
         st.toast("🚶 안내를 시작합니다" if st.session_state["nav_running"]
                  else "여정을 준비했어요 — 구간 카드에서 진행하세요")
         st.rerun()
+
+    # 도보 강등 안내는 rerun 이후에 한 번만 표시(위 st.rerun()에 출력이 폐기되지 않게).
+    if st.session_state.pop("nav_downgrade_notice", False):
+        st.info("대중교통 경로를 사용할 수 없어 도보 안내로 전환했습니다.")
 
     if st.session_state.get("nav_dest_display"):
         st.info(f"📌 {st.session_state['nav_dest_display']}")
