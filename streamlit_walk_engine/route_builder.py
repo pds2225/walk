@@ -394,28 +394,34 @@ _METRO_TOKENS = frozenset({
 })
 _LABEL_DROP_TOKENS = _COUNTRY_TOKENS | _METRO_TOKENS  # 하위호환(외부 참조용)
 _POSTCODE_RE = re.compile(r"^\d{5}$")
+# 공백형 주소의 국가명 제거 — 단어 경계로만 지운다. 부분문자열로 지우면
+# '대한민국역사박물관' 같은 실존 장소명이 '역사박물관'으로 잘린다.
+_COUNTRY_RE = re.compile(r"(?:^|\s)(?:대한민국|South Korea)(?=\s|$)")
 
 
 def _address_tokens(display: str) -> tuple[list[str], str]:
     """주소 문자열 → (광역→세부 순 토큰, 우편번호).
 
-    Nominatim display_name 은 '장소, 도로, 동, 구, 광역시도, 우편번호, 대한민국'처럼
-    **세부→광역 역순**이라 한국식(광역→세부)으로 뒤집는다(마지막 토큰이 국가명인지로
-    판별). Naver·TMAP 공백형 주소는 이미 한국식이라 순서를 유지한다.
-    국가명·우편번호는 본문 토큰에서 빼고, 우편번호는 따로 돌려준다.
+    쉼표형(Nominatim display_name)은 '장소, 도로, 동, 구, 광역시도, 우편번호, 대한민국'
+    처럼 **세부→광역 역순**이라 한국식(광역→세부)으로 뒤집는다. 역순 판별은 마지막
+    토큰이 국가명인지로 하는데, 쉼표형은 Nominatim 전용이고 Nominatim 은 국가명을
+    항상 붙이므로 성립한다(다른 쉼표형 소스를 추가하면 이 전제를 재검토할 것).
+
+    Naver·TMAP 공백형 주소는 이미 한국식 순서라 뒤집지 않고, **우편번호도 없다** —
+    그래서 공백형에선 우편번호를 추출하지 않는다(5자리 번지를 우편번호로 오인 방지).
     """
     s = display.strip()
     if "," in s:
         toks = [t.strip() for t in s.split(",") if t.strip()]
         reverse = bool(toks) and toks[-1] in _COUNTRY_TOKENS
+        postcode = next((t for t in toks if _POSTCODE_RE.fullmatch(t)), "")
+        body = [t for t in toks
+                if t not in _COUNTRY_TOKENS and not _POSTCODE_RE.fullmatch(t)]
     else:
-        for c in _COUNTRY_TOKENS:  # 공백형에 붙은 국가명 제거('South Korea'처럼 공백 포함 대응)
-            s = s.replace(c, " ")
-        toks = s.split()
+        toks = _COUNTRY_RE.sub(" ", s).split()
         reverse = False
-    postcode = next((t for t in toks if _POSTCODE_RE.fullmatch(t)), "")
-    body = [t for t in toks
-            if t not in _COUNTRY_TOKENS and not _POSTCODE_RE.fullmatch(t)]
+        postcode = ""  # 공백형엔 우편번호가 없다
+        body = [t for t in toks if t not in _COUNTRY_TOKENS]
     if reverse:
         body.reverse()
     return body, postcode

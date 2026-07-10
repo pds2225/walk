@@ -100,6 +100,11 @@ class TestFormatPlaceLabel:
         # Naver 공백형(도로명주소) — 이미 한국식이라 순서 유지, 앞 광역시도만 제거
         assert format_place_label("서울특별시 마포구 양화로 45") == "마포구 양화로 45"
 
+    def test_place_name_containing_country_word_preserved(self):
+        # TMAP POI display 는 공백형 — '대한민국역사박물관'이 잘리면 후보 라벨이 깨진다.
+        d = "서울 종로구 세종대로 대한민국역사박물관"
+        assert format_place_label(d) == d
+
     def test_none_and_empty(self):
         assert format_place_label(None) == ""
         assert format_place_label("") == ""
@@ -123,9 +128,14 @@ class TestFormatKoreanAddress:
     def test_english_country_removed_and_reversed(self):
         assert format_korean_address("Gyeongbokgung, Jongno-gu, South Korea") == "Jongno-gu Gyeongbokgung"
 
-    def test_building_number_not_mistaken_for_postcode(self):
-        # 5자리가 아닌 번지는 보존된다.
-        assert format_korean_address("서울특별시 강남구 테헤란로 152") .endswith("152")
+    def test_five_digit_building_number_not_mistaken_for_postcode(self):
+        # 공백형(Naver/TMAP)엔 우편번호가 없다 — 5자리 '번지'를 앞으로 옮기면 안 된다.
+        assert format_korean_address("세종특별자치시 한누리대로 12345") == "세종특별자치시 한누리대로 12345"
+
+    def test_place_name_containing_country_word_preserved(self):
+        # '대한민국역사박물관'은 실존 장소 — 부분문자열 치환으로 잘리면 안 된다.
+        d = "서울 종로구 세종대로 대한민국역사박물관"
+        assert format_korean_address(d) == d
 
     def test_none_and_empty(self):
         assert format_korean_address(None) == ""
