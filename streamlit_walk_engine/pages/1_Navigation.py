@@ -132,6 +132,44 @@ def _get_geolocation_high_accuracy(component_key: str = "walk_hi_acc_geo", multi
     return geo
 
 
+def _get_ip_geolocation(component_key: str = "walk_ip_geo"):
+    """브라우저에서 IP 지오로케이션으로 도시 수준 '대략 위치'를 조회한다.
+
+    PC처럼 GPS가 없어 브라우저 geolocation이 실패(POSITION_UNAVAILABLE/TIMEOUT)할 때,
+    최소한의 위치라도 인식시켜 목적지 입력·경로 탐색이 막히지 않게 하는 폴백이다.
+    반드시 사용자 브라우저에서 fetch 해야 사용자 IP 기준 위치가 잡힌다 — 서버측
+    requests로 조회하면 스트림릿 서버(클라우드 데이터센터) IP가 잡혀 무의미하다.
+
+    반환 형태는 geolocation과 호환: {"coords": {"latitude","longitude","accuracy":None},
+    "city": str|None, "source": "ip"} / {"error": {...}} / None(첫 렌더·대기).
+    CORS·HTTPS를 지원하는 무키(無key) 서비스 두 곳을 순차 폴백한다(첫 곳 실패 시 다음).
+    js_expressions 문자열이 고정이라 프런트엔드가 세션당 1회만 fetch하고, 결과가 오면
+    컴포넌트 값 변경으로 rerun이 유발돼 대기(None)→결과로 자동 갱신된다.
+    """
+    if _js_eval is None:
+        return {"error": {"message": "no js eval"}}
+    js = (
+        "new Promise((resolve)=>{"
+        "var svcs=["
+        "{u:'https://ipapi.co/json/',f:(d)=>[d.latitude,d.longitude,d.city]},"
+        "{u:'https://ipwho.is/',f:(d)=>[d.latitude,d.longitude,d.city]}"
+        "];var i=0;"
+        "function nx(){"
+        "if(i>=svcs.length){resolve({error:{code:2,message:'ip geo failed'}});return;}"
+        "var s=svcs[i++];"
+        "fetch(s.u).then(r=>r.json()).then(d=>{var g=s.f(d);"
+        "if(g[0]!=null&&g[1]!=null&&isFinite(+g[0])&&isFinite(+g[1])){"
+        "resolve({coords:{latitude:+g[0],longitude:+g[1],accuracy:null},"
+        "city:g[2]||null,source:'ip'});"
+        "}else{nx();}}).catch(()=>nx());}"
+        "nx();})"
+    )
+    try:
+        return _js_eval(js_expressions=js, key=component_key)
+    except Exception:
+        return {"error": {"code": 2, "message": "ip geo exception"}}
+
+
 # ── 상수 ──────────────────────────────────────────────────────────────────────
 
 STATE_COLOR = {
@@ -169,6 +207,7 @@ def _init() -> None:
     for k, v in {
         "nav_origin": None,
         "nav_origin_coarse": False,
+        "nav_origin_source": None,  # None | "gps" | "ip" | "manual" — 대략위치 안내 문구 분기용
         "nav_raw_gps": None,
         "nav_jump_reject_streak": 0,
         "nav_dest": None,
@@ -1548,7 +1587,11 @@ def main() -> None:
                         prev_ts = prev_raw.get("timestamp")
                         new_ts = geo.get("timestamp")
                         elapsed_ms = (new_ts - prev_ts) if (prev_ts and new_ts and new_ts > prev_ts) else 0
-                        plausible = prev is None or gps_filter.is_plausible_step(
+                        # IP 대략위치(도시 수준)를 앵커로 둔 경우, 실제 GPS fix는 수 km 떨어져
+                        # 점프로 오인·기각된다. IP는 신뢰 낮은 부트스트랩이므로 첫 실측 fix가
+                        # 즉시 이기게 점프 가드를 건너뛴다(prev None과 동일 취급).
+                        from_ip = st.session_state.get("nav_origin_source") == "ip"
+                        plausible = prev is None or from_ip or gps_filter.is_plausible_step(
                             prev.latitude, prev.longitude,
                             new_origin.latitude, new_origin.longitude,
                             elapsed_ms, acc, prev_acc,
@@ -1581,6 +1624,7 @@ def main() -> None:
                             st.session_state["nav_raw_gps"] = geo
                             st.session_state["nav_jump_reject_streak"] = 0
                             st.session_state["nav_origin_coarse"] = False
+                            st.session_state["nav_origin_source"] = "gps"
                         else:
                             st.session_state["nav_jump_reject_streak"] += 1
                             st.toast("위치가 잠깐 크게 튀어 한 번 건너뛰었어요")
@@ -1594,24 +1638,49 @@ def main() -> None:
                         st.session_state["nav_origin"] = new_origin
                         st.session_state["nav_raw_gps"] = geo
                         st.session_state["nav_origin_coarse"] = True
-                elif geo and geo.get("error") and st.session_state["nav_origin"] is None:
-                    code = geo["error"].get("code")
-                    if code == 1:  # PERMISSION_DENIED
-                        st.warning(
-                            "위치 권한이 차단됐어요. 주소창 왼쪽 자물쇠 → 위치 → '허용'으로 바꿔 주세요."
-                        )
-                    else:  # POSITION_UNAVAILABLE(2) / TIMEOUT(3)
-                        st.warning(
-                            "위치 신호를 받지 못했어요. PC는 GPS가 없어 Wi-Fi/네트워크로만 대략 위치를 잡습니다. "
-                            "① Windows '설정 → 개인정보 보호 → 위치'가 켜져 있는지 ② Wi-Fi 연결을 확인하고, "
-                            "정확한 안내는 휴대폰에서 열어 주세요."
-                        )
+                        st.session_state["nav_origin_source"] = "gps"
+                elif isinstance(geo, dict) and geo.get("error") and st.session_state["nav_origin"] is None:
+                    # 브라우저 위치가 '실패(error)'로 확정된 경우에만 폴백한다 — 아직 대기(None)면
+                    # 모바일은 곧 GPS fix가 오므로 성급히 IP로 잡지 않는다(엉뚱한 도시로 튀는 인상 방지).
+                    # PC처럼 GPS가 없어도 목적지 입력·경로 탐색이 막히지 않도록 IP 기반 '대략 위치'라도
+                    # 인식시킨다. 이후 정밀 GPS fix가 오면 위 is_fix_usable 분기에서, 사용자가 출발지를
+                    # 직접 입력하면 아래 '출발지 바꾸기'에서 각각 이 대략 위치를 대체한다.
+                    ip_geo = _get_ip_geolocation()
+                    if ip_geo and ip_geo.get("coords"):
+                        c = ip_geo["coords"]
+                        try:
+                            st.session_state["nav_origin"] = Coordinate(
+                                latitude=float(c["latitude"]), longitude=float(c["longitude"]))
+                            st.session_state["nav_raw_gps"] = ip_geo
+                            st.session_state["nav_origin_coarse"] = True
+                            st.session_state["nav_origin_source"] = "ip"
+                            st.rerun()
+                        except (TypeError, ValueError):
+                            pass
+                    if st.session_state["nav_origin"] is None:
+                        # IP 폴백이 아직 대기(None)이거나 실패 → 상황별 안내 + 수동 입력 유도.
+                        geo_code = geo.get("error", {}).get("code")
+                        if ip_geo is None:
+                            st.caption("📍 위치 확인 중… (대략 위치라도 잡으면 바로 출발할 수 있어요)")
+                        elif geo_code == 1:  # PERMISSION_DENIED
+                            st.warning(
+                                "위치 권한이 차단됐어요. 주소창 왼쪽 자물쇠 → 위치 → '허용'으로 바꾸거나, "
+                                "아래 **‘출발지 바꾸기’** 에서 출발 주소를 직접 입력하면 바로 경로를 찾을 수 있어요."
+                            )
+                        else:  # POSITION_UNAVAILABLE(2) / TIMEOUT(3) / IP 폴백까지 실패
+                            st.warning(
+                                "위치 신호를 받지 못했어요. 아래 **‘출발지 바꾸기’** 에서 출발 주소나 장소명"
+                                "(예: 합정역 7번출구)을 직접 입력하면 바로 경로를 찾을 수 있어요. "
+                                "정확한 실시간 안내는 휴대폰에서 열어 주세요."
+                            )
                 elif st.session_state["nav_origin"] is None:
-                    st.warning("브라우저에서 위치 권한을 허용해 주세요.")
+                    # 아직 위치 대기 중(None) — 모바일은 곧 첫 GPS fix가 온다.
+                    st.caption("📍 위치 확인 중…")
             else:
                 if st.button("📍 위치 새로고침", use_container_width=True):
                     st.session_state["nav_origin"] = None
                     st.session_state["nav_origin_coarse"] = False
+                    st.session_state["nav_origin_source"] = None
                     st.rerun()
         else:
             st.caption("GPS 패키지 미설치 — 수동 입력")
@@ -1623,6 +1692,8 @@ def main() -> None:
                     "nav_raw_gps":             None,
                     "nav_origin_address":      None,
                     "nav_origin_address_coord": None,
+                    "nav_origin_coarse":       False,
+                    "nav_origin_source":       "manual",
                 })
 
         origin: Optional[Coordinate] = st.session_state["nav_origin"]
@@ -1656,10 +1727,17 @@ def main() -> None:
                     st.caption(f"📍 {origin.latitude:.5f}, {origin.longitude:.5f}")
                 # 위치 상태는 '한 줄'만 낸다 — 대략 위치면 그 안내만(정확도 등급 중복 표시 금지).
                 if coarse:
-                    st.caption(
-                        f"⚠️ 대략적 위치{acc_txt} — 실내·지하·약전파에선 정확도가 낮아요. "
-                        "하늘이 트인 곳으로 나오면 자동으로 정확해집니다."
-                    )
+                    if st.session_state.get("nav_origin_source") == "ip":
+                        st.caption(
+                            f"⚠️ 대략적 위치(IP 기반){acc_txt} — 도시 수준이라 실제와 멀 수 있어요. "
+                            "정확한 출발지는 위 **‘출발지 바꾸기’** 에서 주소·장소명을 입력하거나, "
+                            "휴대폰(GPS)에서 열면 자동으로 정확해집니다."
+                        )
+                    else:
+                        st.caption(
+                            f"⚠️ 대략적 위치{acc_txt} — 실내·지하·약전파에선 정확도가 낮아요. "
+                            "하늘이 트인 곳으로 나오면 자동으로 정확해집니다."
+                        )
                 elif q == "good":
                     st.caption(f"🟢 위치 정확{acc_txt}")
                 elif q == "fair":
