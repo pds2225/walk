@@ -460,7 +460,6 @@ def fetch_transit_journey(origin: Coordinate, dest: Coordinate) -> Journey:
     """
     app_key_getter = getattr(route_builder, "_tmap_app_key", lambda: None)
     app_key = app_key_getter()
-    odsay_key = _odsay_api_key()
 
     if app_key:
         try:
@@ -468,6 +467,8 @@ def fetch_transit_journey(origin: Coordinate, dest: Coordinate) -> Journey:
         except Exception:
             pass
 
+    # TMAP 성공 시엔 여기 오지 않으므로, 키 조회를 미뤄 불필요한 .env/secrets 읽기를 피한다.
+    odsay_key = _odsay_api_key()
     if odsay_key:
         try:
             # origin/dest 를 넘겨 좌표 없는 도보 구간을 보간한다(ODsay 실제 응답 대응).
