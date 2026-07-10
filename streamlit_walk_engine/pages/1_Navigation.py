@@ -36,9 +36,9 @@ import gps_filter
 import transit_builder
 from alert_voice import build_tts_script, tts_phrase
 from route_builder import (
-    fetch_walking_route_with_engine, geocode_address, geocode_suggestions,
-    label_with_distance, reverse_geocode, route_engine_label,
-    sort_suggestions_by_distance, strip_postcode,
+    fetch_walking_route_with_engine, format_korean_address, geocode_address,
+    geocode_suggestions, label_with_distance, reverse_geocode, route_engine_label,
+    sort_suggestions_by_distance,
 )
 
 try:
@@ -913,7 +913,7 @@ def _render_dest_inputs() -> None:
         sel = st_searchbox(
             _search_places,
             placeholder="예) 경복궁, 강남역 10번출구",
-            label="주소 또는 장소명",
+            label="",  # 안내문은 '목적지' 제목 우측에 한 줄로 표시(중복 라벨 제거)
             key="nav_dest_sb",
         )
         if sel is not None:
@@ -934,6 +934,7 @@ def _render_dest_inputs() -> None:
         "주소 또는 장소명",
         placeholder="예) 경복궁, 강남역 10번출구",
         key="nav_dest_input",
+        label_visibility="collapsed",  # 안내문은 '목적지' 제목 우측에 표시
     )
 
     # 경로 찾기 전 미리보기: 입력한 장소가 검색되는지 + 후보를 즉시 보여준다.
@@ -987,11 +988,22 @@ def _sidebar_destination(favorites: list, running: bool = False) -> None:
     if running:
         with st.expander("📍 목적지 바꾸기", expanded=False):
             _render_dest_inputs()
+        _render_action_buttons()  # 안내 중: ⏹ 중지 / ↺ 초기화
         return
 
     # ── 목적지 (최상단: 첫 행동을 가장 위에) ──
-    st.subheader("목적지")
+    # 안내문('주소 또는 장소명')은 제목 우측에 한 줄로 — 입력칸 위 라벨을 없애 세로 공간 절약.
+    st.markdown(
+        '<div class="walk-dest-head">'
+        '<span class="walk-dest-title">목적지</span>'
+        '<span class="walk-dest-hint">주소 또는 장소명</span>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
     _render_dest_inputs()
+
+    # 핵심 동선: 목적지 입력칸 '바로 아래'에 출발 버튼(탐색+시작). 부가 설정은 그 아래로.
+    _render_action_buttons()
 
     # ── 최근 검색 원탭 칩 — 반복 목적지를 접힌 메뉴 대신 한 번에 다시 안내(검색 마찰↓) ──
     recent = st.session_state["nav_search_history"][:3]
@@ -1351,7 +1363,7 @@ def _render_action_buttons() -> None:
 
 
 def main() -> None:
-    st.set_page_config(page_title="Walk 내비게이션", page_icon="🗺️", layout="wide",
+    st.set_page_config(page_title="도보 내비게이션", page_icon="🚶", layout="wide",
                        initial_sidebar_state="collapsed")
     if _MISSING_DEPENDENCIES:
         render_dependency_error()
@@ -1385,7 +1397,7 @@ def main() -> None:
                 except Exception as e:
                     st.error(f"경로 찾기 실패: {e}")
 
-    st.markdown("## 🗺️ Walk — 실시간 내비게이션")
+    st.markdown("## 🚶 도보 내비게이션 (대중교통 포함)")
     st.caption("가고 싶은 곳을 입력하면 걷는 길을 안내하고, 길을 벗어나면 바로 알려줍니다.")
 
     # 모바일: 사이드바·햄버거 제거 → 컨트롤을 본문에 표시.
@@ -1427,6 +1439,12 @@ def main() -> None:
         /* ── 타이포: 제목 간결·본문 가독 ─────────────────────────────────────── */
         .block-container h2 { font-weight: 800 !important; letter-spacing: -0.01em; margin: 0.1rem 0 0.1rem !important; }
         .block-container h3 { font-weight: 700 !important; }
+
+        /* 목적지 제목 + 우측 안내문('주소 또는 장소명') 한 줄 배치 (입력칸 위 라벨 제거) */
+        .walk-dest-head { display: flex; align-items: baseline; gap: 0.6rem;
+                          flex-wrap: wrap; margin: 0.25rem 0 0.35rem; }
+        .walk-dest-title { font-size: 1.45rem; font-weight: 800; letter-spacing: -0.01em; }
+        .walk-dest-hint { font-size: 1.05rem; font-weight: 500; color: var(--walk-muted); }
 
         /* ── 버튼: 크고 둥근 터치 타깃 ───────────────────────────────────────── */
         .stButton > button {
@@ -1473,9 +1491,8 @@ def main() -> None:
         favorites = st.session_state["nav_favorites"]
         running = bool(st.session_state["nav_running"])
 
+        # 목적지 입력 바로 아래에 출발 버튼이 오도록 _sidebar_destination 안에서 함께 렌더한다.
         _sidebar_destination(favorites, running=running)
-        # 핵심 동선: 도착지 입력 바로 아래에 경로 탐색/시작 버튼 (GPS·알림설정은 그 아래로).
-        _render_action_buttons()
 
         # 내비 진행 중엔 '현재 위치' 헤더/구분선을 숨겨 지도·판정에 자리를 양보.
         if not running:
@@ -1587,8 +1604,9 @@ def main() -> None:
             cached_coord: Optional[Coordinate] = st.session_state["nav_origin_address_coord"]
             if cached_coord is None or distance_meters(cached_coord, origin) > 100:
                 try:
-                    # 표시 직전 1회 우편번호 제거(Interpretation A) — 두 표시처가 같은 값을 읽어 자동 전파.
-                    addr = strip_postcode(
+                    # 표시 직전 1회 한국식 정규화 — 국가명 숨김·우편번호 (NNNNN) 앞으로·광역→세부 순.
+                    # 두 표시처(현재위치 카드·출발지 placeholder)가 같은 값을 읽어 자동 전파.
+                    addr = format_korean_address(
                         _reverse_geocode_cached(round(origin.latitude, 5), round(origin.longitude, 5)))
                     st.session_state["nav_origin_address"]       = addr
                     st.session_state["nav_origin_address_coord"] = origin

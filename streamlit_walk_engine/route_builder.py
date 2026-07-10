@@ -176,7 +176,8 @@ def _tmap_poi_results(query: str, limit: int = 5) -> list[tuple[Coordinate, str]
                                 p.get("lowerAddrName"), p.get("detailAddrName"))
             if s and s.strip()
         )
-        display = f"{name}, {addr}" if name and addr else (name or addr or query)
+        # 한국식 표기: 주소(광역→세부) 뒤에 장소명. 예) '서울 종로구 세종로 경복궁'
+        display = f"{addr} {name}" if name and addr else (name or addr or query)
         out.append((coord, display))
     return out
 
@@ -382,36 +383,73 @@ def strip_postcode(address: str | None) -> str | None:
     return _POSTCODE_COMMA_RE.sub("", address)
 
 
-# 검색 후보 라벨에서 빼는 군더더기 토큰: 국가·광역시도.
-_LABEL_DROP_TOKENS = frozenset({
-    "대한민국", "South Korea",
+# 주소 표시에서 숨기는 국가명 / 후보 라벨에서만 생략하는 광역시도.
+_COUNTRY_TOKENS = frozenset({"대한민국", "South Korea"})
+_METRO_TOKENS = frozenset({
     "서울특별시", "부산광역시", "대구광역시", "인천광역시", "광주광역시",
     "대전광역시", "울산광역시", "세종특별자치시",
     "경기도", "강원도", "강원특별자치도", "충청북도", "충청남도",
     "전라북도", "전북특별자치도", "전라남도", "경상북도", "경상남도",
     "제주특별자치도", "제주도",
 })
+_LABEL_DROP_TOKENS = _COUNTRY_TOKENS | _METRO_TOKENS  # 하위호환(외부 참조용)
+_POSTCODE_RE = re.compile(r"^\d{5}$")
+
+
+def _address_tokens(display: str) -> tuple[list[str], str]:
+    """주소 문자열 → (광역→세부 순 토큰, 우편번호).
+
+    Nominatim display_name 은 '장소, 도로, 동, 구, 광역시도, 우편번호, 대한민국'처럼
+    **세부→광역 역순**이라 한국식(광역→세부)으로 뒤집는다(마지막 토큰이 국가명인지로
+    판별). Naver·TMAP 공백형 주소는 이미 한국식이라 순서를 유지한다.
+    국가명·우편번호는 본문 토큰에서 빼고, 우편번호는 따로 돌려준다.
+    """
+    s = display.strip()
+    if "," in s:
+        toks = [t.strip() for t in s.split(",") if t.strip()]
+        reverse = bool(toks) and toks[-1] in _COUNTRY_TOKENS
+    else:
+        for c in _COUNTRY_TOKENS:  # 공백형에 붙은 국가명 제거('South Korea'처럼 공백 포함 대응)
+            s = s.replace(c, " ")
+        toks = s.split()
+        reverse = False
+    postcode = next((t for t in toks if _POSTCODE_RE.fullmatch(t)), "")
+    body = [t for t in toks
+            if t not in _COUNTRY_TOKENS and not _POSTCODE_RE.fullmatch(t)]
+    if reverse:
+        body.reverse()
+    return body, postcode
+
+
+def format_korean_address(display: str | None) -> str:
+    """전체 주소를 한국식 표기로 정규화한다.
+
+    예) '맥도날드, 백범로227번길, 만수5동, 남동구, 인천광역시, 21518, 대한민국'
+      → '(21518) 인천광역시 남동구 만수5동 백범로227번길 맥도날드'
+
+    우편번호는 지우지 않고 맨 앞 괄호로 옮기고, 국가명은 숨기며, Nominatim 역순은
+    광역→세부로 뒤집는다. None/빈 문자열은 빈 문자열.
+    """
+    if not display or not display.strip():
+        return ""
+    body, postcode = _address_tokens(display)
+    core = " ".join(body)
+    if not core:
+        return f"({postcode})" if postcode else ""
+    return f"({postcode}) {core}" if postcode else core
 
 
 def format_place_label(display: str | None) -> str:
-    """검색 후보 표시 라벨을 정제한다 — 우편번호·국가·광역시도만 제거하고 나머지는 유지.
+    """검색 후보 라벨 — 한국식 순서(광역→세부)로, 국가·광역시도·우편번호는 뺀다.
 
-    동·구만 남기면 동명 후보가 똑같아 보여 구분이 안 되므로, 후보를 구분할 수 있게
-    도로명·번지·동 등 상세를 보존한다. Nominatim 쉼표형은 국가·광역시도 토큰만 빼고
-    나머지(도로·번지·동·구)를 그대로 잇고, Naver 공백형(도로명주소)은 앞쪽 광역시도
-    접두만 떼어 'OO구 OO로 12' 형태로 남긴다. None/빈 문자열은 빈 문자열.
+    광역시도를 빼 라벨을 짧게 유지하되 구·동·도로·번지 상세는 남겨 동명 후보를
+    구분할 수 있게 한다. None/빈 문자열은 빈 문자열.
     """
-    s = (strip_postcode(display) or "").strip()
-    if not s:
+    if not display or not display.strip():
         return ""
-    if "," in s:  # Nominatim 쉼표형 — 국가·광역시도만 제거, 나머지(도로·번지·동·구) 유지
-        toks = [t.strip() for t in s.split(",") if t.strip() and t.strip() not in _LABEL_DROP_TOKENS]
-        return ", ".join(toks) if toks else s
-    # Naver 공백형(도로명주소) — 앞쪽 광역시도 접두만 제거(번지까지 보존)
-    for w in _LABEL_DROP_TOKENS:
-        if s.startswith(w + " "):
-            return s[len(w):].strip()
-    return s
+    body, _ = _address_tokens(display)
+    toks = [t for t in body if t not in _METRO_TOKENS]
+    return " ".join(toks or body)
 
 
 # ── 검색 후보: 현재 위치 기준 거리 표시·정렬 ──────────────────────────────────

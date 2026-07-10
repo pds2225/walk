@@ -21,7 +21,8 @@ import route_builder
 from engine import Coordinate, RouteModel
 from route_builder import (
     RouteInfo, _route_from_tmap_features, strip_postcode, format_place_label,
-    format_distance, label_with_distance, sort_suggestions_by_distance,
+    format_distance, format_korean_address, label_with_distance,
+    sort_suggestions_by_distance,
 )
 
 
@@ -78,11 +79,11 @@ class TestStripPostcode:
 
 
 class TestFormatPlaceLabel:
-    """검색 후보 라벨 정제 — 우편번호·국가·광역시도만 제거, 도로·번지·동·구 유지(후보 구분)."""
+    """검색 후보 라벨 — 한국식 순서(광역→세부), 국가·광역시도·우편번호 제거, 상세 유지."""
 
-    def test_nominatim_keeps_detail_drops_country_metro(self):
+    def test_nominatim_reversed_to_korean_order(self):
         d = "합정역, 양화로, 홍대, 서교동, 마포구, 서울특별시, 04037, 대한민국"
-        assert format_place_label(d) == "합정역, 양화로, 홍대, 서교동, 마포구"
+        assert format_place_label(d) == "마포구 서교동 홍대 양화로 합정역"
 
     def test_two_candidates_distinguished(self):
         d1 = "합정역, 양화로, 홍대, 서교동, 마포구, 서울특별시, 04037, 대한민국"
@@ -93,15 +94,42 @@ class TestFormatPlaceLabel:
         assert format_place_label("경복궁, 대한민국") == "경복궁"
 
     def test_gu_kept(self):
-        assert format_place_label("강남역, 강남구, 서울특별시, 대한민국") == "강남역, 강남구"
+        assert format_place_label("강남역, 강남구, 서울특별시, 대한민국") == "강남구 강남역"
 
     def test_naver_road_address_drops_metro_prefix(self):
-        # Naver 공백형(도로명주소) — 앞 광역시도만 떼고 번지까지 유지
+        # Naver 공백형(도로명주소) — 이미 한국식이라 순서 유지, 앞 광역시도만 제거
         assert format_place_label("서울특별시 마포구 양화로 45") == "마포구 양화로 45"
 
     def test_none_and_empty(self):
         assert format_place_label(None) == ""
         assert format_place_label("") == ""
+
+
+class TestFormatKoreanAddress:
+    """전체 주소 — 국가명 숨김, 우편번호 '(NNNNN)' 앞으로, 광역→세부 한국식 순서."""
+
+    def test_nominatim_reversed_with_postcode_moved_to_front(self):
+        d = "맥도날드, 백범로227번길, 만수5동, 남동구, 인천광역시, 21518, 대한민국"
+        assert format_korean_address(d) == "(21518) 인천광역시 남동구 만수5동 백범로227번길 맥도날드"
+
+    def test_country_hidden_without_postcode(self):
+        assert format_korean_address("경복궁, 종로구, 서울특별시, 대한민국") == "서울특별시 종로구 경복궁"
+
+    def test_space_form_order_kept_and_country_removed(self):
+        # Naver/TMAP 공백형은 이미 한국식 순서 — 뒤집지 않는다.
+        assert format_korean_address("서울특별시 강남구 테헤란로 152") == "서울특별시 강남구 테헤란로 152"
+        assert format_korean_address("서울특별시 강남구 테헤란로 152 대한민국") == "서울특별시 강남구 테헤란로 152"
+
+    def test_english_country_removed_and_reversed(self):
+        assert format_korean_address("Gyeongbokgung, Jongno-gu, South Korea") == "Jongno-gu Gyeongbokgung"
+
+    def test_building_number_not_mistaken_for_postcode(self):
+        # 5자리가 아닌 번지는 보존된다.
+        assert format_korean_address("서울특별시 강남구 테헤란로 152") .endswith("152")
+
+    def test_none_and_empty(self):
+        assert format_korean_address(None) == ""
+        assert format_korean_address("   ") == ""
 
 
 # 실제 TMAP 응답 구조: Point(SP) → LineString → Point(GP) → LineString → ... → Point(EP)
@@ -524,7 +552,8 @@ class TestTmapPoiResults:
         assert len(out) == 1
         coord, display = out[0]
         assert abs(coord.latitude - 37.5759) < 1e-6
-        assert display == "경복궁, 서울 종로구"
+        # 한국식 표기: 주소(광역→세부) 뒤에 장소명
+        assert display == "서울 종로구 경복궁"
 
     def test_falls_back_to_noor_when_front_zero(self, monkeypatch):
         monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: "k")
