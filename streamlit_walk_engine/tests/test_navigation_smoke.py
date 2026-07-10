@@ -37,12 +37,23 @@ def test_transit_toggle_does_not_use_session_key_as_widget_key():
     assert 'st.session_state["nav_transit_enabled"] = transit_on' in source
 
 
-def test_reset_button_clears_active_booking_id():
-    """도착 전 ↺ 초기화 시 nav_active_booking_id 가 남으면 _try_activate_booking 이
-    계속 건너뛰어 그 세션 동안 예약 경로가 다시 자동활성화되지 않는다."""
+def test_booking_rearms_only_after_leaving_start_radius():
+    """예약 재활성화 정책:
+    - 출발 반경 안에 서 있는 동안엔 재발동을 억제한다(도착 전 ↺ 초기화 직후
+      5초 뒤 예약이 자동 재시작되어 초기화가 무력화되는 루프 방지).
+    - 반경을 벗어나면 nav_active_booking_id 를 재무장해, 다시 출발지로 오면
+      정상 활성화된다(그 세션 동안 영영 못 쓰던 문제 해소).
+    """
     source = PAGE.read_text(encoding="utf-8")
+    start = source.index("def _try_activate_booking")
+    block = source[start:start + 1400]
 
-    assert 'st.session_state["nav_active_booking_id"] = None' in source
+    assert "outside = distance_meters(origin, start)" in block
+    assert 'if outside:\n                st.session_state["nav_active_booking_id"] = None' in block
+    # 초기화 핸들러는 id 를 지우지 않아야 한다(루프 방지).
+    reset_at = source.index('if st.button("↺ 초기화"')
+    reset_block = source[reset_at:reset_at + 700]
+    assert 'st.session_state["nav_active_booking_id"] = None' not in reset_block
 
 
 def test_recent_chip_reroute_respects_transit_setting():

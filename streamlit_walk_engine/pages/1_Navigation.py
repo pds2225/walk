@@ -847,10 +847,16 @@ def _try_activate_booking(origin: Optional[Coordinate]) -> None:
     for booking in st.session_state["nav_route_bookings"]:
         if not booking.get("enabled", True):
             continue
-        if st.session_state.get("nav_active_booking_id") == booking["id"]:
-            continue
         start = _booking_coord(booking, "start")
-        if distance_meters(origin, start) > float(booking.get("radius_m", 80)):
+        outside = distance_meters(origin, start) > float(booking.get("radius_m", 80))
+        if st.session_state.get("nav_active_booking_id") == booking["id"]:
+            # 이미 이 예약을 시작한 적이 있다. 출발 반경 안에 서 있는 동안엔 재발동을
+            # 억제하고(도착 전 ↺ 초기화 직후 자동 재시작 루프 방지), 반경을 벗어나면
+            # 재무장해 다음에 다시 출발지로 오면 정상 활성화되게 한다.
+            if outside:
+                st.session_state["nav_active_booking_id"] = None
+            continue
+        if outside:
             continue
         dest = _booking_coord(booking, "dest")
         with st.spinner(f"예약 경로 활성화 중: {booking['label']}"):
@@ -1369,9 +1375,9 @@ def _render_action_buttons() -> None:
         _clear_journey_state()
         st.session_state["nav_running"] = False
         st.session_state["nav_arrival_summary"] = None
-        # 예약 경로를 도착 전에 초기화하면 이 id가 남아 _try_activate_booking 이 계속
-        # 건너뛴다(그 세션 동안 재활성화 불가) → 도착·예약삭제와 동일하게 여기서도 정리.
-        st.session_state["nav_active_booking_id"] = None
+        # nav_active_booking_id 는 여기서 지우지 않는다 — 출발 반경 안에 서 있는 채로
+        # 지우면 _try_activate_booking 이 5초 뒤 예약을 다시 자동 시작해 초기화가
+        # 무력화된다. 대신 그 함수가 '출발 반경을 벗어나면' 재무장한다.
         st.rerun()
 
     # 경로 엔진명(기술 정보)은 보조 정보 — 작은 캡션으로 맨 아래.
