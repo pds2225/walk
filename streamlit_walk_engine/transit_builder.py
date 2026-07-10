@@ -248,11 +248,17 @@ def parse_tmap_transit(payload: dict[str, Any]) -> Journey:
     ))
 
 
-def parse_odsay_transit(payload: dict[str, Any]) -> Journey:
-    """Parse a provisional ODsay searchPubTransPathT response.
+def parse_odsay_transit(
+    payload: dict[str, Any],
+    origin: Coordinate | None = None,
+    dest: Coordinate | None = None,
+) -> Journey:
+    """Parse an ODsay searchPubTransPathT response.
 
-    PROVISIONAL CONTRACT: ODsay field names are based on public examples and
-    mock payloads. Re-verify with one real response before treating it as final.
+    실제 ODsay 응답은 **도보(trafficType=3) 구간에 좌표를 주지 않는다**(지하철·버스
+    구간에만 startX/Y·endX/Y가 있음). 대부분의 여정이 '출발지→첫 역 도보'로 시작하므로,
+    도보 구간의 좌표를 인접 대중교통 구간과 여정 양끝(origin/dest)에서 보간하지 않으면
+    사실상 모든 실제 응답이 실패한다. origin/dest 는 그 보간용(없으면 기존처럼 엄격).
     """
     result = payload.get("result", payload)
     paths = result.get("path") or []
@@ -263,8 +269,34 @@ def parse_odsay_transit(payload: dict[str, Any]) -> Journey:
     if not raw_legs:
         raise ValueError("ODsay 대중교통 구간이 없습니다.")
 
+    # ── 좌표 보간 ────────────────────────────────────────────────────────────
+    # 좌표 없는 도보 구간을 앞뒤에서 메운다. 순차 1-pass:
+    #   start ← 직전 구간의 (이미 채워진) end, 첫 구간이면 여정 출발지
+    #   end   ← 뒤쪽에서 처음 알려진 좌표, 없으면 여정 목적지
+    # 뒤를 '내다보는'(look-ahead) 방식이라 좌표 없는 도보 구간이 연속으로 와도 수렴한다
+    # ('end←다음 start / start←이전 end' 식 반복은 그 경우 서로를 기다려 수렴하지 않는다).
+    # origin/dest 가 없으면(직접 호출) 채우지 못한 채 아래 검사에서 ValueError → 안전 실패.
+    count = len(raw_legs)
+    raw_starts = [_coord_from_prefixed(rl, "start") for rl in raw_legs]
+    raw_ends = [_coord_from_prefixed(rl, "end") for rl in raw_legs]
+
+    def _known_after(index: int) -> Coordinate | None:
+        for j in range(index + 1, count):
+            if raw_starts[j] is not None:
+                return raw_starts[j]
+            if raw_ends[j] is not None:
+                return raw_ends[j]
+        return dest
+
+    starts: list[Coordinate | None] = list(raw_starts)
+    ends: list[Coordinate | None] = list(raw_ends)
+    for i in range(count):
+        if starts[i] is None:
+            starts[i] = ends[i - 1] if i > 0 else origin
+        if ends[i] is None:
+            ends[i] = _known_after(i)
+
     legs: list[JourneyLeg] = []
-    previous_end: Coordinate | None = None
     for index, raw_leg in enumerate(raw_legs):
         traffic_type = _as_int(raw_leg.get("trafficType"))
         mode: LegMode = "walk"
@@ -277,8 +309,7 @@ def parse_odsay_transit(payload: dict[str, Any]) -> Journey:
         elif traffic_type is not None:
             mode = "transfer"
 
-        start = _coord_from_prefixed(raw_leg, "start") or previous_end
-        end = _coord_from_prefixed(raw_leg, "end")
+        start, end = starts[index], ends[index]
         if start is None or end is None:
             raise ValueError("ODsay 대중교통 좌표가 없습니다.")
 
@@ -286,7 +317,6 @@ def parse_odsay_transit(payload: dict[str, Any]) -> Journey:
         end_label = _label(raw_leg.get("endName"), "도착")
         distance = _as_int(raw_leg.get("distance"))
         time_seconds = _minutes_to_seconds(raw_leg.get("sectionTime"))
-        previous_end = end
 
         transit: TransitInfo | None = None
         if mode in ("subway", "bus"):
@@ -381,7 +411,13 @@ def _odsay_api_key() -> str | None:
     return _read_shared_key("ODSAY_API_KEY")
 
 
-def build_walking_only_journey(origin: Coordinate, dest: Coordinate) -> Journey:
+DOWNGRADE_NO_KEY = "도보 강등(키 없음)"
+DOWNGRADE_FAILED = "도보 강등(대중교통 경로 실패)"
+
+
+def build_walking_only_journey(
+    origin: Coordinate, dest: Coordinate, source: str = DOWNGRADE_NO_KEY,
+) -> Journey:
     return Journey(
         legs=(JourneyLeg(
             mode="walk",
@@ -390,7 +426,7 @@ def build_walking_only_journey(origin: Coordinate, dest: Coordinate) -> Journey:
             start_label="출발",
             end_label="도착",
         ),),
-        source="도보 강등(키 없음)",
+        source=source,
     )
 
 
@@ -433,20 +469,27 @@ def fetch_transit_journey(origin: Coordinate, dest: Coordinate) -> Journey:
     """
     app_key_getter = getattr(route_builder, "_tmap_app_key", lambda: None)
     app_key = app_key_getter()
+
     if app_key:
         try:
             return _hydrate_walk_legs(parse_tmap_transit(_fetch_tmap_transit_raw(origin, dest, app_key)))
         except Exception:
             pass
 
+    # TMAP 성공 시엔 여기 오지 않으므로, 키 조회를 미뤄 불필요한 .env/secrets 읽기를 피한다.
     odsay_key = _odsay_api_key()
     if odsay_key:
         try:
-            return _hydrate_walk_legs(parse_odsay_transit(_fetch_odsay_transit_raw(origin, dest, odsay_key)))
+            # origin/dest 를 넘겨 좌표 없는 도보 구간을 보간한다(ODsay 실제 응답 대응).
+            raw = _fetch_odsay_transit_raw(origin, dest, odsay_key)
+            return _hydrate_walk_legs(parse_odsay_transit(raw, origin=origin, dest=dest))
         except Exception:
             pass
 
-    return _hydrate_walk_legs(build_walking_only_journey(origin, dest))
+    # 키가 아예 없어서 강등된 것과, 키는 있는데 호출·파싱이 실패해 강등된 것을 구분한다
+    # (UI가 '키 없음'이라고 잘못 안내하지 않도록).
+    source = DOWNGRADE_FAILED if (app_key or odsay_key) else DOWNGRADE_NO_KEY
+    return _hydrate_walk_legs(build_walking_only_journey(origin, dest, source=source))
 
 
 def is_last_leg(journey: Journey, active_index: int) -> bool:

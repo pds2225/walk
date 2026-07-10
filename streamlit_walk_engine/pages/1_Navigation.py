@@ -847,10 +847,16 @@ def _try_activate_booking(origin: Optional[Coordinate]) -> None:
     for booking in st.session_state["nav_route_bookings"]:
         if not booking.get("enabled", True):
             continue
-        if st.session_state.get("nav_active_booking_id") == booking["id"]:
-            continue
         start = _booking_coord(booking, "start")
-        if distance_meters(origin, start) > float(booking.get("radius_m", 80)):
+        outside = distance_meters(origin, start) > float(booking.get("radius_m", 80))
+        if st.session_state.get("nav_active_booking_id") == booking["id"]:
+            # 이미 이 예약을 시작한 적이 있다. 출발 반경 안에 서 있는 동안엔 재발동을
+            # 억제하고(도착 전 ↺ 초기화 직후 자동 재시작 루프 방지), 반경을 벗어나면
+            # 재무장해 다음에 다시 출발지로 오면 정상 활성화되게 한다.
+            if outside:
+                st.session_state["nav_active_booking_id"] = None
+            continue
+        if outside:
             continue
         dest = _booking_coord(booking, "dest")
         with st.spinner(f"예약 경로 활성화 중: {booking['label']}"):
@@ -1067,11 +1073,16 @@ def _sidebar_destination(favorites: list, running: bool = False) -> None:
                 st.session_state["nav_start_picked"] = None
                 st.caption(f"📍 현재 위치를 출발지로 사용: {cur_hint}")
 
-    st.toggle(
+    # 세션 저장키를 위젯 key 로 쓰면 안내 중(running)에 이 토글이 렌더되지 않아
+    # Streamlit 이 그 위젯키를 세션에서 지우고, 다음 rerun 의 _init() 이 기본값 True 로
+    # 되살린다 → 사용자가 끈 '도보 전용' 설정이 매 주행마다 소실된다. 그래서 알림
+    # 토글들과 같이 value=세션값 → 반환값을 세션에 대입하는 패턴을 쓴다(위젯키 미사용).
+    transit_on = st.toggle(
         "대중교통 포함",
-        key="nav_transit_enabled",
+        value=st.session_state.get("nav_transit_enabled", True),
         help="켜면 지하철·버스 구간을 함께 보여주고, 도보 구간에서만 실시간 안내를 사용합니다.",
     )
+    st.session_state["nav_transit_enabled"] = transit_on
     # [향후 슬롯] 멀티 provider(검색 소스 선택·지도 언어 토글)는 여기 아래 '고급 설정'
     # 접기로 추가 예정 — 검색 전면은 단순하게 유지하고 고급 옵션만 접어 둔다.
 
@@ -1216,10 +1227,13 @@ def _find_and_activate(dest_text: str, origin: Optional[Coordinate], *, start_no
     if st.session_state.get("nav_transit_enabled", True):
         journey = transit_builder.fetch_transit_journey(start_coord, dest)
         _activate_journey(journey, start_now=start_now)
+        # _activate_leg 은 활성 leg 의 end_label(도보 강등 시 '도착', 대중교통이면 첫 역)을
+        # nav_dest_display 로 넣는다 → 배너가 '📌 도착'이 되어 실제 목적지명이 사라진다.
+        st.session_state["nav_dest_display"] = confirmed
         if journey.source.startswith("도보 강등"):
             # 여기서 바로 st.info를 그리면 start_now=True 경로의 st.rerun()에 출력이
-            # 폐기된다. 플래그로 남겨 rerun 이후 렌더에서 한 번만 표시한다.
-            st.session_state["nav_downgrade_notice"] = True
+            # 폐기된다. 사유(source)를 플래그로 남겨 rerun 이후 한 번만 표시한다.
+            st.session_state["nav_downgrade_notice"] = journey.source
     else:
         route = _fetch_route(start_coord, dest)
         _clear_journey_state()
@@ -1309,8 +1323,13 @@ def _render_action_buttons() -> None:
         st.rerun()
 
     # 도보 강등 안내는 rerun 이후에 한 번만 표시(위 st.rerun()에 출력이 폐기되지 않게).
-    if st.session_state.pop("nav_downgrade_notice", False):
-        st.info("대중교통 경로를 사용할 수 없어 도보 안내로 전환했습니다.")
+    # 사유를 구분해 안내한다 — 키가 있는데 실패한 경우 '키 없음'이라고 하면 오해를 준다.
+    downgrade = st.session_state.pop("nav_downgrade_notice", "")
+    if downgrade:
+        if "키 없음" in downgrade:
+            st.info("대중교통 API 키가 없어 도보 안내로 전환했습니다.")
+        else:
+            st.info("대중교통 경로를 가져오지 못해 도보 안내로 전환했습니다.")
 
     if st.session_state.get("nav_dest_display"):
         st.info(f"📌 {st.session_state['nav_dest_display']}")
@@ -1356,6 +1375,9 @@ def _render_action_buttons() -> None:
         _clear_journey_state()
         st.session_state["nav_running"] = False
         st.session_state["nav_arrival_summary"] = None
+        # nav_active_booking_id 는 여기서 지우지 않는다 — 출발 반경 안에 서 있는 채로
+        # 지우면 _try_activate_booking 이 5초 뒤 예약을 다시 자동 시작해 초기화가
+        # 무력화된다. 대신 그 함수가 '출발 반경을 벗어나면' 재무장한다.
         st.rerun()
 
     # 경로 엔진명(기술 정보)은 보조 정보 — 작은 캡션으로 맨 아래.
@@ -1384,15 +1406,19 @@ def main() -> None:
             with st.spinner(f"'{pending_hist['query']}' 경로 찾는 중..."):
                 try:
                     hist_dest = Coordinate(latitude=pending_hist["lat"], longitude=pending_hist["lon"])
-                    new_route = _fetch_route(hist_origin, hist_dest)
-                    _clear_journey_state()
-                    st.session_state.update({
-                        "nav_dest":         hist_dest,
-                        "nav_dest_display": pending_hist["display_name"],
-                        "nav_route":        new_route,
-                        "nav_engine":       RouteDeviationEngine(new_route, st.session_state["nav_config"]),
-                    })
-                    _reset()
+                    hist_label = pending_hist["display_name"]
+                    # '바로 출발'과 동일하게 '대중교통 포함' 설정을 존중한다.
+                    # (예전엔 항상 도보 전용이라 두 진입점의 동작이 갈렸다.)
+                    if st.session_state.get("nav_transit_enabled", True):
+                        journey = transit_builder.fetch_transit_journey(hist_origin, hist_dest)
+                        _activate_journey(journey, start_now=False)
+                        st.session_state["nav_dest_display"] = hist_label
+                        if journey.source.startswith("도보 강등"):
+                            st.session_state["nav_downgrade_notice"] = journey.source
+                    else:
+                        new_route = _fetch_route(hist_origin, hist_dest)
+                        _clear_journey_state()
+                        _activate_route(hist_origin, hist_dest, hist_label, new_route, start_now=False)
                     st.success(f"'{pending_hist['query']}' 경로를 찾았어요")
                 except Exception as e:
                     st.error(f"경로 찾기 실패: {e}")
