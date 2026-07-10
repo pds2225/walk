@@ -223,10 +223,78 @@ class TestFetchTransitJourneyFallback:
 
         journey = transit_builder.fetch_transit_journey(ORIGIN, DEST)
 
-        assert journey.source == "도보 강등(키 없음)"
+        assert journey.source == transit_builder.DOWNGRADE_NO_KEY
         assert len(journey.legs) == 1
         assert journey.legs[0].mode == "walk"
         assert journey.legs[0].tracked is True
+
+    def test_key_present_but_call_fails_reports_failure_not_missing_key(self, monkeypatch):
+        # 키가 있는데 호출·파싱이 실패해 강등된 경우 '키 없음'이라고 안내하면 오해를 준다.
+        monkeypatch.setattr(transit_builder.route_builder, "_tmap_app_key", lambda: None)
+        monkeypatch.setattr(transit_builder, "_odsay_api_key", lambda: "odsay-key")
+        monkeypatch.setattr(
+            transit_builder, "_fetch_odsay_transit_raw",
+            lambda origin, dest, key: (_ for _ in ()).throw(ValueError("boom")))
+        monkeypatch.setattr(
+            transit_builder, "fetch_walking_route_with_engine",
+            lambda start, end: (_dummy_route(start, end), "fake-walk", RouteInfo(100, 60)))
+
+        journey = transit_builder.fetch_transit_journey(ORIGIN, DEST)
+
+        assert journey.source == transit_builder.DOWNGRADE_FAILED
+        assert journey.source.startswith("도보 강등")  # UI 안내 조건은 그대로 성립
+        assert "키 없음" not in journey.source
+
+
+def _odsay_payload_walk_without_coords() -> dict:
+    """실제 ODsay 형식 — 도보(trafficType=3) 구간엔 좌표가 없고 지하철에만 있다."""
+    return {"result": {"path": [{
+        "info": {"totalDistance": 3000, "totalTime": 30},
+        "subPath": [
+            {"trafficType": 3, "distance": 200, "sectionTime": 3},  # 출발지→역 도보(좌표 없음)
+            {"trafficType": 1, "sectionTime": 20, "stationCount": 5,
+             "startX": 127.02, "startY": 37.50, "endX": 127.06, "endY": 37.52,
+             "startName": "강남", "endName": "잠실", "lane": [{"name": "2호선"}]},
+            {"trafficType": 3, "distance": 150, "sectionTime": 2},  # 역→목적지 도보(좌표 없음)
+        ],
+    }]}}
+
+
+class TestOdsayWalkLegCoordinateInterpolation:
+    """실제 ODsay 응답의 좌표 없는 도보 구간 — 인접·양끝 좌표로 보간해야 파싱된다."""
+
+    def test_walk_legs_without_coords_are_interpolated(self):
+        journey = transit_builder.parse_odsay_transit(
+            _odsay_payload_walk_without_coords(), origin=ORIGIN, dest=DEST)
+
+        assert [leg.mode for leg in journey.legs] == ["walk", "subway", "walk"]
+        # 첫 도보: 출발지 → 지하철 승차역 좌표
+        assert journey.legs[0].start == ORIGIN
+        assert journey.legs[0].end == journey.legs[1].start
+        # 마지막 도보: 지하철 하차역 좌표 → 목적지
+        assert journey.legs[2].start == journey.legs[1].end
+        assert journey.legs[2].end == DEST
+
+    def test_odsay_fallback_now_yields_transit_legs_end_to_end(self, monkeypatch):
+        # 이 버그 이전에는 실제 형식 응답이 항상 예외 → 도보 강등되어 ODsay 폴백이 죽어 있었다.
+        monkeypatch.setattr(transit_builder.route_builder, "_tmap_app_key", lambda: None)
+        monkeypatch.setattr(transit_builder, "_odsay_api_key", lambda: "odsay-key")
+        monkeypatch.setattr(
+            transit_builder, "_fetch_odsay_transit_raw",
+            lambda origin, dest, key: _odsay_payload_walk_without_coords())
+        monkeypatch.setattr(
+            transit_builder, "fetch_walking_route_with_engine",
+            lambda start, end: (_dummy_route(start, end), "fake-walk", RouteInfo(100, 60)))
+
+        journey = transit_builder.fetch_transit_journey(ORIGIN, DEST)
+
+        assert journey.source == "ODsay"
+        assert any(leg.mode == "subway" for leg in journey.legs)
+
+    def test_still_raises_when_no_coords_and_no_origin_dest(self):
+        # origin/dest 를 못 주면(직접 파서 호출) 기존처럼 엄격하게 실패한다.
+        with pytest.raises(ValueError):
+            transit_builder.parse_odsay_transit(_odsay_payload_walk_without_coords())
 
 
 class TestAdvanceLeg:
