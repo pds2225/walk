@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastScanned": 1783565926594,
+  "lastScanned": 1783670910504,
   "projectRoot": "d:\\walk",
   "techStack": {
     "languages": [
@@ -41,7 +41,7 @@
   },
   "build": {
     "buildCommand": null,
-    "testCommand": "npm test",
+    "testCommand": "cd /d/walk/streamlit_walk_engine && PYTHONUTF8=1 PYTHONIOENCODING=utf-8 python -m pytest tests/test_engine.py tests/test_gps_filter.py tests/test_geometry.py -q 2>&1 | tail -20",
     "lintCommand": "npm run lint",
     "devCommand": null,
     "scripts": {
@@ -78,14 +78,14 @@
       "path": "apps",
       "purpose": null,
       "fileCount": 0,
-      "lastAccessed": 1783565925911,
+      "lastAccessed": 1783670910388,
       "keyFiles": []
     },
     "docs": {
       "path": "docs",
       "purpose": "Documentation",
       "fileCount": 2,
-      "lastAccessed": 1783565925961,
+      "lastAccessed": 1783670910390,
       "keyFiles": [
         "progress-notes.md"
       ]
@@ -94,21 +94,21 @@
       "path": "docs - 복사본",
       "purpose": null,
       "fileCount": 0,
-      "lastAccessed": 1783565925963,
+      "lastAccessed": 1783670910392,
       "keyFiles": []
     },
     "packages": {
       "path": "packages",
       "purpose": null,
       "fileCount": 0,
-      "lastAccessed": 1783565926120,
+      "lastAccessed": 1783670910393,
       "keyFiles": []
     },
     "scripts": {
       "path": "scripts",
       "purpose": "Build/utility scripts",
       "fileCount": 1,
-      "lastAccessed": 1783565926185,
+      "lastAccessed": 1783670910394,
       "keyFiles": [
         "git_auto_backup.ps1"
       ]
@@ -117,7 +117,7 @@
       "path": "streamlit_task_organizer",
       "purpose": null,
       "fileCount": 4,
-      "lastAccessed": 1783565926190,
+      "lastAccessed": 1783670910395,
       "keyFiles": [
         "app.py",
         "README.md",
@@ -128,8 +128,8 @@
     "streamlit_walk_engine": {
       "path": "streamlit_walk_engine",
       "purpose": null,
-      "fileCount": 11,
-      "lastAccessed": 1783565926197,
+      "fileCount": 12,
+      "lastAccessed": 1783670910396,
       "keyFiles": [
         "alert_voice.py",
         "app.py",
@@ -142,14 +142,14 @@
       "path": "apps\\api",
       "purpose": "API routes",
       "fileCount": 0,
-      "lastAccessed": 1783565926202,
+      "lastAccessed": 1783670910397,
       "keyFiles": []
     },
     "streamlit_task_organizer\\schemas": {
       "path": "streamlit_task_organizer\\schemas",
       "purpose": "Schema definitions",
       "fileCount": 3,
-      "lastAccessed": 1783565926212,
+      "lastAccessed": 1783670910407,
       "keyFiles": [
         "export_schema.py",
         "result_schema.py",
@@ -160,7 +160,7 @@
       "path": "streamlit_task_organizer\\services",
       "purpose": "Business logic services",
       "fileCount": 4,
-      "lastAccessed": 1783565926224,
+      "lastAccessed": 1783670910408,
       "keyFiles": [
         "export_service.py",
         "history_service.py",
@@ -171,7 +171,7 @@
       "path": "streamlit_task_organizer\\tests",
       "purpose": "Test files",
       "fileCount": 7,
-      "lastAccessed": 1783565926241,
+      "lastAccessed": 1783670910410,
       "keyFiles": [
         "test_checklist_parser.py",
         "test_contact_parser.py",
@@ -182,7 +182,7 @@
       "path": "streamlit_task_organizer\\utils",
       "purpose": "Utility functions",
       "fileCount": 5,
-      "lastAccessed": 1783565926242,
+      "lastAccessed": 1783670910412,
       "keyFiles": [
         "constants.py",
         "date_utils.py",
@@ -193,7 +193,7 @@
       "path": "streamlit_walk_engine\\pages",
       "purpose": "Page components",
       "fileCount": 1,
-      "lastAccessed": 1783565926250,
+      "lastAccessed": 1783670910413,
       "keyFiles": [
         "1_Navigation.py"
       ]
@@ -201,70 +201,214 @@
   },
   "hotPaths": [
     {
-      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\4fc4b3e3-43d0-4e03-831e-add2d5c2fbec\\scratchpad\\walk-mockup.html",
-      "accessCount": 26,
-      "lastAccessed": 1783579418158,
-      "type": "file"
-    },
-    {
       "path": "streamlit_walk_engine\\pages\\1_Navigation.py",
-      "accessCount": 11,
-      "lastAccessed": 1783581335920,
+      "accessCount": 146,
+      "lastAccessed": 1783677297844,
       "type": "directory"
     },
     {
-      "path": "RESUME.md",
-      "accessCount": 8,
-      "lastAccessed": 1783581132892,
+      "path": ".worktrees\\bugfix\\streamlit_walk_engine\\pages\\1_Navigation.py",
+      "accessCount": 26,
+      "lastAccessed": 1783680687405,
       "type": "file"
     },
     {
-      "path": ".worktrees\\odsay-doc\\.streamlit\\secrets.toml.example",
-      "accessCount": 2,
-      "lastAccessed": 1783569478618,
+      "path": ".worktrees\\addr-fmt\\streamlit_walk_engine\\pages\\1_Navigation.py",
+      "accessCount": 21,
+      "lastAccessed": 1783674957208,
       "type": "file"
     },
     {
-      "path": ".worktrees\\tmap-poi\\.streamlit\\secrets.toml.example",
-      "accessCount": 2,
-      "lastAccessed": 1783578956952,
-      "type": "file"
-    },
-    {
-      "path": "streamlit_walk_engine",
-      "accessCount": 2,
-      "lastAccessed": 1783579782586,
-      "type": "directory"
-    },
-    {
-      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\verify_tmap.py",
-      "accessCount": 2,
-      "lastAccessed": 1783581058761,
-      "type": "file"
-    },
-    {
-      "path": "streamlit_walk_engine\\gps_filter.py",
-      "accessCount": 1,
-      "lastAccessed": 1783566002366,
-      "type": "file"
-    },
-    {
-      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\pc-location-fix.patch",
-      "accessCount": 1,
-      "lastAccessed": 1783567504373,
-      "type": "file"
-    },
-    {
-      "path": ".streamlit\\secrets.toml.example",
-      "accessCount": 1,
-      "lastAccessed": 1783569413039,
+      "path": ".worktrees\\ux-onetap\\streamlit_walk_engine\\pages\\1_Navigation.py",
+      "accessCount": 16,
+      "lastAccessed": 1783672975321,
       "type": "file"
     },
     {
       "path": "streamlit_walk_engine\\engine.py",
-      "accessCount": 1,
-      "lastAccessed": 1783581103355,
+      "accessCount": 12,
+      "lastAccessed": 1783677269094,
+      "type": "file"
+    },
+    {
+      "path": "streamlit_walk_engine",
+      "accessCount": 11,
+      "lastAccessed": 1783677149970,
       "type": "directory"
+    },
+    {
+      "path": "streamlit_walk_engine\\gps_filter.py",
+      "accessCount": 6,
+      "lastAccessed": 1783677006798,
+      "type": "file"
+    },
+    {
+      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\repro_transit_loss.py",
+      "accessCount": 6,
+      "lastAccessed": 1783677076578,
+      "type": "file"
+    },
+    {
+      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\repro_journey_blocks_refute.py",
+      "accessCount": 6,
+      "lastAccessed": 1783677308115,
+      "type": "file"
+    },
+    {
+      "path": "RESUME.md",
+      "accessCount": 6,
+      "lastAccessed": 1783681122952,
+      "type": "file"
+    },
+    {
+      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\repro_booking_reset.py",
+      "accessCount": 5,
+      "lastAccessed": 1783677273941,
+      "type": "file"
+    },
+    {
+      "path": ".worktrees\\bugfix\\streamlit_walk_engine\\tests\\test_navigation_smoke.py",
+      "accessCount": 4,
+      "lastAccessed": 1783680488890,
+      "type": "file"
+    },
+    {
+      "path": "",
+      "accessCount": 3,
+      "lastAccessed": 1783676698378,
+      "type": "directory"
+    },
+    {
+      "path": ".worktrees\\ux-onetap\\streamlit_walk_engine\\tests\\test_navigation_smoke.py",
+      "accessCount": 2,
+      "lastAccessed": 1783672376420,
+      "type": "file"
+    },
+    {
+      "path": "streamlit_walk_engine\\alert_voice.py",
+      "accessCount": 2,
+      "lastAccessed": 1783676296055,
+      "type": "file"
+    },
+    {
+      "path": "streamlit_walk_engine\\app.py",
+      "accessCount": 2,
+      "lastAccessed": 1783676296348,
+      "type": "file"
+    },
+    {
+      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\repro_nav.py",
+      "accessCount": 2,
+      "lastAccessed": 1783676577567,
+      "type": "file"
+    },
+    {
+      "path": "streamlit_walk_engine/pages/1_Navigation.py",
+      "accessCount": 1,
+      "lastAccessed": 1783672526697,
+      "type": "directory"
+    },
+    {
+      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\repro.py",
+      "accessCount": 1,
+      "lastAccessed": 1783676323200,
+      "type": "file"
+    },
+    {
+      "path": "streamlit_walk_engine\\tests\\test_navigation_smoke.py",
+      "accessCount": 1,
+      "lastAccessed": 1783676344543,
+      "type": "file"
+    },
+    {
+      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\repro_net.py",
+      "accessCount": 1,
+      "lastAccessed": 1783676354977,
+      "type": "file"
+    },
+    {
+      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\probe1.py",
+      "accessCount": 1,
+      "lastAccessed": 1783676373160,
+      "type": "file"
+    },
+    {
+      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\probe2.py",
+      "accessCount": 1,
+      "lastAccessed": 1783676407824,
+      "type": "file"
+    },
+    {
+      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\repro2.py",
+      "accessCount": 1,
+      "lastAccessed": 1783676523111,
+      "type": "file"
+    },
+    {
+      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\repro_booking.py",
+      "accessCount": 1,
+      "lastAccessed": 1783676657275,
+      "type": "file"
+    },
+    {
+      "path": "streamlit_walk_engine\\tests\\test_gps_filter.py",
+      "accessCount": 1,
+      "lastAccessed": 1783676686549,
+      "type": "file"
+    },
+    {
+      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\probe4.py",
+      "accessCount": 1,
+      "lastAccessed": 1783676747030,
+      "type": "file"
+    },
+    {
+      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\repro_odsay.py",
+      "accessCount": 1,
+      "lastAccessed": 1783676758238,
+      "type": "file"
+    },
+    {
+      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\probe5.py",
+      "accessCount": 1,
+      "lastAccessed": 1783676804069,
+      "type": "file"
+    },
+    {
+      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\probe6.py",
+      "accessCount": 1,
+      "lastAccessed": 1783676847092,
+      "type": "file"
+    },
+    {
+      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\repro_journey_blocks.py",
+      "accessCount": 1,
+      "lastAccessed": 1783676885143,
+      "type": "file"
+    },
+    {
+      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\probe_backwards_ts.py",
+      "accessCount": 1,
+      "lastAccessed": 1783677103038,
+      "type": "file"
+    },
+    {
+      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\repro_transit_strict.py",
+      "accessCount": 1,
+      "lastAccessed": 1783677223571,
+      "type": "file"
+    },
+    {
+      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\probe_bound.py",
+      "accessCount": 1,
+      "lastAccessed": 1783677285244,
+      "type": "file"
+    },
+    {
+      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\verify_fixes.py",
+      "accessCount": 1,
+      "lastAccessed": 1783680517350,
+      "type": "file"
     }
   ],
   "userDirectives": []

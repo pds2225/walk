@@ -1,7 +1,7 @@
 {
   "tool_name": "PowerShell",
-  "tool_input_preview": "{\"command\":\"$env:TMAP_APP_KEY = 'yN7rma7Bqx1MrvVnnROZV2FZxJRlYrey78WfLRJo'\\n$pad = \\\"C:\\\\Users\\\\ekth3\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--walk\\\\96394405-4377-4ea4-9fc2-3285e21d4f16\\\\scratchpad\\\"\\npython...",
-  "error": "Exit code 1\n===== TMAP API ��ȣ�� ���� ��� =====\r\n\u001b[31;1mTraceback (most recent call last):\u001b[0m\r\n\u001b[31;1m  File \"C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\verify_tmap.py\", line 65, in <module>\u001b[0m\r\n\u001b[31;1m    print(f\"[{mark}] {name} \\u2014 {detail}\")\u001b[0m\r\n\u001b[31;1m    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\u001b[0m\r\n\u001b[31;1mUnicodeEncodeError: 'cp949' codec can't encode character '\\u2014' in position 16: illegal multibyte sequence\u001b[0m",
-  "timestamp": "2026-07-09T07:10:11.254Z",
+  "tool_input_preview": "{\"command\":\"Set-Location D:\\\\walk\\\\.worktrees\\\\bugfix\\npython -m py_compile streamlit_walk_engine\\\\transit_builder.py streamlit_walk_engine\\\\pages\\\\1_Navigation.py\\nif ($LASTEXITCODE -ne 0) { \\\"PYCOMP...",
+  "error": "Exit code 1\nPYCOMPILE_OK\r\n==== 전체 테스트 ====\r\nstreamlit_walk_engine\\tests\\test_navigation_smoke.py:35: AssertionError\r\n=========================== short test summary info ===========================\r\nFAILED streamlit_walk_engine/tests/test_navigation_smoke.py::test_transit_toggle_does_not_use_session_key_as_widget_key\r\n1 failed, 221 passed in 10.39s",
+  "timestamp": "2026-07-10T10:03:59.680Z",
   "retry_count": 1
 }
