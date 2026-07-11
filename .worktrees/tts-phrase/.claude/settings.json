@@ -1,0 +1,26 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path // .tool_response.filePath // empty' | { read -r f; case \"$f\" in *streamlit_walk_engine/*.py) ( cd \"$CLAUDE_PROJECT_DIR\" && python -m pytest streamlit_walk_engine/tests -q 2>&1 | tail -4 ) ;; esac; } 2>/dev/null || true",
+            "statusMessage": "walk 테스트 실행 중..."
+          }
+        ]
+      }
+    ]
+  }
+}

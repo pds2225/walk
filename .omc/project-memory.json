@@ -226,14 +226,14 @@
     },
     {
       "path": "streamlit_walk_engine\\engine.py",
-      "accessCount": 12,
-      "lastAccessed": 1783677269094,
+      "accessCount": 15,
+      "lastAccessed": 1783750462177,
       "type": "file"
     },
     {
       "path": "streamlit_walk_engine",
-      "accessCount": 11,
-      "lastAccessed": 1783677149970,
+      "accessCount": 12,
+      "lastAccessed": 1783750440758,
       "type": "directory"
     },
     {
@@ -438,6 +438,18 @@
       "path": ".worktrees\\tts-phrase\\streamlit_walk_engine\\tests\\test_alert_voice.py",
       "accessCount": 1,
       "lastAccessed": 1783749573070,
+      "type": "file"
+    },
+    {
+      "path": "streamlit_walk_engine\\scenarios.py",
+      "accessCount": 1,
+      "lastAccessed": 1783750462550,
+      "type": "file"
+    },
+    {
+      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\e2e_realuse.py",
+      "accessCount": 1,
+      "lastAccessed": 1783750567408,
       "type": "file"
     }
   ],
