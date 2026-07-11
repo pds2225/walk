@@ -26,6 +26,15 @@ def test_navigation_source_clears_journey_for_non_journey_flows():
     assert "transit_builder.fetch_transit_journey" in source
 
 
+def test_deviation_confirmation_defaults_are_faster():
+    """이탈 확정을 더 빨리 알리도록 기본 연속 2샘플·지속 2초로 설정한다.
+    (deviated = 연속샘플 OR 지속시간 둘 중 먼저 충족되므로 둘 다 낮춰야 체감이 빨라진다.)"""
+    source = PAGE.read_text(encoding="utf-8")
+
+    assert 'st.slider("연속 샘플", 1, 5, 2)' in source     # 기본 3 → 2
+    assert "minimum_drift_duration_ms=2000" in source       # 기본 4000 → 2000
+
+
 def test_transit_toggle_does_not_use_session_key_as_widget_key():
     """세션 저장키를 토글의 위젯 key 로 쓰면 안내 중 미렌더되어 Streamlit 이 그 키를
     GC하고, 다음 rerun 의 _init() 이 기본값 True 로 되살린다 →

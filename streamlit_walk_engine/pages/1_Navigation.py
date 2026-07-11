@@ -1844,7 +1844,9 @@ def main() -> None:
                 drift_t = st.slider("이탈 시작(m)", 5, 20, 10)
                 # 확정 거리는 시작 거리 이상·강한 이탈 거리(기본 25m) 이하(drift<=deviation<=strong).
                 dev_t = st.slider("이탈 확정(m)", drift_t, 25, max(15, drift_t))
-                min_consec = st.slider("연속 샘플", 1, 5, 3)
+                # 이탈 확정을 더 빨리 알리도록 기본 2샘플(과거 3). GPS 노이즈 오탐이
+                # 잦으면 이 값을 올리세요(높을수록 둔감·오탐↓, 낮을수록 민감·반응↑).
+                min_consec = st.slider("연속 샘플", 1, 5, 2)
         st.session_state["nav_reroute_enabled"] = reroute_on
         st.session_state["nav_alert_enabled"] = alert_on
         st.session_state["nav_tts_enabled"] = tts_on
@@ -1852,6 +1854,9 @@ def main() -> None:
             route_drift_distance_threshold_meters=float(drift_t),
             route_deviation_distance_threshold_meters=float(dev_t),
             minimum_consecutive_samples_for_deviation=min_consec,
+            # 이탈 확정 지속시간 기준을 4초→2초로(빠른 안내). 연속샘플 OR 지속시간
+            # 둘 중 먼저 충족되면 확정되므로, 둘 다 낮춰 체감 반응을 앞당긴다.
+            minimum_drift_duration_ms=2000,
         )
 
     # ── 자주 가는 길·관리 (핵심 동선 아래로 배치) ─────────────────────────────
