@@ -1,7 +1,7 @@
 {
-  "tool_name": "PowerShell",
-  "tool_input_preview": "{\"command\":\"Set-Location D:\\\\walk\\\\.worktrees\\\\bugfix\\npython -m py_compile streamlit_walk_engine\\\\transit_builder.py streamlit_walk_engine\\\\pages\\\\1_Navigation.py\\nif ($LASTEXITCODE -ne 0) { \\\"PYCOMP...",
-  "error": "Exit code 1\nPYCOMPILE_OK\r\n==== 전체 테스트 ====\r\nstreamlit_walk_engine\\tests\\test_navigation_smoke.py:35: AssertionError\r\n=========================== short test summary info ===========================\r\nFAILED streamlit_walk_engine/tests/test_navigation_smoke.py::test_transit_toggle_does_not_use_session_key_as_widget_key\r\n1 failed, 221 passed in 10.39s",
-  "timestamp": "2026-07-10T10:03:59.680Z",
+  "tool_name": "mcp__plugin_oh-my-claudecode_t__lsp_diagnostics",
+  "tool_input_preview": "{\"file\":\"D:\\\\walk\\\\.worktrees\\\\pr42\\\\streamlit_walk_engine\\\\pages\\\\1_Navigation.py\"}",
+  "error": "Language server 'ty' not found.\nInstall with: Install ty from https://github.com/astral-sh/ty",
+  "timestamp": "2026-07-11T03:55:31.854Z",
   "retry_count": 1
 }

@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-07-10T10:54:40.374Z",
+  "updatedAt": "2026-07-11T03:58:05.599Z",
   "missions": [
     {
       "id": "session:96394405-4377-4ea4-9fc2-3285e21d4f16:none",
@@ -7,15 +7,15 @@
       "name": "none",
       "objective": "Session mission",
       "createdAt": "2026-07-01T18:35:59.085Z",
-      "updatedAt": "2026-07-10T10:54:40.374Z",
+      "updatedAt": "2026-07-11T03:58:05.599Z",
       "status": "running",
-      "workerCount": 39,
+      "workerCount": 40,
       "taskCounts": {
-        "total": 39,
+        "total": 40,
         "pending": 0,
         "blocked": 0,
         "inProgress": 1,
-        "completed": 38,
+        "completed": 39,
         "failed": 0
       },
       "agents": [
@@ -408,25 +408,19 @@
           "latestUpdate": "completed",
           "completedSummary": null,
           "updatedAt": "2026-07-10T10:54:40.374Z"
+        },
+        {
+          "name": "code-reviewer:a6522d0",
+          "role": "code-reviewer",
+          "ownership": "a6522d0e8abed4265",
+          "status": "done",
+          "currentStep": null,
+          "latestUpdate": "completed",
+          "completedSummary": null,
+          "updatedAt": "2026-07-11T03:58:05.599Z"
         }
       ],
       "timeline": [
-        {
-          "id": "session-stop:a4c210a28a23826cc:2026-07-10T09:56:07.450Z",
-          "at": "2026-07-10T09:56:07.450Z",
-          "kind": "completion",
-          "agent": "workflow-subagent:a4c210a",
-          "detail": "completed",
-          "sourceKey": "session-stop:a4c210a28a23826cc"
-        },
-        {
-          "id": "session-start:a6e552995546ce7fd:2026-07-10T10:06:42.219Z",
-          "at": "2026-07-10T10:06:42.219Z",
-          "kind": "update",
-          "agent": "code-reviewer:a6e5529",
-          "detail": "started code-reviewer:a6e5529",
-          "sourceKey": "session-start:a6e552995546ce7fd"
-        },
         {
           "id": "session-start:aca0ef03b9dc549fe:2026-07-10T10:50:13.742Z",
           "at": "2026-07-10T10:50:13.742Z",
@@ -442,6 +436,22 @@
           "agent": "code-reviewer:aca0ef0",
           "detail": "completed",
           "sourceKey": "session-stop:aca0ef03b9dc549fe"
+        },
+        {
+          "id": "session-start:a6522d0e8abed4265:2026-07-11T03:52:33.650Z",
+          "at": "2026-07-11T03:52:33.650Z",
+          "kind": "update",
+          "agent": "code-reviewer:a6522d0",
+          "detail": "started code-reviewer:a6522d0",
+          "sourceKey": "session-start:a6522d0e8abed4265"
+        },
+        {
+          "id": "session-stop:a6522d0e8abed4265:2026-07-11T03:58:05.599Z",
+          "at": "2026-07-11T03:58:05.599Z",
+          "kind": "completion",
+          "agent": "code-reviewer:a6522d0",
+          "detail": "completed",
+          "sourceKey": "session-stop:a6522d0e8abed4265"
         }
       ]
     }
