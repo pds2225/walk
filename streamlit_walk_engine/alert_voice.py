@@ -15,7 +15,7 @@ from typing import Optional
 # on_route 등 정상 진행 상태는 의도적으로 제외한다(안내하지 않음).
 _TTS_PHRASES = {
     "drifting": "경로를 벗어나기 시작했습니다. 경로를 확인하세요.",
-    "deviated": "경로를 이탈했습니다. 재탐색이 필요합니다.",
+    "deviated": "경로를 이탈하였습니다.",
     "passed_turn": "회전 지점을 지나쳤습니다. 되돌아가세요.",
     "arrived": "목적지에 도착했습니다. 안내를 종료합니다.",
 }
