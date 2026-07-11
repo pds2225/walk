@@ -32,6 +32,10 @@ class TestTtsPhrase:
         assert phrase is not None and phrase.strip() != ""
         assert phrase not in {tts_phrase(s) for s in ("drifting", "deviated", "passed_turn")}
 
+    def test_deviated_phrase_exact_wording(self):
+        # 경로 이탈 시 음성은 "경로를 이탈하였습니다." 로 안내한다(사용자 지정 문구).
+        assert tts_phrase("deviated") == "경로를 이탈하였습니다."
+
     def test_on_route_returns_none(self):
         assert tts_phrase("on_route") is None
 
