@@ -33,6 +33,7 @@ from engine import (
     distance_meters,
 )
 import gps_filter
+import mapbox_matcher
 import transit_builder
 from alert_voice import build_tts_script, tts_phrase
 from route_builder import (
@@ -576,6 +577,26 @@ _ALERT = {
 # 시뮬레이션상 값(2~12초)은 재탐색 횟수에 거의 영향 없음(워밍업·재중심화가 지배) — 폭주
 # 방지 안전벨트 역할. 사용자 요청으로 3초. (근본 개선은 맵매칭/스냅투루트가 필요)
 _REROUTE_COOLDOWN_MS = 3_000
+
+
+def _mapbox_reroute_vetoed(samples, now_ms: int) -> bool:
+    """재탐색 직전, Mapbox Map Matching 으로 '진짜 이탈'인지 실제 도로에 스냅해 확인한다.
+    스냅된 최신 위치가 계획 경로 위(코리도어 안)면 GPS 튐으로 보고 True 를 돌려 재탐색을 막고,
+    쿨다운만 갱신해 다음 후보 때 재평가한다.
+    MAPBOX_TOKEN 이 없거나 판단 보류(저신뢰·네트워크오류)면 False → 기존 동작 그대로 재탐색(휴면).
+    이탈 후보가 워밍업·쿨다운을 통과했을 때만(재탐색 직전) 호출된다 → rate limit(분당 300)·비용 절약."""
+    if not mapbox_matcher.enabled():
+        return False
+    route_obj = st.session_state.get("nav_route")
+    polyline = getattr(route_obj, "polyline", None) or ()
+    planned = [(c.longitude, c.latitude) for c in polyline]
+    trace = [(s.longitude, s.latitude) for s in samples]
+    if len(planned) < 2 or len(trace) < mapbox_matcher.MIN_TRACE_POINTS:
+        return False
+    if mapbox_matcher.confirm_deviation(trace, planned) is False:
+        st.session_state["nav_last_reroute_ts_ms"] = now_ms  # 경로 위 → 잠깐 쿨다운
+        return True
+    return False
 
 
 def _trigger_alert(state: str, tts: bool = True) -> None:
@@ -1936,7 +1957,11 @@ def main() -> None:
                     len(nav_samples),
                     now_ms - nav_samples[0].timestamp_ms if nav_samples else 0,
                 )
-                if not warmup and (last_reroute is None or (now_ms - last_reroute) > _REROUTE_COOLDOWN_MS):
+                if (
+                    not warmup
+                    and (last_reroute is None or (now_ms - last_reroute) > _REROUTE_COOLDOWN_MS)
+                    and not _mapbox_reroute_vetoed(nav_samples, now_ms)
+                ):
                     try:
                         new_route  = _fetch_route(origin, dest_coord)
                         new_count  = st.session_state["nav_reroute_count"] + 1
