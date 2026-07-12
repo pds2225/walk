@@ -1,7 +1,7 @@
 {
-  "tool_name": "mcp__plugin_oh-my-claudecode_t__lsp_diagnostics",
-  "tool_input_preview": "{\"file\":\"D:\\\\walk\\\\.worktrees\\\\pr42\\\\streamlit_walk_engine\\\\pages\\\\1_Navigation.py\"}",
-  "error": "Language server 'ty' not found.\nInstall with: Install ty from https://github.com/astral-sh/ty",
-  "timestamp": "2026-07-11T03:55:31.854Z",
+  "tool_name": "PowerShell",
+  "tool_input_preview": "{\"command\":\"$null = [System.Management.Automation.PSParser]::Tokenize((Get-Content 'D:\\\\_night_pilot\\\\run_night_walk.ps1' -Raw), [ref]$err = $null); $tokens = [System.Management.Automation.PSParser]::...",
+  "error": "Exit code 1\n\u001b[31;1mParserError: \u001b[0m\r\n\u001b[31;1m\u001b[36;1mLine |\u001b[0m\r\n\u001b[31;1m\u001b[36;1m\u001b[36;1m   1 | \u001b[0m … Content 'D:\\_night_pilot\\run_night_walk.ps1' -Raw), [ref]$err\u001b[36;1m \u001b[0m= $null …\u001b[0m\r\n\u001b[31;1m\u001b[36;1m\u001b[36;1m\u001b[0m\u001b[36;1m\u001b[0m\u001b[36;1m     | \u001b[31;1m                                                                ~\u001b[0m\r\n\u001b[31;1m\u001b[36;1m\u001b[36;1m\u001b[0m\u001b[36;1m\u001b[0m\u001b[36;1m\u001b[31;1m\u001b[31;1m\u001b[36;1m     | \u001b[31;1mMissing ')' in method call.\u001b[0m",
+  "timestamp": "2026-07-12T13:03:00.694Z",
   "retry_count": 1
 }

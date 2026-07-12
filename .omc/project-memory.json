@@ -202,20 +202,32 @@
   "hotPaths": [
     {
       "path": "streamlit_walk_engine\\pages\\1_Navigation.py",
-      "accessCount": 40,
-      "lastAccessed": 1783860217106,
+      "accessCount": 76,
+      "lastAccessed": 1783860950794,
+      "type": "file"
+    },
+    {
+      "path": ".worktrees\\harden\\streamlit_walk_engine\\pages\\1_Navigation.py",
+      "accessCount": 13,
+      "lastAccessed": 1783861274570,
+      "type": "file"
+    },
+    {
+      "path": "streamlit_walk_engine\\engine.py",
+      "accessCount": 9,
+      "lastAccessed": 1783860877084,
       "type": "file"
     },
     {
       "path": "streamlit_walk_engine\\gps_filter.py",
-      "accessCount": 5,
-      "lastAccessed": 1783860136411,
+      "accessCount": 9,
+      "lastAccessed": 1783860916446,
       "type": "file"
     },
     {
       "path": "streamlit_walk_engine\\snap_router.py",
-      "accessCount": 4,
-      "lastAccessed": 1783860136755,
+      "accessCount": 7,
+      "lastAccessed": 1783860904672,
       "type": "file"
     },
     {
@@ -231,16 +243,16 @@
       "type": "file"
     },
     {
-      "path": "streamlit_walk_engine\\engine.py",
+      "path": "streamlit_walk_engine\\tests\\test_navigation_smoke.py",
       "accessCount": 2,
-      "lastAccessed": 1783860146568,
+      "lastAccessed": 1783860791909,
       "type": "file"
     },
     {
-      "path": "streamlit_walk_engine\\tests\\test_navigation_smoke.py",
-      "accessCount": 1,
-      "lastAccessed": 1783860108393,
-      "type": "file"
+      "path": "streamlit_walk_engine",
+      "accessCount": 2,
+      "lastAccessed": 1783860912147,
+      "type": "directory"
     },
     {
       "path": "streamlit_walk_engine\\tests\\test_snap_router.py",
@@ -249,16 +261,16 @@
       "type": "file"
     },
     {
-      "path": "streamlit_walk_engine",
-      "accessCount": 1,
-      "lastAccessed": 1783860175940,
-      "type": "directory"
-    },
-    {
       "path": "streamlit_walk_engine\\tests\\test_mapbox_matcher.py",
       "accessCount": 1,
       "lastAccessed": 1783860199268,
       "type": "file"
+    },
+    {
+      "path": ".worktrees\\harden\\streamlit_walk_engine",
+      "accessCount": 1,
+      "lastAccessed": 1783860242976,
+      "type": "directory"
     }
   ],
   "userDirectives": []
