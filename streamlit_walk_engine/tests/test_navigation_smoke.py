@@ -35,13 +35,14 @@ def test_deviation_confirmation_defaults_are_faster():
     assert "minimum_drift_duration_ms=2000" in source       # 기본 4000 → 2000
 
 
-def test_reroute_cooldown_is_eight_seconds():
-    """연속 재탐색 방지 쿨다운을 15초 → 8초로 낮춘다(이탈 확정이 빨라진 만큼 체감 개선)."""
+def test_reroute_cooldown_is_three_seconds():
+    """연속 재탐색 방지 쿨다운(폭주 방지 안전벨트) = 3초. 값 자체는 재탐색 빈도에
+    거의 영향 없음(워밍업·재중심화가 지배) — 근본 개선은 맵매칭이 필요."""
     source = PAGE.read_text(encoding="utf-8")
 
-    assert "_REROUTE_COOLDOWN_MS = 8_000" in source
-    assert "> _REROUTE_COOLDOWN_MS" in source                # 하드코딩 15_000 제거
-    assert "(8초 쿨다운)" in source                          # 도움말 문구 일치
+    assert "_REROUTE_COOLDOWN_MS = 3_000" in source
+    assert "> _REROUTE_COOLDOWN_MS" in source                # 하드코딩 상수 사용
+    assert "(3초 쿨다운)" in source                          # 도움말 문구 일치
 
 
 def test_transit_toggle_does_not_use_session_key_as_widget_key():
