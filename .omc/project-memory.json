@@ -202,8 +202,8 @@
   "hotPaths": [
     {
       "path": "streamlit_walk_engine\\pages\\1_Navigation.py",
-      "accessCount": 152,
-      "lastAccessed": 1783771916197,
+      "accessCount": 153,
+      "lastAccessed": 1783836970065,
       "type": "directory"
     },
     {
@@ -250,8 +250,8 @@
     },
     {
       "path": "RESUME.md",
-      "accessCount": 7,
-      "lastAccessed": 1783742340251,
+      "accessCount": 8,
+      "lastAccessed": 1783837155630,
       "type": "file"
     },
     {
@@ -270,6 +270,12 @@
       "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\repro_booking_reset.py",
       "accessCount": 5,
       "lastAccessed": 1783677273941,
+      "type": "file"
+    },
+    {
+      "path": ".worktrees\\reroute-cd\\streamlit_walk_engine\\pages\\1_Navigation.py",
+      "accessCount": 5,
+      "lastAccessed": 1783837045095,
       "type": "file"
     },
     {
@@ -324,6 +330,12 @@
       "path": ".worktrees\\faster-dev\\streamlit_walk_engine\\tests\\test_navigation_smoke.py",
       "accessCount": 2,
       "lastAccessed": 1783772359290,
+      "type": "file"
+    },
+    {
+      "path": ".worktrees\\reroute-cd\\streamlit_walk_engine\\tests\\test_navigation_smoke.py",
+      "accessCount": 2,
+      "lastAccessed": 1783837080916,
       "type": "file"
     },
     {
