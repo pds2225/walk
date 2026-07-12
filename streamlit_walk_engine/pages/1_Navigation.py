@@ -34,6 +34,7 @@ from engine import (
 )
 import gps_filter
 import mapbox_matcher
+import snap_router
 import transit_builder
 from alert_voice import build_tts_script, tts_phrase
 from route_builder import (
@@ -597,6 +598,55 @@ def _mapbox_reroute_vetoed(samples, now_ms: int) -> bool:
         st.session_state["nav_last_reroute_ts_ms"] = now_ms  # 경로 위 → 잠깐 쿨다운
         return True
     return False
+
+
+_SNAP_WINDOW = 6  # 진행도 판정에 쓰는 최근 표본 개수
+
+
+def _build_snap_window(results, samples):
+    """최근 표본으로 snap_router 입력 윈도 + 순변위(윈도 첫↔끝 직선거리) + 최신 GPS 정확도를 만든다."""
+    pairs = list(zip(results, samples))[-_SNAP_WINDOW:]
+    window = []
+    first_pos = last_pos = None
+    prev = None
+    for r, s in pairs:
+        cur = Coordinate(latitude=s.latitude, longitude=s.longitude)
+        moved = 0.0 if prev is None else distance_meters(prev, cur)
+        window.append(snap_router.SnapSample(
+            along_m=r.metrics.route_distance_along_meters,
+            offset_m=r.metrics.distance_from_route_meters,
+            ts_ms=s.timestamp_ms,
+            moved_m=moved,
+        ))
+        if first_pos is None:
+            first_pos = cur
+        last_pos = cur
+        prev = cur
+    net_move = distance_meters(first_pos, last_pos) if (first_pos is not None and last_pos is not None) else 0.0
+    acc = (st.session_state["nav_raw_gps"] or {}).get("coords", {}).get("accuracy")
+    return window, net_move, acc
+
+
+def _reroute_suppressed(results, samples, now_ms: int) -> bool:
+    """재탐색을 막아야 하면 True. 무료 진행도 판정(snap_router) + 유료 도로망 확인(Mapbox)을 결합한다.
+
+    · STATIONARY(제자리 흔들림) → 무료 확정 거부(안전, 쿨다운 안 건드림 → 다음 표본 즉시 재평가).
+    · OFF_ROUTE_CONFIRMED(진짜 이탈) → 거부 안 함(재탐색 허용).
+    · ON_ROUTE_LIKELY/DEFER(애매: 지터 vs 평행도로 구분 불가) → Mapbox 있으면 Mapbox가 판단(우회 금지),
+      없으면 사용자 우선순위(헛 재탐색 제거)에 따라 진행중(ON_ROUTE_LIKELY)은 거부·DEFER는 허용.
+    """
+    if len(results) < snap_router.MIN_WINDOW or len(samples) < snap_router.MIN_WINDOW:
+        return False
+    window, net_move, acc = _build_snap_window(results, samples)
+    state = snap_router.classify(window, latest_accuracy_m=acc, net_move_m=net_move)
+    if state == snap_router.STATIONARY:
+        return True
+    if state == snap_router.OFF_ROUTE_CONFIRMED:
+        return False
+    # 애매(ON_ROUTE_LIKELY/DEFER): 도로망 확인이 가능하면 그쪽에 위임(Mapbox 우회 금지).
+    if mapbox_matcher.enabled():
+        return _mapbox_reroute_vetoed(samples, now_ms)
+    return state == snap_router.ON_ROUTE_LIKELY
 
 
 def _trigger_alert(state: str, tts: bool = True) -> None:
@@ -1960,7 +2010,7 @@ def main() -> None:
                 if (
                     not warmup
                     and (last_reroute is None or (now_ms - last_reroute) > _REROUTE_COOLDOWN_MS)
-                    and not _mapbox_reroute_vetoed(nav_samples, now_ms)
+                    and not _reroute_suppressed(st.session_state["nav_results"], nav_samples, now_ms)
                 ):
                     try:
                         new_route  = _fetch_route(origin, dest_coord)
