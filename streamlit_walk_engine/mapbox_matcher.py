@@ -219,9 +219,10 @@ def match_trace(coords: Sequence[Coord]) -> Optional[MatchResult]:
         req = _urlrequest.Request(url, headers={"User-Agent": "walk-nav/1.0"})
         with _urlrequest.urlopen(req, timeout=REQUEST_TIMEOUT_S) as resp:  # noqa: S310 — https 고정
             payload = json.loads(resp.read().decode("utf-8"))
-    except (_urlerror.URLError, ValueError, TimeoutError, OSError):
+        # 파싱도 try 안에서 — 형식 이상 응답(부분 JSON·타입 불일치)이 안내 루프를 죽이지 않게.
+        return parse_matching_response(payload)
+    except Exception:  # noqa: BLE001 — 실패는 전부 '판단 보류'로 강등(안전측)
         return None
-    return parse_matching_response(payload)
 
 
 def confirm_deviation(

@@ -235,6 +235,10 @@ def _init() -> None:
         "nav_origin_address": None,
         "nav_origin_address_coord": None,
         "nav_dest_display": None,
+        "nav_snap_suppress_since_ms": None,   # ON_ROUTE_LIKELY 억제 시작 시각(시간상한용)
+        "nav_journey_start_ts_ms": None,      # 다구간 여정 전체 시작(레그 _reset 에 안 지워짐)
+        "nav_journey_reroute_total": 0,       # 다구간 여정 누적 재탐색 횟수
+        "nav_fix_received_ms": None,          # 마지막 실측 fix 수신 시각(서버 시계, 신선도 표시용)
         "nav_reroute_enabled": True,
         "nav_last_reroute_ts_ms": None,
         "nav_reroute_count": 0,
@@ -342,6 +346,9 @@ def _activate_leg(journey: transit_builder.Journey, active_index: int, *, start_
 def _activate_journey(journey: transit_builder.Journey, *, start_now: bool) -> None:
     st.session_state["nav_journey"] = journey
     st.session_state["nav_active_leg_index"] = 0
+    # 여정 전체 소요시간·누적 재탐색 집계 초기화(레그 전환 _reset 에는 안 지워짐).
+    st.session_state["nav_journey_start_ts_ms"] = None
+    st.session_state["nav_journey_reroute_total"] = 0
     _activate_leg(journey, 0, start_now=start_now)
 
 
@@ -396,11 +403,24 @@ def _render_journey(journey: transit_builder.Journey, active_index: int) -> None
             st.warning("이 도보 구간은 실시간 안내를 만들지 못했습니다. 실제 길을 확인한 뒤 다음 구간으로 넘어가세요.")
 
     active_leg = journey.legs[active_index]
-    if active_index < len(journey.legs) - 1 and (
-        active_leg.mode in ("subway", "bus") or (active_leg.mode == "walk" and not active_leg.tracked)
-    ):
-        if st.button("내렸어요 · 다음 구간", use_container_width=True, type="primary"):
+    if active_index < len(journey.legs) - 1:
+        # 대중교통/미추적 도보 = 버튼이 유일한 진행 수단(주 버튼). 추적 도보에도 보조 버튼을
+        # 제공한다 — 역 입구 등에서 GPS 정확도가 35~50m에 걸리면 자동 도착판정(is_arrival,
+        # ≤20m·≤35m)이 영영 안 떠 다음 구간으로 못 넘어가는 막다른길이 생긴다(수동 탈출구).
+        adv_label = ("내렸어요 · 다음 구간" if active_leg.mode in ("subway", "bus")
+                     else "다음 구간으로")
+        adv_primary = active_leg.mode in ("subway", "bus") or not active_leg.tracked
+        if st.button(adv_label, width="stretch",
+                     type="primary" if adv_primary else "secondary"):
             _activate_leg(journey, active_index + 1, start_now=True)
+            st.rerun()
+    elif active_leg.mode in ("subway", "bus") or (active_leg.mode == "walk" and not active_leg.tracked):
+        # 마지막 구간이 대중교통/미추적 도보면 자동 도착판정 대상이 아니어서 여정이 영영
+        # 안 끝난다 — 수동 종료로 마무리하고 예약 자동활성화(nav_journey 가드)도 되살린다.
+        if st.button("도착했어요 · 안내 종료", width="stretch", type="primary"):
+            st.session_state["nav_arrival_summary"] = "🏁 도착 완료"
+            _clear_journey_state()
+            st.session_state["nav_running"] = False
             st.rerun()
 
 
@@ -579,25 +599,33 @@ _ALERT = {
 # 방지 안전벨트 역할. 사용자 요청으로 3초. (근본 개선은 맵매칭/스냅투루트가 필요)
 _REROUTE_COOLDOWN_MS = 3_000
 
+# 표본 간 시간 공백이 이보다 크면(백그라운드 복귀 등) 엔진 판정 이력을 리셋한다 —
+# 엔진 내부 drift 시작시각이 공백을 가로질러 살아남으면 복귀 첫 표본에서 이탈
+# 지속시간이 수분으로 뻥튀기되어 디바운스(연속샘플·지속시간)를 우회한다.
+_GPS_GAP_RESET_MS = 30_000
 
-def _mapbox_reroute_vetoed(samples, now_ms: int) -> bool:
-    """재탐색 직전, Mapbox Map Matching 으로 '진짜 이탈'인지 실제 도로에 스냅해 확인한다.
-    스냅된 최신 위치가 계획 경로 위(코리도어 안)면 GPS 튐으로 보고 True 를 돌려 재탐색을 막고,
-    쿨다운만 갱신해 다음 후보 때 재평가한다.
-    MAPBOX_TOKEN 이 없거나 판단 보류(저신뢰·네트워크오류)면 False → 기존 동작 그대로 재탐색(휴면).
+# 마지막 실측 fix 수신 후 이보다 오래되면 '○초 전 위치'로 신선도를 표시한다 —
+# 백그라운드 전환으로 폴링이 멈추면 옛 위치가 현재처럼 보이는 문제 방지.
+_FIX_STALE_MS = 15_000
+
+
+def _mapbox_confirms_deviation(samples) -> Optional[bool]:
+    """Mapbox Map Matching 으로 이탈 후보를 실제 도로에 스냅해 판정한다(3상).
+    True=진짜 이탈(재탐색 진행) / False=경로 위(GPS 튐, 재탐색 거부) / None=판단 불가
+    (토큰 없음·좌표 부족·네트워크 실패·저신뢰) → 호출측이 무료 판정 기본값으로 폴백한다.
     이탈 후보가 워밍업·쿨다운을 통과했을 때만(재탐색 직전) 호출된다 → rate limit(분당 300)·비용 절약."""
     if not mapbox_matcher.enabled():
-        return False
+        return None
     route_obj = st.session_state.get("nav_route")
     polyline = getattr(route_obj, "polyline", None) or ()
     planned = [(c.longitude, c.latitude) for c in polyline]
     trace = [(s.longitude, s.latitude) for s in samples]
     if len(planned) < 2 or len(trace) < mapbox_matcher.MIN_TRACE_POINTS:
-        return False
-    if mapbox_matcher.confirm_deviation(trace, planned) is False:
-        st.session_state["nav_last_reroute_ts_ms"] = now_ms  # 경로 위 → 잠깐 쿨다운
-        return True
-    return False
+        return None
+    try:
+        return mapbox_matcher.confirm_deviation(trace, planned)
+    except Exception:  # noqa: BLE001 — 확인층 이상이 안내 루프를 죽이면 안 된다(보류로 강등)
+        return None
 
 
 _SNAP_WINDOW = 6  # 진행도 판정에 쓰는 최근 표본 개수
@@ -627,26 +655,59 @@ def _build_snap_window(results, samples):
     return window, net_move, acc
 
 
-def _reroute_suppressed(results, samples, now_ms: int) -> bool:
+# ON_ROUTE_LIKELY(지터 vs 평행도로 구분불가) 억제의 시간 상한 — 지터 편향은 수십 초 안에
+# 끝나지만 평행도로 실이탈은 지속된다. 큰 횡거리 억제가 이만큼 이어지면 한 번 재탐색을
+# 허용해 '실이탈 영구 놓침'을 막는다(도로망 없이 가능한 최선의 구분).
+_SNAP_SUPPRESS_MAX_MS = 90_000
+
+
+def _reroute_suppressed(results, samples, now_ms: int, deviation_state: str = "deviated") -> bool:
     """재탐색을 막아야 하면 True. 무료 진행도 판정(snap_router) + 유료 도로망 확인(Mapbox)을 결합한다.
 
     · STATIONARY(제자리 흔들림) → 무료 확정 거부(안전, 쿨다운 안 건드림 → 다음 표본 즉시 재평가).
+    · passed_turn(회전 미이행) → 거부 안 함 — 근거가 횡거리가 아니라 '회전점 통과'라서
+      옆거리 기반 ON_ROUTE_LIKELY 억제에 눌리면 안 된다(정지 보호만 유지).
     · OFF_ROUTE_CONFIRMED(진짜 이탈) → 거부 안 함(재탐색 허용).
-    · ON_ROUTE_LIKELY/DEFER(애매: 지터 vs 평행도로 구분 불가) → Mapbox 있으면 Mapbox가 판단(우회 금지),
-      없으면 사용자 우선순위(헛 재탐색 제거)에 따라 진행중(ON_ROUTE_LIKELY)은 거부·DEFER는 허용.
+    · 애매(ON_ROUTE_LIKELY/DEFER) → Mapbox 판정 우선(True 허용/False 거부), 판단불가(None)면
+      무료 기본값으로 폴백: 저정확도(>FAIR) 이탈은 알림 파이프라인과 동일하게 보류하고,
+      ON_ROUTE_LIKELY 는 거부하되 큰 횡거리 억제가 _SNAP_SUPPRESS_MAX_MS 이상 지속되면 허용.
     """
     if len(results) < snap_router.MIN_WINDOW or len(samples) < snap_router.MIN_WINDOW:
         return False
     window, net_move, acc = _build_snap_window(results, samples)
     state = snap_router.classify(window, latest_accuracy_m=acc, net_move_m=net_move)
     if state == snap_router.STATIONARY:
+        st.session_state["nav_snap_suppress_since_ms"] = None
         return True
-    if state == snap_router.OFF_ROUTE_CONFIRMED:
+    if deviation_state == "passed_turn" or state == snap_router.OFF_ROUTE_CONFIRMED:
+        st.session_state["nav_snap_suppress_since_ms"] = None
         return False
-    # 애매(ON_ROUTE_LIKELY/DEFER): 도로망 확인이 가능하면 그쪽에 위임(Mapbox 우회 금지).
-    if mapbox_matcher.enabled():
-        return _mapbox_reroute_vetoed(samples, now_ms)
-    return state == snap_router.ON_ROUTE_LIKELY
+    # 애매: 도로망 확인이 가능하면 Mapbox 가 판단(우회 금지). 판단불가(None)는 아래 폴백.
+    verdict = _mapbox_confirms_deviation(samples)
+    if verdict is True:
+        st.session_state["nav_snap_suppress_since_ms"] = None
+        return False
+    if verdict is False:
+        st.session_state["nav_last_reroute_ts_ms"] = now_ms  # 경로 위 확인 → 잠깐 쿨다운
+        return True
+    # 무료 폴백 ①: 저정확도(>FAIR_ACCURACY_M) 이탈 후보는 재탐색 보류 — 알림이 mute 되는
+    # 나쁜 신호로 경로를 다시 만들면 튄 위치 기준의 잘못된 경로가 생긴다(churn).
+    if acc is not None and acc > gps_filter.FAIR_ACCURACY_M:
+        return True
+    if state != snap_router.ON_ROUTE_LIKELY:
+        return False
+    # 무료 폴백 ②: ON_ROUTE_LIKELY 억제 — 단 큰 횡거리(이탈확정 임계 이상)로 억제가 계속되면
+    # 시간 상한 후 한 번 허용(평행도로 실이탈 영구 놓침 방지).
+    if window[-1].offset_m >= snap_router.OFF_ROUTE_OFFSET_M:
+        since = st.session_state.get("nav_snap_suppress_since_ms")
+        if since is None:
+            st.session_state["nav_snap_suppress_since_ms"] = now_ms
+        elif now_ms - since > _SNAP_SUPPRESS_MAX_MS:
+            st.session_state["nav_snap_suppress_since_ms"] = None
+            return False
+    else:
+        st.session_state["nav_snap_suppress_since_ms"] = None
+    return True
 
 
 def _trigger_alert(state: str, tts: bool = True) -> None:
@@ -702,19 +763,33 @@ def _maybe_finish_arrival(origin: Coordinate) -> bool:
 
     parts: list[str] = []
     samples = st.session_state["nav_samples"]
-    # 여정 시작 시각 기준(샘플 상한 trim과 무관) — 없으면 현재 버퍼 첫 샘플로 폴백.
-    start_ts = st.session_state.get("nav_start_ts_ms")
+    journey = st.session_state.get("nav_journey")
+    # 소요시간 기준: 다구간 여정이면 여정 전체 시작(레그 _reset 에 안 지워지는 키),
+    # 아니면 이번 안내 시작 — 없으면 현재 버퍼 첫 샘플로 폴백.
+    start_ts = (st.session_state.get("nav_journey_start_ts_ms") if journey is not None else None) \
+        or st.session_state.get("nav_start_ts_ms")
     if start_ts is None and samples:
         start_ts = samples[0].timestamp_ms
     if start_ts is not None:
-        elapsed_min = (int(time.time() * 1000) - start_ts) / 60_000
+        # 끝시각도 같은 시계(클라이언트 fix)로 계산 — 서버 벽시계와 섞으면 폰 시계
+        # 오차만큼 소요시간이 부풀거나 항상 1분으로 표시된다.
+        end_ts = samples[-1].timestamp_ms if samples else int(time.time() * 1000)
+        elapsed_min = (end_ts - start_ts) / 60_000
         parts.append(f"소요 약 {max(1, round(elapsed_min))}분")
-    if st.session_state.get("nav_reroute_count", 0) > 0:
-        parts.append(f"재탐색 {st.session_state['nav_reroute_count']}회")
+    reroutes = st.session_state.get("nav_reroute_count", 0)
+    if journey is not None:
+        reroutes = max(reroutes, st.session_state.get("nav_journey_reroute_total") or 0)
+    if reroutes > 0:
+        parts.append(f"재탐색 {reroutes}회")
     detail = " · ".join(parts)
     st.session_state["nav_arrival_summary"] = "🏁 도착 완료" + (f" — {detail}" if detail else "")
     st.session_state["nav_running"] = False
     st.session_state["nav_active_booking_id"] = None  # 같은 예약 경로 재발동 허용
+    if journey is not None and transit_builder.is_last_leg(
+            journey, st.session_state.get("nav_active_leg_index", 0)):
+        # 여정 마지막 구간 도착 = 여정 종료. journey 를 지워야 예약 자동활성화
+        # (nav_journey 가드)가 ↺초기화 없이도 다시 동작한다.
+        _clear_journey_state()
     if st.session_state["nav_alert_enabled"]:
         _trigger_alert("arrived", st.session_state["nav_tts_enabled"])
     else:
@@ -1033,6 +1108,7 @@ def _try_activate_booking(origin: Optional[Coordinate]) -> None:
         if outside:
             continue
         dest = _booking_coord(booking, "dest")
+        activated = False
         with st.spinner(f"예약 경로 활성화 중: {booking['label']}"):
             try:
                 route = _fetch_route(origin, dest)
@@ -1040,8 +1116,13 @@ def _try_activate_booking(origin: Optional[Coordinate]) -> None:
                 _activate_route(origin, dest, booking["dest_display"], route, start_now=True)
                 st.session_state["nav_active_booking_id"] = booking["id"]
                 st.toast(f"예약 경로 시작: {booking['label']}")
+                activated = True
             except Exception as e:
                 st.warning(f"예약 경로 활성화 실패: {e}")
+        if activated:
+            # 이 프레임은 상단 st_autorefresh 등록을 not-running 상태로 이미 지나쳤다 —
+            # rerun 해야 3초 폴링·이탈감지가 즉시 시작된다(수동 '▶ 시작' 등 형제 진입점과 동일).
+            st.rerun()
         break
 
 
@@ -1193,7 +1274,7 @@ def _sidebar_destination(favorites: list, running: bool = False) -> None:
         for i, h in enumerate(recent):
             with cols[i]:
                 if st.button(f"🕐 {h['query']}{_exit_tag(h['query'])}", key=f"recent_chip_{i}",
-                             use_container_width=True):
+                             width="stretch"):
                     st.session_state["nav_pending_hist"] = h
                     st.rerun()
 
@@ -1267,7 +1348,7 @@ def _sidebar_destination(favorites: list, running: bool = False) -> None:
             sel = st.selectbox("즐겨찾기에서 선택", fav_opts, key="fav_dest_sel")
             if sel != "선택 안 함":
                 addr = favorites[fav_opts.index(sel) - 1]["address"]
-                if st.button("목적지에 입력", key="fav_to_dest", use_container_width=True):
+                if st.button("목적지에 입력", key="fav_to_dest", width="stretch"):
                     st.session_state["nav_dest_input"] = addr
                     st.rerun()
 
@@ -1277,7 +1358,7 @@ def _sidebar_favorites(favorites: list) -> None:
     with st.expander("즐겨찾기 관리", expanded=False):
         fav_name = st.text_input("명칭", placeholder="예) 회사, 집, 학교", key="fav_name_in")
         fav_addr = st.text_input("주소", placeholder="예) 서울역 1번출구",  key="fav_addr_in")
-        if st.button("즐겨찾기 추가", disabled=(not fav_name or not fav_addr), use_container_width=True):
+        if st.button("즐겨찾기 추가", disabled=(not fav_name or not fav_addr), width="stretch"):
             new_fav = {
                 "id":      _make_id("fav"),
                 "name":    fav_name.strip(),
@@ -1316,11 +1397,11 @@ def _sidebar_bookings(favorites: list, origin: Optional[Coordinate]) -> None:
                 sel_addr = favorites[fav_opts.index(sel) - 1]["address"]
                 col_s, col_d = st.columns(2)
                 with col_s:
-                    if st.button("출발지에 입력", key="fav_to_bk_start", use_container_width=True):
+                    if st.button("출발지에 입력", key="fav_to_bk_start", width="stretch"):
                         st.session_state["booking_start_input"] = sel_addr
                         st.rerun()
                 with col_d:
-                    if st.button("목적지에 입력", key="fav_to_bk_dest", use_container_width=True):
+                    if st.button("목적지에 입력", key="fav_to_bk_dest", width="stretch"):
                         st.session_state["booking_dest_input"] = sel_addr
                         st.rerun()
 
@@ -1329,7 +1410,7 @@ def _sidebar_bookings(favorites: list, origin: Optional[Coordinate]) -> None:
         if booking_history:
             st.caption("예약 히스토리")
             for i, item in enumerate(booking_history[:5]):
-                if st.button(f"🕘 {item['label']}", key=f"bkhist_{i}", use_container_width=True):
+                if st.button(f"🕘 {item['label']}", key=f"bkhist_{i}", width="stretch"):
                     st.session_state["booking_start_input"] = item["start_query"]
                     st.session_state["booking_dest_input"]  = item["dest_query"]
                     st.rerun()
@@ -1338,7 +1419,7 @@ def _sidebar_bookings(favorites: list, origin: Optional[Coordinate]) -> None:
         booking_dest   = st.text_input("예약 목적지", placeholder="예) 경복궁",         key="booking_dest_input")
         booking_radius = st.slider("출발지 도착 판정 반경 (m)", 30, 300, 80, step=10)
 
-        if st.button("예약 추가", disabled=(not booking_start or not booking_dest), use_container_width=True):
+        if st.button("예약 추가", disabled=(not booking_start or not booking_dest), width="stretch"):
             _add_single_booking(booking_start, booking_dest, booking_radius)
 
         bulk_text = st.text_area(
@@ -1347,7 +1428,7 @@ def _sidebar_bookings(favorites: list, origin: Optional[Coordinate]) -> None:
             key="booking_bulk_input",
             height=90,
         )
-        if st.button("일괄 예약 추가", disabled=not bulk_text.strip(), use_container_width=True):
+        if st.button("일괄 예약 추가", disabled=not bulk_text.strip(), width="stretch"):
             _add_bulk_bookings(bulk_text, booking_radius)
 
     # 활성 예약 목록
@@ -1478,13 +1559,13 @@ def _render_action_buttons() -> None:
         # 이미 계획이 있으면 '▶ 시작'(캐시된 경로)이 주 동작이므로, 이 버튼은
         # '새 목적지로 다시 찾아 출발'하는 보조 동작으로 라벨·강조를 낮춘다.
         if st.button("🚶 바로 출발" if not has_plan else "🔄 다시 찾아 출발",
-                     disabled=not ready, use_container_width=True,
+                     disabled=not ready, width="stretch",
                      type="primary" if not has_plan else "secondary"):
             started = _run_activation(dest_text, origin, start_now=True)
 
         # 출발 전에 경로만 확인하고 싶을 때 (계획이 아직 없을 때만 노출 — 있으면 ▶ 시작 사용).
         if (not has_plan) and st.button("🔍 경로만 보기", disabled=not ready,
-                                        use_container_width=True):
+                                        width="stretch"):
             if _run_activation(dest_text, origin, start_now=False):
                 summary = _plan_summary_text()
                 suffix = f" — {summary}" if summary else ""
@@ -1525,11 +1606,11 @@ def _render_action_buttons() -> None:
     route: Optional[RouteModel] = st.session_state["nav_route"]
     if route is not None:
         if st.session_state["nav_running"]:
-            if st.button("⏹ 중지", use_container_width=True, type="primary"):
+            if st.button("⏹ 중지", width="stretch", type="primary"):
                 st.session_state["nav_running"] = False
                 st.rerun()
         else:
-            if st.button("▶ 시작", disabled=(origin is None), use_container_width=True, type="primary"):
+            if st.button("▶ 시작", disabled=(origin is None), width="stretch", type="primary"):
                 st.session_state.update({
                     "nav_running":  True,
                     "nav_engine":   RouteDeviationEngine(route, st.session_state["nav_config"]),
@@ -1542,8 +1623,8 @@ def _render_action_buttons() -> None:
                 st.rerun()
 
     # 초기화는 보조 동작 — 시작/중지 아래 전폭으로 분리(오탭 방지).
-    if st.button("↺ 초기화", use_container_width=True):
-        for k in ("nav_route", "nav_dest", "nav_engine", "nav_results",
+    if st.button("↺ 초기화", width="stretch"):
+        for k in ("nav_route", "nav_dest", "nav_dest_display", "nav_engine", "nav_results",
                   "nav_samples", "nav_prev_coord", "nav_prev_ts_ms", "nav_route_info"):
             st.session_state[k] = [] if "results" in k or "samples" in k else None
         _clear_journey_state()
@@ -1569,8 +1650,13 @@ def main() -> None:
     _load_history_from_ls()
     _restore_last_fix()  # 재방문 시 마지막 위치를 즉시 대략위치로 부트스트랩(실측/IP가 곧 대체)
 
-    if st.session_state["nav_running"] and _HAS_REFRESH:
-        st_autorefresh(interval=3000, key="nav_refresh")
+    _booking_armed = any(b.get("enabled", True)
+                         for b in st.session_state.get("nav_route_bookings") or [])
+    if _HAS_REFRESH and (st.session_state["nav_running"] or _booking_armed):
+        # 예약이 있으면 유휴 중에도 완만히(10초) rerun 을 유지한다 — rerun 이 없으면 GPS
+        # 재폴링→출발반경 진입 감지→예약 자동활성화가 영영 못 깨어난다(정지 화면).
+        st_autorefresh(interval=3000 if st.session_state["nav_running"] else 10_000,
+                       key="nav_refresh")
 
     # 검색 히스토리 버튼 클릭 처리 — 저장된 좌표로 바로 경로 탐색
     pending_hist = st.session_state.get("nav_pending_hist")
@@ -1706,6 +1792,10 @@ def main() -> None:
                 st.session_state["nav_running"]
                 or st.session_state["nav_origin"] is None
                 or st.session_state.get("nav_origin_coarse", False)
+                # 예약 대기 중에도 폴링 — 정확한 fix 확보 후 폴링이 멈추면 출발반경
+                # 진입을 감지하지 못해 예약 자동활성화가 사실상 동작하지 않는다.
+                or any(b.get("enabled", True)
+                       for b in st.session_state.get("nav_route_bookings") or [])
             )
             if need_gps_poll:
                 # 최초 취득 시에만 다중 샘플로 best fix 선택(첫 fix 부정확 완화), 라이브는 단일.
@@ -1747,6 +1837,10 @@ def main() -> None:
                                 moved = distance_meters(prev, new_origin)
                                 if moved >= gps_filter.SMOOTH_SKIP_MOVE_M:
                                     smoothed = new_origin
+                                    # 큰 점프(백그라운드 복귀·신호 재획득) — 갭 이전 fix 가
+                                    # 이후 정지 median 을 옛 위치로 되튕기지(teleport back)
+                                    # 않게 버퍼를 현재 fix 만 남긴다.
+                                    del recent[:-1]
                                 elif (moved < gps_filter.SMOOTH_STATIONARY_MOVE_M
                                       and len(recent) >= gps_filter.SMOOTH_MEDIAN_MIN_FIXES):
                                     mlat, mlon = gps_filter.median_position(recent)
@@ -1758,6 +1852,8 @@ def main() -> None:
                                     smoothed = Coordinate(latitude=blat, longitude=blon)
                             st.session_state["nav_origin"] = smoothed
                             st.session_state["nav_raw_gps"] = geo
+                            # 신선도 기준(서버 시계) — fix timestamp(폰 시계)와 섞지 않는다.
+                            st.session_state["nav_fix_received_ms"] = int(time.time() * 1000)
                             st.session_state["nav_jump_reject_streak"] = 0
                             st.session_state["nav_origin_coarse"] = False
                             st.session_state["nav_origin_source"] = "gps"
@@ -1823,7 +1919,7 @@ def main() -> None:
                     # 아직 위치 대기 중(None) — 모바일은 곧 첫 GPS fix가 온다.
                     st.caption("📍 위치 확인 중…")
             else:
-                if st.button("📍 위치 새로고침", use_container_width=True):
+                if st.button("📍 위치 새로고침", width="stretch"):
                     st.session_state["nav_origin"] = None
                     st.session_state["nav_origin_coarse"] = False
                     st.session_state["nav_origin_source"] = None
@@ -1865,7 +1961,12 @@ def main() -> None:
             if running:
                 where = addr or f"{origin.latitude:.5f}, {origin.longitude:.5f}"
                 dot = "🟡" if coarse else {"good": "🟢", "fair": "🟡", "poor": "🔴"}.get(q, "⚪")
-                st.caption(f"📍 {where}  {dot}" + ("  (대략 위치)" if coarse else ""))
+                # 앱 전환·화면 잠금으로 폴링이 멈추면 옛 위치가 '현재'처럼 보인다 — 신선도 표시.
+                rx = st.session_state.get("nav_fix_received_ms")
+                now_srv = int(time.time() * 1000)
+                stale = (f"  ⏸ {int((now_srv - rx) / 1000)}초 전 위치"
+                         if rx and now_srv - rx > _FIX_STALE_MS else "")
+                st.caption(f"📍 {where}  {dot}" + ("  (대략 위치)" if coarse else "") + stale)
             else:
                 if addr:
                     st.success(f"📍 {addr}")
@@ -1964,13 +2065,26 @@ def main() -> None:
         if engine is not None and (prev_coord is None or distance_meters(prev_coord, origin) > 1.0):
             sample = _make_sample(origin, st.session_state["nav_raw_gps"], prev_coord,
                                   st.session_state["nav_prev_ts_ms"])
+            prev_ts = st.session_state["nav_prev_ts_ms"]
+            if (prev_ts is not None and st.session_state["nav_route"] is not None
+                    and sample.timestamp_ms - prev_ts > _GPS_GAP_RESET_MS):
+                # 긴 공백(백그라운드 복귀 등) — 엔진만 재생성해 이탈 판정 이력을 리셋
+                # (경로·샘플·알림 이력은 유지, 복귀 첫 표본의 지속시간 뻥튀기 방지).
+                engine = RouteDeviationEngine(st.session_state["nav_route"],
+                                              st.session_state["nav_config"])
+                st.session_state["nav_engine"] = engine
             result = engine.process_sample(sample)
             st.session_state["nav_results"].append(result)
             st.session_state["nav_samples"].append(sample)
             st.session_state["nav_prev_coord"]   = origin
             st.session_state["nav_prev_ts_ms"]   = sample.timestamp_ms
             if st.session_state["nav_start_ts_ms"] is None:
-                st.session_state["nav_start_ts_ms"] = sample.timestamp_ms  # 여정 시작(전체 소요시간 기준)
+                st.session_state["nav_start_ts_ms"] = sample.timestamp_ms  # 이번 안내(레그) 시작
+            if (st.session_state.get("nav_journey") is not None
+                    and st.session_state.get("nav_journey_start_ts_ms") is None):
+                # 다구간 여정 '전체' 시작 — 레그 전환 _reset 에 지워지지 않아
+                # 도착 요약이 마지막 구간이 아닌 전체 소요시간을 보여준다.
+                st.session_state["nav_journey_start_ts_ms"] = sample.timestamp_ms
             # 누적 상한(슬라이싱 호환 위해 list 유지) — 장시간 보행 시 렌더·메모리 폭증 차단.
             if len(st.session_state["nav_results"]) > _MAX_SAMPLES:
                 st.session_state["nav_results"] = st.session_state["nav_results"][-_MAX_SAMPLES:]
@@ -2005,12 +2119,16 @@ def main() -> None:
                 nav_samples  = st.session_state["nav_samples"]
                 warmup = gps_filter.in_reroute_warmup(
                     len(nav_samples),
-                    now_ms - nav_samples[0].timestamp_ms if nav_samples else 0,
+                    # 경과시간은 클라이언트 fix 시계끼리만 뺀다 — 서버 벽시계와 섞으면
+                    # 폰 시계 오차(±30초)만으로 워밍업 30초 가드가 무력화/과연장된다.
+                    (nav_samples[-1].timestamp_ms - nav_samples[0].timestamp_ms)
+                    if nav_samples else 0,
                 )
                 if (
                     not warmup
                     and (last_reroute is None or (now_ms - last_reroute) > _REROUTE_COOLDOWN_MS)
-                    and not _reroute_suppressed(st.session_state["nav_results"], nav_samples, now_ms)
+                    and not _reroute_suppressed(st.session_state["nav_results"], nav_samples,
+                                                now_ms, result.state)
                 ):
                     try:
                         new_route  = _fetch_route(origin, dest_coord)
@@ -2026,6 +2144,10 @@ def main() -> None:
                             "nav_last_alerted_state":  "on_route",
                             "nav_last_weak_toast_ts_ms": None,
                         })
+                        if st.session_state.get("nav_journey") is not None:
+                            # 여정 누적 집계 — nav_reroute_count 는 레그 전환 시 리셋되므로 별도.
+                            st.session_state["nav_journey_reroute_total"] = \
+                                (st.session_state.get("nav_journey_reroute_total") or 0) + 1
                         st.toast(f"🔄 길을 다시 찾았어요 (재탐색 {new_count}회) — 새 경로로 안내합니다")
                     except Exception as e:
                         st.warning(f"자동 재탐색 실패: {e}")
@@ -2043,7 +2165,7 @@ def main() -> None:
             st.info("목적지를 입력하고 '경로 찾기'를 누르세요. 지도는 현재 위치 기준으로 표시됩니다.")
         else:
             st.info("현재 구간은 실시간 도보 경로가 없어 지도는 현재 위치 기준으로 표시됩니다.")
-        st.plotly_chart(_build_placeholder_map(origin), use_container_width=True)
+        st.plotly_chart(_build_placeholder_map(origin), width="stretch")
         return
 
     if (not st.session_state["nav_running"]) and st.session_state.get("nav_arrival_summary"):
@@ -2059,7 +2181,7 @@ def main() -> None:
         st.plotly_chart(
             _build_map(route, dest, st.session_state["nav_results"],
                        st.session_state["nav_samples"], height=map_h),
-            use_container_width=True,
+            width="stretch",
         )
 
     arrived = (not st.session_state["nav_running"]) and bool(st.session_state.get("nav_arrival_summary"))
