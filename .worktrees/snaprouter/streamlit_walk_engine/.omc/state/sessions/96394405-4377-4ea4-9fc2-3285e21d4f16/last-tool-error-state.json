@@ -1,0 +1,7 @@
+{
+  "tool_name": "StructuredOutput",
+  "tool_input_preview": "{\"method\":\"Real engine simulation (not static review). Wrote two Python sims under scratchpad that import engine.py (EngineConfig min_consecutive=2, min_drift_duration_ms=2000), snap_router.py, and sc...",
+  "error": "Output does not match required schema: root: must have required property 'baseline_false_positive_reroutes'",
+  "timestamp": "2026-07-12T11:51:04.519Z",
+  "retry_count": 1
+}

@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastScanned": 1783771799989,
+  "lastScanned": 1783859625052,
   "projectRoot": "d:\\walk",
   "techStack": {
     "languages": [
@@ -41,7 +41,7 @@
   },
   "build": {
     "buildCommand": null,
-    "testCommand": "npm test",
+    "testCommand": "git checkout main -q 2>&1 | tail -1; git pull --ff-only origin main 2>&1 | tail -3; echo \"=== local main ===\"; git log --oneline -1; echo \"=== cleanup ===\"; git worktree remove .worktrees/snaprouter --force 2>&1 | tail -1; git branch -D feat/snap-router 2>&1 | tail -1; git push origin --delete feat/snap-router 2>&1 | tail -1; echo \"=== pytest on main ===\"; python -m pytest streamlit_walk_engine/tests -q 2>&1 | tail -3",
     "lintCommand": "npm run lint",
     "devCommand": null,
     "scripts": {
@@ -78,14 +78,14 @@
       "path": "apps",
       "purpose": null,
       "fileCount": 0,
-      "lastAccessed": 1783771799938,
+      "lastAccessed": 1783859624981,
       "keyFiles": []
     },
     "docs": {
       "path": "docs",
       "purpose": "Documentation",
       "fileCount": 2,
-      "lastAccessed": 1783771799939,
+      "lastAccessed": 1783859624995,
       "keyFiles": [
         "progress-notes.md"
       ]
@@ -94,21 +94,21 @@
       "path": "docs - 복사본",
       "purpose": null,
       "fileCount": 0,
-      "lastAccessed": 1783771799951,
+      "lastAccessed": 1783859624997,
       "keyFiles": []
     },
     "packages": {
       "path": "packages",
       "purpose": null,
       "fileCount": 0,
-      "lastAccessed": 1783771799951,
+      "lastAccessed": 1783859624999,
       "keyFiles": []
     },
     "scripts": {
       "path": "scripts",
       "purpose": "Build/utility scripts",
       "fileCount": 1,
-      "lastAccessed": 1783771799952,
+      "lastAccessed": 1783859625001,
       "keyFiles": [
         "git_auto_backup.ps1"
       ]
@@ -117,7 +117,7 @@
       "path": "streamlit_task_organizer",
       "purpose": null,
       "fileCount": 4,
-      "lastAccessed": 1783771799952,
+      "lastAccessed": 1783859625003,
       "keyFiles": [
         "app.py",
         "README.md",
@@ -128,8 +128,8 @@
     "streamlit_walk_engine": {
       "path": "streamlit_walk_engine",
       "purpose": null,
-      "fileCount": 12,
-      "lastAccessed": 1783771799953,
+      "fileCount": 13,
+      "lastAccessed": 1783859625004,
       "keyFiles": [
         "alert_voice.py",
         "app.py",
@@ -142,14 +142,14 @@
       "path": "apps\\api",
       "purpose": "API routes",
       "fileCount": 0,
-      "lastAccessed": 1783771799954,
+      "lastAccessed": 1783859625007,
       "keyFiles": []
     },
     "streamlit_task_organizer\\schemas": {
       "path": "streamlit_task_organizer\\schemas",
       "purpose": "Schema definitions",
       "fileCount": 3,
-      "lastAccessed": 1783771799956,
+      "lastAccessed": 1783859625014,
       "keyFiles": [
         "export_schema.py",
         "result_schema.py",
@@ -160,7 +160,7 @@
       "path": "streamlit_task_organizer\\services",
       "purpose": "Business logic services",
       "fileCount": 4,
-      "lastAccessed": 1783771799956,
+      "lastAccessed": 1783859625015,
       "keyFiles": [
         "export_service.py",
         "history_service.py",
@@ -171,7 +171,7 @@
       "path": "streamlit_task_organizer\\tests",
       "purpose": "Test files",
       "fileCount": 7,
-      "lastAccessed": 1783771799957,
+      "lastAccessed": 1783859625017,
       "keyFiles": [
         "test_checklist_parser.py",
         "test_contact_parser.py",
@@ -182,7 +182,7 @@
       "path": "streamlit_task_organizer\\utils",
       "purpose": "Utility functions",
       "fileCount": 5,
-      "lastAccessed": 1783771799958,
+      "lastAccessed": 1783859625018,
       "keyFiles": [
         "constants.py",
         "date_utils.py",
@@ -193,7 +193,7 @@
       "path": "streamlit_walk_engine\\pages",
       "purpose": "Page components",
       "fileCount": 1,
-      "lastAccessed": 1783771799959,
+      "lastAccessed": 1783859625021,
       "keyFiles": [
         "1_Navigation.py"
       ]
@@ -202,302 +202,62 @@
   "hotPaths": [
     {
       "path": "streamlit_walk_engine\\pages\\1_Navigation.py",
-      "accessCount": 159,
-      "lastAccessed": 1783853099196,
-      "type": "directory"
-    },
-    {
-      "path": ".worktrees\\bugfix\\streamlit_walk_engine\\pages\\1_Navigation.py",
-      "accessCount": 26,
-      "lastAccessed": 1783680687405,
-      "type": "file"
-    },
-    {
-      "path": "streamlit_walk_engine\\engine.py",
-      "accessCount": 22,
-      "lastAccessed": 1783852049744,
-      "type": "file"
-    },
-    {
-      "path": ".worktrees\\addr-fmt\\streamlit_walk_engine\\pages\\1_Navigation.py",
-      "accessCount": 21,
-      "lastAccessed": 1783674957208,
-      "type": "file"
-    },
-    {
-      "path": ".worktrees\\ux-onetap\\streamlit_walk_engine\\pages\\1_Navigation.py",
-      "accessCount": 16,
-      "lastAccessed": 1783672975321,
-      "type": "file"
-    },
-    {
-      "path": "streamlit_walk_engine",
-      "accessCount": 12,
-      "lastAccessed": 1783750440758,
-      "type": "directory"
-    },
-    {
-      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\reroute_sim.py",
-      "accessCount": 10,
-      "lastAccessed": 1783846278660,
-      "type": "file"
-    },
-    {
-      "path": "RESUME.md",
-      "accessCount": 10,
-      "lastAccessed": 1783852299470,
-      "type": "file"
-    },
-    {
-      "path": ".worktrees\\pr42\\streamlit_walk_engine\\pages\\1_Navigation.py",
-      "accessCount": 8,
-      "lastAccessed": 1783742132439,
+      "accessCount": 40,
+      "lastAccessed": 1783860217106,
       "type": "file"
     },
     {
       "path": "streamlit_walk_engine\\gps_filter.py",
-      "accessCount": 8,
-      "lastAccessed": 1783753620751,
-      "type": "file"
-    },
-    {
-      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\repro_transit_loss.py",
-      "accessCount": 6,
-      "lastAccessed": 1783677076578,
-      "type": "file"
-    },
-    {
-      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\repro_journey_blocks_refute.py",
-      "accessCount": 6,
-      "lastAccessed": 1783677308115,
-      "type": "file"
-    },
-    {
-      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\repro_booking_reset.py",
       "accessCount": 5,
-      "lastAccessed": 1783677273941,
+      "lastAccessed": 1783860136411,
       "type": "file"
     },
     {
-      "path": ".worktrees\\reroute-cd\\streamlit_walk_engine\\pages\\1_Navigation.py",
-      "accessCount": 5,
-      "lastAccessed": 1783837045095,
-      "type": "file"
-    },
-    {
-      "path": ".worktrees\\bugfix\\streamlit_walk_engine\\tests\\test_navigation_smoke.py",
+      "path": "streamlit_walk_engine\\snap_router.py",
       "accessCount": 4,
-      "lastAccessed": 1783680488890,
+      "lastAccessed": 1783860136755,
       "type": "file"
     },
     {
-      "path": ".worktrees\\cd3\\streamlit_walk_engine\\pages\\1_Navigation.py",
-      "accessCount": 4,
-      "lastAccessed": 1783851663832,
-      "type": "directory"
-    },
-    {
-      "path": "",
+      "path": "streamlit_walk_engine\\mapbox_matcher.py",
       "accessCount": 3,
-      "lastAccessed": 1783676698378,
-      "type": "directory"
-    },
-    {
-      "path": ".worktrees\\pr42\\streamlit_walk_engine\\gps_filter.py",
-      "accessCount": 3,
-      "lastAccessed": 1783742216610,
-      "type": "directory"
-    },
-    {
-      "path": "streamlit_walk_engine\\alert_voice.py",
-      "accessCount": 3,
-      "lastAccessed": 1783749409668,
+      "lastAccessed": 1783860064891,
       "type": "file"
     },
     {
-      "path": ".worktrees\\ux-onetap\\streamlit_walk_engine\\tests\\test_navigation_smoke.py",
+      "path": "RESUME.md",
       "accessCount": 2,
-      "lastAccessed": 1783672376420,
+      "lastAccessed": 1783860077085,
       "type": "file"
     },
     {
-      "path": "streamlit_walk_engine\\app.py",
+      "path": "streamlit_walk_engine\\engine.py",
       "accessCount": 2,
-      "lastAccessed": 1783676296348,
-      "type": "file"
-    },
-    {
-      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\repro_nav.py",
-      "accessCount": 2,
-      "lastAccessed": 1783676577567,
-      "type": "file"
-    },
-    {
-      "path": ".worktrees\\tts-phrase\\streamlit_walk_engine\\alert_voice.py",
-      "accessCount": 2,
-      "lastAccessed": 1783749563006,
-      "type": "file"
-    },
-    {
-      "path": ".worktrees\\faster-dev\\streamlit_walk_engine\\tests\\test_navigation_smoke.py",
-      "accessCount": 2,
-      "lastAccessed": 1783772359290,
-      "type": "file"
-    },
-    {
-      "path": ".worktrees\\reroute-cd\\streamlit_walk_engine\\tests\\test_navigation_smoke.py",
-      "accessCount": 2,
-      "lastAccessed": 1783837080916,
-      "type": "file"
-    },
-    {
-      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\reroute_num.py",
-      "accessCount": 2,
-      "lastAccessed": 1783850217735,
-      "type": "file"
-    },
-    {
-      "path": ".worktrees\\cd3\\streamlit_walk_engine\\tests\\test_navigation_smoke.py",
-      "accessCount": 2,
-      "lastAccessed": 1783851673569,
-      "type": "file"
-    },
-    {
-      "path": "streamlit_walk_engine/pages/1_Navigation.py",
-      "accessCount": 1,
-      "lastAccessed": 1783672526697,
-      "type": "directory"
-    },
-    {
-      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\repro.py",
-      "accessCount": 1,
-      "lastAccessed": 1783676323200,
+      "lastAccessed": 1783860146568,
       "type": "file"
     },
     {
       "path": "streamlit_walk_engine\\tests\\test_navigation_smoke.py",
       "accessCount": 1,
-      "lastAccessed": 1783676344543,
+      "lastAccessed": 1783860108393,
       "type": "file"
     },
     {
-      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\repro_net.py",
+      "path": "streamlit_walk_engine\\tests\\test_snap_router.py",
       "accessCount": 1,
-      "lastAccessed": 1783676354977,
+      "lastAccessed": 1783860109156,
       "type": "file"
     },
     {
-      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\probe1.py",
+      "path": "streamlit_walk_engine",
       "accessCount": 1,
-      "lastAccessed": 1783676373160,
-      "type": "file"
+      "lastAccessed": 1783860175940,
+      "type": "directory"
     },
     {
-      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\probe2.py",
+      "path": "streamlit_walk_engine\\tests\\test_mapbox_matcher.py",
       "accessCount": 1,
-      "lastAccessed": 1783676407824,
-      "type": "file"
-    },
-    {
-      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\repro2.py",
-      "accessCount": 1,
-      "lastAccessed": 1783676523111,
-      "type": "file"
-    },
-    {
-      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\repro_booking.py",
-      "accessCount": 1,
-      "lastAccessed": 1783676657275,
-      "type": "file"
-    },
-    {
-      "path": "streamlit_walk_engine\\tests\\test_gps_filter.py",
-      "accessCount": 1,
-      "lastAccessed": 1783676686549,
-      "type": "file"
-    },
-    {
-      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\probe4.py",
-      "accessCount": 1,
-      "lastAccessed": 1783676747030,
-      "type": "file"
-    },
-    {
-      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\repro_odsay.py",
-      "accessCount": 1,
-      "lastAccessed": 1783676758238,
-      "type": "file"
-    },
-    {
-      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\probe5.py",
-      "accessCount": 1,
-      "lastAccessed": 1783676804069,
-      "type": "file"
-    },
-    {
-      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\probe6.py",
-      "accessCount": 1,
-      "lastAccessed": 1783676847092,
-      "type": "file"
-    },
-    {
-      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\repro_journey_blocks.py",
-      "accessCount": 1,
-      "lastAccessed": 1783676885143,
-      "type": "file"
-    },
-    {
-      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\probe_backwards_ts.py",
-      "accessCount": 1,
-      "lastAccessed": 1783677103038,
-      "type": "file"
-    },
-    {
-      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\repro_transit_strict.py",
-      "accessCount": 1,
-      "lastAccessed": 1783677223571,
-      "type": "file"
-    },
-    {
-      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\probe_bound.py",
-      "accessCount": 1,
-      "lastAccessed": 1783677285244,
-      "type": "file"
-    },
-    {
-      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\verify_fixes.py",
-      "accessCount": 1,
-      "lastAccessed": 1783680517350,
-      "type": "file"
-    },
-    {
-      "path": "streamlit_walk_engine\\tests\\test_alert_voice.py",
-      "accessCount": 1,
-      "lastAccessed": 1783749525957,
-      "type": "file"
-    },
-    {
-      "path": ".worktrees\\tts-phrase\\streamlit_walk_engine\\tests\\test_alert_voice.py",
-      "accessCount": 1,
-      "lastAccessed": 1783749573070,
-      "type": "file"
-    },
-    {
-      "path": "streamlit_walk_engine\\scenarios.py",
-      "accessCount": 1,
-      "lastAccessed": 1783750462550,
-      "type": "file"
-    },
-    {
-      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\e2e_realuse.py",
-      "accessCount": 1,
-      "lastAccessed": 1783750567408,
-      "type": "file"
-    },
-    {
-      "path": ".worktrees\\faster-dev\\streamlit_walk_engine\\pages\\1_Navigation.py",
-      "accessCount": 1,
-      "lastAccessed": 1783771973618,
+      "lastAccessed": 1783860199268,
       "type": "file"
     }
   ],
