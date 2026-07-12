@@ -573,8 +573,9 @@ _ALERT = {
 }
 
 # 재탐색 최소 간격(ms) — 직전 재탐색 후 이만큼 지나야 다시 재탐색한다(연속 재탐색 방지).
-# 15초는 이탈 확정이 빨라진 뒤 체감상 너무 길어 8초로 낮춤(GPS 노이즈 thrashing은 방지).
-_REROUTE_COOLDOWN_MS = 8_000
+# 시뮬레이션상 값(2~12초)은 재탐색 횟수에 거의 영향 없음(워밍업·재중심화가 지배) — 폭주
+# 방지 안전벨트 역할. 사용자 요청으로 3초. (근본 개선은 맵매칭/스냅투루트가 필요)
+_REROUTE_COOLDOWN_MS = 3_000
 
 
 def _trigger_alert(state: str, tts: bool = True) -> None:
@@ -1836,7 +1837,7 @@ def main() -> None:
         with st.container():
             reroute_on = st.toggle(
                 "길 벗어나면 자동 재탐색", value=st.session_state["nav_reroute_enabled"],
-                help="경로 이탈·회전 미이행 감지 시 현재 위치 기준으로 재탐색 (8초 쿨다운)")
+                help="경로 이탈·회전 미이행 감지 시 현재 위치 기준으로 재탐색 (3초 쿨다운)")
             alert_on = st.toggle(
                 "이탈 시 소리·진동 경고", value=st.session_state["nav_alert_enabled"],
                 help="소리+진동 · 이탈 시작 1회 비프 / 경로 이탈 2회 / 회전 미이행 3회 연속")
