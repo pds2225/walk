@@ -1,0 +1,7 @@
+streamlit==1.54.0
+plotly==6.7.0
+narwhals>=1.15.1
+pandas==2.3.3
+requests>=2.31.0
+streamlit-js-eval>=0.1.7
+streamlit-autorefresh>=1.0.1

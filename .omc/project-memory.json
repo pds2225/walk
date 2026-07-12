@@ -41,7 +41,7 @@
   },
   "build": {
     "buildCommand": null,
-    "testCommand": "git checkout main -q 2>&1 | tail -1; git pull --ff-only origin main 2>&1 | tail -3; echo \"=== local main ===\"; git log --oneline -1; echo \"=== cleanup ===\"; git worktree remove .worktrees/snaprouter --force 2>&1 | tail -1; git branch -D feat/snap-router 2>&1 | tail -1; git push origin --delete feat/snap-router 2>&1 | tail -1; echo \"=== pytest on main ===\"; python -m pytest streamlit_walk_engine/tests -q 2>&1 | tail -3",
+    "testCommand": "gh pr create --base main --head fix/nav-hardening --title \"fix(nav): 오류 재발방지 하드닝 — 감사·적대검증 확정 21건 수정 + 회귀 9테스트\" --body \"$(cat <<'EOF'\n## 무엇이 바뀌나 (실사용)\n8개 관점 병렬 감사(31건 발견) → **실사용 도달성 적대검증**(21건 확정 / 8건 기각) → 확정만 수정.\n\n**전에는 안 되던 것 → 이제 되는 것 (대표):**\n- 지하철 입구에서 GPS가 애매하면(35~50m) **다음 구간으로 영영 못 넘어감** → 수동 '다음 구간' 버튼 제공\n- 나쁜 GPS 신호로 **알림은 조용한데 재탐색은 발동**(잘못된 경로 생성) → 알림과 동일하게 보류\n- 앱 전환 후 복귀하면 **즉시 헛 이탈 판정**(지속시간 뻥튀기) → 30초+ 공백 시 판정이력 리셋\n- 회전을 지나쳤는데 **재탐색이 억제**됨 → passed_turn 면제\n- Mapbox 켰는데 네트워크 순간 실패 시 **끈 것보다 나빠짐** → 무료 판정 폴백(3상)\n- 대중교통 여정 한 번 하면 **예약 자동출발이 죽음** / 정확한 GPS 잡히면 **예약 감지 자체가 멈춤** → 여정 종료 정리 + 유휴 폴링 유지\n- 도착 요약이 **마지막 구간만** 집계 / 폰 시계 오차로 **워밍업 무력화·소요시간 왜곡** → 여정 전체 집계 + 단일 시계\n- 지원종료된 화면 옵션 17건 선제 교체(향후 Streamlit 업그레이드 대비)\n\n## 재발방지\n회귀 테스트 9개 신설(`test_nav_hardening.py`) — 각 수정이 되돌아오면 즉시 실패.\n+ 오늘 밤부터 야간 무인 하드닝(`night-autodev-walk`, 01:15)이 격리 복사본에서 지속 점검.\n\n## 검증\n**257 passed**(기존 248+9), py_compile OK, AppTest 렌더 정상, engine.py 코어 비침습, Secret 없음.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\nEOF\n)\" 2>&1 | tail -2 && gh pr merge fix/nav-hardening --merge 2>&1 | tail -2; echo \"=== sync ===\"; cd /d/walk && git checkout main -q; git pull --ff-only origin main 2>&1 | tail -2; git log --oneline -1; python -m pytest streamlit_walk_engine/tests -q 2>&1 | tail -2",
     "lintCommand": "npm run lint",
     "devCommand": null,
     "scripts": {
@@ -208,8 +208,8 @@
     },
     {
       "path": ".worktrees\\harden\\streamlit_walk_engine\\pages\\1_Navigation.py",
-      "accessCount": 13,
-      "lastAccessed": 1783861274570,
+      "accessCount": 35,
+      "lastAccessed": 1783861847565,
       "type": "file"
     },
     {
@@ -231,15 +231,15 @@
       "type": "file"
     },
     {
-      "path": "streamlit_walk_engine\\mapbox_matcher.py",
-      "accessCount": 3,
-      "lastAccessed": 1783860064891,
+      "path": "RESUME.md",
+      "accessCount": 4,
+      "lastAccessed": 1783862450022,
       "type": "file"
     },
     {
-      "path": "RESUME.md",
-      "accessCount": 2,
-      "lastAccessed": 1783860077085,
+      "path": "streamlit_walk_engine\\mapbox_matcher.py",
+      "accessCount": 3,
+      "lastAccessed": 1783860064891,
       "type": "file"
     },
     {
@@ -253,6 +253,18 @@
       "accessCount": 2,
       "lastAccessed": 1783860912147,
       "type": "directory"
+    },
+    {
+      "path": ".worktrees\\harden\\streamlit_walk_engine\\snap_router.py",
+      "accessCount": 2,
+      "lastAccessed": 1783861565015,
+      "type": "file"
+    },
+    {
+      "path": ".worktrees\\harden\\streamlit_walk_engine\\mapbox_matcher.py",
+      "accessCount": 2,
+      "lastAccessed": 1783861570651,
+      "type": "file"
     },
     {
       "path": "streamlit_walk_engine\\tests\\test_snap_router.py",

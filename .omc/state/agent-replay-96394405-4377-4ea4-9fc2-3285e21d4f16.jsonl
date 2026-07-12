@@ -33,3 +33,5 @@
 {"t":0,"agent":"a72c0b7","agent_type":"workflow-subagent","event":"agent_stop","success":true,"duration_ms":124252}
 {"t":0,"agent":"ac7836e","agent_type":"workflow-subagent","event":"agent_stop","success":true,"duration_ms":189075}
 {"t":0,"agent":"a351daa","agent_type":"workflow-subagent","event":"agent_stop","success":true,"duration_ms":224637}
+{"t":0,"agent":"system","event":"skill_invoked","skill_name":"요구사항체크"}
+{"t":0,"agent":"system","event":"skill_invoked","skill_name":"oh-my-claudecode:cancel"}
