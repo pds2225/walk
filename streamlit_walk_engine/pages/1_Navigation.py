@@ -572,6 +572,10 @@ _ALERT = {
     "arrived":     {"freqs": [523, 659, 784],  "durs": [150, 150, 280], "vibrate": [80, 50, 80, 50, 160],   "toast": "🏁 목적지 도착 — 안내를 종료합니다"},
 }
 
+# 재탐색 최소 간격(ms) — 직전 재탐색 후 이만큼 지나야 다시 재탐색한다(연속 재탐색 방지).
+# 15초는 이탈 확정이 빨라진 뒤 체감상 너무 길어 8초로 낮춤(GPS 노이즈 thrashing은 방지).
+_REROUTE_COOLDOWN_MS = 8_000
+
 
 def _trigger_alert(state: str, tts: bool = True) -> None:
     cfg = _ALERT.get(state)
@@ -1832,7 +1836,7 @@ def main() -> None:
         with st.container():
             reroute_on = st.toggle(
                 "길 벗어나면 자동 재탐색", value=st.session_state["nav_reroute_enabled"],
-                help="경로 이탈·회전 미이행 감지 시 현재 위치 기준으로 재탐색 (15초 쿨다운)")
+                help="경로 이탈·회전 미이행 감지 시 현재 위치 기준으로 재탐색 (8초 쿨다운)")
             alert_on = st.toggle(
                 "이탈 시 소리·진동 경고", value=st.session_state["nav_alert_enabled"],
                 help="소리+진동 · 이탈 시작 1회 비프 / 경로 이탈 2회 / 회전 미이행 3회 연속")
@@ -1931,7 +1935,7 @@ def main() -> None:
                     len(nav_samples),
                     now_ms - nav_samples[0].timestamp_ms if nav_samples else 0,
                 )
-                if not warmup and (last_reroute is None or (now_ms - last_reroute) > 15_000):
+                if not warmup and (last_reroute is None or (now_ms - last_reroute) > _REROUTE_COOLDOWN_MS):
                     try:
                         new_route  = _fetch_route(origin, dest_coord)
                         new_count  = st.session_state["nav_reroute_count"] + 1
