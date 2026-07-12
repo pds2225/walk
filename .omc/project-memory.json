@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastScanned": 1783670910504,
+  "lastScanned": 1783771799989,
   "projectRoot": "d:\\walk",
   "techStack": {
     "languages": [
@@ -41,7 +41,7 @@
   },
   "build": {
     "buildCommand": null,
-    "testCommand": "cd /d/walk/streamlit_walk_engine && PYTHONUTF8=1 PYTHONIOENCODING=utf-8 python -m pytest tests/test_engine.py tests/test_gps_filter.py tests/test_geometry.py -q 2>&1 | tail -20",
+    "testCommand": "npm test",
     "lintCommand": "npm run lint",
     "devCommand": null,
     "scripts": {
@@ -78,14 +78,14 @@
       "path": "apps",
       "purpose": null,
       "fileCount": 0,
-      "lastAccessed": 1783670910388,
+      "lastAccessed": 1783771799938,
       "keyFiles": []
     },
     "docs": {
       "path": "docs",
       "purpose": "Documentation",
       "fileCount": 2,
-      "lastAccessed": 1783670910390,
+      "lastAccessed": 1783771799939,
       "keyFiles": [
         "progress-notes.md"
       ]
@@ -94,21 +94,21 @@
       "path": "docs - 복사본",
       "purpose": null,
       "fileCount": 0,
-      "lastAccessed": 1783670910392,
+      "lastAccessed": 1783771799951,
       "keyFiles": []
     },
     "packages": {
       "path": "packages",
       "purpose": null,
       "fileCount": 0,
-      "lastAccessed": 1783670910393,
+      "lastAccessed": 1783771799951,
       "keyFiles": []
     },
     "scripts": {
       "path": "scripts",
       "purpose": "Build/utility scripts",
       "fileCount": 1,
-      "lastAccessed": 1783670910394,
+      "lastAccessed": 1783771799952,
       "keyFiles": [
         "git_auto_backup.ps1"
       ]
@@ -117,7 +117,7 @@
       "path": "streamlit_task_organizer",
       "purpose": null,
       "fileCount": 4,
-      "lastAccessed": 1783670910395,
+      "lastAccessed": 1783771799952,
       "keyFiles": [
         "app.py",
         "README.md",
@@ -129,7 +129,7 @@
       "path": "streamlit_walk_engine",
       "purpose": null,
       "fileCount": 12,
-      "lastAccessed": 1783670910396,
+      "lastAccessed": 1783771799953,
       "keyFiles": [
         "alert_voice.py",
         "app.py",
@@ -142,14 +142,14 @@
       "path": "apps\\api",
       "purpose": "API routes",
       "fileCount": 0,
-      "lastAccessed": 1783670910397,
+      "lastAccessed": 1783771799954,
       "keyFiles": []
     },
     "streamlit_task_organizer\\schemas": {
       "path": "streamlit_task_organizer\\schemas",
       "purpose": "Schema definitions",
       "fileCount": 3,
-      "lastAccessed": 1783670910407,
+      "lastAccessed": 1783771799956,
       "keyFiles": [
         "export_schema.py",
         "result_schema.py",
@@ -160,7 +160,7 @@
       "path": "streamlit_task_organizer\\services",
       "purpose": "Business logic services",
       "fileCount": 4,
-      "lastAccessed": 1783670910408,
+      "lastAccessed": 1783771799956,
       "keyFiles": [
         "export_service.py",
         "history_service.py",
@@ -171,7 +171,7 @@
       "path": "streamlit_task_organizer\\tests",
       "purpose": "Test files",
       "fileCount": 7,
-      "lastAccessed": 1783670910410,
+      "lastAccessed": 1783771799957,
       "keyFiles": [
         "test_checklist_parser.py",
         "test_contact_parser.py",
@@ -182,7 +182,7 @@
       "path": "streamlit_task_organizer\\utils",
       "purpose": "Utility functions",
       "fileCount": 5,
-      "lastAccessed": 1783670910412,
+      "lastAccessed": 1783771799958,
       "keyFiles": [
         "constants.py",
         "date_utils.py",
@@ -193,7 +193,7 @@
       "path": "streamlit_walk_engine\\pages",
       "purpose": "Page components",
       "fileCount": 1,
-      "lastAccessed": 1783670910413,
+      "lastAccessed": 1783771799959,
       "keyFiles": [
         "1_Navigation.py"
       ]
@@ -202,8 +202,8 @@
   "hotPaths": [
     {
       "path": "streamlit_walk_engine\\pages\\1_Navigation.py",
-      "accessCount": 151,
-      "lastAccessed": 1783753622289,
+      "accessCount": 152,
+      "lastAccessed": 1783771916197,
       "type": "directory"
     },
     {
@@ -220,8 +220,8 @@
     },
     {
       "path": "streamlit_walk_engine\\engine.py",
-      "accessCount": 17,
-      "lastAccessed": 1783753621394,
+      "accessCount": 19,
+      "lastAccessed": 1783771915705,
       "type": "file"
     },
     {
@@ -318,6 +318,12 @@
       "path": ".worktrees\\tts-phrase\\streamlit_walk_engine\\alert_voice.py",
       "accessCount": 2,
       "lastAccessed": 1783749563006,
+      "type": "file"
+    },
+    {
+      "path": ".worktrees\\faster-dev\\streamlit_walk_engine\\tests\\test_navigation_smoke.py",
+      "accessCount": 2,
+      "lastAccessed": 1783772359290,
       "type": "file"
     },
     {
@@ -450,6 +456,12 @@
       "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\e2e_realuse.py",
       "accessCount": 1,
       "lastAccessed": 1783750567408,
+      "type": "file"
+    },
+    {
+      "path": ".worktrees\\faster-dev\\streamlit_walk_engine\\pages\\1_Navigation.py",
+      "accessCount": 1,
+      "lastAccessed": 1783771973618,
       "type": "file"
     }
   ],
