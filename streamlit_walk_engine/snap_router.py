@@ -95,9 +95,12 @@ def classify(
         return ON_ROUTE_LIKELY
 
     # 3) 진행 정체·완만후퇴 + 큰 횡거리 + 실제 이동 + 양호 정확도 → 진짜 이탈 확정.
+    #    횡거리는 최신 1표본만이 아니라 직전 표본에서도 커야 한다 — 정지 중 방향성 드리프트/
+    #    단발 스파이크가 마지막 표본만 크게 나올 때 오확정(제자리 헛 재탐색)되는 것을 막는다.
     if (
         PROGRESS_STALL_M >= along_delta >= -net_move_m
         and latest_offset >= OFF_ROUTE_OFFSET_M
+        and window[-2].offset_m >= OFF_ROUTE_OFFSET_M * 0.7
         and net_move_m >= MIN_REAL_MOVE_M
         and not bad_acc
     ):
