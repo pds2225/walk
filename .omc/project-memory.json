@@ -202,8 +202,8 @@
   "hotPaths": [
     {
       "path": "streamlit_walk_engine\\pages\\1_Navigation.py",
-      "accessCount": 154,
-      "lastAccessed": 1783843562741,
+      "accessCount": 159,
+      "lastAccessed": 1783853099196,
       "type": "directory"
     },
     {
@@ -213,15 +213,15 @@
       "type": "file"
     },
     {
-      "path": ".worktrees\\addr-fmt\\streamlit_walk_engine\\pages\\1_Navigation.py",
-      "accessCount": 21,
-      "lastAccessed": 1783674957208,
+      "path": "streamlit_walk_engine\\engine.py",
+      "accessCount": 22,
+      "lastAccessed": 1783852049744,
       "type": "file"
     },
     {
-      "path": "streamlit_walk_engine\\engine.py",
-      "accessCount": 19,
-      "lastAccessed": 1783771915705,
+      "path": ".worktrees\\addr-fmt\\streamlit_walk_engine\\pages\\1_Navigation.py",
+      "accessCount": 21,
+      "lastAccessed": 1783674957208,
       "type": "file"
     },
     {
@@ -237,6 +237,18 @@
       "type": "directory"
     },
     {
+      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\reroute_sim.py",
+      "accessCount": 10,
+      "lastAccessed": 1783846278660,
+      "type": "file"
+    },
+    {
+      "path": "RESUME.md",
+      "accessCount": 10,
+      "lastAccessed": 1783852299470,
+      "type": "file"
+    },
+    {
       "path": ".worktrees\\pr42\\streamlit_walk_engine\\pages\\1_Navigation.py",
       "accessCount": 8,
       "lastAccessed": 1783742132439,
@@ -246,12 +258,6 @@
       "path": "streamlit_walk_engine\\gps_filter.py",
       "accessCount": 8,
       "lastAccessed": 1783753620751,
-      "type": "file"
-    },
-    {
-      "path": "RESUME.md",
-      "accessCount": 8,
-      "lastAccessed": 1783837155630,
       "type": "file"
     },
     {
@@ -283,6 +289,12 @@
       "accessCount": 4,
       "lastAccessed": 1783680488890,
       "type": "file"
+    },
+    {
+      "path": ".worktrees\\cd3\\streamlit_walk_engine\\pages\\1_Navigation.py",
+      "accessCount": 4,
+      "lastAccessed": 1783851663832,
+      "type": "directory"
     },
     {
       "path": "",
@@ -336,6 +348,18 @@
       "path": ".worktrees\\reroute-cd\\streamlit_walk_engine\\tests\\test_navigation_smoke.py",
       "accessCount": 2,
       "lastAccessed": 1783837080916,
+      "type": "file"
+    },
+    {
+      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\reroute_num.py",
+      "accessCount": 2,
+      "lastAccessed": 1783850217735,
+      "type": "file"
+    },
+    {
+      "path": ".worktrees\\cd3\\streamlit_walk_engine\\tests\\test_navigation_smoke.py",
+      "accessCount": 2,
+      "lastAccessed": 1783851673569,
       "type": "file"
     },
     {
