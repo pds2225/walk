@@ -35,6 +35,15 @@ def test_deviation_confirmation_defaults_are_faster():
     assert "minimum_drift_duration_ms=2000" in source       # 기본 4000 → 2000
 
 
+def test_reroute_cooldown_is_eight_seconds():
+    """연속 재탐색 방지 쿨다운을 15초 → 8초로 낮춘다(이탈 확정이 빨라진 만큼 체감 개선)."""
+    source = PAGE.read_text(encoding="utf-8")
+
+    assert "_REROUTE_COOLDOWN_MS = 8_000" in source
+    assert "> _REROUTE_COOLDOWN_MS" in source                # 하드코딩 15_000 제거
+    assert "(8초 쿨다운)" in source                          # 도움말 문구 일치
+
+
 def test_transit_toggle_does_not_use_session_key_as_widget_key():
     """세션 저장키를 토글의 위젯 key 로 쓰면 안내 중 미렌더되어 Streamlit 이 그 키를
     GC하고, 다음 rerun 의 _init() 이 기본값 True 로 되살린다 →
