@@ -34,8 +34,10 @@ def test_deviation_confirmation_defaults_are_faster():
     (deviated = 연속샘플 OR 지속시간 둘 중 먼저 충족되므로 둘 다 낮춰야 체감이 빨라진다.)"""
     source = PAGE.read_text(encoding="utf-8")
 
-    assert '"연속 감지 횟수", 1, 5, 2' in source           # 기본 3 → 2 (라벨은 쉬운 말)
-    assert "minimum_drift_duration_ms=2000" in source       # 기본 4000 → 2000
+    assert '"연속 감지 횟수", 1, 5, 3' in source           # 1초 샘플링 × 3회 ≈ 3초 확정
+    assert "minimum_drift_duration_ms=2000" in source       # 지속시간 경로도 3번째 표본과 일치
+    # 안내 중 1초 폴링(사용자 지정) — 유휴는 10초 유지(배터리·API 절약)
+    assert 'interval=1000 if st.session_state["nav_running"] else 10_000' in source
 
 
 def test_reroute_cooldown_is_three_seconds():

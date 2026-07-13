@@ -71,7 +71,7 @@ except ImportError:
 # GPS 재측정 주기(초). streamlit_js_eval 프런트엔드는 '같은 js_expressions 문자열'은
 # 다시 평가하지 않으므로(once-per-string 가드), 표현식을 고정하면 위치가 세션당 1회만
 # 잡혀 내비 중 갱신되지 않는다. 이 주기로 바뀌는 토큰을 표현식에 덧붙여 재측정을 유도한다.
-_GPS_POLL_BUCKET_SEC = 3
+_GPS_POLL_BUCKET_SEC = 1
 
 # 위치 샘플/판정 누적 상한 — 장시간 보행 시 메모리·지도 렌더 무한 증가 차단.
 _MAX_SAMPLES = 500
@@ -1167,9 +1167,22 @@ def _reverse_geocode_cached(lat: float, lon: float) -> Optional[str]:
 
 
 @st.cache_data(ttl=300, show_spinner=False)
-def _suggest_destinations(query: str) -> list:
-    """검색어 후보 목록(캐시). 같은 검색어는 재호출 없이 즉시 반환 — API 절약·rerun 안전."""
-    return geocode_suggestions(query, 5)
+def _suggest_destinations(query: str, lat3: Optional[float] = None,
+                          lon3: Optional[float] = None) -> list:
+    """검색어 후보 목록(캐시). 같은 검색어는 재호출 없이 즉시 반환 — API 절약·rerun 안전.
+
+    lat3/lon3 = 현재 위치(소수 3자리≈110m 반올림 — 걷는 동안 캐시 히트 유지).
+    위치를 주면 TMAP 이 후보 자체를 '가까운 순'으로 골라온다 — 전국 인기순 상위
+    5개만 받아 그중에서 정렬하던 한계(근처 지점이 후보에 아예 못 듦) 제거."""
+    center = (Coordinate(latitude=lat3, longitude=lon3)
+              if lat3 is not None and lon3 is not None else None)
+    return geocode_suggestions(query, 5, center=center)
+
+
+def _origin_round3() -> tuple[Optional[float], Optional[float]]:
+    """현재 위치를 소수 3자리로 반올림해 검색 캐시 키로 반환(없으면 (None, None))."""
+    o = st.session_state.get("nav_origin")
+    return (round(o.latitude, 3), round(o.longitude, 3)) if o is not None else (None, None)
 
 
 def _search_places(query: str) -> list:
@@ -1186,7 +1199,8 @@ def _search_places(query: str) -> list:
         return []
     try:
         origin = st.session_state.get("nav_origin")
-        suggestions = sort_suggestions_by_distance(_suggest_destinations(q), origin)
+        suggestions = sort_suggestions_by_distance(
+            _suggest_destinations(q, *_origin_round3()), origin)
         return [
             (label_with_distance(disp, coord, origin), (coord, disp))
             for coord, disp in suggestions
@@ -1235,7 +1249,7 @@ def _render_dest_inputs() -> None:
     if dest_q:
         try:
             with st.spinner("장소 검색 중…"):
-                suggestions = _suggest_destinations(dest_q)
+                suggestions = _suggest_destinations(dest_q, *_origin_round3())
         except Exception:
             suggestions = []
         origin = st.session_state.get("nav_origin")
@@ -1325,7 +1339,7 @@ def _sidebar_destination(favorites: list, running: bool = False) -> None:
         if start_q:
             try:
                 with st.spinner("장소 검색 중…"):
-                    s_sugg = _suggest_destinations(start_q)
+                    s_sugg = _suggest_destinations(start_q, *_origin_round3())
             except Exception:
                 s_sugg = []
             s_origin = st.session_state.get("nav_origin")
@@ -1675,7 +1689,8 @@ def main() -> None:
     if _HAS_REFRESH and (st.session_state["nav_running"] or _booking_armed):
         # 예약이 있으면 유휴 중에도 완만히(10초) rerun 을 유지한다 — rerun 이 없으면 GPS
         # 재폴링→출발반경 진입 감지→예약 자동활성화가 영영 못 깨어난다(정지 화면).
-        st_autorefresh(interval=3000 if st.session_state["nav_running"] else 10_000,
+        # 안내 중 1초 폴링(사용자 지정): 1초마다 재서 연속 3회 감지 ≈ 3초 내 이탈 확정.
+        st_autorefresh(interval=1000 if st.session_state["nav_running"] else 10_000,
                        key="nav_refresh")
 
     # 검색 히스토리 버튼 클릭 처리 — 저장된 좌표로 바로 경로 탐색
@@ -2060,9 +2075,9 @@ def main() -> None:
                 # 이탈 확정을 더 빨리 알리도록 기본 2샘플(과거 3). GPS 노이즈 오탐이
                 # 잦으면 이 값을 올리세요(높을수록 둔감·오탐↓, 낮을수록 민감·반응↑).
                 min_consec = st.slider(
-                    "연속 감지 횟수", 1, 5, 2,
-                    help="GPS는 약 3초마다 위치를 재요. 연속으로 이 횟수만큼 벗어나야 이탈 확정 — "
-                         "2면 약 6초. GPS가 한 번 튄 것으로 오판하지 않기 위한 안전장치예요")
+                    "연속 감지 횟수", 1, 5, 3,
+                    help="GPS는 약 1초마다 위치를 재요. 연속으로 이 횟수만큼 벗어나야 이탈 확정 — "
+                         "3이면 약 3초. GPS가 한 번 튄 것으로 오판하지 않기 위한 안전장치예요")
         st.session_state["nav_reroute_enabled"] = reroute_on
         st.session_state["nav_alert_enabled"] = alert_on
         st.session_state["nav_tts_enabled"] = tts_on

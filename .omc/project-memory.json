@@ -231,6 +231,12 @@
       "type": "file"
     },
     {
+      "path": ".worktrees\\tick1s\\streamlit_walk_engine\\pages\\1_Navigation.py",
+      "accessCount": 8,
+      "lastAccessed": 1783927490375,
+      "type": "file"
+    },
+    {
       "path": "streamlit_walk_engine\\snap_router.py",
       "accessCount": 7,
       "lastAccessed": 1783860904672,
@@ -238,8 +244,8 @@
     },
     {
       "path": "RESUME.md",
-      "accessCount": 4,
-      "lastAccessed": 1783862450022,
+      "accessCount": 5,
+      "lastAccessed": 1783927669527,
       "type": "file"
     },
     {
@@ -289,6 +295,12 @@
       "accessCount": 2,
       "lastAccessed": 1783912020964,
       "type": "directory"
+    },
+    {
+      "path": ".worktrees\\tick1s\\streamlit_walk_engine\\tests\\test_navigation_smoke.py",
+      "accessCount": 2,
+      "lastAccessed": 1783927493698,
+      "type": "file"
     },
     {
       "path": "streamlit_walk_engine\\tests\\test_snap_router.py",
