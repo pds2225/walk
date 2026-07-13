@@ -202,8 +202,8 @@
   "hotPaths": [
     {
       "path": "streamlit_walk_engine\\pages\\1_Navigation.py",
-      "accessCount": 84,
-      "lastAccessed": 1783911635890,
+      "accessCount": 85,
+      "lastAccessed": 1783927233637,
       "type": "file"
     },
     {
@@ -253,6 +253,12 @@
       "accessCount": 3,
       "lastAccessed": 1783860064891,
       "type": "file"
+    },
+    {
+      "path": ".worktrees\\tick1s\\streamlit_walk_engine",
+      "accessCount": 3,
+      "lastAccessed": 1783927381725,
+      "type": "directory"
     },
     {
       "path": "streamlit_walk_engine\\tests\\test_navigation_smoke.py",

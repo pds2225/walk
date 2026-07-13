@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+import io
 import json
+import math
 import re
+import struct
 import sys
 import time
+import wave
+from functools import lru_cache
 from pathlib import Path
 from typing import Optional
 
@@ -710,36 +715,50 @@ def _reroute_suppressed(results, samples, now_ms: int, deviation_state: str = "d
     return True
 
 
+@lru_cache(maxsize=8)
+def _alert_tone_wav(state: str) -> bytes:
+    """상태별 알림음 WAV(모노 22.05kHz, 감쇠 사인음 연속).
+
+    소리는 components.html(iframe) WebAudio 가 아니라 st.audio(최상위 문서)로 재생한다 —
+    모바일 브라우저는 제스처 없이 만들어진 iframe 속 AudioContext 를 suspended 로 묶어
+    소리가 전혀 나지 않았다(실기기 '이탈해도 아무 반응 없음' 보고의 근본 원인).
+    최상위 문서 <audio autoplay> 는 사용자가 페이지를 한 번이라도 탭했으면 재생된다.
+    """
+    cfg = _ALERT[state]
+    rate = 22050
+    frames = bytearray()
+    for freq, dur in zip(cfg["freqs"], cfg["durs"]):
+        n = int(rate * dur / 1000)
+        for i in range(n):
+            env = math.exp(-3.0 * i / max(n, 1))
+            frames += struct.pack(
+                "<h", int(0.6 * 32767 * env * math.sin(2 * math.pi * freq * i / rate)))
+        frames += b"\x00\x00" * int(rate * 0.08)  # 음 사이 80ms 무음
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(rate)
+        w.writeframes(bytes(frames))
+    return buf.getvalue()
+
+
 def _trigger_alert(state: str, tts: bool = True) -> None:
     cfg = _ALERT.get(state)
     if cfg is None:
         return
     st.toast(cfg["toast"])
-    tone_calls: list[str] = []
-    offset_ms = 0
-    for freq, dur in zip(cfg["freqs"], cfg["durs"]):
-        tone_calls.append(f"""
-        setTimeout(function(){{
-            try{{
-                var c=new(window.AudioContext||window.webkitAudioContext)();
-                c.resume().then(function(){{
-                    var o=c.createOscillator(),g=c.createGain();
-                    o.connect(g);g.connect(c.destination);
-                    o.type='sine';o.frequency.value={freq};
-                    g.gain.setValueAtTime(0.35,c.currentTime);
-                    g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+{dur/1000:.3f});
-                    o.start(c.currentTime);o.stop(c.currentTime+{dur/1000:.3f});
-                }});
-            }}catch(e){{}}
-        }},{offset_ms});""")
-        offset_ms += dur + 80
+    # 소리: 최상위 문서에서 자동재생(위 _alert_tone_wav 설명 참조). 플레이어 바가 잠깐
+    # 보이는 것은 의도 — 무슨 알림이 울렸는지 시각 단서도 된다(다음 rerun에 사라짐).
+    st.audio(_alert_tone_wav(state), format="audio/wav", autoplay=True)
+    # 진동·음성은 iframe 스크립트 유지(진동은 Android 한정, 음성은 브라우저 TTS).
     voice_script = ""
     if tts:
         phrase = tts_phrase(state)
         if phrase:
             voice_script = build_tts_script(phrase)
     components.html(
-        f"<script>(function(){{{' '.join(tone_calls)}"
+        f"<script>(function(){{"
         f"try{{if(navigator.vibrate)navigator.vibrate({cfg['vibrate']});}}catch(e){{}}"
         f"{voice_script}"
         f"}})();</script>",
@@ -857,7 +876,9 @@ def _build_map(
         fig.add_trace(go.Scattermap(
             lat=[tp.coordinate.latitude], lon=[tp.coordinate.longitude],
             mode="markers+text",
-            marker=dict(size=14, color="#e67e22"),
+            # 보라색: 현재 위치(초록/노랑/빨강 상태색)·경고 주황과 겹치지 않게 — 실기기에서
+            # '회전'과 '현재 위치'가 같은 주황 계열로 보여 구분이 안 된다는 보고.
+            marker=dict(size=14, color="#8e44ad"),
             text=[f"{dir_emoji.get(tp.direction, '↑')} 회전"],
             textposition="top right",
             name="회전",
@@ -893,9 +914,17 @@ def _build_map(
 
     if results:
         last_r, last_s = results[-1], samples[-1]
+        # 진행 방향(GPS 헤딩)을 8방향 화살표로 마커 가운데에 얹는다 — 지도만 봐도
+        # 내가 어느 쪽으로 걷는 중인지 보이게(실기기 요청). 헤딩이 없으면 점만.
+        hdg = last_s.heading_degrees
+        arrow = "↑↗→↘↓↙←↖"[int(((hdg % 360) + 22.5) // 45) % 8] if hdg is not None else ""
         fig.add_trace(go.Scattermap(
-            lat=[last_s.latitude], lon=[last_s.longitude], mode="markers",
+            lat=[last_s.latitude], lon=[last_s.longitude],
+            mode="markers+text" if arrow else "markers",
             marker=dict(size=22, color=STATE_COLOR[last_r.state]),
+            text=[arrow] if arrow else None,
+            textfont=dict(size=15, color="white"),
+            textposition="middle center",
             name="현재 위치",
             hovertemplate=(
                 f"현재 위치<br>상태: <b>{STATE_LABEL[last_r.state]}</b><br>"
@@ -912,8 +941,11 @@ def _build_map(
         map=dict(style="open-street-map", center=dict(lat=clat, lon=clon), zoom=15),
         height=height,
         margin=dict(l=0, r=0, t=0, b=0),
+        # 글자색을 명시해야 한다: 다크 테마에서 plotly 기본 글자색(흰색)이 흰 범례
+        # 배경 위에 얹혀 '경로/회전/현재 위치' 라벨이 안 보인다(실기기 보고).
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
-                    bgcolor="rgba(255,255,255,0.85)", bordercolor="#ddd", borderwidth=1),
+                    bgcolor="rgba(255,255,255,0.9)", bordercolor="#ddd", borderwidth=1,
+                    font=dict(color="#1a1a1a", size=12)),
     )
     return fig
 
@@ -994,13 +1026,13 @@ def _render_metrics(results: list[EngineResult]) -> None:
             + '</div>',
             unsafe_allow_html=True,
         )
-    cols = st.columns(2)
-    cols[0].metric("경로까지 거리", f"{last.metrics.distance_from_route_meters:.1f} m")
-    if last.metrics.drift_duration_ms > 0:
-        cols[1].metric("이탈 지속", f"{last.metrics.drift_duration_ms / 1000:.1f}s")
-
     # ── 상세 지표 (개발/디버그용 — 기본 접음) ──
+    # '경로까지 거리·이탈 지속'도 여기로: 걷는 중 화면은 '다음 회전' 카드 하나로 단순하게
+    # (수치 지표가 크게 나와 봐야 보행자는 해석 부담만 늘어난다 — 실기기 피드백).
     with st.expander("상세 지표", expanded=False):
+        st.metric("경로까지 거리", f"{last.metrics.distance_from_route_meters:.1f} m")
+        if last.metrics.drift_duration_ms > 0:
+            st.metric("이탈 지속", f"{last.metrics.drift_duration_ms / 1000:.1f}s")
         st.metric("이탈 점수", f"{last.score:.3f}")
         st.metric("헤딩 차이", f"{last.metrics.heading_difference_degrees:.0f}°")
         st.metric("샘플 수",   len(results))
@@ -1280,64 +1312,44 @@ def _sidebar_destination(favorites: list, running: bool = False) -> None:
 
     # ── 출발지 (기본은 현재 위치이므로 접어 둠 — 바꿀 때만 펼침) ──
     with st.expander("출발지 바꾸기 (기본: 현재 위치)", expanded=False):
-        if _HAS_SEARCHBOX:
-            # 자동완성: 선택 시 nav_start_input+picked 둘 다 설정(경로 찾기 분기 조건 충족),
-            # 미선택이면 둘 다 비워 현재 위치를 출발지로 사용(기존 동작 보존).
-            s_sel = st_searchbox(
-                _search_places,
-                placeholder=f"📍 {cur_hint} (비우면 현재 위치)",
-                label="출발지 (비우면 현재 위치 사용)",
-                key="nav_start_sb",
-            )
-            if s_sel is not None:
-                s_coord, s_disp = s_sel
-                st.session_state["nav_start_picked"] = (s_coord, s_disp)
-                st.session_state["nav_start_input"] = s_disp
+        # 자동완성(st_searchbox)을 여기서는 쓰지 않는다: react-select 드롭다운이 모바일
+        # expander 안에서 잘리거나 터치가 안 돼 '출발지 바꾸기 사용불가'가 된다(실기기 보고).
+        # 네이티브 text_input+selectbox 는 expander 안에서도 정상 동작한다(목적지는 expander
+        # 밖 최상단이라 searchbox 유지).
+        st.text_input(
+            "출발지 (비우면 현재 위치 사용)",
+            placeholder=f"📍 {cur_hint}",
+            key="nav_start_input",
+        )
+        start_q = (st.session_state.get("nav_start_input") or "").strip()
+        if start_q:
+            try:
+                with st.spinner("장소 검색 중…"):
+                    s_sugg = _suggest_destinations(start_q)
+            except Exception:
+                s_sugg = []
+            s_origin = st.session_state.get("nav_origin")
+            s_sugg = sort_suggestions_by_distance(s_sugg, s_origin)
+            if s_sugg:
+                s_choice_idx = st.selectbox(
+                    f"출발지 선택 (후보 {len(s_sugg)}곳)",
+                    range(len(s_sugg)),
+                    format_func=lambda i: label_with_distance(
+                        s_sugg[i][1], s_sugg[i][0], s_origin),
+                    key="nav_start_pick",
+                )
+                st.session_state["nav_start_picked"] = s_sugg[s_choice_idx]
             else:
+                st.warning(f"'{start_q}' — 찾지 못했습니다. 비우면 현재 위치가 출발지로 쓰입니다.")
                 st.session_state["nav_start_picked"] = None
-                st.session_state["nav_start_input"] = ""
-                st.caption(f"📍 현재 위치를 출발지로 사용: {cur_hint}")
         else:
-            st.text_input(
-                "출발지 (비우면 현재 위치 사용)",
-                placeholder=f"📍 {cur_hint}",
-                key="nav_start_input",
-            )
-            start_q = (st.session_state.get("nav_start_input") or "").strip()
-            if start_q:
-                try:
-                    with st.spinner("장소 검색 중…"):
-                        s_sugg = _suggest_destinations(start_q)
-                except Exception:
-                    s_sugg = []
-                s_origin = st.session_state.get("nav_origin")
-                s_sugg = sort_suggestions_by_distance(s_sugg, s_origin)
-                if s_sugg:
-                    s_choice_idx = st.selectbox(
-                        f"출발지 선택 (후보 {len(s_sugg)}곳)",
-                        range(len(s_sugg)),
-                        format_func=lambda i: label_with_distance(
-                            s_sugg[i][1], s_sugg[i][0], s_origin),
-                        key="nav_start_pick",
-                    )
-                    st.session_state["nav_start_picked"] = s_sugg[s_choice_idx]
-                else:
-                    st.warning(f"'{start_q}' — 찾지 못했습니다. 비우면 현재 위치가 출발지로 쓰입니다.")
-                    st.session_state["nav_start_picked"] = None
-            else:
-                st.session_state["nav_start_picked"] = None
-                st.caption(f"📍 현재 위치를 출발지로 사용: {cur_hint}")
+            st.session_state["nav_start_picked"] = None
+            st.caption(f"📍 현재 위치를 출발지로 사용: {cur_hint}")
 
-    # 세션 저장키를 위젯 key 로 쓰면 안내 중(running)에 이 토글이 렌더되지 않아
-    # Streamlit 이 그 위젯키를 세션에서 지우고, 다음 rerun 의 _init() 이 기본값 True 로
-    # 되살린다 → 사용자가 끈 '도보 전용' 설정이 매 주행마다 소실된다. 그래서 알림
-    # 토글들과 같이 value=세션값 → 반환값을 세션에 대입하는 패턴을 쓴다(위젯키 미사용).
-    transit_on = st.toggle(
-        "대중교통 포함",
-        value=st.session_state.get("nav_transit_enabled", True),
-        help="켜면 지하철·버스 구간을 함께 보여주고, 도보 구간에서만 실시간 안내를 사용합니다.",
-    )
-    st.session_state["nav_transit_enabled"] = transit_on
+    # '대중교통 포함'은 별도 토글 대신 출발 버튼 2개(🚶 걷기 / 🚇 대중교통+걷기)가
+    # 그 자리에서 nav_transit_enabled 를 설정한다(_render_action_buttons). 최근검색 칩·
+    # 자동 재탐색은 마지막에 누른 모드를 따른다. (위젯 key 를 세션 저장키로 쓰지 않는
+    # 원칙은 유지 — 버튼 핸들러가 세션에 직접 대입)
     # [향후 슬롯] 멀티 provider(검색 소스 선택·지도 언어 토글)는 여기 아래 '고급 설정'
     # 접기로 추가 예정 — 검색 전면은 단순하게 유지하고 고급 옵션만 접어 둔다.
 
@@ -1551,17 +1563,25 @@ def _render_action_buttons() -> None:
     # 안내 중에는 탐색 버튼을 숨겨 화면을 비우고 오탭(주행 중 재검색)을 막는다.
     if not running:
         if origin is None:
-            st.caption("📍 현재 위치 확인 중 — 잡히면 '바로 출발'이 활성화됩니다")
+            st.caption("📍 현재 위치 확인 중 — 잡히면 출발 버튼이 활성화됩니다")
         elif not dest_text:
             st.caption("먼저 목적지를 입력하세요")
 
         # 단계 병합: '경로 찾기 → 시작' 두 번 누르던 것을 한 번으로.
-        # 이미 계획이 있으면 '▶ 시작'(캐시된 경로)이 주 동작이므로, 이 버튼은
-        # '새 목적지로 다시 찾아 출발'하는 보조 동작으로 라벨·강조를 낮춘다.
-        if st.button("🚶 바로 출발" if not has_plan else "🔄 다시 찾아 출발",
-                     disabled=not ready, width="stretch",
-                     type="primary" if not has_plan else "secondary"):
-            started = _run_activation(dest_text, origin, start_now=True)
+        # 대중교통 포함 여부는 별도 토글 대신 출발 버튼 2개로 그 자리에서 고른다
+        # (🚶 걷기 = 도보 전용 / 🚇 대중교통+걷기 = 지하철·버스 포함). 이미 계획이
+        # 있으면 '▶ 시작'(캐시)이 주 동작이므로 두 버튼은 강조를 낮춘다(다시 찾기).
+        walk_col, transit_col = st.columns(2)
+        with walk_col:
+            if st.button("🚶 걷기", disabled=not ready, width="stretch",
+                         type="primary" if not has_plan else "secondary"):
+                st.session_state["nav_transit_enabled"] = False
+                started = _run_activation(dest_text, origin, start_now=True)
+        with transit_col:
+            if st.button("🚇 대중교통+걷기", disabled=not ready, width="stretch",
+                         type="primary" if not has_plan else "secondary"):
+                st.session_state["nav_transit_enabled"] = True
+                started = _run_activation(dest_text, origin, start_now=True)
 
         # 출발 전에 경로만 확인하고 싶을 때 (계획이 아직 없을 때만 노출 — 있으면 ▶ 시작 사용).
         if (not has_plan) and st.button("🔍 경로만 보기", disabled=not ready,
@@ -1684,7 +1704,7 @@ def main() -> None:
                 except Exception as e:
                     st.error(f"경로 찾기 실패: {e}")
 
-    st.markdown("## 🚶 도보 내비게이션 (대중교통 포함)")
+    st.markdown("## 🚶 도보 내비게이션")
     st.caption("가고 싶은 곳을 입력하면 걷는 길을 안내하고, 길을 벗어나면 바로 알려줍니다.")
 
     # 모바일: 사이드바·햄버거 제거 → 컨트롤을 본문에 표시.
@@ -1779,7 +1799,11 @@ def main() -> None:
         running = bool(st.session_state["nav_running"])
 
         # 목적지 입력 바로 아래에 출발 버튼이 오도록 _sidebar_destination 안에서 함께 렌더한다.
-        _sidebar_destination(favorites, running=running)
+        # 단, 도보 안내 중엔 '가는 길'(판정+지도)이 최상단에 오도록 입력·버튼을 지도
+        # 아래로 미룬다(실기기 요청). 대중교통 여정 화면은 기존 순서 유지.
+        defer_controls = running and st.session_state.get("nav_journey") is None
+        if not defer_controls:
+            _sidebar_destination(favorites, running=running)
 
         # 내비 진행 중엔 '현재 위치' 헤더/구분선을 숨겨 지도·판정에 자리를 양보.
         if not running:
@@ -2012,18 +2036,33 @@ def main() -> None:
                 help="경로 이탈·회전 미이행 감지 시 현재 위치 기준으로 재탐색 (3초 쿨다운)")
             alert_on = st.toggle(
                 "이탈 시 소리·진동 경고", value=st.session_state["nav_alert_enabled"],
-                help="소리+진동 · 이탈 시작 1회 비프 / 경로 이탈 2회 / 회전 미이행 3회 연속")
+                help="소리+진동 · 삐 1번=벗어나기 시작 / 삐 2번=경로 이탈(재탐색) / 삐 3번=회전 지나침")
             tts_on = st.toggle(
                 "음성 안내", value=st.session_state["nav_tts_enabled"],
                 help="이탈 상태를 한국어 음성(TTS)으로 안내 (브라우저 음성 합성)")
+            # 걷기 전에 폰에서 소리·진동이 실제로 나는지 확인하는 버튼. 이 탭 자체가
+            # 브라우저에 '사용자 상호작용'을 만들어 이후 자동재생 허용에도 도움이 된다.
+            if st.button("🔔 소리·진동 테스트", width="stretch"):
+                st.audio(_alert_tone_wav("deviated"), format="audio/wav", autoplay=True)
+                components.html(
+                    "<script>try{if(navigator.vibrate)navigator.vibrate([200,100,300]);}"
+                    "catch(e){}</script>", height=0)
+                st.toast("🔔 알림 테스트 — 삐삐 소리가 나면 정상입니다")
             with st.expander("🔧 고급 설정 (이탈 감지 민감도)", expanded=False):
                 st.caption("GPS가 얼마나 벗어나야 경고할지 — 보통은 기본값 그대로 두세요")
-                drift_t = st.slider("이탈 시작(m)", 5, 20, 10)
+                drift_t = st.slider(
+                    "경고 시작 거리(m)", 5, 20, 10,
+                    help="경로에서 이만큼(m) 벗어나면 '주의' 경고가 울려요 (삐 1번)")
                 # 확정 거리는 시작 거리 이상·강한 이탈 거리(기본 25m) 이하(drift<=deviation<=strong).
-                dev_t = st.slider("이탈 확정(m)", drift_t, 25, max(15, drift_t))
+                dev_t = st.slider(
+                    "이탈 확정 거리(m)", drift_t, 25, max(15, drift_t),
+                    help="이만큼(m) 벗어난 상태가 이어지면 '이탈'로 확정하고 재탐색해요 (삐 2번)")
                 # 이탈 확정을 더 빨리 알리도록 기본 2샘플(과거 3). GPS 노이즈 오탐이
                 # 잦으면 이 값을 올리세요(높을수록 둔감·오탐↓, 낮을수록 민감·반응↑).
-                min_consec = st.slider("연속 샘플", 1, 5, 2)
+                min_consec = st.slider(
+                    "연속 감지 횟수", 1, 5, 2,
+                    help="GPS는 약 3초마다 위치를 재요. 연속으로 이 횟수만큼 벗어나야 이탈 확정 — "
+                         "2면 약 6초. GPS가 한 번 튄 것으로 오판하지 않기 위한 안전장치예요")
         st.session_state["nav_reroute_enabled"] = reroute_on
         st.session_state["nav_alert_enabled"] = alert_on
         st.session_state["nav_tts_enabled"] = tts_on
@@ -2193,6 +2232,10 @@ def main() -> None:
             # 시작 직후~첫 GPS 샘플 전: '눌렸나?' 혼란 방지용 생존 신호.
             st.info("🧭 안내 중 — 위치를 받는 중입니다. 곧 첫 판정이 표시됩니다")
         _render_map()
+        # 컨트롤(목적지 바꾸기·중지/초기화)은 지도 아래로 — '가는 길'이 먼저 보이게.
+        with st.expander("📍 목적지 바꾸기", expanded=False):
+            _render_dest_inputs()
+        _render_action_buttons()
     else:
         _render_map()
         st.markdown("#### 도착 — 안내 종료" if arrived else "#### 현재 판정")

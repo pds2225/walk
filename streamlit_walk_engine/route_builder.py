@@ -339,7 +339,17 @@ def _tmap_reverse(coord: Coordinate) -> str | None:
         )
         if resp.status_code != 200:
             return None
-        full = (resp.json().get("addressInfo", {}).get("fullAddress") or "").strip()
+        info = resp.json().get("addressInfo", {})
+        # addressType=A10 의 fullAddress 는 행정동·지번·도로명 주소를 공백으로 이어붙여
+        # "…합정동 …합정동 355-1 …어울마당로3길 19 …" 처럼 읽기 불가능하다(실기기 보고).
+        # 구조 필드로 도로명(없으면 지번) 주소 '하나만' 조립하고, 실패 시에만 fullAddress.
+        road = " ".join(p for p in (info.get("city_do"), info.get("gu_gun"),
+                                    info.get("roadName"), info.get("buildingIndex")) if p)
+        if road and info.get("buildingName"):
+            road = f"{road} {info['buildingName']}"
+        jibun = " ".join(p for p in (info.get("city_do"), info.get("gu_gun"),
+                                     info.get("legalDong"), info.get("bunji")) if p)
+        full = (road or jibun or info.get("fullAddress") or "").strip()
         return full or None
     except (requests.RequestException, KeyError, ValueError):
         return None
