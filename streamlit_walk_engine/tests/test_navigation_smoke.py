@@ -14,7 +14,10 @@ def test_navigation_page_renders_with_transit_toggle():
     app.run(timeout=30)
 
     assert not app.exception
-    assert any("대중교통 포함" in toggle.label for toggle in app.toggle)
+    # '대중교통 포함' 토글은 출발 버튼 2개(걷기/대중교통+걷기)로 대체됐다.
+    labels = [b.label for b in app.button]
+    assert any("🚶 걷기" in lb for lb in labels)
+    assert any("대중교통+걷기" in lb for lb in labels)
 
 
 def test_navigation_source_clears_journey_for_non_journey_flows():
@@ -31,7 +34,7 @@ def test_deviation_confirmation_defaults_are_faster():
     (deviated = 연속샘플 OR 지속시간 둘 중 먼저 충족되므로 둘 다 낮춰야 체감이 빨라진다.)"""
     source = PAGE.read_text(encoding="utf-8")
 
-    assert 'st.slider("연속 샘플", 1, 5, 2)' in source     # 기본 3 → 2
+    assert '"연속 감지 횟수", 1, 5, 2' in source           # 기본 3 → 2 (라벨은 쉬운 말)
     assert "minimum_drift_duration_ms=2000" in source       # 기본 4000 → 2000
 
 
@@ -52,8 +55,9 @@ def test_transit_toggle_does_not_use_session_key_as_widget_key():
     source = PAGE.read_text(encoding="utf-8")
 
     assert 'key="nav_transit_enabled"' not in source
-    # value=세션값 → 반환값을 세션에 대입하는 패턴(위젯키 미사용)이어야 한다.
-    assert 'st.session_state["nav_transit_enabled"] = transit_on' in source
+    # 토글 대신 출발 버튼 2개가 세션에 직접 대입한다(위젯키 미사용 원칙 유지).
+    assert 'st.session_state["nav_transit_enabled"] = False' in source
+    assert 'st.session_state["nav_transit_enabled"] = True' in source
 
 
 def test_booking_rearms_only_after_leaving_start_radius():
