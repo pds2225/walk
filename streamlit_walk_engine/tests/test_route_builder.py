@@ -246,6 +246,26 @@ class TestRouteInfoExtraction:
         assert info.total_time_seconds is None
         assert info.turn_descriptions == {}
 
+    def test_missing_time_estimated_from_distance_at_4kmh(self):
+        """API 가 totalTime 을 안 주면 시속 4km(사용자 지정 기준)로 추정해 표시가 비지 않는다."""
+        _, info = _route_from_tmap_features([
+            _point(200, *A, totalDistance=435),   # totalTime 없음
+            _line(A, B, C),
+        ])
+        assert info.total_distance_meters == 435
+        assert info.total_time_seconds == 392     # 435m ÷ (4km/h≈1.111m/s) ≈ 392초 ≈ 약 7분
+
+
+class TestEstimateWalkingSeconds:
+    """도보 시간 추정 — 시속 4km(분당 약 67m, 사용자 지정 실사용 기준)."""
+
+    def test_one_km_takes_15_minutes(self):
+        assert route_builder.estimate_walking_seconds(1000) == 900   # 15분
+
+    def test_none_and_zero_return_none(self):
+        assert route_builder.estimate_walking_seconds(None) is None
+        assert route_builder.estimate_walking_seconds(0) is None
+
     def test_filtered_turn_has_no_description_entry(self):
         # 경계에서 제외된 회전의 안내문은 매핑에 남지 않아야 함
         route, info = _route_from_tmap_features([

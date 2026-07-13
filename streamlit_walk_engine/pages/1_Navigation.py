@@ -237,6 +237,7 @@ def _init() -> None:
         "nav_last_weak_toast_ts_ms": None,
         "nav_alert_enabled": True,
         "nav_tts_enabled": True,
+        "nav_turn_announced_id": None,   # 회전 예고 음성을 낸 회전점 id(회전점당 1회)
         "nav_origin_address": None,
         "nav_origin_address_coord": None,
         "nav_dest_display": None,
@@ -764,6 +765,45 @@ def _trigger_alert(state: str, tts: bool = True) -> None:
         f"}})();</script>",
         height=0,
     )
+
+
+# 다음 회전 예고 음성 거리(m). 실제 엔진+GPS 노이즈(σ6m)+1초 폴링 시뮬(720회 보행) 실측:
+# 10m = 보통 걸음(시속 5km) 평균 9초 전(천천 14s/빠름 7s, 최악 p10 3.6s — 음성 2초+반응 확보).
+# 30m 는 평균 24초 전으로 너무 일렀음(실기기 피드백).
+_TURN_ANNOUNCE_M = 10.0
+_TURN_LABEL = {"left": "좌회전", "right": "우회전"}  # 직진은 예고 소음이라 생략
+
+
+def _maybe_announce_turn(result, tts_enabled: bool) -> None:
+    """다음 회전이 가까워지면(기본 30m) '잠시 후 좌/우회전입니다'를 음성·토스트로 예고한다.
+
+    상태 경고(이탈 등)와 별개인 '어디로 가라' 안내. 같은 회전점은 다시 예고하지
+    않는다(nav_turn_announced_id, 회전점당 1회 — 1초 폴링에서 반복 발화 방지).
+    재탐색 시 id 를 리셋해 새 경로의 회전도 정상 예고된다.
+    """
+    turn_id = result.metrics.nearest_turn_point_id
+    dist = result.metrics.distance_to_next_turn_point_meters
+    if not turn_id or dist is None or dist > _TURN_ANNOUNCE_M:
+        return
+    if st.session_state.get("nav_turn_announced_id") == turn_id:
+        return
+    direction = None
+    route_now = st.session_state.get("nav_route")
+    if route_now is not None:
+        for tp in route_now.turn_points:
+            if tp.id == turn_id:
+                direction = tp.direction
+                break
+    label = _TURN_LABEL.get(direction or "")
+    if not label:
+        return  # 직진·방향 불명은 예고 생략
+    st.session_state["nav_turn_announced_id"] = turn_id
+    st.toast(f"{_DIR_ARROW.get(direction, '↑')} 잠시 후 {label} — {dist:.0f}m 앞")
+    if tts_enabled:
+        components.html(
+            f"<script>(function(){{{build_tts_script(f'잠시 후 {label}입니다.')}}})();</script>",
+            height=0,
+        )
 
 
 # ── 도착 판정 ─────────────────────────────────────────────────────────────────
@@ -2162,6 +2202,9 @@ def main() -> None:
             st.session_state["nav_last_alerted_state"] = decision.new_last_alerted
             st.session_state["nav_last_weak_toast_ts_ms"] = decision.new_last_weak_ts_ms
 
+            # 다음 회전 예고 — 상태 경고와 별개인 '어디로 가라' 음성 안내.
+            _maybe_announce_turn(result, st.session_state["nav_tts_enabled"])
+
             dest_coord: Optional[Coordinate] = st.session_state["nav_dest"]
             if (
                 st.session_state["nav_reroute_enabled"]
@@ -2197,6 +2240,8 @@ def main() -> None:
                             "nav_reroute_count":       new_count,
                             "nav_last_alerted_state":  "on_route",
                             "nav_last_weak_toast_ts_ms": None,
+                            # 새 경로의 회전점 id 가 옛 id 와 겹쳐도 예고가 막히지 않게 리셋
+                            "nav_turn_announced_id":   None,
                         })
                         if st.session_state.get("nav_journey") is not None:
                             # 여정 누적 집계 — nav_reroute_count 는 레그 전환 시 리셋되므로 별도.

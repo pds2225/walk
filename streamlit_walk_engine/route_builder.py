@@ -36,6 +36,19 @@ class RouteInfo:
     turn_descriptions: dict[str, str] = field(default_factory=dict)  # TurnPoint.id → 안내문
 
 
+# 도보 소요시간 추정 기준(사용자 지정): 시속 4km(분당 약 67m) — 신호대기·횡단보도·
+# 길찾기 지연까지 반영한 실사용 기준(3.5~4km/h)의 안전값. API(TMAP/Valhalla)가
+# 시간을 주면 그 값을 우선하고, 없을 때만 이 기준으로 추정해 표시가 비지 않게 한다.
+WALKING_SPEED_KMH = 4.0
+
+
+def estimate_walking_seconds(distance_meters: int | float | None) -> int | None:
+    """거리(m) → 도보 소요초(시속 4km 기준). 거리가 없으면 None."""
+    if not distance_meters or distance_meters <= 0:
+        return None
+    return int(round(float(distance_meters) / (WALKING_SPEED_KMH * 1000.0 / 3600.0)))
+
+
 _NOMINATIM_SEARCH = "https://nominatim.openstreetmap.org/search"
 _NOMINATIM_REVERSE = "https://nominatim.openstreetmap.org/reverse"
 _VALHALLA = "https://valhalla1.openstreetmap.de/route"
@@ -643,7 +656,8 @@ def _route_from_tmap_features(features: list[dict]) -> tuple[RouteModel, RouteIn
     route = RouteModel(polyline=tuple(coords), turn_points=tuple(turn_points))
     info = RouteInfo(
         total_distance_meters=total_distance,
-        total_time_seconds=total_time,
+        total_time_seconds=(total_time if total_time is not None
+                            else estimate_walking_seconds(total_distance)),
         turn_descriptions=turn_descriptions,
     )
     return route, info
@@ -732,9 +746,11 @@ def _fetch_walking_route_valhalla(origin: Coordinate, dest: Coordinate) -> tuple
         ))
 
     summary = leg.get("summary", {})
+    dist_m = int(summary["length"] * 1000) if "length" in summary else None
     info = RouteInfo(
-        total_distance_meters=int(summary["length"] * 1000) if "length" in summary else None,
-        total_time_seconds=int(summary["time"]) if "time" in summary else None,
+        total_distance_meters=dist_m,
+        total_time_seconds=(int(summary["time"]) if "time" in summary
+                            else estimate_walking_seconds(dist_m)),
     )
     return RouteModel(polyline=tuple(polyline), turn_points=tuple(turn_points)), info
 

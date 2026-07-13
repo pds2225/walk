@@ -237,16 +237,22 @@
       "type": "file"
     },
     {
+      "path": "RESUME.md",
+      "accessCount": 8,
+      "lastAccessed": 1783935360494,
+      "type": "file"
+    },
+    {
       "path": "streamlit_walk_engine\\snap_router.py",
       "accessCount": 7,
       "lastAccessed": 1783860904672,
       "type": "file"
     },
     {
-      "path": "RESUME.md",
-      "accessCount": 5,
-      "lastAccessed": 1783927669527,
-      "type": "file"
+      "path": ".worktrees\\turnvoice\\streamlit_walk_engine\\pages\\1_Navigation.py",
+      "accessCount": 7,
+      "lastAccessed": 1783934041485,
+      "type": "directory"
     },
     {
       "path": ".worktrees\\wording\\streamlit_walk_engine\\tests\\test_navigation_smoke.py",
@@ -267,16 +273,16 @@
       "type": "directory"
     },
     {
+      "path": "streamlit_walk_engine",
+      "accessCount": 3,
+      "lastAccessed": 1783935111709,
+      "type": "directory"
+    },
+    {
       "path": "streamlit_walk_engine\\tests\\test_navigation_smoke.py",
       "accessCount": 2,
       "lastAccessed": 1783860791909,
       "type": "file"
-    },
-    {
-      "path": "streamlit_walk_engine",
-      "accessCount": 2,
-      "lastAccessed": 1783860912147,
-      "type": "directory"
     },
     {
       "path": ".worktrees\\harden\\streamlit_walk_engine\\snap_router.py",
@@ -300,6 +306,18 @@
       "path": ".worktrees\\tick1s\\streamlit_walk_engine\\tests\\test_navigation_smoke.py",
       "accessCount": 2,
       "lastAccessed": 1783927493698,
+      "type": "file"
+    },
+    {
+      "path": ".worktrees\\turnvoice\\streamlit_walk_engine\\tests\\test_navigation_smoke.py",
+      "accessCount": 2,
+      "lastAccessed": 1783934069150,
+      "type": "file"
+    },
+    {
+      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\turn_timing_sim.py",
+      "accessCount": 2,
+      "lastAccessed": 1783934861463,
       "type": "file"
     },
     {
