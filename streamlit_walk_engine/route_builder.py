@@ -134,21 +134,29 @@ def _naver_geocode(query: str) -> tuple[Coordinate, str] | None:
         return None
 
 
-def _tmap_poi_results(query: str, limit: int = 5) -> list[tuple[Coordinate, str]]:
+def _tmap_poi_results(query: str, limit: int = 5,
+                      center: Coordinate | None = None) -> list[tuple[Coordinate, str]]:
     """TMAP 장소(POI) 통합검색 — '경복궁'처럼 주소가 아닌 장소명을 좌표로 변환.
 
     Naver 지오코딩은 주소 전용이라 장소명 검색이 비는데, 그 빈틈을 국내 POI DB로
     메운다. 앱키 없음·오류·결과 없음이면 빈 리스트(다음 폴백으로 넘어감).
     좌표는 입구(frontLat/Lon)를 우선하고 0이거나 없으면 중심점(noorLat/Lon)을 쓴다.
+    center 를 주면 그 좌표 기준 '거리순'으로 검색한다(searchtypCd=R) — 전국 인기순
+    상위 N개만 받아 그중에서 정렬하던 한계(가까운 지점이 후보에 아예 못 듦)를 제거.
     """
     app_key = _tmap_app_key()
     if not app_key:
         return []
+    params = {"version": "1", "searchKeyword": query, "count": limit,
+              "reqCoordType": "WGS84GEO", "resCoordType": "WGS84GEO"}
+    if center is not None:
+        params.update({"centerLat": f"{center.latitude:.8f}",
+                       "centerLon": f"{center.longitude:.8f}",
+                       "searchtypCd": "R"})
     try:
         resp = requests.get(
             _TMAP_POI,
-            params={"version": "1", "searchKeyword": query, "count": limit,
-                    "reqCoordType": "WGS84GEO", "resCoordType": "WGS84GEO"},
+            params=params,
             headers={"appKey": app_key, "Accept": "application/json"},
             timeout=_TIMEOUT,
         )
@@ -211,11 +219,13 @@ def geocode_address(query: str) -> tuple[Coordinate, str] | None:
     return None
 
 
-def geocode_suggestions(query: str, limit: int = 5) -> list[tuple[Coordinate, str]]:
+def geocode_suggestions(query: str, limit: int = 5,
+                        center: Coordinate | None = None) -> list[tuple[Coordinate, str]]:
     """검색어로 후보 장소 목록을 반환(경로 탐색 전 미리보기/자동완성용).
 
     Naver(주소 전용) → TMAP 장소(POI) → Nominatim 변형 검색 순으로 보충.
     키 없음·네트워크 오류·결과 없음이면 빈 리스트(예외를 호출부로 전파하지 않음).
+    center(현재 위치)를 주면 TMAP POI 를 그 좌표 기준 거리순으로 가져온다.
     """
     q = (query or "").strip()
     if not q:
@@ -251,7 +261,7 @@ def geocode_suggestions(query: str, limit: int = 5) -> list[tuple[Coordinate, st
     # 2) Naver(주소 전용) 결과가 없으면 TMAP 장소(POI) 검색으로 보충 —
     #    '경복궁' 같은 장소명은 여기서 잡힌다 (키 없으면 빈 리스트로 통과)
     if not out:
-        for coord, display in _tmap_poi_results(q, limit):
+        for coord, display in _tmap_poi_results(q, limit, center=center):
             _add(coord.latitude, coord.longitude, display)
 
     # 3) 둘 다 없을 때만 Nominatim 변형 검색으로 폴백
