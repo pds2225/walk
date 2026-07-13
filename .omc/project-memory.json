@@ -202,8 +202,8 @@
   "hotPaths": [
     {
       "path": "streamlit_walk_engine\\pages\\1_Navigation.py",
-      "accessCount": 76,
-      "lastAccessed": 1783860950794,
+      "accessCount": 84,
+      "lastAccessed": 1783911635890,
       "type": "file"
     },
     {
@@ -228,6 +228,12 @@
       "path": "streamlit_walk_engine\\snap_router.py",
       "accessCount": 7,
       "lastAccessed": 1783860904672,
+      "type": "file"
+    },
+    {
+      "path": ".worktrees\\wording\\streamlit_walk_engine\\pages\\1_Navigation.py",
+      "accessCount": 5,
+      "lastAccessed": 1783911766310,
       "type": "file"
     },
     {
@@ -267,6 +273,12 @@
       "type": "file"
     },
     {
+      "path": ".worktrees\\wording\\streamlit_walk_engine\\tests\\test_navigation_smoke.py",
+      "accessCount": 2,
+      "lastAccessed": 1783911542154,
+      "type": "file"
+    },
+    {
       "path": "streamlit_walk_engine\\tests\\test_snap_router.py",
       "accessCount": 1,
       "lastAccessed": 1783860109156,
@@ -282,6 +294,12 @@
       "path": ".worktrees\\harden\\streamlit_walk_engine",
       "accessCount": 1,
       "lastAccessed": 1783860242976,
+      "type": "directory"
+    },
+    {
+      "path": ".worktrees\\wording\\streamlit_walk_engine\\tests",
+      "accessCount": 1,
+      "lastAccessed": 1783911507587,
       "type": "directory"
     }
   ],
