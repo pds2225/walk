@@ -581,6 +581,37 @@ class TestTmapPoiResults:
         monkeypatch.setattr(route_builder.requests, "get", lambda *a, **k: _FakeResp(403, {}))
         assert route_builder._tmap_poi_results("경복궁") == []
 
+    def test_center_requests_distance_sort(self, monkeypatch):
+        """center(현재 위치)를 주면 TMAP 에 거리순(searchtypCd=R)+중심좌표로 요청한다 —
+        전국 인기순 상위 N개만 받아 그중에서 정렬하던 한계(근처 지점 누락) 제거."""
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: "k")
+        captured: dict = {}
+
+        def _capture(url, params=None, **k):
+            captured.update(params or {})
+            return _FakeResp(200, {"searchPoiInfo": {"pois": {"poi": []}}})
+
+        monkeypatch.setattr(route_builder.requests, "get", _capture)
+        center = route_builder.Coordinate(latitude=37.55, longitude=126.91)
+        route_builder._tmap_poi_results("카페", 5, center=center)
+        assert captured.get("searchtypCd") == "R"
+        assert str(captured.get("centerLat", "")).startswith("37.55")
+        assert str(captured.get("centerLon", "")).startswith("126.91")
+
+    def test_no_center_keeps_default_params(self, monkeypatch):
+        """center 없으면 기존 파라미터 그대로(정확도순) — 회귀 방지."""
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: "k")
+        captured: dict = {}
+
+        def _capture(url, params=None, **k):
+            captured.update(params or {})
+            return _FakeResp(200, {"searchPoiInfo": {"pois": {"poi": []}}})
+
+        monkeypatch.setattr(route_builder.requests, "get", _capture)
+        route_builder._tmap_poi_results("카페", 5)
+        assert "searchtypCd" not in captured
+        assert "centerLat" not in captured
+
     def test_skips_poi_without_usable_coords(self, monkeypatch):
         monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: "k")
         payload = {"searchPoiInfo": {"pois": {"poi": [
@@ -630,7 +661,8 @@ class TestGeocodeFallbackChain:
     def test_suggestions_use_tmap_poi_when_naver_empty(self, monkeypatch):
         monkeypatch.setattr(route_builder, "_naver_headers", lambda: None)
         hit = (Coordinate(latitude=37.5, longitude=127.0), "경복궁, 서울 종로구")
-        monkeypatch.setattr(route_builder, "_tmap_poi_results", lambda q, limit=5: [hit])
+        monkeypatch.setattr(route_builder, "_tmap_poi_results",
+                            lambda q, limit=5, center=None: [hit])
         def _boom(*a, **k):
             raise AssertionError("POI 성공 시 Nominatim을 호출하면 안 됨")
         monkeypatch.setattr(route_builder.requests, "get", _boom)
