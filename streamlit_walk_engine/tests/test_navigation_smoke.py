@@ -90,3 +90,15 @@ def test_recent_chip_reroute_respects_transit_setting():
 
     assert "transit_builder.fetch_transit_journey" in block
     assert "_activate_journey" in block
+
+
+def test_turn_direction_voice_announcement():
+    """다음 회전 30m 앞에서 '잠시 후 좌/우회전입니다'를 회전점당 1회 예고한다.
+    (상태 경고와 별개인 '어디로 가라' 음성 — 1초 폴링 반복 발화 방지 id 가드,
+    재탐색 시 id 리셋으로 새 경로 회전도 예고.)"""
+    source = PAGE.read_text(encoding="utf-8")
+
+    assert "_TURN_ANNOUNCE_M = 30.0" in source
+    assert "잠시 후 {label}입니다." in source
+    assert "_maybe_announce_turn(result" in source          # GPS 처리 루프에 배선됨
+    assert source.count('"nav_turn_announced_id"') >= 3     # 기본값·가드·재탐색 리셋
