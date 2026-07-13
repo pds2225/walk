@@ -213,6 +213,12 @@
       "type": "file"
     },
     {
+      "path": ".worktrees\\wording\\streamlit_walk_engine\\pages\\1_Navigation.py",
+      "accessCount": 27,
+      "lastAccessed": 1783912250496,
+      "type": "file"
+    },
+    {
       "path": "streamlit_walk_engine\\engine.py",
       "accessCount": 9,
       "lastAccessed": 1783860877084,
@@ -231,15 +237,15 @@
       "type": "file"
     },
     {
-      "path": ".worktrees\\wording\\streamlit_walk_engine\\pages\\1_Navigation.py",
-      "accessCount": 5,
-      "lastAccessed": 1783911766310,
-      "type": "file"
-    },
-    {
       "path": "RESUME.md",
       "accessCount": 4,
       "lastAccessed": 1783862450022,
+      "type": "file"
+    },
+    {
+      "path": ".worktrees\\wording\\streamlit_walk_engine\\tests\\test_navigation_smoke.py",
+      "accessCount": 4,
+      "lastAccessed": 1783912266280,
       "type": "file"
     },
     {
@@ -273,10 +279,10 @@
       "type": "file"
     },
     {
-      "path": ".worktrees\\wording\\streamlit_walk_engine\\tests\\test_navigation_smoke.py",
+      "path": ".worktrees\\wording\\streamlit_walk_engine\\tests",
       "accessCount": 2,
-      "lastAccessed": 1783911542154,
-      "type": "file"
+      "lastAccessed": 1783912020964,
+      "type": "directory"
     },
     {
       "path": "streamlit_walk_engine\\tests\\test_snap_router.py",
@@ -294,12 +300,6 @@
       "path": ".worktrees\\harden\\streamlit_walk_engine",
       "accessCount": 1,
       "lastAccessed": 1783860242976,
-      "type": "directory"
-    },
-    {
-      "path": ".worktrees\\wording\\streamlit_walk_engine\\tests",
-      "accessCount": 1,
-      "lastAccessed": 1783911507587,
       "type": "directory"
     }
   ],
