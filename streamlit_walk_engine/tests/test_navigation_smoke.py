@@ -102,3 +102,14 @@ def test_turn_direction_voice_announcement():
     assert "잠시 후 {label}입니다." in source
     assert "_maybe_announce_turn(result" in source          # GPS 처리 루프에 배선됨
     assert source.count('"nav_turn_announced_id"') >= 3     # 기본값·가드·재탐색 리셋
+
+
+def test_reroute_success_announced_by_voice():
+    """재탐색 성공이 화면 토스트뿐이면 폰을 안 보는 보행자는 새 경로를 찾았는지 알 수
+    없다(실기기 보고) — 재탐색 성공 블록 안에서 TTS 로도 알린다(음성 안내 토글 존중)."""
+    source = PAGE.read_text(encoding="utf-8")
+    start = source.index('"nav_reroute_count":       new_count')
+    block = source[start:start + 1600]
+
+    assert "경로를 다시 찾았습니다. 새 경로로 안내합니다." in block
+    assert 'st.session_state["nav_tts_enabled"]' in block   # 음성 토글 존중

@@ -2248,6 +2248,17 @@ def main() -> None:
                             st.session_state["nav_journey_reroute_total"] = \
                                 (st.session_state.get("nav_journey_reroute_total") or 0) + 1
                         st.toast(f"🔄 길을 다시 찾았어요 (재탐색 {new_count}회) — 새 경로로 안내합니다")
+                        # 이탈 음성("경로를 이탈하였습니다") 뒤 재탐색 성공이 화면 토스트뿐이면
+                        # 폰을 안 보는 보행자는 새 경로를 찾았는지 알 수 없다(실기기 보고:
+                        # '경로이탈 후 가는길 음성안내 없음') → 성공도 음성으로 알린다.
+                        # 새 경로의 회전 방향은 id 리셋 덕에 다음 표본부터 정상 예고된다.
+                        if st.session_state["nav_tts_enabled"]:
+                            components.html(
+                                "<script>(function(){"
+                                + build_tts_script("경로를 다시 찾았습니다. 새 경로로 안내합니다.")
+                                + "})();</script>",
+                                height=0,
+                            )
                     except Exception as e:
                         st.warning(f"자동 재탐색 실패: {e}")
 
