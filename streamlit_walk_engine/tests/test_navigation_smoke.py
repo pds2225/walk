@@ -113,3 +113,15 @@ def test_reroute_success_announced_by_voice():
 
     assert "경로를 다시 찾았습니다. 새 경로로 안내합니다." in block
     assert 'st.session_state["nav_tts_enabled"]' in block   # 음성 토글 존중
+
+
+def test_map_zoom_persists_across_reruns():
+    """사용자가 지도를 확대/이동하면 1초 rerun 에도 유지되어야 한다(실기기 보고:
+    확대해도 1초 뒤 원래대로 복귀). plotly uirevision + 고정 key 로 카메라를 보존하고,
+    재탐색·새 경로에서만 revision 이 바뀌어 새 경로 기준으로 리셋된다."""
+    source = PAGE.read_text(encoding="utf-8")
+
+    assert "uirevision=ui_revision" in source               # _build_map 카메라 보존
+    assert 'key="nav_map"' in source                        # 차트 컴포넌트 identity 고정
+    assert "route-{st.session_state['nav_reroute_count']}" in source  # 재탐색 시에만 리셋
+    assert 'uirevision="nav-placeholder"' in source         # 경로 전 지도도 유지
