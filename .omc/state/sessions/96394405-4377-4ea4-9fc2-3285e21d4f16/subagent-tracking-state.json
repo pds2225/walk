@@ -516,11 +516,13 @@
       "agent_type": "general-purpose",
       "started_at": "2026-07-14T07:51:31.596Z",
       "parent_mode": "none",
-      "status": "running"
+      "status": "completed",
+      "completed_at": "2026-07-14T08:06:30.349Z",
+      "duration_ms": 898753
     }
   ],
   "total_spawned": 50,
-  "total_completed": 55,
+  "total_completed": 56,
   "total_failed": 0,
-  "last_updated": "2026-07-14T07:51:31.708Z"
+  "last_updated": "2026-07-14T08:06:30.454Z"
 }

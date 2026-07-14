@@ -41,7 +41,7 @@
   },
   "build": {
     "buildCommand": null,
-    "testCommand": "cd /d/walk/.worktrees/accuracy/streamlit_walk_engine && python -m pytest tests -q 2>&1 | tail -8",
+    "testCommand": "cd /d/walk && git pull --ff-only origin main 2>&1 | tail -1 && git log --oneline -1 && python -m pytest streamlit_walk_engine/tests -q 2>&1 | tail -2; git worktree remove .worktrees/accuracy --force 2>&1 | tail -1; git branch -D feat/gps-accuracy-p1 2>&1 | tail -1; git push origin --delete feat/gps-accuracy-p1 2>&1 | tail -1",
     "lintCommand": "npm run lint",
     "devCommand": null,
     "scripts": {
@@ -232,8 +232,8 @@
     },
     {
       "path": "RESUME.md",
-      "accessCount": 11,
-      "lastAccessed": 1784015640540,
+      "accessCount": 12,
+      "lastAccessed": 1784016621002,
       "type": "file"
     },
     {
@@ -414,6 +414,12 @@
       "path": "VISION_SOCIAL.md",
       "accessCount": 1,
       "lastAccessed": 1784015592570,
+      "type": "file"
+    },
+    {
+      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\accuracy_p1_sim.py",
+      "accessCount": 1,
+      "lastAccessed": 1784016283661,
       "type": "file"
     }
   ],

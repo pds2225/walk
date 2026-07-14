@@ -298,8 +298,15 @@ def sanitize_motion(
 # 이탈 임계를 8m 이하로 낮추면 이 값도 함께 낮춰야 한다.
 SMOOTH_RECENT_WINDOW = 5          # 정지 median 계산용 최근 fix 버퍼 길이
 SMOOTH_SKIP_MOVE_M = 8.0          # 이 이상 이동하면 스무딩 생략(코너링·급이동 지연 방지)
-SMOOTH_STATIONARY_MOVE_M = 2.0    # 이 미만 이동이면 정지로 보고 median 사용
+# [deprecated] per-tick 정지 판정 임계 — is_stationary(버퍼 순변위 기반)로 대체됨.
+# 1초 폴링에서 per-tick 이동(~1.1m)은 정지 지터와 구분 불가라 이 상수로는 판정하지
+# 않는다. 값을 0.7 등으로 단독 하향하면 정지 지터(1~2m)가 임계를 넘어 median이
+# 죽으므로 금지. 하위호환(외부 참조) 위해 상수만 유지.
+SMOOTH_STATIONARY_MOVE_M = 2.0
 SMOOTH_MEDIAN_MIN_FIXES = 3       # median에 필요한 최소 fix 수
+# 정지 판정용 버퍼 '순변위' 상한(m) — 5틱(≈5초) 첫↔끝 직선거리가 이 미만이면 정지.
+# 정지 GPS 지터 순변위(수십cm~2m)보다 크고 보행 순변위(시속 4km 기준 ~5.5m)보다 작게.
+STATIONARY_NET_MOVE_MAX_M = 2.5
 
 
 def accuracy_weighted_blend(
@@ -349,3 +356,52 @@ def median_position(points: list[tuple[float, float]]) -> tuple[float, float]:
         return (s[mid - 1] + s[mid]) / 2.0
 
     return _median([p[0] for p in points]), _median([p[1] for p in points])
+
+
+def should_skip_duplicate_fix(new_ts: Optional[int], prev_ts: Optional[int]) -> bool:
+    """같은 timestamp의 fix(브라우저 maximumAge 캐시 재전달)면 True — 그 틱을 건너뛴다.
+
+    getCurrentPosition(maximumAge>0)은 캐시된 '같은' fix를 폴링마다 다시 줄 수 있다.
+    같은 fix를 새 측정처럼 재처리하면 recent 버퍼가 동일 점으로 차고 blend가 stale
+    fix 쪽으로 지수 수렴하며 reject streak도 오염된다. timestamp가 하나라도 없으면
+    (수동 입력·미보고 브라우저) 정상 처리를 막지 않도록 False.
+    """
+    return new_ts is not None and prev_ts is not None and new_ts == prev_ts
+
+
+def is_stationary(
+    recent: list[tuple[float, float]],
+    net_move_max_m: float = STATIONARY_NET_MOVE_MAX_M,
+    min_fixes: int = SMOOTH_MEDIAN_MIN_FIXES,
+) -> bool:
+    """최근 fix 버퍼의 '순변위'(첫↔끝 직선거리)로 정지 여부를 판정한다.
+
+    per-tick 이동량 판정을 쓰지 않는 이유: 1초 폴링·시속 4km 보행은 틱당 ~1.1m로
+    정지 GPS 지터(1~2m)와 구분되지 않아, 정상 보행이 '정지'로 오분류돼 median
+    스무딩이 2~3초 lag을 만들었다. 버퍼(5틱≈5초) 순변위는 보행 ~5.5m vs 정지
+    수십cm~2m로 확실히 갈린다. len < min_fixes(기본 3)면 근거 부족 → False.
+    """
+    if len(recent) < min_fixes:
+        return False
+    first, last = recent[0], recent[-1]
+    net_move = distance_meters(
+        Coordinate(latitude=first[0], longitude=first[1]),
+        Coordinate(latitude=last[0], longitude=last[1]),
+    )
+    return net_move < net_move_max_m
+
+
+def announce_distance_m(accuracy_m: Optional[float], base_m: float = 10.0) -> float:
+    """회전 예고 발화 거리(m)를 GPS accuracy로 보정한다.
+
+    accuracy가 나쁠수록 측위가 실제 위치보다 늦게 회전점에 '도달'한 것처럼 보여
+    예고가 회전을 지나친 뒤에 나온다 — 나쁜 만큼 예고 거리를 키운다.
+    - None(수동 입력 등)·GOOD(≤15m) → base_m(기본 10m, 실측 시뮬: 보통 걸음 평균 9초 전).
+    - FAIR(15~35m) → base + (acc-15)*0.5, 최대 +10 (35m에서 20m로 연속).
+    - POOR(>35m) → 20m 고정 상한 — 더 키우면 '너무 이른 예고'(30m=평균 24초 전)로 회귀.
+    """
+    if accuracy_m is None or accuracy_m <= GOOD_ACCURACY_M:
+        return base_m
+    if accuracy_m <= FAIR_ACCURACY_M:
+        return base_m + min((accuracy_m - GOOD_ACCURACY_M) * 0.5, 10.0)
+    return base_m + 10.0
