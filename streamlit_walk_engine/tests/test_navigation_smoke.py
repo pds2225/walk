@@ -115,6 +115,51 @@ def test_reroute_success_announced_by_voice():
     assert 'st.session_state["nav_tts_enabled"]' in block   # 음성 토글 존중
 
 
+def test_gps_dedup_and_poll_age_match_one_second_polling():
+    """P1-1: 같은 fix 멱등성 — maximumAge는 폴링 주기(1초)와 동일해야 하고(3000이면
+    같은 캐시 fix 최대 3틱 재처리, 0이면 콜드 재취득으로 실효주기 악화), timestamp
+    동일 fix는 틱 전체 skip(버퍼 append·blend·reject streak 증가 모두 생략)."""
+    source = PAGE.read_text(encoding="utf-8")
+
+    assert "maximumAge:1000" in source                       # 라이브 단일 fix 취득
+    assert "maximumAge:3000" not in source                   # 옛 3초 캐시 제거
+    assert "should_skip_duplicate_fix" in source             # dedup 가드 배선됨
+    # 중복 fix가 '점프 기각' 분기로 새지 않는다(streak 오염 방지)
+    assert "elif not dup_fix:" in source
+
+
+def test_raw_judgment_display_smoothed_split():
+    """P1-3: 판정 raw / 표시 smoothed 이원화 — nav_origin은 수용된 raw fix(엔진 샘플·
+    도착·레그 전환·snap 판정), nav_display_origin은 스무딩 결과(지도 마커·현재위치
+    카드). 표시 체인의 prev 앵커는 display(raw면 blend가 지터에 재오염)."""
+    source = PAGE.read_text(encoding="utf-8")
+
+    assert '"nav_display_origin": None' in source            # _init 키 등록
+    # 수용 시: 판정은 raw, 표시는 smoothed로 분리 저장
+    assert 'st.session_state["nav_origin"] = new_origin' in source
+    assert 'st.session_state["nav_display_origin"] = smoothed' in source
+    # 표시 스무딩 앵커는 이전 '표시' 좌표(raw prev 아님)
+    assert 'disp_prev = st.session_state.get("nav_display_origin") or prev' in source
+    # 정지 판정은 per-tick(moved < SMOOTH_STATIONARY_MOVE_M)이 아니라 버퍼 순변위
+    assert "gps_filter.is_stationary(recent)" in source
+    assert "moved < gps_filter.SMOOTH_STATIONARY_MOVE_M" not in source
+    # 지도 현재위치 마커는 표시 좌표로 그린다
+    assert "display_coord=st.session_state.get(\"nav_display_origin\")" in source
+
+
+def test_gating_accuracy_stays_fresh_on_rejected_fixes():
+    """P1-5: 게이팅용 accuracy(nav_gating_acc)는 수용/기각 무관 매 GPS 응답 갱신 —
+    기각이 이어지는 신호 악화 구간에서 옛 '좋은' accuracy로 도착·레그 전환·snap이
+    게이팅되던 문제. 위치 자체는 기각 시 미갱신 유지."""
+    source = PAGE.read_text(encoding="utf-8")
+
+    assert '"nav_gating_acc": None' in source                # _init 키 등록
+    assert 'st.session_state["nav_gating_acc"] = acc' in source  # 응답마다 갱신
+    assert "def _gating_accuracy()" in source
+    # 도착·레그 전환·snap 세 곳이 최신 accuracy를 쓴다
+    assert source.count("_gating_accuracy()") >= 4           # 정의 1 + 사용 3
+
+
 def test_map_zoom_persists_across_reruns():
     """사용자가 지도를 확대/이동하면 1초 rerun 에도 유지되어야 한다(실기기 보고:
     확대해도 1초 뒤 원래대로 복귀). plotly uirevision + 고정 key 로 카메라를 보존하고,

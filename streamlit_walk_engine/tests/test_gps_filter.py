@@ -25,17 +25,21 @@ from gps_filter import (
     REROUTE_WARMUP_MS,
     JUMP_REJECT_STREAK_ESCAPE,
     JUMP_ELAPSED_ESCAPE_MS,
+    STATIONARY_NET_MOVE_MAX_M,
     WALK_SPEED_DEFAULT,
     accuracy_quality,
     alert_level,
+    announce_distance_m,
     decide_alert,
     is_fix_usable,
     is_arrival,
     in_reroute_warmup,
     is_plausible_step,
+    is_stationary,
     sanitize_motion,
     accuracy_weighted_blend,
     median_position,
+    should_skip_duplicate_fix,
 )
 
 
@@ -463,3 +467,99 @@ class TestMedianPosition:
         import pytest
         with pytest.raises(ValueError):
             median_position([])
+
+
+class TestShouldSkipDuplicateFix:
+    """P1-1: maximumAge 캐시가 돌려준 '같은' fix(timestamp 동일)는 틱 전체 skip."""
+
+    def test_same_timestamp_skips(self):
+        assert should_skip_duplicate_fix(1_000, 1_000) is True
+
+    def test_different_timestamp_processes(self):
+        assert should_skip_duplicate_fix(1_000, 999) is False
+        assert should_skip_duplicate_fix(999, 1_000) is False
+
+    # timestamp 미보고(수동 입력 등) → 정상 처리를 막지 않는다
+    def test_none_new_ts_processes(self):
+        assert should_skip_duplicate_fix(None, 1_000) is False
+
+    def test_none_prev_ts_processes(self):
+        assert should_skip_duplicate_fix(1_000, None) is False
+
+    def test_both_none_processes(self):
+        assert should_skip_duplicate_fix(None, None) is False
+
+
+class TestIsStationary:
+    """P1-2: 정지 판정은 per-tick 이동량이 아니라 버퍼 '순변위'(첫↔끝)로.
+
+    1초 폴링·시속 4km 보행은 틱당 ~1.1m로 정지 지터(1~2m)와 per-tick 구분 불가 —
+    5틱 순변위는 보행 ~5.5m vs 정지 수십cm로 확실히 갈린다.
+    """
+
+    LAT = 37.5665
+    LON = 126.9780
+    M_PER_DEG_LAT = 111_320.0  # 위도 1도 ≈ 111.32km (미터→도 변환용)
+
+    def _pt(self, north_m: float) -> tuple:
+        return (self.LAT + north_m / self.M_PER_DEG_LAT, self.LON)
+
+    def test_walking_net_displacement_is_not_stationary(self):
+        # 5틱 × 1.1m/틱 = 순변위 4.4m > 2.5m → 보행(정지 아님)
+        recent = [self._pt(i * 1.1) for i in range(5)]
+        assert is_stationary(recent) is False
+
+    def test_jitter_around_same_spot_is_stationary(self):
+        # 지터가 있어도 첫↔끝 순변위가 작으면 정지 (중간점 이동은 무관)
+        recent = [self._pt(0.0), self._pt(1.5), self._pt(-1.0), self._pt(0.3)]
+        assert is_stationary(recent) is True
+
+    def test_below_min_fixes_is_not_stationary(self):
+        # 근거 부족(len < 3) → 같은 자리여도 정지로 단정하지 않는다
+        assert is_stationary([self._pt(0.0), self._pt(0.1)]) is False
+
+    def test_exactly_min_fixes_same_spot_is_stationary(self):
+        assert is_stationary([self._pt(0.0)] * 3) is True
+
+    def test_net_move_above_threshold_is_not_stationary(self):
+        recent = [self._pt(0.0), self._pt(1.0), self._pt(3.0)]  # 순변위 3.0m > 2.5m
+        assert is_stationary(recent) is False
+
+    def test_net_move_below_threshold_is_stationary(self):
+        recent = [self._pt(0.0), self._pt(0.5), self._pt(1.0)]  # 순변위 1.0m < 2.5m
+        assert is_stationary(recent) is True
+
+    def test_custom_threshold(self):
+        recent = [self._pt(0.0), self._pt(1.0), self._pt(2.0)]  # 순변위 2.0m
+        assert is_stationary(recent, net_move_max_m=1.5) is False
+        assert is_stationary(recent, net_move_max_m=3.0) is True
+
+    def test_default_threshold_constant(self):
+        assert STATIONARY_NET_MOVE_MAX_M == 2.5
+
+
+class TestAnnounceDistanceM:
+    """P1-4: 회전 예고 거리 accuracy 보정 — GOOD 10m / FAIR 선형 증가 / POOR 20m 상한."""
+
+    def test_none_accuracy_uses_base(self):
+        assert announce_distance_m(None) == 10.0
+
+    def test_good_accuracy_uses_base(self):
+        assert announce_distance_m(5.0) == 10.0
+        assert announce_distance_m(GOOD_ACCURACY_M) == 10.0  # 경계 포함 ≤15
+
+    def test_fair_accuracy_scales_linearly(self):
+        assert announce_distance_m(25.0) == 15.0   # 10 + (25-15)*0.5
+        assert announce_distance_m(20.0) == 12.5
+
+    def test_fair_upper_boundary_is_continuous(self):
+        # 35m에서 10+min(10,10)=20 — poor 고정값 20과 연속(불연속 점프 없음)
+        assert announce_distance_m(FAIR_ACCURACY_M) == 20.0
+
+    def test_poor_accuracy_is_capped(self):
+        assert announce_distance_m(36.0) == 20.0
+        assert announce_distance_m(120.0) == 20.0  # 아무리 나빠도 상한 고정
+
+    def test_custom_base(self):
+        assert announce_distance_m(None, base_m=12.0) == 12.0
+        assert announce_distance_m(25.0, base_m=12.0) == 17.0
