@@ -41,7 +41,7 @@
   },
   "build": {
     "buildCommand": null,
-    "testCommand": "cd /d/walk/.worktrees/accuracy/streamlit_walk_engine && python -m pytest tests -q --collect-only 2>&1 | tail -3",
+    "testCommand": "cd /d/walk/.worktrees/accuracy/streamlit_walk_engine && python -m pytest tests -q 2>&1 | tail -8",
     "lintCommand": "npm run lint",
     "devCommand": null,
     "scripts": {
@@ -213,15 +213,15 @@
       "type": "file"
     },
     {
-      "path": ".worktrees\\wording\\streamlit_walk_engine\\pages\\1_Navigation.py",
-      "accessCount": 27,
-      "lastAccessed": 1783912250496,
+      "path": ".worktrees\\accuracy\\streamlit_walk_engine\\pages\\1_Navigation.py",
+      "accessCount": 29,
+      "lastAccessed": 1784016076909,
       "type": "file"
     },
     {
-      "path": ".worktrees\\accuracy\\streamlit_walk_engine\\pages\\1_Navigation.py",
-      "accessCount": 13,
-      "lastAccessed": 1784015914394,
+      "path": ".worktrees\\wording\\streamlit_walk_engine\\pages\\1_Navigation.py",
+      "accessCount": 27,
+      "lastAccessed": 1783912250496,
       "type": "file"
     },
     {
@@ -270,6 +270,12 @@
       "path": ".worktrees\\wording\\streamlit_walk_engine\\tests\\test_navigation_smoke.py",
       "accessCount": 4,
       "lastAccessed": 1783912266280,
+      "type": "file"
+    },
+    {
+      "path": ".worktrees\\accuracy\\streamlit_walk_engine\\tests\\test_gps_filter.py",
+      "accessCount": 4,
+      "lastAccessed": 1784016145770,
       "type": "file"
     },
     {
@@ -369,9 +375,9 @@
       "type": "file"
     },
     {
-      "path": ".worktrees\\accuracy\\streamlit_walk_engine\\tests\\test_gps_filter.py",
+      "path": ".worktrees\\accuracy\\streamlit_walk_engine\\tests\\test_navigation_smoke.py",
       "accessCount": 2,
-      "lastAccessed": 1784015762183,
+      "lastAccessed": 1784016172974,
       "type": "file"
     },
     {
@@ -396,12 +402,6 @@
       "path": "C:\\Users\\ekth3\\.claude\\projects\\d--walk\\memory\\walk-social-vision.md",
       "accessCount": 1,
       "lastAccessed": 1784015535220,
-      "type": "file"
-    },
-    {
-      "path": ".worktrees\\accuracy\\streamlit_walk_engine\\tests\\test_navigation_smoke.py",
-      "accessCount": 1,
-      "lastAccessed": 1784015539337,
       "type": "file"
     },
     {
