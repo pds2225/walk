@@ -130,7 +130,10 @@ def _get_geolocation_high_accuracy(component_key: str = "walk_hi_acc_geo", multi
             "navigator.geolocation.getCurrentPosition("
             "(p)=>resolve({" + coords_js + "}),"
             "(e)=>resolve({error:{code:e.code,message:e.message}}),"
-            "{enableHighAccuracy:true,maximumAge:3000,timeout:10000});"
+            # maximumAge=1000: 폴링 주기(1초)와 동일하게 — 3000이면 같은 캐시 fix가
+            # 최대 3틱 재처리돼 스무딩·판정이 stale 좌표로 오염된다. 0 금지: 매 틱
+            # 콜드 재취득(1~3초)이 강제돼 실효 샘플 주기가 오히려 나빠진다.
+            "{enableHighAccuracy:true,maximumAge:1000,timeout:10000});"
             f"}})/* {bucket} */"
         )
     geo = None
@@ -218,6 +221,11 @@ def render_dependency_error() -> None:
 def _init() -> None:
     for k, v in {
         "nav_origin": None,
+        # 표시 전용 스무딩 좌표 — nav_origin(수용된 raw fix, 판정용)과 이원화.
+        # smoothed 좌표가 엔진 판정에 유입되면 median lag(2~3초)만큼 판정도 늦는다.
+        "nav_display_origin": None,
+        # 게이팅(도착·레그 전환·snap)용 최신 accuracy — 수용/기각 무관 매 GPS 응답 갱신.
+        "nav_gating_acc": None,
         "nav_origin_coarse": False,
         "nav_origin_source": None,  # None | "gps" | "ip" | "cache" | "manual" — 대략위치 안내 문구 분기용
         "nav_lastfix_tried": False,        # 마지막 위치 캐시 복원 시도 완료 여부(1회)
@@ -284,6 +292,9 @@ def _reset() -> None:
     st.session_state["nav_arrival_summary"] = None
     st.session_state["nav_start_ts_ms"] = None
     st.session_state["nav_recent_fixes"] = []
+    # 표시 스무딩 체인·게이팅 accuracy도 새 안내 기준으로 재시드(다음 fix에서 재구성).
+    st.session_state["nav_display_origin"] = None
+    st.session_state["nav_gating_acc"] = None
 
 
 def _activate_route(
@@ -582,6 +593,8 @@ def _restore_last_fix() -> None:
     except (ValueError, TypeError, KeyError):
         return
     st.session_state["nav_origin"] = Coordinate(latitude=lat, longitude=lon)
+    # 부트스트랩은 판정/표시 좌표를 같은 값으로 시드(스무딩 이력이 없으므로 동일).
+    st.session_state["nav_display_origin"] = st.session_state["nav_origin"]
     # accuracy는 None으로 둬 옛 정밀도를 현재값처럼 보이지 않게 한다(안내는 cache 문구가 담당).
     st.session_state["nav_raw_gps"] = {
         "coords": {"latitude": lat, "longitude": lon, "accuracy": None},
@@ -657,7 +670,7 @@ def _build_snap_window(results, samples):
         last_pos = cur
         prev = cur
     net_move = distance_meters(first_pos, last_pos) if (first_pos is not None and last_pos is not None) else 0.0
-    acc = (st.session_state["nav_raw_gps"] or {}).get("coords", {}).get("accuracy")
+    acc = _gating_accuracy()  # 기각 구간에서도 최신 accuracy로 snap/재탐색 게이팅
     return window, net_move, acc
 
 
@@ -767,23 +780,28 @@ def _trigger_alert(state: str, tts: bool = True) -> None:
     )
 
 
-# 다음 회전 예고 음성 거리(m). 실제 엔진+GPS 노이즈(σ6m)+1초 폴링 시뮬(720회 보행) 실측:
+# 다음 회전 예고 음성 '기본' 거리(m). 실제 엔진+GPS 노이즈(σ6m)+1초 폴링 시뮬(720회 보행) 실측:
 # 10m = 보통 걸음(시속 5km) 평균 9초 전(천천 14s/빠름 7s, 최악 p10 3.6s — 음성 2초+반응 확보).
 # 30m 는 평균 24초 전으로 너무 일렀음(실기기 피드백).
+# accuracy가 나쁘면 gps_filter.announce_distance_m 이 이 기본값을 최대 20m까지 키운다.
 _TURN_ANNOUNCE_M = 10.0
 _TURN_LABEL = {"left": "좌회전", "right": "우회전"}  # 직진은 예고 소음이라 생략
 
 
-def _maybe_announce_turn(result, tts_enabled: bool) -> None:
-    """다음 회전이 가까워지면(기본 30m) '잠시 후 좌/우회전입니다'를 음성·토스트로 예고한다.
+def _maybe_announce_turn(result, tts_enabled: bool,
+                         accuracy_m: Optional[float] = None) -> None:
+    """다음 회전이 가까워지면 '잠시 후 좌/우회전입니다'를 음성·토스트로 예고한다.
 
-    상태 경고(이탈 등)와 별개인 '어디로 가라' 안내. 같은 회전점은 다시 예고하지
-    않는다(nav_turn_announced_id, 회전점당 1회 — 1초 폴링에서 반복 발화 방지).
-    재탐색 시 id 를 리셋해 새 경로의 회전도 정상 예고된다.
+    예고 거리는 GPS accuracy로 보정한다(announce_distance_m): 기본 10m, accuracy가
+    나쁠수록 최대 20m — 오차 큰 측위는 회전점 도달이 늦게 보여 예고가 회전을 지나친
+    뒤 나오는 문제 보정. 상태 경고(이탈 등)와 별개인 '어디로 가라' 안내. 같은
+    회전점은 다시 예고하지 않는다(nav_turn_announced_id, 회전점당 1회 — 1초 폴링
+    반복 발화 방지). 재탐색 시 id 를 리셋해 새 경로의 회전도 정상 예고된다.
     """
     turn_id = result.metrics.nearest_turn_point_id
     dist = result.metrics.distance_to_next_turn_point_meters
-    if not turn_id or dist is None or dist > _TURN_ANNOUNCE_M:
+    announce_at = gps_filter.announce_distance_m(accuracy_m, base_m=_TURN_ANNOUNCE_M)
+    if not turn_id or dist is None or dist > announce_at:
         return
     if st.session_state.get("nav_turn_announced_id") == turn_id:
         return
@@ -808,6 +826,20 @@ def _maybe_announce_turn(result, tts_enabled: bool) -> None:
 
 # ── 도착 판정 ─────────────────────────────────────────────────────────────────
 
+def _gating_accuracy() -> Optional[float]:
+    """게이팅(도착·레그 전환·snap 재탐색)용 최신 GPS accuracy.
+
+    nav_raw_gps 의 accuracy 는 '수용된' fix 의 것이라, 신호가 나빠져 fix 가 계속
+    기각되는 구간에서는 옛 '좋은' accuracy 로 게이팅돼 조기 도착·잘못된 레그 전환이
+    난다. nav_gating_acc(수용/기각 무관 매 GPS 응답 갱신)를 우선하고, 아직 없으면
+    기존 경로(nav_raw_gps)로 폴백한다. alert_level 쪽은 기존 raw 경로 유지(의도).
+    """
+    acc = st.session_state.get("nav_gating_acc")
+    if acc is not None:
+        return acc
+    return (st.session_state.get("nav_raw_gps") or {}).get("coords", {}).get("accuracy")
+
+
 def _maybe_finish_arrival(origin: Coordinate) -> bool:
     """목적지 도착 반경 진입 시 안내 종료 + 요약 기록. 도착 처리되면 True.
 
@@ -816,7 +848,7 @@ def _maybe_finish_arrival(origin: Coordinate) -> bool:
     dest: Optional[Coordinate] = st.session_state["nav_dest"]
     if dest is None:
         return False
-    acc = (st.session_state["nav_raw_gps"] or {}).get("coords", {}).get("accuracy")
+    acc = _gating_accuracy()  # 기각 구간에서도 최신 accuracy로 조기 도착 오판 방지
     if not gps_filter.is_arrival(distance_meters(origin, dest), acc):
         return False
 
@@ -902,6 +934,7 @@ def _build_map(
     samples: list[PositionSample],
     height: int = 560,
     ui_revision: str = "nav-map",
+    display_coord: Optional[Coordinate] = None,
 ) -> go.Figure:
     fig  = go.Figure()
     lats = [c.latitude  for c in route.polyline]
@@ -955,12 +988,17 @@ def _build_map(
 
     if results:
         last_r, last_s = results[-1], samples[-1]
+        # 현재 위치 마커는 표시용 스무딩 좌표(display_coord)에 찍는다 — 판정 샘플이
+        # raw로 이원화되면서(P1-3) raw 지터가 마커 떨림으로 그대로 보이지 않게.
+        # 상태색·지표(hover)는 판정 결과(last_r) 그대로 사용. display 미제공 시 샘플 폴백.
+        cur_lat = display_coord.latitude if display_coord is not None else last_s.latitude
+        cur_lon = display_coord.longitude if display_coord is not None else last_s.longitude
         # 진행 방향(GPS 헤딩)을 8방향 화살표로 마커 가운데에 얹는다 — 지도만 봐도
         # 내가 어느 쪽으로 걷는 중인지 보이게(실기기 요청). 헤딩이 없으면 점만.
         hdg = last_s.heading_degrees
         arrow = "↑↗→↘↓↙←↖"[int(((hdg % 360) + 22.5) // 45) % 8] if hdg is not None else ""
         fig.add_trace(go.Scattermap(
-            lat=[last_s.latitude], lon=[last_s.longitude],
+            lat=[cur_lat], lon=[cur_lon],
             mode="markers+text" if arrow else "markers",
             marker=dict(size=22, color=STATE_COLOR[last_r.state]),
             text=[arrow] if arrow else None,
@@ -973,7 +1011,7 @@ def _build_map(
                 f"점수: {last_r.score:.3f}<extra></extra>"
             ),
         ))
-        clat, clon = last_s.latitude, last_s.longitude
+        clat, clon = cur_lat, cur_lon
     else:
         mid = len(lats) // 2
         clat, clon = lats[mid], lons[mid]
@@ -1890,6 +1928,10 @@ def main() -> None:
                 if geo and geo.get("coords"):
                     c = geo["coords"]
                     acc = c.get("accuracy")
+                    # 게이팅용 accuracy는 수용/기각과 무관하게 매 응답 최신화 — fix가
+                    # 계속 기각되는 신호 악화 구간에서 옛 '좋은' accuracy로 도착·레그
+                    # 전환이 게이팅되던 문제. (위치 자체는 기각 시 미갱신 정책 유지)
+                    st.session_state["nav_gating_acc"] = acc
                     if gps_filter.is_fix_usable(acc):
                         new_origin = Coordinate(latitude=float(c["latitude"]), longitude=float(c["longitude"]))
                         # 점프(텔레포트) 가드 — 비현실적으로 튄 fix는 위치 갱신에서 제외.
@@ -1904,40 +1946,56 @@ def main() -> None:
                         # fix는 수 km 떨어져 점프로 오인·기각된다. 이들은 신뢰 낮은 부트스트랩이므로
                         # 첫 실측 fix가 즉시 이기게 점프 가드를 건너뛴다(prev None과 동일 취급).
                         from_bootstrap = st.session_state.get("nav_origin_source") in ("ip", "cache")
-                        plausible = prev is None or from_bootstrap or gps_filter.is_plausible_step(
-                            prev.latitude, prev.longitude,
-                            new_origin.latitude, new_origin.longitude,
-                            elapsed_ms, acc, prev_acc,
-                            reject_streak=st.session_state["nav_jump_reject_streak"],
+                        # 동일 fix 멱등성 가드: timestamp가 같으면 브라우저 maximumAge
+                        # 캐시가 돌려준 '같은' fix — 새 측정처럼 재처리하면 recent 버퍼가
+                        # 동일 점으로 차고 blend가 stale fix로 지수 수렴하며 reject streak
+                        # 도 오염된다. 이 틱 전체를 건너뛴다(위치·버퍼·streak 모두 유지).
+                        dup_fix = gps_filter.should_skip_duplicate_fix(
+                            new_ts, prev_ts) and not from_bootstrap
+                        plausible = (not dup_fix) and (
+                            prev is None or from_bootstrap or gps_filter.is_plausible_step(
+                                prev.latitude, prev.longitude,
+                                new_origin.latitude, new_origin.longitude,
+                                elapsed_ms, acc, prev_acc,
+                                reject_streak=st.session_state["nav_jump_reject_streak"],
+                            )
                         )
                         if plausible:
-                            # 위치 스무딩: raw_gps는 raw 보존(accuracy 게이팅 일관성), nav_origin만 안정화.
-                            #  큰 이동→raw(코너링/급이동 지연 방지) / 정지→median(이상치 억제) / 보통→accuracy 가중 blend.
-                            #  recent 버퍼=raw fix(median 대표점용), 이동거리(moved) 판정=smoothed prev 기준(의도).
+                            # 판정 raw / 표시 smoothed 이원화 — smoothed 좌표가 엔진
+                            # 샘플·도착·레그 전환 판정에 유입되면 스무딩 lag(2~3초)만큼
+                            # 판정도 늦는다. nav_origin은 수용된 raw fix 그대로(판정용),
+                            # nav_display_origin만 스무딩(지도 마커·현재위치 카드 표시용).
+                            #  큰 이동→raw / 정지→median(이상치 억제) / 보통→accuracy 가중 blend.
                             recent = st.session_state["nav_recent_fixes"]
                             recent.append((new_origin.latitude, new_origin.longitude))
                             if len(recent) > gps_filter.SMOOTH_RECENT_WINDOW:
                                 del recent[:-gps_filter.SMOOTH_RECENT_WINDOW]
-                            if prev is None:
+                            # 표시 체인의 prev 앵커는 이전 '표시' 좌표 — raw prev를 앵커로
+                            # 쓰면 blend가 raw 지터에 재오염돼 이원화 효과가 사라진다.
+                            disp_prev = st.session_state.get("nav_display_origin") or prev
+                            if disp_prev is None:
                                 smoothed = new_origin
                             else:
-                                moved = distance_meters(prev, new_origin)
+                                moved = distance_meters(disp_prev, new_origin)
                                 if moved >= gps_filter.SMOOTH_SKIP_MOVE_M:
                                     smoothed = new_origin
                                     # 큰 점프(백그라운드 복귀·신호 재획득) — 갭 이전 fix 가
                                     # 이후 정지 median 을 옛 위치로 되튕기지(teleport back)
                                     # 않게 버퍼를 현재 fix 만 남긴다.
                                     del recent[:-1]
-                                elif (moved < gps_filter.SMOOTH_STATIONARY_MOVE_M
-                                      and len(recent) >= gps_filter.SMOOTH_MEDIAN_MIN_FIXES):
+                                elif gps_filter.is_stationary(recent):
+                                    # per-tick 이동량(<2.0m) 판정은 1초 폴링에서 정상 보행
+                                    # (틱당 ~1.1m)을 '정지'로 오분류했다 — 버퍼 순변위
+                                    # (보행 ~5.5m vs 정지 <2.5m)로만 정지를 인정한다.
                                     mlat, mlon = gps_filter.median_position(recent)
                                     smoothed = Coordinate(latitude=mlat, longitude=mlon)
                                 else:
                                     blat, blon = gps_filter.accuracy_weighted_blend(
-                                        prev.latitude, prev.longitude, prev_acc,
+                                        disp_prev.latitude, disp_prev.longitude, prev_acc,
                                         new_origin.latitude, new_origin.longitude, acc)
                                     smoothed = Coordinate(latitude=blat, longitude=blon)
-                            st.session_state["nav_origin"] = smoothed
+                            st.session_state["nav_origin"] = new_origin
+                            st.session_state["nav_display_origin"] = smoothed
                             st.session_state["nav_raw_gps"] = geo
                             # 신선도 기준(서버 시계) — fix timestamp(폰 시계)와 섞지 않는다.
                             st.session_state["nav_fix_received_ms"] = int(time.time() * 1000)
@@ -1954,7 +2012,9 @@ def main() -> None:
                                                acc, geo.get("timestamp"))
                                 st.session_state["nav_lastfix_saved_coord"] = (
                                     smoothed.latitude, smoothed.longitude)
-                        else:
+                        elif not dup_fix:
+                            # 진짜 '점프 기각'만 streak 증가 — 중복 fix(dup_fix)는 기각이
+                            # 아니라 '이미 처리한 fix'이므로 streak·토스트 없이 조용히 skip.
                             st.session_state["nav_jump_reject_streak"] += 1
                             st.toast("위치가 잠깐 크게 튀어 한 번 건너뛰었어요")
                     elif st.session_state["nav_origin"] is None or st.session_state.get("nav_origin_coarse"):
@@ -1965,6 +2025,8 @@ def main() -> None:
                         # 안내 문구는 아래 '현재 위치' 표시부에서 한 번만 낸다(중복 경고 방지).
                         new_origin = Coordinate(latitude=float(c["latitude"]), longitude=float(c["longitude"]))
                         st.session_state["nav_origin"] = new_origin
+                        # 부트스트랩(대략 위치): 판정/표시 좌표 동일 시드.
+                        st.session_state["nav_display_origin"] = new_origin
                         st.session_state["nav_raw_gps"] = geo
                         st.session_state["nav_origin_coarse"] = True
                         st.session_state["nav_origin_source"] = "gps"
@@ -1980,6 +2042,8 @@ def main() -> None:
                         try:
                             st.session_state["nav_origin"] = Coordinate(
                                 latitude=float(c["latitude"]), longitude=float(c["longitude"]))
+                            # 부트스트랩: 판정/표시 좌표 동일 시드(스무딩 이력 없음).
+                            st.session_state["nav_display_origin"] = st.session_state["nav_origin"]
                             st.session_state["nav_raw_gps"] = ip_geo
                             st.session_state["nav_origin_coarse"] = True
                             st.session_state["nav_origin_source"] = "ip"
@@ -2008,6 +2072,7 @@ def main() -> None:
             else:
                 if st.button("📍 위치 새로고침", width="stretch"):
                     st.session_state["nav_origin"] = None
+                    st.session_state["nav_display_origin"] = None  # 표시 좌표도 함께 무효화
                     st.session_state["nav_origin_coarse"] = False
                     st.session_state["nav_origin_source"] = None
                     st.rerun()
@@ -2018,6 +2083,8 @@ def main() -> None:
             if st.button("위치 설정"):
                 st.session_state.update({
                     "nav_origin":              Coordinate(latitude=lat_in, longitude=lon_in),
+                    # 수동 입력 부트스트랩: 판정/표시 좌표 동일 시드.
+                    "nav_display_origin":      Coordinate(latitude=lat_in, longitude=lon_in),
                     "nav_raw_gps":             None,
                     "nav_origin_address":      None,
                     "nav_origin_address_coord": None,
@@ -2044,9 +2111,12 @@ def main() -> None:
             q = gps_filter.accuracy_quality(acc)
             coarse = bool(st.session_state.get("nav_origin_coarse"))
             acc_txt = f" (±{acc:.0f}m)" if acc else ""
+            # '현재 위치' 카드의 좌표 텍스트는 표시용 스무딩 좌표(P1-3 이원화) —
+            # raw 지터가 좌표 숫자 떨림으로 보이지 않게. 판정·역지오코딩은 raw 유지.
+            disp_origin = st.session_state.get("nav_display_origin") or origin
             # 내비 중엔 현재 위치 카드(주소·정확도)를 한 줄 caption으로 축약 — 지도에 마커로도 보임.
             if running:
-                where = addr or f"{origin.latitude:.5f}, {origin.longitude:.5f}"
+                where = addr or f"{disp_origin.latitude:.5f}, {disp_origin.longitude:.5f}"
                 dot = "🟡" if coarse else {"good": "🟢", "fair": "🟡", "poor": "🔴"}.get(q, "⚪")
                 # 앱 전환·화면 잠금으로 폴링이 멈추면 옛 위치가 '현재'처럼 보인다 — 신선도 표시.
                 rx = st.session_state.get("nav_fix_received_ms")
@@ -2058,7 +2128,7 @@ def main() -> None:
                 if addr:
                     st.success(f"📍 {addr}")
                 else:
-                    st.caption(f"📍 {origin.latitude:.5f}, {origin.longitude:.5f}")
+                    st.caption(f"📍 {disp_origin.latitude:.5f}, {disp_origin.longitude:.5f}")
                 # 위치 상태는 '한 줄'만 낸다 — 대략 위치면 그 안내만(정확도 등급 중복 표시 금지).
                 if coarse:
                     origin_src = st.session_state.get("nav_origin_source")
@@ -2152,7 +2222,7 @@ def main() -> None:
     if journey_for_advance is not None and st.session_state["nav_running"] and origin is not None:
         active_idx = st.session_state.get("nav_active_leg_index", 0)
         if not transit_builder.is_last_leg(journey_for_advance, active_idx):
-            acc = (st.session_state["nav_raw_gps"] or {}).get("coords", {}).get("accuracy")
+            acc = _gating_accuracy()  # 기각 구간에서도 최신 accuracy로 레그 전환 게이팅
             next_idx = transit_builder.advance_leg(journey_for_advance, active_idx, origin, acc)
             if next_idx != active_idx:
                 _activate_leg(journey_for_advance, next_idx, start_now=True)
@@ -2211,7 +2281,8 @@ def main() -> None:
             st.session_state["nav_last_weak_toast_ts_ms"] = decision.new_last_weak_ts_ms
 
             # 다음 회전 예고 — 상태 경고와 별개인 '어디로 가라' 음성 안내.
-            _maybe_announce_turn(result, st.session_state["nav_tts_enabled"])
+            # accuracy를 넘겨 예고 거리를 보정한다(나쁜 신호 = 더 일찍 예고).
+            _maybe_announce_turn(result, st.session_state["nav_tts_enabled"], acc)
 
             dest_coord: Optional[Coordinate] = st.session_state["nav_dest"]
             if (
@@ -2283,7 +2354,10 @@ def main() -> None:
             st.info("목적지를 입력하고 '경로 찾기'를 누르세요. 지도는 현재 위치 기준으로 표시됩니다.")
         else:
             st.info("현재 구간은 실시간 도보 경로가 없어 지도는 현재 위치 기준으로 표시됩니다.")
-        st.plotly_chart(_build_placeholder_map(origin), width="stretch")
+        # 경로 전 지도 마커도 표시용 좌표(스무딩) — 없으면 판정 좌표 폴백.
+        st.plotly_chart(
+            _build_placeholder_map(st.session_state.get("nav_display_origin") or origin),
+            width="stretch")
         return
 
     if (not st.session_state["nav_running"]) and st.session_state.get("nav_arrival_summary"):
@@ -2303,7 +2377,9 @@ def main() -> None:
         st.plotly_chart(
             _build_map(route, dest, st.session_state["nav_results"],
                        st.session_state["nav_samples"], height=map_h,
-                       ui_revision=rev),
+                       ui_revision=rev,
+                       # 현재 위치 마커만 표시용 스무딩 좌표(판정은 raw 유지 — P1-3 이원화)
+                       display_coord=st.session_state.get("nav_display_origin")),
             width="stretch",
             key="nav_map",
         )
