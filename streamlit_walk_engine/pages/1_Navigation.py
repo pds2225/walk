@@ -8,6 +8,7 @@ import math
 import re
 import struct
 import sys
+import threading
 import time
 import wave
 from functools import lru_cache
@@ -16,6 +17,12 @@ from typing import Optional
 
 import streamlit as st
 import streamlit.components.v1 as components
+
+try:
+    # 재탐색 백그라운드 fetch 의 세션 식별용(공개 API 아님 — 이동 대비 폴백 존재).
+    from streamlit.runtime.scriptrunner import get_script_run_ctx
+except ImportError:
+    get_script_run_ctx = None
 
 _MISSING_DEPENDENCIES: list[str] = []
 
@@ -331,6 +338,104 @@ def _fetch_route(origin: Coordinate, dest: Coordinate) -> RouteModel:
     st.session_state["nav_route_engine"] = engine_label
     st.session_state["nav_route_info"] = route_info
     return route
+
+
+# ── 재탐색 결과 전달 채널 (세션 밖 전역) ─────────────────────────────────────
+# 왜 세션 밖인가: 안내 중 1초 autorefresh 가 계속 rerun 을 만드는데, Streamlit(fastReruns)은
+# 새 rerun 이 오면 실행 중이던 스크립트를 중단시킨다. 경로 API(1.5~3초)를 기다리던 실행은
+# '고아'가 되고, 그 뒤의 어떤 st.session_state 접근도 StopException 으로 죽어 새 경로
+# 커밋(경로·엔진·쿨다운·토스트·음성)이 통째로 유실됐다(실기기 '재탐색 후 경로 수정 안 됨'.
+# E2E 재현: fetch 22회 성공에도 경로 불변·쿨다운 미기록으로 매 표본 재호출 폭주, 실패
+# 경고 st.warning 도 같은 가드에 죽어 무증상). 그래서 fetch 는 백그라운드 스레드에서 하고
+# (스레드 안에서는 st.* 접근 금지), 결과를 이 전역 dict 에 세션 id 로 보관했다가
+# '다음 rerun 시작부'(_commit_pending_reroute)에서 커밋한다 — 새 rerun 의 세션 쓰기는 안전.
+# ⚠ 보관소는 이 파일(페이지) 전역이면 안 된다: 페이지 스크립트는 rerun 마다 재실행돼
+# 전역이 매번 빈 dict 로 초기화된다(E2E 실증). sys.modules 에 캐시되는 gps_filter 모듈의
+# 전역을 참조해 rerun 을 건너 살아남게 한다.
+_PENDING_REROUTE = gps_filter.PENDING_REROUTE
+_PENDING_REROUTE_LOCK = gps_filter.PENDING_REROUTE_LOCK
+_REROUTE_IN_FLIGHT = "__in_flight__"
+
+
+def _session_id() -> str:
+    """세션 식별자(컨텍스트 없으면 단일 폴백 키 — bare/AppTest 환경)."""
+    if get_script_run_ctx is not None:
+        ctx = get_script_run_ctx()
+        if ctx is not None:
+            return ctx.session_id
+    return "_no_ctx"
+
+
+def _start_reroute_fetch(sid: str, origin: Coordinate, dest: Coordinate) -> None:
+    """재탐색 fetch 를 백그라운드로 시작(이미 진행/대기 중이면 무시).
+
+    워커 스레드는 st.* 를 절대 만지지 않는다 — 순수 네트워크 호출만 하고 결과를
+    _PENDING_REROUTE 에 남긴다(커밋은 다음 rerun 의 _commit_pending_reroute 몫).
+    """
+    with _PENDING_REROUTE_LOCK:
+        if sid in _PENDING_REROUTE:
+            return
+        _PENDING_REROUTE[sid] = {"state": _REROUTE_IN_FLIGHT}
+
+    def _work() -> None:
+        try:
+            route, engine_label, route_info = fetch_walking_route_with_engine(origin, dest)
+            payload = {"state": "ok", "route": route, "engine_label": engine_label,
+                       "route_info": route_info, "dest": dest}
+        except Exception as e:  # noqa: BLE001 — 실패도 커밋 채널로 넘겨 화면에 표시
+            payload = {"state": "error", "error": str(e), "dest": dest}
+        with _PENDING_REROUTE_LOCK:
+            _PENDING_REROUTE[sid] = payload
+
+    threading.Thread(target=_work, daemon=True, name="nav-reroute-fetch").start()
+
+
+def _commit_pending_reroute() -> None:
+    """백그라운드 재탐색 결과를 커밋한다 — 매 rerun 시작부에서 호출(사유: _PENDING_REROUTE 주석)."""
+    sid = _session_id()
+    with _PENDING_REROUTE_LOCK:
+        pending = _PENDING_REROUTE.get(sid)
+        if pending is None or pending.get("state") == _REROUTE_IN_FLIGHT:
+            return
+        del _PENDING_REROUTE[sid]
+    if not st.session_state.get("nav_running"):
+        return  # 기다리는 사이 중지/초기화 — 결과 폐기
+    if st.session_state.get("nav_dest") != pending.get("dest"):
+        return  # 목적지가 바뀜 — 옛 목적지의 경로 폐기
+    if pending["state"] == "error":
+        st.warning(f"자동 재탐색 실패: {pending['error']}")
+        return
+    new_route = pending["route"]
+    st.session_state["nav_route_engine"] = pending["engine_label"]
+    st.session_state["nav_route_info"] = pending["route_info"]
+    new_count = st.session_state["nav_reroute_count"] + 1
+    st.session_state.update({
+        "nav_route":               new_route,
+        "nav_engine":              RouteDeviationEngine(new_route, st.session_state["nav_config"]),
+        "nav_results":             [],
+        "nav_samples":             [],
+        "nav_prev_coord":          None,
+        "nav_last_reroute_ts_ms":  int(time.time() * 1000),
+        "nav_reroute_count":       new_count,
+        "nav_last_alerted_state":  "on_route",
+        "nav_last_weak_toast_ts_ms": None,
+        # 새 경로의 회전점 id 가 옛 id 와 겹쳐도 예고가 막히지 않게 리셋
+        "nav_turn_announced_id":   None,
+    })
+    if st.session_state.get("nav_journey") is not None:
+        # 여정 누적 집계 — nav_reroute_count 는 레그 전환 시 리셋되므로 별도.
+        st.session_state["nav_journey_reroute_total"] = \
+            (st.session_state.get("nav_journey_reroute_total") or 0) + 1
+    st.toast(f"🔄 길을 다시 찾았어요 (재탐색 {new_count}회) — 새 경로로 안내합니다")
+    # 이탈 음성 뒤 재탐색 성공이 화면 토스트뿐이면 폰을 안 보는 보행자는 새 경로를
+    # 찾았는지 알 수 없다 → 성공도 음성으로. 회전 방향은 id 리셋 덕에 이어서 예고된다.
+    if st.session_state["nav_tts_enabled"]:
+        components.html(
+            "<script>(function(){"
+            + build_tts_script("경로를 다시 찾았습니다. 새 경로로 안내합니다.")
+            + "})();</script>",
+            height=0,
+        )
 
 
 def _clear_journey_state() -> None:
@@ -1779,6 +1884,10 @@ def main() -> None:
         st_autorefresh(interval=1000 if st.session_state["nav_running"] else 10_000,
                        key="nav_refresh")
 
+    # 백그라운드 재탐색 결과가 있으면 이 rerun 시작부에서 커밋 — 이후의 엔진 판정·지도가
+    # 같은 run 안에서 곧바로 새 경로를 쓴다(사유: _PENDING_REROUTE 주석).
+    _commit_pending_reroute()
+
     # 검색 히스토리 버튼 클릭 처리 — 저장된 좌표로 바로 경로 탐색
     pending_hist = st.session_state.get("nav_pending_hist")
     if pending_hist is not None:
@@ -2306,40 +2415,13 @@ def main() -> None:
                     and not _reroute_suppressed(st.session_state["nav_results"], nav_samples,
                                                 now_ms, result.state)
                 ):
-                    try:
-                        new_route  = _fetch_route(origin, dest_coord)
-                        new_count  = st.session_state["nav_reroute_count"] + 1
-                        st.session_state.update({
-                            "nav_route":               new_route,
-                            "nav_engine":              RouteDeviationEngine(new_route, st.session_state["nav_config"]),
-                            "nav_results":             [],
-                            "nav_samples":             [],
-                            "nav_prev_coord":          None,
-                            "nav_last_reroute_ts_ms":  now_ms,
-                            "nav_reroute_count":       new_count,
-                            "nav_last_alerted_state":  "on_route",
-                            "nav_last_weak_toast_ts_ms": None,
-                            # 새 경로의 회전점 id 가 옛 id 와 겹쳐도 예고가 막히지 않게 리셋
-                            "nav_turn_announced_id":   None,
-                        })
-                        if st.session_state.get("nav_journey") is not None:
-                            # 여정 누적 집계 — nav_reroute_count 는 레그 전환 시 리셋되므로 별도.
-                            st.session_state["nav_journey_reroute_total"] = \
-                                (st.session_state.get("nav_journey_reroute_total") or 0) + 1
-                        st.toast(f"🔄 길을 다시 찾았어요 (재탐색 {new_count}회) — 새 경로로 안내합니다")
-                        # 이탈 음성("경로를 이탈하였습니다") 뒤 재탐색 성공이 화면 토스트뿐이면
-                        # 폰을 안 보는 보행자는 새 경로를 찾았는지 알 수 없다(실기기 보고:
-                        # '경로이탈 후 가는길 음성안내 없음') → 성공도 음성으로 알린다.
-                        # 새 경로의 회전 방향은 id 리셋 덕에 다음 표본부터 정상 예고된다.
-                        if st.session_state["nav_tts_enabled"]:
-                            components.html(
-                                "<script>(function(){"
-                                + build_tts_script("경로를 다시 찾았습니다. 새 경로로 안내합니다.")
-                                + "})();</script>",
-                                height=0,
-                            )
-                    except Exception as e:
-                        st.warning(f"자동 재탐색 실패: {e}")
+                    # 쿨다운을 fetch '이전'에 기록: 예전엔 fetch 뒤 커밋이 rerun 중단으로
+                    # 유실되면 쿨다운도 안 남아 매 표본(~1.4초) fetch 폭주가 됐다(E2E 22회).
+                    st.session_state["nav_last_reroute_ts_ms"] = now_ms
+                    # 동기 _fetch_route 금지: 1초 autorefresh 가 fetch 대기 중 이 실행을
+                    # 중단시키면 이후 모든 세션 쓰기가 유실된다 → 백그라운드 fetch 후
+                    # 다음 rerun 시작부(_commit_pending_reroute)에서 커밋.
+                    _start_reroute_fetch(_session_id(), origin, dest_coord)
 
     # ── 지도 + 판정 패널 ──────────────────────────────────────────────────────
     route = st.session_state["nav_route"]

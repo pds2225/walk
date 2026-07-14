@@ -50,6 +50,35 @@ def test_reroute_cooldown_is_three_seconds():
     assert "(3초 쿨다운)" in source                          # 도움말 문구 일치
 
 
+def test_reroute_fetch_decoupled_from_interruptible_run():
+    """재탐색 커밋 유실 근본수정(실기기 '재탐색 후 경로 수정 안 됨'):
+    1초 autorefresh 가 경로 API(1.5~3초) 대기 중 실행을 중단시키면 이후 모든
+    session_state 쓰기가 StopException 으로 유실됐다(E2E: fetch 22회 성공에도 경로
+    불변·쿨다운 미기록 폭주). → fetch 는 백그라운드 스레드, 결과는 세션 밖
+    _PENDING_REROUTE 에 보관, 다음 rerun 시작부에서 커밋. 쿨다운은 fetch '이전' 기록."""
+    source = PAGE.read_text(encoding="utf-8")
+
+    assert "_PENDING_REROUTE" in source
+    # 보관소는 페이지 전역이 아니라 gps_filter(캐시된 모듈) 전역이어야 rerun 을 건너
+    # 살아남는다 — 페이지 전역 dict 는 rerun 마다 초기화된다(E2E 실증 함정).
+    assert "_PENDING_REROUTE = gps_filter.PENDING_REROUTE" in source
+    assert "def _start_reroute_fetch(" in source
+    assert "def _commit_pending_reroute(" in source
+    # 매 rerun 시작부(autorefresh 직후)에서 커밋을 시도한다
+    assert "_commit_pending_reroute()" in source
+    # 게이트 통과 직후, fetch 시작 '전'에 쿨다운을 기록한다(커밋 유실 시 폭주 방지)
+    gate = source.index("and not _reroute_suppressed")
+    gate_block = source[gate:gate + 900]
+    assert 'st.session_state["nav_last_reroute_ts_ms"] = now_ms' in gate_block
+    assert "_start_reroute_fetch(" in gate_block
+    # 재탐색 게이트 블록에서 동기 _fetch_route 호출이 사라졌다(중단 유실 경로 제거)
+    assert "new_route  = _fetch_route(origin, dest_coord)" not in source
+    # 워커 스레드는 st.session_state 를 만지지 않는다(고아 스레드 쓰기 금지 원칙)
+    worker = source.index("def _work()")
+    worker_block = source[worker:worker + 700]
+    assert "st.session_state" not in worker_block
+
+
 def test_transit_toggle_does_not_use_session_key_as_widget_key():
     """세션 저장키를 토글의 위젯 key 로 쓰면 안내 중 미렌더되어 Streamlit 이 그 키를
     GC하고, 다음 rerun 의 _init() 이 기본값 True 로 되살린다 →
