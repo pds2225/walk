@@ -1,0 +1,6 @@
+{"t":0,"agent":"a2516af","agent_type":"workflow-subagent","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"a2516af","agent_type":"workflow-subagent","event":"agent_stop","success":true,"duration_ms":238858}
+{"t":0,"agent":"ad472c5","agent_type":"workflow-subagent","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"ad472c5","agent_type":"workflow-subagent","event":"agent_stop","success":true,"duration_ms":183754}
+{"t":0,"agent":"adb3c27","agent_type":"workflow-subagent","event":"agent_start","parent_mode":"none"}
+{"t":0,"agent":"adb3c27","agent_type":"workflow-subagent","event":"agent_stop","success":true,"duration_ms":195607}

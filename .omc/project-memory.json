@@ -202,8 +202,8 @@
   "hotPaths": [
     {
       "path": "streamlit_walk_engine\\pages\\1_Navigation.py",
-      "accessCount": 85,
-      "lastAccessed": 1783927233637,
+      "accessCount": 106,
+      "lastAccessed": 1784014731211,
       "type": "file"
     },
     {
@@ -219,27 +219,27 @@
       "type": "file"
     },
     {
-      "path": "streamlit_walk_engine\\engine.py",
-      "accessCount": 9,
-      "lastAccessed": 1783860877084,
+      "path": "streamlit_walk_engine\\gps_filter.py",
+      "accessCount": 12,
+      "lastAccessed": 1784014700951,
       "type": "file"
     },
     {
-      "path": "streamlit_walk_engine\\gps_filter.py",
+      "path": "streamlit_walk_engine\\engine.py",
+      "accessCount": 10,
+      "lastAccessed": 1784014348062,
+      "type": "file"
+    },
+    {
+      "path": "RESUME.md",
       "accessCount": 9,
-      "lastAccessed": 1783860916446,
+      "lastAccessed": 1784014420208,
       "type": "file"
     },
     {
       "path": ".worktrees\\tick1s\\streamlit_walk_engine\\pages\\1_Navigation.py",
       "accessCount": 8,
       "lastAccessed": 1783927490375,
-      "type": "file"
-    },
-    {
-      "path": "RESUME.md",
-      "accessCount": 8,
-      "lastAccessed": 1783935360494,
       "type": "file"
     },
     {
@@ -252,6 +252,12 @@
       "path": ".worktrees\\turnvoice\\streamlit_walk_engine\\pages\\1_Navigation.py",
       "accessCount": 7,
       "lastAccessed": 1783934041485,
+      "type": "directory"
+    },
+    {
+      "path": ".worktrees\\mapzoom\\streamlit_walk_engine\\pages\\1_Navigation.py",
+      "accessCount": 6,
+      "lastAccessed": 1784014968014,
       "type": "directory"
     },
     {
@@ -276,6 +282,12 @@
       "path": "streamlit_walk_engine",
       "accessCount": 3,
       "lastAccessed": 1783935111709,
+      "type": "directory"
+    },
+    {
+      "path": ".worktrees\\reroutevoice\\streamlit_walk_engine\\pages\\1_Navigation.py",
+      "accessCount": 3,
+      "lastAccessed": 1784014292154,
       "type": "directory"
     },
     {
@@ -318,6 +330,24 @@
       "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\turn_timing_sim.py",
       "accessCount": 2,
       "lastAccessed": 1783934861463,
+      "type": "file"
+    },
+    {
+      "path": ".worktrees\\reroutevoice\\streamlit_walk_engine\\tests\\test_navigation_smoke.py",
+      "accessCount": 2,
+      "lastAccessed": 1784014317076,
+      "type": "file"
+    },
+    {
+      "path": "",
+      "accessCount": 2,
+      "lastAccessed": 1784014732290,
+      "type": "directory"
+    },
+    {
+      "path": ".worktrees\\mapzoom\\streamlit_walk_engine\\tests\\test_navigation_smoke.py",
+      "accessCount": 2,
+      "lastAccessed": 1784014997619,
       "type": "file"
     },
     {
