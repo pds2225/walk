@@ -519,10 +519,38 @@
       "status": "completed",
       "completed_at": "2026-07-14T08:06:30.349Z",
       "duration_ms": 898753
+    },
+    {
+      "agent_id": "a63dd80b58cfc3d63",
+      "agent_type": "workflow-subagent",
+      "started_at": "2026-07-14T08:41:41.607Z",
+      "parent_mode": "none",
+      "status": "running"
+    },
+    {
+      "agent_id": "ade712085c568a350",
+      "agent_type": "workflow-subagent",
+      "started_at": "2026-07-14T08:41:42.231Z",
+      "parent_mode": "none",
+      "status": "running"
+    },
+    {
+      "agent_id": "ad65158e8a145969a",
+      "agent_type": "workflow-subagent",
+      "started_at": "2026-07-14T08:41:42.758Z",
+      "parent_mode": "none",
+      "status": "running"
+    },
+    {
+      "agent_id": "ad18d852bd030f7bd",
+      "agent_type": "workflow-subagent",
+      "started_at": "2026-07-14T08:41:47.957Z",
+      "parent_mode": "none",
+      "status": "running"
     }
   ],
-  "total_spawned": 50,
+  "total_spawned": 54,
   "total_completed": 56,
   "total_failed": 0,
-  "last_updated": "2026-07-14T08:06:30.454Z"
+  "last_updated": "2026-07-14T08:41:48.060Z"
 }

@@ -1,7 +1,7 @@
 {
-  "tool_name": "mcp__plugin_oh-my-claudecode_t__wiki_add",
-  "tool_input_preview": "{\"title\":\"walk 사진 업로드 기능 — 개발계획안 (미구현, 결정 대기)\",\"category\":\"decision\",\"tags\":[\"walk\",\"photo-upload\",\"plan\",\"camera\",\"localstorage\"],\"content\":\"## 계획 (2026-07-13, 사용자 요청 — 계획만, 미구현)\\n\\n**요지**: 사진 업로드는 `...",
-  "error": "Page \"walk.md\" already exists. Use wiki_ingest to merge content into it, or wiki_delete to remove it first.",
-  "timestamp": "2026-07-14T07:45:46.710Z",
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"ls d:/walk && wc -l d:/walk/pages/1_Navigation.py && git -C d:/walk log --oneline -3\",\"description\":\"List repo files and check Navigation page size\"}",
+  "error": "Exit code 1\nAGENTS.md\nDONE.md\nPLAN.md\nPLAN_TMAP_SERVICE.md\nPROMPT.md\nREADME.md\nRESUME.md\nRUNBOOK.md\nTASKS.md\nTASK_NIGHT_01.md\nTASK_NIGHT_02.md\nVISION_SOCIAL.md\napps\nauto_prompt_0503_012850.md\nauto_prompt_0503_012851.md\nauto_prompt_0503_012853.md\nauto_prompt_0503_012854.md\nauto_prompt_0503_012855.md\nauto_prompt_0503_012857.md\nauto_prompt_0503_012944.md\nauto_prompt_0503_013004.md\nauto_prompt_0503_083017.md\nauto_prompt_0503_084958.md\nauto_prompt_0503_084959.md\nauto_prompt_0503_085001.md\nauto_prompt...",
+  "timestamp": "2026-07-14T08:41:56.673Z",
   "retry_count": 1
 }

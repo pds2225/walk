@@ -202,8 +202,8 @@
   "hotPaths": [
     {
       "path": "streamlit_walk_engine\\pages\\1_Navigation.py",
-      "accessCount": 106,
-      "lastAccessed": 1784014731211,
+      "accessCount": 133,
+      "lastAccessed": 1784018606503,
       "type": "file"
     },
     {
@@ -225,21 +225,21 @@
       "type": "file"
     },
     {
-      "path": "streamlit_walk_engine\\gps_filter.py",
-      "accessCount": 12,
-      "lastAccessed": 1784014700951,
+      "path": "RESUME.md",
+      "accessCount": 13,
+      "lastAccessed": 1784018520398,
       "type": "file"
     },
     {
-      "path": "RESUME.md",
-      "accessCount": 12,
-      "lastAccessed": 1784016621002,
+      "path": "streamlit_walk_engine\\gps_filter.py",
+      "accessCount": 13,
+      "lastAccessed": 1784018534740,
       "type": "file"
     },
     {
       "path": "streamlit_walk_engine\\engine.py",
-      "accessCount": 10,
-      "lastAccessed": 1784014348062,
+      "accessCount": 11,
+      "lastAccessed": 1784018582421,
       "type": "file"
     },
     {
@@ -250,8 +250,8 @@
     },
     {
       "path": "streamlit_walk_engine\\snap_router.py",
-      "accessCount": 7,
-      "lastAccessed": 1783860904672,
+      "accessCount": 8,
+      "lastAccessed": 1784018526928,
       "type": "file"
     },
     {
@@ -264,6 +264,12 @@
       "path": ".worktrees\\mapzoom\\streamlit_walk_engine\\pages\\1_Navigation.py",
       "accessCount": 6,
       "lastAccessed": 1784014968014,
+      "type": "directory"
+    },
+    {
+      "path": "streamlit_walk_engine",
+      "accessCount": 5,
+      "lastAccessed": 1784018584272,
       "type": "directory"
     },
     {
@@ -291,12 +297,6 @@
       "type": "directory"
     },
     {
-      "path": "streamlit_walk_engine",
-      "accessCount": 3,
-      "lastAccessed": 1783935111709,
-      "type": "directory"
-    },
-    {
       "path": ".worktrees\\reroutevoice\\streamlit_walk_engine\\pages\\1_Navigation.py",
       "accessCount": 3,
       "lastAccessed": 1784014292154,
@@ -307,6 +307,12 @@
       "accessCount": 3,
       "lastAccessed": 1784015805656,
       "type": "file"
+    },
+    {
+      "path": "",
+      "accessCount": 3,
+      "lastAccessed": 1784018524306,
+      "type": "directory"
     },
     {
       "path": "streamlit_walk_engine\\tests\\test_navigation_smoke.py",
@@ -355,12 +361,6 @@
       "accessCount": 2,
       "lastAccessed": 1784014317076,
       "type": "file"
-    },
-    {
-      "path": "",
-      "accessCount": 2,
-      "lastAccessed": 1784014732290,
-      "type": "directory"
     },
     {
       "path": ".worktrees\\mapzoom\\streamlit_walk_engine\\tests\\test_navigation_smoke.py",
@@ -421,6 +421,12 @@
       "accessCount": 1,
       "lastAccessed": 1784016283661,
       "type": "file"
+    },
+    {
+      "path": "streamlit_walk_engine\\requirements.txt",
+      "accessCount": 1,
+      "lastAccessed": 1784018554345,
+      "type": "directory"
     }
   ],
   "userDirectives": []
