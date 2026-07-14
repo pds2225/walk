@@ -901,6 +901,7 @@ def _build_map(
     results: list[EngineResult],
     samples: list[PositionSample],
     height: int = 560,
+    ui_revision: str = "nav-map",
 ) -> go.Figure:
     fig  = go.Figure()
     lats = [c.latitude  for c in route.polyline]
@@ -978,7 +979,13 @@ def _build_map(
         clat, clon = lats[mid], lons[mid]
 
     fig.update_layout(
-        map=dict(style="open-street-map", center=dict(lat=clat, lon=clon), zoom=15),
+        # uirevision: 1초 rerun 마다 지도를 새로 그려도 사용자가 만진 확대/이동(카메라)을
+        # 유지한다(실기기 보고: 확대해도 1초 뒤 원래대로 돌아감). revision 값이 바뀔 때
+        # (재탐색·새 경로)만 카메라가 새 경로 기준으로 초기화된다. 사용자가 아직 지도를
+        # 만지지 않았다면 기존처럼 현재 위치를 따라간다.
+        map=dict(style="open-street-map", center=dict(lat=clat, lon=clon), zoom=15,
+                 uirevision=ui_revision),
+        uirevision=ui_revision,
         height=height,
         margin=dict(l=0, r=0, t=0, b=0),
         # 글자색을 명시해야 한다: 다크 테마에서 plotly 기본 글자색(흰색)이 흰 범례
@@ -1008,7 +1015,8 @@ def _build_placeholder_map(center: Optional[Coordinate]) -> go.Figure:
         ))
     fig.update_layout(
         map=dict(style="open-street-map", center=dict(lat=c.latitude, lon=c.longitude),
-                 zoom=15 if center is not None else 12),
+                 zoom=15 if center is not None else 12, uirevision="nav-placeholder"),
+        uirevision="nav-placeholder",
         height=560,
         margin=dict(l=0, r=0, t=0, b=0),
         showlegend=False,
@@ -2288,10 +2296,16 @@ def main() -> None:
     def _render_map() -> None:
         # 보행 중엔 지도를 더 크게(다음 방향 배지가 위에 있으니 지도에 자리 양보).
         map_h = 640 if st.session_state["nav_running"] else 560
+        # 확대/이동 유지: revision 이 같으면 사용자 카메라 보존(_build_map 주석 참조).
+        # 재탐색(nav_reroute_count)·새 경로(양끝 좌표)에서만 값이 바뀌어 리셋된다.
+        rev = (f"route-{st.session_state['nav_reroute_count']}"
+               f"-{route.polyline[0].latitude:.5f}-{route.polyline[-1].longitude:.5f}")
         st.plotly_chart(
             _build_map(route, dest, st.session_state["nav_results"],
-                       st.session_state["nav_samples"], height=map_h),
+                       st.session_state["nav_samples"], height=map_h,
+                       ui_revision=rev),
             width="stretch",
+            key="nav_map",
         )
 
     arrived = (not st.session_state["nav_running"]) and bool(st.session_state.get("nav_arrival_summary"))
