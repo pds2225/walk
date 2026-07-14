@@ -41,7 +41,7 @@
   },
   "build": {
     "buildCommand": null,
-    "testCommand": "npm test",
+    "testCommand": "cd /d/walk/.worktrees/accuracy/streamlit_walk_engine && python -m pytest tests -q --collect-only 2>&1 | tail -3",
     "lintCommand": "npm run lint",
     "devCommand": null,
     "scripts": {
@@ -219,21 +219,27 @@
       "type": "file"
     },
     {
+      "path": ".worktrees\\accuracy\\streamlit_walk_engine\\pages\\1_Navigation.py",
+      "accessCount": 13,
+      "lastAccessed": 1784015914394,
+      "type": "file"
+    },
+    {
       "path": "streamlit_walk_engine\\gps_filter.py",
       "accessCount": 12,
       "lastAccessed": 1784014700951,
       "type": "file"
     },
     {
-      "path": "streamlit_walk_engine\\engine.py",
-      "accessCount": 10,
-      "lastAccessed": 1784014348062,
+      "path": "RESUME.md",
+      "accessCount": 11,
+      "lastAccessed": 1784015640540,
       "type": "file"
     },
     {
-      "path": "RESUME.md",
-      "accessCount": 9,
-      "lastAccessed": 1784014420208,
+      "path": "streamlit_walk_engine\\engine.py",
+      "accessCount": 10,
+      "lastAccessed": 1784014348062,
       "type": "file"
     },
     {
@@ -289,6 +295,12 @@
       "accessCount": 3,
       "lastAccessed": 1784014292154,
       "type": "directory"
+    },
+    {
+      "path": ".worktrees\\accuracy\\streamlit_walk_engine\\gps_filter.py",
+      "accessCount": 3,
+      "lastAccessed": 1784015805656,
+      "type": "file"
     },
     {
       "path": "streamlit_walk_engine\\tests\\test_navigation_smoke.py",
@@ -351,6 +363,18 @@
       "type": "file"
     },
     {
+      "path": "C:\\Users\\ekth3\\.claude\\projects\\d--walk\\memory\\MEMORY.md",
+      "accessCount": 2,
+      "lastAccessed": 1784015621447,
+      "type": "file"
+    },
+    {
+      "path": ".worktrees\\accuracy\\streamlit_walk_engine\\tests\\test_gps_filter.py",
+      "accessCount": 2,
+      "lastAccessed": 1784015762183,
+      "type": "file"
+    },
+    {
       "path": "streamlit_walk_engine\\tests\\test_snap_router.py",
       "accessCount": 1,
       "lastAccessed": 1783860109156,
@@ -367,6 +391,30 @@
       "accessCount": 1,
       "lastAccessed": 1783860242976,
       "type": "directory"
+    },
+    {
+      "path": "C:\\Users\\ekth3\\.claude\\projects\\d--walk\\memory\\walk-social-vision.md",
+      "accessCount": 1,
+      "lastAccessed": 1784015535220,
+      "type": "file"
+    },
+    {
+      "path": ".worktrees\\accuracy\\streamlit_walk_engine\\tests\\test_navigation_smoke.py",
+      "accessCount": 1,
+      "lastAccessed": 1784015539337,
+      "type": "file"
+    },
+    {
+      "path": ".worktrees\\accuracy\\streamlit_walk_engine\\tests",
+      "accessCount": 1,
+      "lastAccessed": 1784015540599,
+      "type": "directory"
+    },
+    {
+      "path": "VISION_SOCIAL.md",
+      "accessCount": 1,
+      "lastAccessed": 1784015592570,
+      "type": "file"
     }
   ],
   "userDirectives": []

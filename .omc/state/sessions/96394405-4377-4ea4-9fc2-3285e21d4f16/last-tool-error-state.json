@@ -1,7 +1,7 @@
 {
-  "tool_name": "Bash",
-  "tool_input_preview": "{\"command\":\"ls .omc/plans/ 2>/dev/null; echo \\\"---specs---\\\"; ls .omc/specs/ 2>/dev/null; echo \\\"---state---\\\"; ls .omc/state/ 2>/dev/null | head; ls .omc/autopilot/ 2>/dev/null\",\"description\":\"ralpla...",
-  "error": "Exit code 2\n2026-06-10-gps-accuracy-architect-review.md\n2026-06-10-gps-accuracy-plan.md\n2026-07-09-multi-provider-maps-design.md\n2026-07-12-snap-router-mapmatching-design.md\nopen-questions.md\nwalk-origin-address-display.md\nwalk-transit-walk-connection.md\n---specs---\n---state---\nautopilot-state.json\ncheckpoints\nsessions",
-  "timestamp": "2026-07-14T04:04:35.121Z",
+  "tool_name": "mcp__plugin_oh-my-claudecode_t__wiki_add",
+  "tool_input_preview": "{\"title\":\"walk 사진 업로드 기능 — 개발계획안 (미구현, 결정 대기)\",\"category\":\"decision\",\"tags\":[\"walk\",\"photo-upload\",\"plan\",\"camera\",\"localstorage\"],\"content\":\"## 계획 (2026-07-13, 사용자 요청 — 계획만, 미구현)\\n\\n**요지**: 사진 업로드는 `...",
+  "error": "Page \"walk.md\" already exists. Use wiki_ingest to merge content into it, or wiki_delete to remove it first.",
+  "timestamp": "2026-07-14T07:45:46.710Z",
   "retry_count": 1
 }

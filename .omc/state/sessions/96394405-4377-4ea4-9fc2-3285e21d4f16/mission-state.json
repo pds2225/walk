@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-07-14T07:41:29.845Z",
+  "updatedAt": "2026-07-14T07:51:31.596Z",
   "missions": [
     {
       "id": "session:96394405-4377-4ea4-9fc2-3285e21d4f16:none",
@@ -7,14 +7,14 @@
       "name": "none",
       "objective": "Session mission",
       "createdAt": "2026-07-01T18:35:59.085Z",
-      "updatedAt": "2026-07-14T07:41:29.845Z",
+      "updatedAt": "2026-07-14T07:51:31.596Z",
       "status": "running",
-      "workerCount": 57,
+      "workerCount": 58,
       "taskCounts": {
-        "total": 57,
+        "total": 58,
         "pending": 0,
         "blocked": 0,
-        "inProgress": 1,
+        "inProgress": 2,
         "completed": 56,
         "failed": 0
       },
@@ -588,25 +588,19 @@
           "latestUpdate": "completed",
           "completedSummary": null,
           "updatedAt": "2026-07-14T07:41:29.845Z"
+        },
+        {
+          "name": "general-purpose:a973907",
+          "role": "general-purpose",
+          "ownership": "a9739071b225d1584",
+          "status": "running",
+          "currentStep": null,
+          "latestUpdate": null,
+          "completedSummary": null,
+          "updatedAt": "2026-07-14T07:51:31.596Z"
         }
       ],
       "timeline": [
-        {
-          "id": "session-start:ad472c55e183d7813:2026-07-14T07:34:55.166Z",
-          "at": "2026-07-14T07:34:55.166Z",
-          "kind": "update",
-          "agent": "workflow-subagent:ad472c5",
-          "detail": "started workflow-subagent:ad472c5",
-          "sourceKey": "session-start:ad472c55e183d7813"
-        },
-        {
-          "id": "session-stop:ad472c55e183d7813:2026-07-14T07:37:58.920Z",
-          "at": "2026-07-14T07:37:58.920Z",
-          "kind": "completion",
-          "agent": "workflow-subagent:ad472c5",
-          "detail": "completed",
-          "sourceKey": "session-stop:ad472c55e183d7813"
-        },
         {
           "id": "session-start:adb3c2799861d6254:2026-07-14T07:38:14.238Z",
           "at": "2026-07-14T07:38:14.238Z",
@@ -622,6 +616,14 @@
           "agent": "workflow-subagent:adb3c27",
           "detail": "completed",
           "sourceKey": "session-stop:adb3c2799861d6254"
+        },
+        {
+          "id": "session-start:a9739071b225d1584:2026-07-14T07:51:31.596Z",
+          "at": "2026-07-14T07:51:31.596Z",
+          "kind": "update",
+          "agent": "general-purpose:a973907",
+          "detail": "started general-purpose:a973907",
+          "sourceKey": "session-start:a9739071b225d1584"
         }
       ]
     }
