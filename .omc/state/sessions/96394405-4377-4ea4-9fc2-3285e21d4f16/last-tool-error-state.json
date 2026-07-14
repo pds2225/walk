@@ -1,7 +1,7 @@
 {
-  "tool_name": "PowerShell",
-  "tool_input_preview": "{\"command\":\"$null = [System.Management.Automation.PSParser]::Tokenize((Get-Content 'D:\\\\_night_pilot\\\\run_night_walk.ps1' -Raw), [ref]$err = $null); $tokens = [System.Management.Automation.PSParser]::...",
-  "error": "Exit code 1\n\u001b[31;1mParserError: \u001b[0m\r\n\u001b[31;1m\u001b[36;1mLine |\u001b[0m\r\n\u001b[31;1m\u001b[36;1m\u001b[36;1m   1 | \u001b[0m … Content 'D:\\_night_pilot\\run_night_walk.ps1' -Raw), [ref]$err\u001b[36;1m \u001b[0m= $null …\u001b[0m\r\n\u001b[31;1m\u001b[36;1m\u001b[36;1m\u001b[0m\u001b[36;1m\u001b[0m\u001b[36;1m     | \u001b[31;1m                                                                ~\u001b[0m\r\n\u001b[31;1m\u001b[36;1m\u001b[36;1m\u001b[0m\u001b[36;1m\u001b[0m\u001b[36;1m\u001b[31;1m\u001b[31;1m\u001b[36;1m     | \u001b[31;1mMissing ')' in method call.\u001b[0m",
-  "timestamp": "2026-07-12T13:03:00.694Z",
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"ls .omc/plans/ 2>/dev/null; echo \\\"---specs---\\\"; ls .omc/specs/ 2>/dev/null; echo \\\"---state---\\\"; ls .omc/state/ 2>/dev/null | head; ls .omc/autopilot/ 2>/dev/null\",\"description\":\"ralpla...",
+  "error": "Exit code 2\n2026-06-10-gps-accuracy-architect-review.md\n2026-06-10-gps-accuracy-plan.md\n2026-07-09-multi-provider-maps-design.md\n2026-07-12-snap-router-mapmatching-design.md\nopen-questions.md\nwalk-origin-address-display.md\nwalk-transit-walk-connection.md\n---specs---\n---state---\nautopilot-state.json\ncheckpoints\nsessions",
+  "timestamp": "2026-07-14T04:04:35.121Z",
   "retry_count": 1
 }
