@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastScanned": 1783859625052,
+  "lastScanned": 1784000976835,
   "projectRoot": "d:\\walk",
   "techStack": {
     "languages": [
@@ -41,7 +41,7 @@
   },
   "build": {
     "buildCommand": null,
-    "testCommand": "gh pr create --base main --head fix/nav-hardening --title \"fix(nav): 오류 재발방지 하드닝 — 감사·적대검증 확정 21건 수정 + 회귀 9테스트\" --body \"$(cat <<'EOF'\n## 무엇이 바뀌나 (실사용)\n8개 관점 병렬 감사(31건 발견) → **실사용 도달성 적대검증**(21건 확정 / 8건 기각) → 확정만 수정.\n\n**전에는 안 되던 것 → 이제 되는 것 (대표):**\n- 지하철 입구에서 GPS가 애매하면(35~50m) **다음 구간으로 영영 못 넘어감** → 수동 '다음 구간' 버튼 제공\n- 나쁜 GPS 신호로 **알림은 조용한데 재탐색은 발동**(잘못된 경로 생성) → 알림과 동일하게 보류\n- 앱 전환 후 복귀하면 **즉시 헛 이탈 판정**(지속시간 뻥튀기) → 30초+ 공백 시 판정이력 리셋\n- 회전을 지나쳤는데 **재탐색이 억제**됨 → passed_turn 면제\n- Mapbox 켰는데 네트워크 순간 실패 시 **끈 것보다 나빠짐** → 무료 판정 폴백(3상)\n- 대중교통 여정 한 번 하면 **예약 자동출발이 죽음** / 정확한 GPS 잡히면 **예약 감지 자체가 멈춤** → 여정 종료 정리 + 유휴 폴링 유지\n- 도착 요약이 **마지막 구간만** 집계 / 폰 시계 오차로 **워밍업 무력화·소요시간 왜곡** → 여정 전체 집계 + 단일 시계\n- 지원종료된 화면 옵션 17건 선제 교체(향후 Streamlit 업그레이드 대비)\n\n## 재발방지\n회귀 테스트 9개 신설(`test_nav_hardening.py`) — 각 수정이 되돌아오면 즉시 실패.\n+ 오늘 밤부터 야간 무인 하드닝(`night-autodev-walk`, 01:15)이 격리 복사본에서 지속 점검.\n\n## 검증\n**257 passed**(기존 248+9), py_compile OK, AppTest 렌더 정상, engine.py 코어 비침습, Secret 없음.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\nEOF\n)\" 2>&1 | tail -2 && gh pr merge fix/nav-hardening --merge 2>&1 | tail -2; echo \"=== sync ===\"; cd /d/walk && git checkout main -q; git pull --ff-only origin main 2>&1 | tail -2; git log --oneline -1; python -m pytest streamlit_walk_engine/tests -q 2>&1 | tail -2",
+    "testCommand": "npm test",
     "lintCommand": "npm run lint",
     "devCommand": null,
     "scripts": {
@@ -78,14 +78,14 @@
       "path": "apps",
       "purpose": null,
       "fileCount": 0,
-      "lastAccessed": 1783859624981,
+      "lastAccessed": 1784000976608,
       "keyFiles": []
     },
     "docs": {
       "path": "docs",
       "purpose": "Documentation",
       "fileCount": 2,
-      "lastAccessed": 1783859624995,
+      "lastAccessed": 1784000976626,
       "keyFiles": [
         "progress-notes.md"
       ]
@@ -94,21 +94,21 @@
       "path": "docs - 복사본",
       "purpose": null,
       "fileCount": 0,
-      "lastAccessed": 1783859624997,
+      "lastAccessed": 1784000976627,
       "keyFiles": []
     },
     "packages": {
       "path": "packages",
       "purpose": null,
       "fileCount": 0,
-      "lastAccessed": 1783859624999,
+      "lastAccessed": 1784000976628,
       "keyFiles": []
     },
     "scripts": {
       "path": "scripts",
       "purpose": "Build/utility scripts",
       "fileCount": 1,
-      "lastAccessed": 1783859625001,
+      "lastAccessed": 1784000976629,
       "keyFiles": [
         "git_auto_backup.ps1"
       ]
@@ -117,7 +117,7 @@
       "path": "streamlit_task_organizer",
       "purpose": null,
       "fileCount": 4,
-      "lastAccessed": 1783859625003,
+      "lastAccessed": 1784000976630,
       "keyFiles": [
         "app.py",
         "README.md",
@@ -128,8 +128,8 @@
     "streamlit_walk_engine": {
       "path": "streamlit_walk_engine",
       "purpose": null,
-      "fileCount": 13,
-      "lastAccessed": 1783859625004,
+      "fileCount": 14,
+      "lastAccessed": 1784000976630,
       "keyFiles": [
         "alert_voice.py",
         "app.py",
@@ -142,14 +142,14 @@
       "path": "apps\\api",
       "purpose": "API routes",
       "fileCount": 0,
-      "lastAccessed": 1783859625007,
+      "lastAccessed": 1784000976632,
       "keyFiles": []
     },
     "streamlit_task_organizer\\schemas": {
       "path": "streamlit_task_organizer\\schemas",
       "purpose": "Schema definitions",
       "fileCount": 3,
-      "lastAccessed": 1783859625014,
+      "lastAccessed": 1784000976634,
       "keyFiles": [
         "export_schema.py",
         "result_schema.py",
@@ -160,7 +160,7 @@
       "path": "streamlit_task_organizer\\services",
       "purpose": "Business logic services",
       "fileCount": 4,
-      "lastAccessed": 1783859625015,
+      "lastAccessed": 1784000976635,
       "keyFiles": [
         "export_service.py",
         "history_service.py",
@@ -171,7 +171,7 @@
       "path": "streamlit_task_organizer\\tests",
       "purpose": "Test files",
       "fileCount": 7,
-      "lastAccessed": 1783859625017,
+      "lastAccessed": 1784000976636,
       "keyFiles": [
         "test_checklist_parser.py",
         "test_contact_parser.py",
@@ -182,7 +182,7 @@
       "path": "streamlit_task_organizer\\utils",
       "purpose": "Utility functions",
       "fileCount": 5,
-      "lastAccessed": 1783859625018,
+      "lastAccessed": 1784000976636,
       "keyFiles": [
         "constants.py",
         "date_utils.py",
@@ -193,7 +193,7 @@
       "path": "streamlit_walk_engine\\pages",
       "purpose": "Page components",
       "fileCount": 1,
-      "lastAccessed": 1783859625021,
+      "lastAccessed": 1784000976639,
       "keyFiles": [
         "1_Navigation.py"
       ]
