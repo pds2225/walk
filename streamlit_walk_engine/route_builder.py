@@ -123,19 +123,23 @@ def _subway_candidates(query: str) -> list[str]:
 
 # ── geocoding ────────────────────────────────────────────────────────────────
 
-# 도로명 + 건물번호가 공백 없이 붙은 검색어 감지 — 예 '서판로30', '백범로227'.
-# Naver 지오코딩은 도로명과 건물번호 사이 공백을 요구해 '서판로30'처럼 붙여 쓰면
-# addresses 가 비어 결과가 안 뜬다. 번호 뒤에 한글·숫자가 이어지지 않을 때만(=건물번호)
-# 매칭해 '서판로30번길' 같은 번길 도로명은 건드리지 않는다(그건 원본 그대로가 정답).
-_ROAD_NUM_RE = re.compile(r"([가-힣A-Za-z]+(?:대로|로|길))(\d[\d\-]*)(?![가-힣\d])")
+# 주소단위(도로명 로/길/대로, 지번 동) + 번호가 공백 없이 붙은 검색어 감지 —
+# 예 '서판로30', '백범로227', '만수동123'. Naver 지오코딩은 주소단위와 번호 사이 공백을
+# 요구해 붙여 쓰면 addresses 가 비어 결과가 안 뜬다. 번호 뒤에 한글·숫자가 이어지지
+# 않을 때만(=끝의 건물번호/지번) 매칭해 '서판로30번길'(번길 도로명)·'만수3동'(행정동
+# 이름 속 숫자)·'성수동2가'(번호 앞 동) 같은 표기는 건드리지 않는다.
+#   · 동(법정동 만수동)은 이름에 숫자가 없어 '만수동123'→'만수동 123'이 안전하다.
+#   · 가/리는 번호가 항상 단위 '앞'에 와(1가·2가) 이 규칙으로는 쪼갤 수 없고, '상가/번화가'
+#     같은 일반어 오탐만 늘어 제외한다.
+_ROAD_NUM_RE = re.compile(r"([가-힣A-Za-z]+(?:대로|로|길|동))(\d[\d\-]*)(?![가-힣\d])")
 
 
 def _road_number_variants(query: str) -> list[str]:
-    """'서판로30'처럼 도로명·건물번호가 붙은 검색어를 '서판로 30'으로도 시도하도록 확장.
+    """'서판로30'·'만수동123'처럼 주소단위·번호가 붙은 검색어를 공백 변형으로도 확장.
 
-    원본을 항상 먼저 넣어 '서판로30번길' 같은 번길 도로명은 그대로 해석되게 하고,
-    공백을 끼운 변형을 뒤에 덧붙여 Naver 지오코딩의 도로명 주소 검색 성공률을 높인다.
-    바꿀 게 없으면 원본만 담긴 1개 리스트를 반환한다(호출부 로직 단순화)."""
+    원본을 항상 먼저 넣어 '서판로30번길'·'만수3동' 같은 표기는 그대로 해석되게 하고,
+    공백을 끼운 변형('서판로 30'·'만수동 123')을 뒤에 덧붙여 Naver 지오코딩(도로명·지번
+    주소)의 검색 성공률을 높인다. 바꿀 게 없으면 원본만 담긴 1개 리스트를 반환한다."""
     q = (query or "").strip()
     variants = [q]
     spaced = _ROAD_NUM_RE.sub(r"\1 \2", q)
@@ -272,12 +276,22 @@ def geocode_suggestions(query: str, limit: int = 5,
         return []
     out: list[tuple[Coordinate, str]] = []
     seen: set[tuple[float, float]] = set()
+    seen_labels: set[str] = set()
 
     def _add(lat: float, lon: float, display: str) -> None:
         key = (round(lat, 6), round(lon, 6))
         if key in seen:
             return
+        # 화면에 보이는 라벨이 이미 담긴 후보와 '글자까지 동일'하면 건너뛴다.
+        # (같은 도로·POI 가 좌표만 살짝 달라 여러 줄로 뜨던 '똑같아 보이는 주소' 제거 —
+        #  사용자가 무엇을 고를지 구분 못 하는 문제. 거리 표시는 UI 에서 붙으므로 여기선
+        #  거리 이전의 주소 라벨 기준으로 판단한다. 건물번호가 다르면 라벨이 달라 유지된다.)
+        label = format_place_label(display)
+        if label and label in seen_labels:
+            return
         seen.add(key)
+        if label:
+            seen_labels.add(label)
         out.append((Coordinate(latitude=lat, longitude=lon), display))
 
     # 1) Naver addresses 배열(여러 후보)
