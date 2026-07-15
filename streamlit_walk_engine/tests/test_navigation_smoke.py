@@ -40,6 +40,31 @@ def test_deviation_confirmation_defaults_are_faster():
     assert 'interval=1000 if st.session_state["nav_running"] else 10_000' in source
 
 
+def test_dest_entry_pauses_periodic_reruns():
+    """목적지 입력 중 화면 리셋('두 번 입력') 근본수정:
+    GPS 재폴링(약 1초)·autorefresh 가 만드는 주기적 rerun 이 st_searchbox 입력 도중
+    끼어들면 드롭다운·포커스가 끊겨 검색어가 사라진다. 입력 중(_dest_entry_active)에는
+    이 주기적 rerun 을 멈춘다 — 단 첫 위치 미취득(origin None)일 때는 폴링을 유지한다."""
+    source = PAGE.read_text(encoding="utf-8")
+
+    # 판정 헬퍼: 실시간 검색어가 있고 아직 후보 미선택일 때만 True
+    assert "def _dest_entry_active()" in source
+    active = source.index("def _dest_entry_active()")
+    active_block = source[active:active + 900]
+    assert 'sb.get("search")' in active_block and 'sb.get("result") is None' in active_block
+    # nav_running 중에는 폴링을 멈추면 안 된다(주행 안전) → 항상 False
+    assert 'if st.session_state.get("nav_running"):' in active_block
+
+    # GPS 재폴링 게이트: 입력 중 + 위치 있음이면 폴링 중단(첫 fix 는 막지 않음)
+    assert ('if _dest_entry_active() and st.session_state["nav_origin"] is not None:'
+            in source)
+    poll_gate = source.index("if _dest_entry_active() and st.session_state")
+    assert "need_gps_poll = False" in source[poll_gate:poll_gate + 200]
+
+    # autorefresh 게이트: 예약 유휴 refresh 는 입력 중이면 등록하지 않는다
+    assert "_booking_armed and not _dest_entry_active()" in source
+
+
 def test_reroute_cooldown_is_three_seconds():
     """연속 재탐색 방지 쿨다운(폭주 방지 안전벨트) = 3초. 값 자체는 재탐색 빈도에
     거의 영향 없음(워밍업·재중심화가 지배) — 근본 개선은 맵매칭이 필요."""
