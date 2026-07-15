@@ -202,8 +202,8 @@
   "hotPaths": [
     {
       "path": "streamlit_walk_engine\\pages\\1_Navigation.py",
-      "accessCount": 158,
-      "lastAccessed": 1784132964510,
+      "accessCount": 164,
+      "lastAccessed": 1784134207880,
       "type": "file"
     },
     {
@@ -225,6 +225,12 @@
       "type": "file"
     },
     {
+      "path": "RESUME.md",
+      "accessCount": 18,
+      "lastAccessed": 1784134719485,
+      "type": "file"
+    },
+    {
       "path": "streamlit_walk_engine\\engine.py",
       "accessCount": 16,
       "lastAccessed": 1784018722666,
@@ -234,12 +240,6 @@
       "path": "streamlit_walk_engine\\gps_filter.py",
       "accessCount": 16,
       "lastAccessed": 1784019248634,
-      "type": "file"
-    },
-    {
-      "path": "RESUME.md",
-      "accessCount": 15,
-      "lastAccessed": 1784023572098,
       "type": "file"
     },
     {
