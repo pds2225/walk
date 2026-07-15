@@ -1,34 +1,30 @@
 {
   "version": 1,
   "entries": {
-    "4f7a67fba0a8473e9883d9e8dffbb2d72e00a4a1eeb4fa80cb14213b167dc90f": {
-      "last_emitted_at_ms": 1784018525698,
-      "message": "Mark todos in_progress BEFORE starting, completed IMMEDIATELY after finishing."
-    },
-    "445ed27a3872b681d98190bae61ccb84954e1bc4e140df5370be958dee776b3a": {
-      "last_emitted_at_ms": 1784018520055,
-      "message": "Verify changes work after editing. Test functionality before marking complete."
-    },
     "466399dafa2d20f60587180bad0a07358eb7f2bce724df0ff682f038ad33f5ad": {
-      "last_emitted_at_ms": 1784018509856,
+      "last_emitted_at_ms": 1784023475928,
       "message": "Read multiple files in parallel when possible for faster analysis."
     },
+    "445ed27a3872b681d98190bae61ccb84954e1bc4e140df5370be958dee776b3a": {
+      "last_emitted_at_ms": 1784023357428,
+      "message": "Verify changes work after editing. Test functionality before marking complete."
+    },
     "79a93d4a2f8f50b95f852280616242fee1855dc99a3c75211917f55e72e95fae": {
-      "last_emitted_at_ms": 1784018509226,
+      "last_emitted_at_ms": 1784023285085,
       "message": "Use parallel execution for independent tasks. Use run_in_background for long operations (npm install, builds, tests)."
     },
-    "1bb6914bc42b891c26d46c8ae2fd4f44071f59862e89dc550f4c82877b700216": {
-      "last_emitted_at_ms": 1784018494010,
-      "message": "The boulder never stops. Continue until all tasks complete."
-    },
     "459c54e5f35d6a58dcd90d2aecc21fa6d1f35d241bc5b134c506f87dc7b6d67b": {
-      "last_emitted_at_ms": 1784018390196,
+      "last_emitted_at_ms": 1784023188536,
       "message": "Combine searches in parallel when investigating multiple patterns."
     },
-    "3b1949a37e76a83318b1514b08e2ff59655f8c4d9f997f0152c69134d525fd12": {
-      "last_emitted_at_ms": 1784015489499,
-      "message": "Spawning agent: general-purpose (inherit) | Task: GPS 정확도 Phase1 구현"
+    "4f7a67fba0a8473e9883d9e8dffbb2d72e00a4a1eeb4fa80cb14213b167dc90f": {
+      "last_emitted_at_ms": 1784020932060,
+      "message": "Mark todos in_progress BEFORE starting, completed IMMEDIATELY after finishing."
+    },
+    "1bb6914bc42b891c26d46c8ae2fd4f44071f59862e89dc550f4c82877b700216": {
+      "last_emitted_at_ms": 1784020915227,
+      "message": "The boulder never stops. Continue until all tasks complete."
     }
   },
-  "updated_at": "2026-07-14T08:42:05.698Z"
+  "updated_at": "2026-07-14T10:04:35.928Z"
 }

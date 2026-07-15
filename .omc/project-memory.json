@@ -41,7 +41,7 @@
   },
   "build": {
     "buildCommand": null,
-    "testCommand": "cd /d/walk && git pull --ff-only origin main 2>&1 | tail -1 && git log --oneline -1 && python -m pytest streamlit_walk_engine/tests -q 2>&1 | tail -2; git worktree remove .worktrees/accuracy --force 2>&1 | tail -1; git branch -D feat/gps-accuracy-p1 2>&1 | tail -1; git push origin --delete feat/gps-accuracy-p1 2>&1 | tail -1",
+    "testCommand": "cd /d/walk && git pull --ff-only origin main 2>&1 | tail -1 && git log --oneline -1 && python -m pytest streamlit_walk_engine/tests -q 2>&1 | tail -2; git worktree remove .worktrees/reroutefix --force 2>&1 | tail -1; git branch -D fix/reroute-route-update 2>&1 | tail -1; git push origin --delete fix/reroute-route-update 2>&1 | tail -1",
     "lintCommand": "npm run lint",
     "devCommand": null,
     "scripts": {
@@ -202,8 +202,8 @@
   "hotPaths": [
     {
       "path": "streamlit_walk_engine\\pages\\1_Navigation.py",
-      "accessCount": 133,
-      "lastAccessed": 1784018606503,
+      "accessCount": 152,
+      "lastAccessed": 1784023188849,
       "type": "file"
     },
     {
@@ -225,33 +225,39 @@
       "type": "file"
     },
     {
-      "path": "RESUME.md",
-      "accessCount": 13,
-      "lastAccessed": 1784018520398,
+      "path": "streamlit_walk_engine\\engine.py",
+      "accessCount": 16,
+      "lastAccessed": 1784018722666,
       "type": "file"
     },
     {
       "path": "streamlit_walk_engine\\gps_filter.py",
-      "accessCount": 13,
-      "lastAccessed": 1784018534740,
+      "accessCount": 16,
+      "lastAccessed": 1784019248634,
       "type": "file"
     },
     {
-      "path": "streamlit_walk_engine\\engine.py",
-      "accessCount": 11,
-      "lastAccessed": 1784018582421,
+      "path": "RESUME.md",
+      "accessCount": 15,
+      "lastAccessed": 1784023572098,
       "type": "file"
+    },
+    {
+      "path": "streamlit_walk_engine\\snap_router.py",
+      "accessCount": 10,
+      "lastAccessed": 1784019250532,
+      "type": "file"
+    },
+    {
+      "path": "streamlit_walk_engine",
+      "accessCount": 9,
+      "lastAccessed": 1784019169790,
+      "type": "directory"
     },
     {
       "path": ".worktrees\\tick1s\\streamlit_walk_engine\\pages\\1_Navigation.py",
       "accessCount": 8,
       "lastAccessed": 1783927490375,
-      "type": "file"
-    },
-    {
-      "path": "streamlit_walk_engine\\snap_router.py",
-      "accessCount": 8,
-      "lastAccessed": 1784018526928,
       "type": "file"
     },
     {
@@ -264,12 +270,6 @@
       "path": ".worktrees\\mapzoom\\streamlit_walk_engine\\pages\\1_Navigation.py",
       "accessCount": 6,
       "lastAccessed": 1784014968014,
-      "type": "directory"
-    },
-    {
-      "path": "streamlit_walk_engine",
-      "accessCount": 5,
-      "lastAccessed": 1784018584272,
       "type": "directory"
     },
     {
@@ -313,6 +313,24 @@
       "accessCount": 3,
       "lastAccessed": 1784018524306,
       "type": "directory"
+    },
+    {
+      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\sim_reroute_loop.py",
+      "accessCount": 3,
+      "lastAccessed": 1784018738696,
+      "type": "file"
+    },
+    {
+      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\sim_reroute.py",
+      "accessCount": 3,
+      "lastAccessed": 1784018796116,
+      "type": "file"
+    },
+    {
+      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\e2e_nav_wrapper.py",
+      "accessCount": 3,
+      "lastAccessed": 1784019586151,
+      "type": "file"
     },
     {
       "path": "streamlit_walk_engine\\tests\\test_navigation_smoke.py",
@@ -381,6 +399,12 @@
       "type": "file"
     },
     {
+      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\apptest_map_update.py",
+      "accessCount": 2,
+      "lastAccessed": 1784018917627,
+      "type": "file"
+    },
+    {
       "path": "streamlit_walk_engine\\tests\\test_snap_router.py",
       "accessCount": 1,
       "lastAccessed": 1783860109156,
@@ -427,6 +451,54 @@
       "accessCount": 1,
       "lastAccessed": 1784018554345,
       "type": "directory"
+    },
+    {
+      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\PlotlyChart.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1784018687384,
+      "type": "file"
+    },
+    {
+      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\plotly_chart.py",
+      "accessCount": 1,
+      "lastAccessed": 1784018725340,
+      "type": "file"
+    },
+    {
+      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\lib_utils.py",
+      "accessCount": 1,
+      "lastAccessed": 1784018746845,
+      "type": "file"
+    },
+    {
+      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\repro_nav_map.py",
+      "accessCount": 1,
+      "lastAccessed": 1784018854112,
+      "type": "file"
+    },
+    {
+      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\check_map_update.py",
+      "accessCount": 1,
+      "lastAccessed": 1784018873584,
+      "type": "file"
+    },
+    {
+      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\repro_app.py",
+      "accessCount": 1,
+      "lastAccessed": 1784019082133,
+      "type": "file"
+    },
+    {
+      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\drive_repro.py",
+      "accessCount": 1,
+      "lastAccessed": 1784019093527,
+      "type": "file"
+    },
+    {
+      "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\e2e_walk_deviate.py",
+      "accessCount": 1,
+      "lastAccessed": 1784019352898,
+      "type": "file"
     }
   ],
   "userDirectives": []
