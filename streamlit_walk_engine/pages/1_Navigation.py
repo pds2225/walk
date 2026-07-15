@@ -117,15 +117,30 @@ def _get_geolocation_high_accuracy(component_key: str = "walk_hi_acc_geo", multi
     버킷이 바뀔 때마다 프런트엔드가 재평가해 새 fix를 받는다(multi/single 공통 보존).
     """
     bucket = int(time.time() // _gps_poll_bucket_sec())
+    # 나침반(DeviceOrientation) 리스너 — iframe 전역(window)에 1회만 등록해 두고 매 GPS
+    # 틱마다 마지막 방위각을 payload에 실어 보낸다. GPS heading은 이동 중에만 나오므로,
+    # 서 있어도 사용자가 '보는 방향'을 알 수 있게 하는 유일한 소스다.
+    # iOS: webkitCompassHeading(진북 시계방향, 권한 탭 1회 필요 — _render_compass_enable).
+    # Android: deviceorientationabsolute 의 alpha → (360-alpha)%360 = 시계방향 방위각.
+    compass_setup_js = (
+        "try{if(!window._walkCompass){window._walkCompass={h:null};"
+        "var _ce=('ondeviceorientationabsolute' in window)?'deviceorientationabsolute':'deviceorientation';"
+        "window.addEventListener(_ce,function(ev){"
+        "var h=(ev.webkitCompassHeading!=null)?ev.webkitCompassHeading:"
+        "((ev.absolute&&ev.alpha!=null)?((360-ev.alpha)%360):null);"
+        "if(h!=null)window._walkCompass.h=h;},true);}}catch(e){}"
+    )
     coords_js = (
         "coords:{accuracy:p.coords.accuracy,altitude:p.coords.altitude,"
         "altitudeAccuracy:p.coords.altitudeAccuracy,heading:p.coords.heading,"
         "latitude:p.coords.latitude,longitude:p.coords.longitude,speed:p.coords.speed},"
-        "timestamp:p.timestamp"
+        "timestamp:p.timestamp,"
+        "compass:(window._walkCompass||{h:null}).h"
     )
     if multi:
         js = (
             "new Promise((resolve)=>{"
+            + compass_setup_js +
             "if(!navigator.geolocation){resolve({error:{code:0,message:'no geolocation'}});return;}"
             "var best=null,n=0,done=false;"
             "var fin=function(){if(done)return;done=true;"
@@ -143,6 +158,7 @@ def _get_geolocation_high_accuracy(component_key: str = "walk_hi_acc_geo", multi
     else:
         js = (
             "new Promise((resolve)=>{"
+            + compass_setup_js +
             "if(!navigator.geolocation){resolve({error:{code:0,message:'no geolocation'}});return;}"
             "navigator.geolocation.getCurrentPosition("
             "(p)=>resolve({" + coords_js + "}),"
@@ -248,6 +264,7 @@ def _init() -> None:
         "nav_lastfix_tried": False,        # 마지막 위치 캐시 복원 시도 완료 여부(1회)
         "nav_lastfix_saved_coord": None,   # 마지막으로 LS에 저장한 좌표(저장 스로틀용)
         "nav_raw_gps": None,
+        "nav_compass_deg": None,   # 나침반 방위각(진북 시계방향, 정지 시 방향 표시용)
         "nav_jump_reject_streak": 0,
         "nav_dest": None,
         "nav_route": None,
@@ -1111,6 +1128,10 @@ def _build_map(
         # 진행 방향(GPS 헤딩)을 8방향 화살표로 마커 가운데에 얹는다 — 지도만 봐도
         # 내가 어느 쪽으로 걷는 중인지 보이게(실기기 요청). 헤딩이 없으면 점만.
         hdg = last_s.heading_degrees
+        if hdg is None:
+            # 정지 상태(GPS 헤딩 없음)엔 나침반 방위각으로 폴백 — 서 있어도 지도에서
+            # 내가 '보는 방향'이 보인다(나침반 미지원/미권한이면 기존처럼 점만).
+            hdg = st.session_state.get("nav_compass_deg")
         arrow = "↑↗→↘↓↙←↖"[int(((hdg % 360) + 22.5) // 45) % 8] if hdg is not None else ""
         fig.add_trace(go.Scattermap(
             lat=[cur_lat], lon=[cur_lon],
@@ -1213,17 +1234,31 @@ def _render_metrics(results: list[EngineResult]) -> None:
         # 다음 회전 방향을 큰 화살표로 — route.turn_points에서 방향 조회(없으면 직진 ↑).
         route_now = st.session_state.get("nav_route")
         arrow = "↑"
+        turn_coord = None
         if route_now is not None and turn_id:
             for tp in route_now.turn_points:
                 if tp.id == turn_id:
                     arrow = _DIR_ARROW.get(tp.direction, "↑")
+                    turn_coord = tp.coordinate
                     break
+        # 나침반이 있으면 '보는 방향 기준' 상대 방향을 함께 안내 — 서 있는 사용자는
+        # 경로 진행방향 기준 좌/우를 알 수 없으므로, 지금 보는 쪽 기준으로 풀어 준다.
+        facing_html = ""
+        compass = st.session_state.get("nav_compass_deg")
+        origin_now = st.session_state.get("nav_origin")
+        if compass is not None and turn_coord is not None and origin_now is not None:
+            rel = (bearing_degrees(origin_now, turn_coord) - compass) % 360.0
+            facing_label = ("정면", "오른쪽 앞", "오른쪽", "오른쪽 뒤",
+                            "뒤쪽", "왼쪽 뒤", "왼쪽", "왼쪽 앞")[int((rel + 22.5) // 45) % 8]
+            facing_html = (f'<div style="font-size:0.85rem;margin-top:2px;opacity:0.95">'
+                           f'🧭 보는 방향 기준 <b>{facing_label}</b></div>')
         st.markdown(
             f'<div style="background:#1d6fb8;color:white;border-radius:12px;'
             f'padding:14px 16px;text-align:center;margin:8px 0 4px">'
             f'<div style="font-size:0.8rem;opacity:0.9">다음 회전까지</div>'
             f'<div style="font-size:2.4rem;font-weight:800;line-height:1.15">{arrow} {next_turn_m:.0f}m</div>'
             + (f'<div style="font-size:0.95rem;margin-top:2px">{turn_desc}</div>' if turn_desc else "")
+            + facing_html
             + '</div>',
             unsafe_allow_html=True,
         )
@@ -1403,6 +1438,35 @@ def _dest_entry_active() -> bool:
     if isinstance(sb, dict):
         return bool((sb.get("search") or "").strip()) and sb.get("result") is None
     return False
+
+
+def _render_compass_enable() -> None:
+    """iOS 나침반(방향) 권한 요청 버튼 — 나침반 값이 아직 없을 때만 노출.
+
+    iOS 13+ 은 DeviceOrientationEvent.requestPermission() 을 '사용자 제스처 콜스택'
+    안에서 불러야 해서 st.button(rerun 후 js 평가)로는 불가 — iframe 안의 실제 HTML
+    버튼 onclick 으로 요청한다(components.html). Android 는 권한 없이 자동 수집되므로
+    나침반 값이 들어오는 즉시 이 메뉴가 사라지고, PC 등 미지원 기기는 눌러도 안내만
+    나온다. 권한은 origin 단위라 GPS 수집 iframe 의 리스너에도 함께 적용된다.
+    """
+    if not _HAS_GEO or st.session_state.get("nav_compass_deg") is not None:
+        return
+    with st.expander("🧭 방향(나침반) 켜기 — iPhone은 탭 1회 필요", expanded=False):
+        st.caption("서 있어도 '보는 방향'이 지도 화살표·다음 회전 안내에 반영돼요. "
+                   "Android는 자동으로 켜집니다(이 메뉴가 사라지면 정상).")
+        components.html(
+            '<button id="b" style="font-size:15px;padding:8px 14px;border-radius:8px;'
+            'border:1px solid #bbb;background:#f7f7f7;cursor:pointer">🧭 나침반 켜기</button> '
+            '<span id="s" style="font-size:13px"></span>'
+            '<script>document.getElementById("b").onclick=async function(){'
+            'var s=document.getElementById("s");'
+            'try{if(window.DeviceOrientationEvent&&DeviceOrientationEvent.requestPermission){'
+            'var r=await DeviceOrientationEvent.requestPermission();'
+            's.textContent=(r==="granted")?"켜졌어요 ✓ 곧 화살표에 반영됩니다":"거부됨 — 브라우저 설정에서 허용 필요";'
+            '}else{s.textContent="이 기기는 버튼 없이 자동 인식돼요";}'
+            '}catch(e){s.textContent="요청 실패: "+e;}};</script>',
+            height=52,
+        )
 
 
 def _search_places(query: str) -> list:
@@ -2057,6 +2121,7 @@ def main() -> None:
         if not running:
             st.divider()
             st.markdown("**현재 위치**")
+            _render_compass_enable()  # iOS 나침반 권한(탭 1회) — 값 들어오면 자동 숨김
         if _HAS_GEO:
             # nav 실행 중, 위치 미취득, 또는 대략 위치(부트스트랩)면 계속 폴링해
             # 더 정확한 fix로 자동 교체한다. (모바일은 첫 GPS fix로 곧 정밀 위치 확보)
@@ -2076,6 +2141,13 @@ def main() -> None:
             if need_gps_poll:
                 # 최초 취득 시에만 다중 샘플로 best fix 선택(첫 fix 부정확 완화), 라이브는 단일.
                 geo = _get_geolocation_high_accuracy(multi=(st.session_state["nav_origin"] is None))
+                # 나침반 방위각(payload 동승)을 세션에 최신화 — 정지 시 마커 화살표·
+                # '보는 방향 기준' 안내용. 미지원/미권한 기기는 None 유지(기능 저하 없음).
+                if isinstance(geo, dict) and geo.get("compass") is not None:
+                    try:
+                        st.session_state["nav_compass_deg"] = float(geo["compass"]) % 360.0
+                    except (TypeError, ValueError):
+                        pass
                 if geo and geo.get("coords"):
                     c = geo["coords"]
                     acc = c.get("accuracy")
