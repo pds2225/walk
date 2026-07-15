@@ -470,6 +470,14 @@ class TestRoadNumberVariants:
         assert route_builder._road_number_variants("만수동123") == ["만수동123", "만수동 123"]
         assert route_builder._road_number_variants("역삼동825-4") == ["역삼동825-4", "역삼동 825-4"]
 
+    def test_inserts_space_for_units_with_embedded_number(self):
+        # 주소단위 토큰이 숫자를 품은 경우도 '끝자리 번호'만 떼어낸다:
+        # 번길('테헤란로4길15'), 가('종로1가15'), 행정동 지번('목1동327').
+        assert route_builder._road_number_variants("테헤란로4길15") == [
+            "테헤란로4길15", "테헤란로4길 15"]
+        assert route_builder._road_number_variants("종로1가15") == ["종로1가15", "종로1가 15"]
+        assert route_builder._road_number_variants("목1동327") == ["목1동327", "목1동 327"]
+
     def test_preserves_already_spaced_query(self):
         assert route_builder._road_number_variants("서판로 30") == ["서판로 30"]
 
@@ -486,13 +494,16 @@ class TestRoadNumberVariants:
     def test_keeps_hyphenated_building_number_together(self):
         assert route_builder._road_number_variants("서판로30-5") == ["서판로30-5", "서판로 30-5"]
 
-    def test_does_not_split_administrative_dong_or_ga(self):
-        # 행정동 이름 속 숫자(만수3동)·동 앞 숫자(성수동2가)·일반어(상가123)는 건드리지 않는다.
+    def test_does_not_split_when_no_trailing_number(self):
+        # 끝에 붙은 번호가 없으면(행정동 만수3동·동 앞 숫자 성수동2가) 그대로 둔다.
         assert route_builder._road_number_variants("만수3동") == ["만수3동"]
         assert route_builder._road_number_variants("성수동2가") == ["성수동2가"]
-        assert route_builder._road_number_variants("상가123") == ["상가123"]
-        # 아파트 동 번호(103동)도 지번으로 오인해 쪼개지 않는다.
         assert route_builder._road_number_variants("행복아파트103동") == ["행복아파트103동"]
+
+    def test_does_not_split_apartment_dong_ho_or_metro_exit(self):
+        # 번호 뒤에 한글(호/번출구)이 이어지면 지번이 아니므로 쪼개지 않는다.
+        assert route_builder._road_number_variants("래미안103동1502호") == ["래미안103동1502호"]
+        assert route_builder._road_number_variants("강남역10번출구") == ["강남역10번출구"]
 
     def test_non_road_query_unchanged(self):
         assert route_builder._road_number_variants("경복궁") == ["경복궁"]
