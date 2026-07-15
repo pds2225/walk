@@ -36,8 +36,65 @@ def test_deviation_confirmation_defaults_are_faster():
 
     assert '"연속 감지 횟수", 1, 5, 3' in source           # 1초 샘플링 × 3회 ≈ 3초 확정
     assert "minimum_drift_duration_ms=2000" in source       # 지속시간 경로도 3번째 표본과 일치
-    # 안내 중 1초 폴링(사용자 지정) — 유휴는 10초 유지(배터리·API 절약)
-    assert 'interval=1000 if st.session_state["nav_running"] else 10_000' in source
+    # 안내 중 1초 폴링(사용자 지정) — 첫 fix·대략위치 승격 대기는 5초, 예약 유휴는 10초
+    assert '1000 if st.session_state["nav_running"]' in source
+    assert "else 5_000 if _needs_idle_fix else 10_000" in source
+
+
+def test_dest_entry_pauses_periodic_reruns():
+    """목적지 입력 중 화면 리셋('두 번 입력') 근본수정:
+    GPS 재폴링(약 1초)·autorefresh 가 만드는 주기적 rerun 이 st_searchbox 입력 도중
+    끼어들면 드롭다운·포커스가 끊겨 검색어가 사라진다. 입력 중(_dest_entry_active)에는
+    이 주기적 rerun 을 멈춘다 — 단 첫 위치 미취득(origin None)일 때는 폴링을 유지한다."""
+    source = PAGE.read_text(encoding="utf-8")
+
+    # 판정 헬퍼: 실시간 검색어가 있고 아직 후보 미선택일 때만 True
+    assert "def _dest_entry_active()" in source
+    active = source.index("def _dest_entry_active()")
+    active_block = source[active:active + 900]
+    assert 'sb.get("search")' in active_block and 'sb.get("result") is None' in active_block
+    # nav_running 중에는 폴링을 멈추면 안 된다(주행 안전) → 항상 False
+    assert 'if st.session_state.get("nav_running"):' in active_block
+
+    # GPS 재폴링 게이트: 입력 중 + 위치 있음이면 폴링 중단(첫 fix 는 막지 않음)
+    assert ('if _dest_entry_active() and st.session_state["nav_origin"] is not None:'
+            in source)
+    poll_gate = source.index("if _dest_entry_active() and st.session_state")
+    assert "need_gps_poll = False" in source[poll_gate:poll_gate + 200]
+
+    # autorefresh 게이트: 예약·첫fix 유휴 refresh 는 입력 중이면 등록하지 않는다
+    assert "(_booking_armed or _needs_idle_fix)" in source
+    assert "and not _dest_entry_active()" in source
+
+
+def test_compass_heading_collected_and_used():
+    """나침반 방향(DeviceOrientation) — 서 있어도(GPS 헤딩 없음) 방향 인식:
+    ① GPS 수집 iframe에 리스너 1회 등록 + 매 틱 payload 동승(compass)
+    ② 세션(nav_compass_deg) 저장 ③ 정지 시 마커 화살표 폴백
+    ④ 다음 회전 카드에 '보는 방향 기준' 상대 방향 ⑤ iOS 권한 버튼(제스처 필수)."""
+    source = PAGE.read_text(encoding="utf-8")
+
+    assert "_walkCompass" in source                       # 리스너 전역 1회 등록 가드
+    assert "webkitCompassHeading" in source               # iOS 방위각
+    assert "deviceorientationabsolute" in source          # Android 절대 방위각
+    assert "compass:(window._walkCompass||{h:null}).h" in source   # payload 동승
+    assert '"nav_compass_deg"' in source                  # 세션 저장 키
+    assert '''hdg = st.session_state.get("nav_compass_deg")''' in source  # 마커 폴백
+    assert "보는 방향 기준" in source                      # 상대 방향 안내
+    assert "DeviceOrientationEvent.requestPermission" in source     # iOS 권한 버튼
+    assert "def _render_compass_enable()" in source
+
+
+def test_gps_poll_bucket_splits_running_vs_idle():
+    """GPS 재측정 버킷 분리: 안내 중 1초 / 유휴(검색·대기) 5초.
+    유휴 화면에서 매초 재측정→rerun 이 searchbox 클릭~첫 글자 사이에 끼어들어
+    검색이 리셋되던 회귀(전역 1초 버킷)의 근본수정. 유휴 5초 autorefresh 가
+    '값 도착→rerun' 우연 루프 대신 재측정을 결정론적으로 구동한다."""
+    source = PAGE.read_text(encoding="utf-8")
+
+    assert "_GPS_POLL_BUCKET_RUNNING_SEC = 1" in source
+    assert "_GPS_POLL_BUCKET_IDLE_SEC = 5" in source
+    assert "time.time() // _gps_poll_bucket_sec()" in source
 
 
 def test_reroute_cooldown_is_three_seconds():

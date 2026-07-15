@@ -1,0 +1,53 @@
+{
+  "updatedAt": "2026-07-15T16:40:16.941Z",
+  "missions": [
+    {
+      "id": "session:491867e7-ab94-415b-9d27-972f1d1e3277:none",
+      "source": "session",
+      "name": "none",
+      "objective": "Session mission",
+      "createdAt": "2026-07-15T16:28:23.474Z",
+      "updatedAt": "2026-07-15T16:40:16.941Z",
+      "status": "done",
+      "workerCount": 1,
+      "taskCounts": {
+        "total": 1,
+        "pending": 0,
+        "blocked": 0,
+        "inProgress": 0,
+        "completed": 1,
+        "failed": 0
+      },
+      "agents": [
+        {
+          "name": "general-purpose:aad1264",
+          "role": "general-purpose",
+          "ownership": "aad1264b01c60d71d",
+          "status": "done",
+          "currentStep": null,
+          "latestUpdate": "completed",
+          "completedSummary": null,
+          "updatedAt": "2026-07-15T16:40:16.941Z"
+        }
+      ],
+      "timeline": [
+        {
+          "id": "session-start:aad1264b01c60d71d:2026-07-15T16:28:23.474Z",
+          "at": "2026-07-15T16:28:23.474Z",
+          "kind": "update",
+          "agent": "general-purpose:aad1264",
+          "detail": "started general-purpose:aad1264",
+          "sourceKey": "session-start:aad1264b01c60d71d"
+        },
+        {
+          "id": "session-stop:aad1264b01c60d71d:2026-07-15T16:40:16.941Z",
+          "at": "2026-07-15T16:40:16.941Z",
+          "kind": "completion",
+          "agent": "general-purpose:aad1264",
+          "detail": "completed",
+          "sourceKey": "session-stop:aad1264b01c60d71d"
+        }
+      ]
+    }
+  ]
+}
