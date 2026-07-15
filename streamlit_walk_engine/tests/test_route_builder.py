@@ -422,6 +422,52 @@ class TestGeocodeSuggestions:
         # 예외가 호출부로 전파되지 않고 [] 반환
         assert route_builder.geocode_suggestions("아무거나") == []
 
+    def test_road_number_without_space_retries_with_space(self, monkeypatch):
+        # '서판로30'은 addresses 가 비지만 공백 변형 '서판로 30'은 결과가 있어야 뜬다.
+        monkeypatch.setattr(route_builder, "_naver_headers", lambda: {"X": "y"})
+        seen = []
+
+        def _fake_get(url, params=None, **k):
+            seen.append(params["query"])
+            if params["query"] == "서판로 30":
+                return _FakeResp(200, {"addresses": [
+                    {"y": "37.45", "x": "126.72", "roadAddress": "인천 남동구 서판로 30"},
+                ]})
+            return _FakeResp(200, {"addresses": []})
+        monkeypatch.setattr(route_builder.requests, "get", _fake_get)
+        out = route_builder.geocode_suggestions("서판로30", limit=5)
+        assert seen == ["서판로30", "서판로 30"]  # 원본 먼저, 빈 결과 시 공백 변형 시도
+        assert len(out) == 1
+        assert out[0][1] == "인천 남동구 서판로 30"
+
+
+class TestRoadNumberVariants:
+    """도로명+건물번호가 붙은 검색어의 공백 변형 확장."""
+
+    def test_inserts_space_before_building_number(self):
+        assert route_builder._road_number_variants("서판로30") == ["서판로30", "서판로 30"]
+        assert route_builder._road_number_variants("강남대로100") == ["강남대로100", "강남대로 100"]
+
+    def test_preserves_already_spaced_query(self):
+        assert route_builder._road_number_variants("서판로 30") == ["서판로 30"]
+
+    def test_does_not_split_beongil_road_name(self):
+        # '서판로30번길'은 그 자체가 도로명 — 번호 뒤에 '번길'이 붙으면 나누지 않는다.
+        assert route_builder._road_number_variants("서판로30번길") == ["서판로30번길"]
+        assert route_builder._road_number_variants("백범로227번길") == ["백범로227번길"]
+
+    def test_splits_building_number_on_beongil_road(self):
+        # 번길 도로명 + 건물번호(붙여쓴 '서판로30번길12')는 건물번호 앞만 띄운다.
+        assert route_builder._road_number_variants("서판로30번길12") == [
+            "서판로30번길12", "서판로30번길 12"]
+
+    def test_keeps_hyphenated_building_number_together(self):
+        assert route_builder._road_number_variants("서판로30-5") == ["서판로30-5", "서판로 30-5"]
+
+    def test_non_road_query_unchanged(self):
+        assert route_builder._road_number_variants("경복궁") == ["경복궁"]
+        assert route_builder._road_number_variants("만수동123") == ["만수동123"]
+
 
 class _FakeSecrets:
     def __init__(self, data):

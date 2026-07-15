@@ -123,28 +123,55 @@ def _subway_candidates(query: str) -> list[str]:
 
 # ── geocoding ────────────────────────────────────────────────────────────────
 
+# 도로명 + 건물번호가 공백 없이 붙은 검색어 감지 — 예 '서판로30', '백범로227'.
+# Naver 지오코딩은 도로명과 건물번호 사이 공백을 요구해 '서판로30'처럼 붙여 쓰면
+# addresses 가 비어 결과가 안 뜬다. 번호 뒤에 한글·숫자가 이어지지 않을 때만(=건물번호)
+# 매칭해 '서판로30번길' 같은 번길 도로명은 건드리지 않는다(그건 원본 그대로가 정답).
+_ROAD_NUM_RE = re.compile(r"([가-힣A-Za-z]+(?:대로|로|길))(\d[\d\-]*)(?![가-힣\d])")
+
+
+def _road_number_variants(query: str) -> list[str]:
+    """'서판로30'처럼 도로명·건물번호가 붙은 검색어를 '서판로 30'으로도 시도하도록 확장.
+
+    원본을 항상 먼저 넣어 '서판로30번길' 같은 번길 도로명은 그대로 해석되게 하고,
+    공백을 끼운 변형을 뒤에 덧붙여 Naver 지오코딩의 도로명 주소 검색 성공률을 높인다.
+    바꿀 게 없으면 원본만 담긴 1개 리스트를 반환한다(호출부 로직 단순화)."""
+    q = (query or "").strip()
+    variants = [q]
+    spaced = _ROAD_NUM_RE.sub(r"\1 \2", q)
+    if spaced != q:
+        variants.append(spaced)
+    return variants
+
+
 def _naver_geocode(query: str) -> tuple[Coordinate, str] | None:
-    """Naver Maps Geocoding(주소 전용). 키 없음·POI·오류 시 None → Nominatim 폴백."""
+    """Naver Maps Geocoding(주소 전용). 키 없음·POI·오류 시 None → Nominatim 폴백.
+
+    '서판로30'처럼 도로명·건물번호가 붙은 검색어는 공백을 끼운 변형('서판로 30')도
+    순서대로 시도한다 — Naver 는 공백 없는 도로명 주소를 못 찾아 결과가 비기 때문이다.
+    """
     headers = _naver_headers()
     if headers is None:
         return None
-    try:
-        resp = requests.get(
-            _NAVER_GEOCODE, params={"query": query}, headers=headers, timeout=_TIMEOUT,
-        )
-        if resp.status_code != 200:
-            return None
-        hits = resp.json().get("addresses", [])
-        if not hits:
-            return None
-        hit = hits[0]
-        display = hit.get("roadAddress") or hit.get("jibunAddress") or query
-        return (
-            Coordinate(latitude=float(hit["y"]), longitude=float(hit["x"])),
-            display,
-        )
-    except (requests.RequestException, KeyError, ValueError):
-        return None
+    for q in _road_number_variants(query):
+        try:
+            resp = requests.get(
+                _NAVER_GEOCODE, params={"query": q}, headers=headers, timeout=_TIMEOUT,
+            )
+            if resp.status_code != 200:
+                continue
+            hits = resp.json().get("addresses", [])
+            if not hits:
+                continue
+            hit = hits[0]
+            display = hit.get("roadAddress") or hit.get("jibunAddress") or q
+            return (
+                Coordinate(latitude=float(hit["y"]), longitude=float(hit["x"])),
+                display,
+            )
+        except (requests.RequestException, KeyError, ValueError):
+            continue
+    return None
 
 
 def _tmap_poi_results(query: str, limit: int = 5,
@@ -254,22 +281,27 @@ def geocode_suggestions(query: str, limit: int = 5,
         out.append((Coordinate(latitude=lat, longitude=lon), display))
 
     # 1) Naver addresses 배열(여러 후보)
+    #    '서판로30'처럼 도로명·건물번호가 붙은 검색어는 공백 변형('서판로 30')도 시도.
+    #    원본이 후보를 채우면 변형은 건너뛴다(불필요한 호출·근접 중복 방지).
     headers = _naver_headers()
     if headers is not None:
-        try:
-            resp = requests.get(
-                _NAVER_GEOCODE, params={"query": q, "count": limit},
-                headers=headers, timeout=_TIMEOUT,
-            )
-            if resp.status_code == 200:
-                for hit in resp.json().get("addresses", [])[:limit]:
-                    try:
-                        lat, lon = float(hit["y"]), float(hit["x"])
-                    except (KeyError, ValueError, TypeError):
-                        continue
-                    _add(lat, lon, hit.get("roadAddress") or hit.get("jibunAddress") or q)
-        except (requests.RequestException, KeyError, ValueError):
-            pass
+        for q_variant in _road_number_variants(q):
+            try:
+                resp = requests.get(
+                    _NAVER_GEOCODE, params={"query": q_variant, "count": limit},
+                    headers=headers, timeout=_TIMEOUT,
+                )
+                if resp.status_code == 200:
+                    for hit in resp.json().get("addresses", [])[:limit]:
+                        try:
+                            lat, lon = float(hit["y"]), float(hit["x"])
+                        except (KeyError, ValueError, TypeError):
+                            continue
+                        _add(lat, lon, hit.get("roadAddress") or hit.get("jibunAddress") or q)
+            except (requests.RequestException, KeyError, ValueError):
+                pass
+            if out:
+                break
 
     # 2) Naver(주소 전용) 결과가 없으면 TMAP 장소(POI) 검색으로 보충 —
     #    '경복궁' 같은 장소명은 여기서 잡힌다 (키 없으면 빈 리스트로 통과)
