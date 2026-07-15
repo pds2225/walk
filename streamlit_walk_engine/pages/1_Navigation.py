@@ -74,6 +74,13 @@ try:
 except ImportError:
     _HAS_SEARCHBOX = False
 
+try:
+    import pydeck as pdk
+    _HAS_PYDECK = True
+except ImportError:
+    _HAS_PYDECK = False
+    pdk = None  # type: ignore[assignment]
+
 
 # GPS 재측정 주기(초). streamlit_js_eval 프런트엔드는 '같은 js_expressions 문자열'은
 # 다시 평가하지 않으므로(once-per-string 가드), 표현식을 고정하면 위치가 세션당 1회만
@@ -265,6 +272,7 @@ def _init() -> None:
         "nav_lastfix_saved_coord": None,   # 마지막으로 LS에 저장한 좌표(저장 스로틀용)
         "nav_raw_gps": None,
         "nav_compass_deg": None,   # 나침반 방위각(진북 시계방향, 정지 시 방향 표시용)
+        "nav_map_bearing": None,   # 헤딩업 지도 직전 방위(헤딩 순간 결측 시 유지용)
         "nav_jump_reject_streak": 0,
         "nav_dest": None,
         "nav_route": None,
@@ -1169,6 +1177,117 @@ def _build_map(
                     font=dict(color="#1a1a1a", size=12)),
     )
     return fig
+
+
+# 안내 중(pydeck) 지도 기본 축척 — rerun 간 '동일 값'이어야 한다(아래 diff-merge 계약).
+# 사용자가 핀치줌하면 그 값이 유지되고, 이 상수는 첫 진입 축척으로만 쓰인다.
+_DECK_ZOOM = 17
+
+
+def _hex_rgb(hex_color: str, alpha: Optional[int] = None) -> list[int]:
+    """'#rrggbb' → [r,g,b(,a)] — deck.gl 색상 형식."""
+    h = hex_color.lstrip("#")
+    rgb = [int(h[i:i + 2], 16) for i in (0, 2, 4)]
+    return rgb + [alpha] if alpha is not None else rgb
+
+
+def _build_map_deck(
+    route: RouteModel,
+    dest: Coordinate,
+    results: list[EngineResult],
+    samples: list[PositionSample],
+    display_coord: Optional[Coordinate] = None,
+):
+    """안내 중 지도(pydeck) — 티맵식 헤딩업(진행 방향이 항상 위) + 사용자 핀치줌 유지.
+
+    Streamlit 1.38+ 프런트엔드는 initial_view_state 를 통째로 적용하지 않고 직전
+    rerun 값과 '키 단위'로 비교해 바뀐 키만 현재 카메라에 merge 한다(useDeckGl.tsx).
+    그래서:
+    - latitude/longitude/bearing 은 매 틱 갱신 → 현재 위치 따라가기 + 헤딩업 회전
+    - zoom 은 rerun 간 동일 상수(_DECK_ZOOM) → diff 에서 제외돼 사용자 핀치줌 유지
+    plotly uirevision 은 zoom·bearing 을 하나의 '사용자 뷰' 그룹으로 묶어 이 조합이
+    구조적으로 불가능했다(PR#56 무효의 근본 원인). 정본: 위키 walk-pydeck-headingup.
+    주의: TextLayer 는 기본 charset 이 ASCII 라 한글 라벨엔 character_set="auto" 필수.
+    """
+    # 헤딩업 방위: GPS 헤딩(이동 중) → 나침반(정지) → 직전 방위(순간 결측 시 유지) → 0.
+    hdg = samples[-1].heading_degrees if samples else None
+    if hdg is None:
+        hdg = st.session_state.get("nav_compass_deg")
+    if hdg is None:
+        hdg = st.session_state.get("nav_map_bearing")
+    bearing = float(hdg) % 360.0 if hdg is not None else 0.0
+    st.session_state["nav_map_bearing"] = bearing
+
+    if display_coord is not None:
+        clat, clon = display_coord.latitude, display_coord.longitude
+    elif samples:
+        clat, clon = samples[-1].latitude, samples[-1].longitude
+    else:
+        mid = route.polyline[len(route.polyline) // 2]
+        clat, clon = mid.latitude, mid.longitude
+
+    layers = [
+        pdk.Layer(
+            "PathLayer", id="route",
+            data=[{"path": [[c.longitude, c.latitude] for c in route.polyline]}],
+            get_path="path", get_color=_hex_rgb("#2980b9"), width_min_pixels=5,
+        ),
+    ]
+    labels = [
+        {"p": [route.polyline[0].longitude, route.polyline[0].latitude], "t": "출발"},
+        {"p": [dest.longitude, dest.latitude], "t": "목적지"},
+    ]
+    if route.turn_points:
+        layers.append(pdk.Layer(
+            "ScatterplotLayer", id="turns",
+            data=[{"p": [tp.coordinate.longitude, tp.coordinate.latitude]}
+                  for tp in route.turn_points],
+            get_position="p", get_fill_color=_hex_rgb("#8e44ad"), radius_min_pixels=6,
+        ))
+        labels += [
+            {"p": [tp.coordinate.longitude, tp.coordinate.latitude],
+             "t": f"{_DIR_ARROW.get(tp.direction, '↑')} 회전"}
+            for tp in route.turn_points
+        ]
+    layers.append(pdk.Layer(
+        "ScatterplotLayer", id="dest",
+        data=[{"p": [dest.longitude, dest.latitude]}],
+        get_position="p", get_fill_color=_hex_rgb("#e74c3c"), radius_min_pixels=8,
+    ))
+    hist_r, hist_s = results[:-1], samples[:-1]
+    if hist_s:
+        layers.append(pdk.Layer(
+            "ScatterplotLayer", id="history",
+            data=[{"p": [s.longitude, s.latitude],
+                   "c": _hex_rgb(STATE_COLOR[r.state], alpha=140)}
+                  for s, r in zip(hist_s, hist_r)],
+            get_position="p", get_fill_color="c", radius_min_pixels=4,
+        ))
+    if results:
+        cur = [clon, clat] if display_coord is not None else \
+            [samples[-1].longitude, samples[-1].latitude]
+        layers.append(pdk.Layer(
+            "ScatterplotLayer", id="me",
+            data=[{"p": cur}], get_position="p",
+            get_fill_color=_hex_rgb(STATE_COLOR[results[-1].state]),
+            radius_min_pixels=11,
+        ))
+        # 헤딩업에서는 진행 방향이 항상 화면 위 — 현재 위치 화살표는 고정 '▲'.
+        layers.append(pdk.Layer(
+            "TextLayer", id="me-arrow",
+            data=[{"p": cur, "t": "▲"}], get_position="p", get_text="t",
+            get_color=[255, 255, 255], get_size=14, character_set="auto",
+        ))
+    layers.append(pdk.Layer(
+        "TextLayer", id="labels",
+        data=labels, get_position="p", get_text="t",
+        get_size=13, get_color=[26, 26, 26], character_set="auto",
+        get_pixel_offset=[0, -18],
+    ))
+    view = pdk.ViewState(latitude=clat, longitude=clon, zoom=_DECK_ZOOM,
+                         bearing=bearing, pitch=0)
+    # map_style="road": 토큰 없는 Carto 도로 스타일 — pydeck 기본(dark)은 보행 지도에 부적합.
+    return pdk.Deck(layers=layers, initial_view_state=view, map_style="road")
 
 
 _DEFAULT_CENTER = Coordinate(latitude=37.5665, longitude=126.9780)  # 서울시청
@@ -2566,6 +2685,18 @@ def main() -> None:
     def _render_map() -> None:
         # 보행 중엔 지도를 더 크게(다음 방향 배지가 위에 있으니 지도에 자리 양보).
         map_h = 640 if st.session_state["nav_running"] else 560
+        if st.session_state["nav_running"] and _HAS_PYDECK:
+            # 안내 중: 헤딩업 지도(pydeck) — 진행 방향이 항상 위 + 핀치줌 유지.
+            # (plotly 는 zoom·bearing 이 uirevision 한 그룹이라 동시 불가 — _build_map_deck 주석)
+            st.pydeck_chart(
+                _build_map_deck(route, dest, st.session_state["nav_results"],
+                                st.session_state["nav_samples"],
+                                display_coord=st.session_state.get("nav_display_origin")),
+                height=map_h, key="nav_map_deck",
+            )
+            return
+        # 유휴(미리보기·도착 요약): 기존 plotly 지도 유지 — 주기 rerun 이 없어
+        # uirevision 만으로 카메라가 보존되고, 헤딩업 회전이 필요 없는 화면.
         # 확대/이동 유지: revision 이 같으면 사용자 카메라 보존(_build_map 주석 참조).
         # 재탐색(nav_reroute_count)·새 경로(양끝 좌표)에서만 값이 바뀌어 리셋된다.
         rev = (f"route-{st.session_state['nav_reroute_count']}"
