@@ -1376,6 +1376,25 @@ def _origin_round3() -> tuple[Optional[float], Optional[float]]:
     return (round(o.latitude, 3), round(o.longitude, 3)) if o is not None else (None, None)
 
 
+def _dest_entry_active() -> bool:
+    """사용자가 목적지를 '실시간 입력(검색)' 중인지 판정.
+
+    목적지 입력 화면에서는 GPS 재폴링(약 1초 주기 rerun)·autorefresh 가 계속 rerun 을
+    만드는데, 그 rerun 이 st_searchbox 입력 도중 끼어들면 드롭다운·포커스가 끊겨 검색어가
+    사라지고 '두 번 입력'해야 하는 문제가 생긴다. 입력 중에는 주기적 rerun 을 멈춰 이를 막는다.
+
+    - searchbox 모드: 위젯 내부 검색어(nav_dest_sb['search'])가 남아 있고 아직 후보를
+      고르지 않았을 때(result is None) True — 후보를 고른 뒤엔 재선택돼도 안전하므로 False.
+    - 안내 진행 중(nav_running)에는 항상 False: 주행 중 GPS 폴링을 멈추면 안 된다.
+    """
+    if st.session_state.get("nav_running"):
+        return False
+    sb = st.session_state.get("nav_dest_sb")
+    if isinstance(sb, dict):
+        return bool((sb.get("search") or "").strip()) and sb.get("result") is None
+    return False
+
+
 def _search_places(query: str) -> list:
     """st_searchbox 콜백 — 입력 즉시 자동완성 후보를 (라벨, 값) 목록으로 반환.
 
@@ -1877,7 +1896,10 @@ def main() -> None:
 
     _booking_armed = any(b.get("enabled", True)
                          for b in st.session_state.get("nav_route_bookings") or [])
-    if _HAS_REFRESH and (st.session_state["nav_running"] or _booking_armed):
+    # 목적지 입력 중에는 주기적 rerun 을 멈춘다 — 입력 도중 rerun 이 searchbox 를 끊어
+    # 검색어가 리셋되고 '두 번 입력'하게 되는 문제 방지(_dest_entry_active). 안내 중은 제외.
+    if _HAS_REFRESH and (st.session_state["nav_running"]
+                         or (_booking_armed and not _dest_entry_active())):
         # 예약이 있으면 유휴 중에도 완만히(10초) rerun 을 유지한다 — rerun 이 없으면 GPS
         # 재폴링→출발반경 진입 감지→예약 자동활성화가 영영 못 깨어난다(정지 화면).
         # 안내 중 1초 폴링(사용자 지정): 1초마다 재서 연속 3회 감지 ≈ 3초 내 이탈 확정.
@@ -2031,6 +2053,10 @@ def main() -> None:
                 or any(b.get("enabled", True)
                        for b in st.session_state.get("nav_route_bookings") or [])
             )
+            # 목적지 입력 중에는 재폴링(약 1초 주기 rerun)을 멈춰 searchbox 가 끊기지 않게 한다.
+            # 단 위치가 아직 없으면(첫 fix 미취득) 계속 폴링 — 첫 위치 취득은 막지 않는다.
+            if _dest_entry_active() and st.session_state["nav_origin"] is not None:
+                need_gps_poll = False
             if need_gps_poll:
                 # 최초 취득 시에만 다중 샘플로 best fix 선택(첫 fix 부정확 완화), 라이브는 단일.
                 geo = _get_geolocation_high_accuracy(multi=(st.session_state["nav_origin"] is None))
