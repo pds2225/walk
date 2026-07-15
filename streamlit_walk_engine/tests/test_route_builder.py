@@ -413,6 +413,23 @@ class TestGeocodeSuggestions:
         out = route_builder.geocode_suggestions("중복", limit=5)
         assert len(out) == 1  # 같은 좌표는 1개로 합쳐짐
 
+    def test_dedupes_identical_visible_labels(self, monkeypatch):
+        # 같은 도로/POI 가 좌표만 살짝 달라 여러 줄로 뜨던 '똑같아 보이는 주소'는
+        # 화면 라벨(format_place_label) 기준으로 1개만 남긴다(사용자 구분 불가 해소).
+        monkeypatch.setattr(route_builder, "_naver_headers", lambda: {"X": "y"})
+        payload = {"addresses": [
+            {"y": "37.4500", "x": "126.7200", "roadAddress": "인천광역시 남동구 서판로 30"},
+            {"y": "37.4501", "x": "126.7201", "roadAddress": "인천광역시 남동구 서판로 30"},
+            {"y": "37.4502", "x": "126.7202", "roadAddress": "인천광역시 남동구 서판로 32"},
+        ]}
+        monkeypatch.setattr(route_builder.requests, "get", lambda *a, **k: _FakeResp(200, payload))
+        out = route_builder.geocode_suggestions("서판로30", limit=5)
+        labels = [route_builder.format_place_label(d) for _, d in out]
+        # '서판로 30'은 1개로 합쳐지고, 건물번호가 다른 '서판로 32'는 별도로 유지된다.
+        assert labels.count("남동구 서판로 30") == 1
+        assert "남동구 서판로 32" in labels
+        assert len(out) == 2
+
     def test_network_error_returns_empty_gracefully(self, monkeypatch):
         monkeypatch.setattr(route_builder, "_naver_headers", lambda: None)
 
@@ -442,11 +459,24 @@ class TestGeocodeSuggestions:
 
 
 class TestRoadNumberVariants:
-    """도로명+건물번호가 붙은 검색어의 공백 변형 확장."""
+    """도로명/지번 주소단위 + 번호가 붙은 검색어의 공백 변형 확장."""
 
     def test_inserts_space_before_building_number(self):
         assert route_builder._road_number_variants("서판로30") == ["서판로30", "서판로 30"]
         assert route_builder._road_number_variants("강남대로100") == ["강남대로100", "강남대로 100"]
+
+    def test_inserts_space_for_dong_jibun_address(self):
+        # 법정동 + 지번을 붙여 쓴 '만수동123'도 '만수동 123'으로 시도 — 지번 주소 검색.
+        assert route_builder._road_number_variants("만수동123") == ["만수동123", "만수동 123"]
+        assert route_builder._road_number_variants("역삼동825-4") == ["역삼동825-4", "역삼동 825-4"]
+
+    def test_inserts_space_for_units_with_embedded_number(self):
+        # 주소단위 토큰이 숫자를 품은 경우도 '끝자리 번호'만 떼어낸다:
+        # 번길('테헤란로4길15'), 가('종로1가15'), 행정동 지번('목1동327').
+        assert route_builder._road_number_variants("테헤란로4길15") == [
+            "테헤란로4길15", "테헤란로4길 15"]
+        assert route_builder._road_number_variants("종로1가15") == ["종로1가15", "종로1가 15"]
+        assert route_builder._road_number_variants("목1동327") == ["목1동327", "목1동 327"]
 
     def test_preserves_already_spaced_query(self):
         assert route_builder._road_number_variants("서판로 30") == ["서판로 30"]
@@ -464,9 +494,20 @@ class TestRoadNumberVariants:
     def test_keeps_hyphenated_building_number_together(self):
         assert route_builder._road_number_variants("서판로30-5") == ["서판로30-5", "서판로 30-5"]
 
+    def test_does_not_split_when_no_trailing_number(self):
+        # 끝에 붙은 번호가 없으면(행정동 만수3동·동 앞 숫자 성수동2가) 그대로 둔다.
+        assert route_builder._road_number_variants("만수3동") == ["만수3동"]
+        assert route_builder._road_number_variants("성수동2가") == ["성수동2가"]
+        assert route_builder._road_number_variants("행복아파트103동") == ["행복아파트103동"]
+
+    def test_does_not_split_apartment_dong_ho_or_metro_exit(self):
+        # 번호 뒤에 한글(호/번출구)이 이어지면 지번이 아니므로 쪼개지 않는다.
+        assert route_builder._road_number_variants("래미안103동1502호") == ["래미안103동1502호"]
+        assert route_builder._road_number_variants("강남역10번출구") == ["강남역10번출구"]
+
     def test_non_road_query_unchanged(self):
         assert route_builder._road_number_variants("경복궁") == ["경복궁"]
-        assert route_builder._road_number_variants("만수동123") == ["만수동123"]
+        assert route_builder._road_number_variants("스타벅스 강남점") == ["스타벅스 강남점"]
 
 
 class _FakeSecrets:
