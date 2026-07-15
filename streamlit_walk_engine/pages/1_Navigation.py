@@ -78,7 +78,17 @@ except ImportError:
 # GPS 재측정 주기(초). streamlit_js_eval 프런트엔드는 '같은 js_expressions 문자열'은
 # 다시 평가하지 않으므로(once-per-string 가드), 표현식을 고정하면 위치가 세션당 1회만
 # 잡혀 내비 중 갱신되지 않는다. 이 주기로 바뀌는 토큰을 표현식에 덧붙여 재측정을 유도한다.
-_GPS_POLL_BUCKET_SEC = 1
+# 안내 중(nav_running)에만 1초 — 유휴(검색·대기) 화면은 5초로 늦춰, 재측정발 rerun이
+# 목적지 입력(searchbox 클릭~첫 글자)·지도 조작을 매초 끊는 문제를 줄인다.
+_GPS_POLL_BUCKET_RUNNING_SEC = 1
+_GPS_POLL_BUCKET_IDLE_SEC = 5
+
+
+def _gps_poll_bucket_sec() -> int:
+    """현재 화면 상태에 맞는 GPS 재측정 주기(초) — 안내 중 1초 / 유휴 5초."""
+    return (_GPS_POLL_BUCKET_RUNNING_SEC if st.session_state.get("nav_running")
+            else _GPS_POLL_BUCKET_IDLE_SEC)
+
 
 # 위치 샘플/판정 누적 상한 — 장시간 보행 시 메모리·지도 렌더 무한 증가 차단.
 _MAX_SAMPLES = 500
@@ -102,11 +112,11 @@ def _get_geolocation_high_accuracy(component_key: str = "walk_hi_acc_geo", multi
     '최초 위치 취득(nav_origin 미정)' 시에만 쓰고, 라이브 폴링은 단일 fix(빠른 응답)를
     유지해 샘플 빈도를 떨어뜨리지 않는다.
 
-    내비 중 위치가 갱신되도록 표현식 끝에 _GPS_POLL_BUCKET_SEC 주기로 바뀌는 주석
+    내비 중 위치가 갱신되도록 표현식 끝에 _gps_poll_bucket_sec() 주기로 바뀌는 주석
     토큰을 붙인다 — 같은 버킷 안에서는 문자열이 같아 값-변경발 무한 rerun이 없고,
     버킷이 바뀔 때마다 프런트엔드가 재평가해 새 fix를 받는다(multi/single 공통 보존).
     """
-    bucket = int(time.time() // _GPS_POLL_BUCKET_SEC)
+    bucket = int(time.time() // _gps_poll_bucket_sec())
     coords_js = (
         "coords:{accuracy:p.coords.accuracy,altitude:p.coords.altitude,"
         "altitudeAccuracy:p.coords.altitudeAccuracy,heading:p.coords.heading,"
@@ -1896,15 +1906,21 @@ def main() -> None:
 
     _booking_armed = any(b.get("enabled", True)
                          for b in st.session_state.get("nav_route_bookings") or [])
+    # 첫 fix 미취득·대략위치(IP/캐시) 상태 — 유휴 버킷이 5초로 늘어나면 '값 도착→rerun'
+    # 우연 루프만으로는 재측정이 멎을 수 있어, 완만한 5초 rerun 으로 정밀 fix 승격을 보장한다.
+    _needs_idle_fix = (st.session_state["nav_origin"] is None
+                       or st.session_state.get("nav_origin_coarse", False))
     # 목적지 입력 중에는 주기적 rerun 을 멈춘다 — 입력 도중 rerun 이 searchbox 를 끊어
     # 검색어가 리셋되고 '두 번 입력'하게 되는 문제 방지(_dest_entry_active). 안내 중은 제외.
     if _HAS_REFRESH and (st.session_state["nav_running"]
-                         or (_booking_armed and not _dest_entry_active())):
+                         or ((_booking_armed or _needs_idle_fix)
+                             and not _dest_entry_active())):
         # 예약이 있으면 유휴 중에도 완만히(10초) rerun 을 유지한다 — rerun 이 없으면 GPS
         # 재폴링→출발반경 진입 감지→예약 자동활성화가 영영 못 깨어난다(정지 화면).
         # 안내 중 1초 폴링(사용자 지정): 1초마다 재서 연속 3회 감지 ≈ 3초 내 이탈 확정.
-        st_autorefresh(interval=1000 if st.session_state["nav_running"] else 10_000,
-                       key="nav_refresh")
+        _iv = (1000 if st.session_state["nav_running"]
+               else 5_000 if _needs_idle_fix else 10_000)
+        st_autorefresh(interval=_iv, key="nav_refresh")
 
     # 백그라운드 재탐색 결과가 있으면 이 rerun 시작부에서 커밋 — 이후의 엔진 판정·지도가
     # 같은 run 안에서 곧바로 새 경로를 쓴다(사유: _PENDING_REROUTE 주석).

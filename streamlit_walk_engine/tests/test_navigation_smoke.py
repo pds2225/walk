@@ -36,8 +36,9 @@ def test_deviation_confirmation_defaults_are_faster():
 
     assert '"연속 감지 횟수", 1, 5, 3' in source           # 1초 샘플링 × 3회 ≈ 3초 확정
     assert "minimum_drift_duration_ms=2000" in source       # 지속시간 경로도 3번째 표본과 일치
-    # 안내 중 1초 폴링(사용자 지정) — 유휴는 10초 유지(배터리·API 절약)
-    assert 'interval=1000 if st.session_state["nav_running"] else 10_000' in source
+    # 안내 중 1초 폴링(사용자 지정) — 첫 fix·대략위치 승격 대기는 5초, 예약 유휴는 10초
+    assert '1000 if st.session_state["nav_running"]' in source
+    assert "else 5_000 if _needs_idle_fix else 10_000" in source
 
 
 def test_dest_entry_pauses_periodic_reruns():
@@ -61,8 +62,21 @@ def test_dest_entry_pauses_periodic_reruns():
     poll_gate = source.index("if _dest_entry_active() and st.session_state")
     assert "need_gps_poll = False" in source[poll_gate:poll_gate + 200]
 
-    # autorefresh 게이트: 예약 유휴 refresh 는 입력 중이면 등록하지 않는다
-    assert "_booking_armed and not _dest_entry_active()" in source
+    # autorefresh 게이트: 예약·첫fix 유휴 refresh 는 입력 중이면 등록하지 않는다
+    assert "(_booking_armed or _needs_idle_fix)" in source
+    assert "and not _dest_entry_active()" in source
+
+
+def test_gps_poll_bucket_splits_running_vs_idle():
+    """GPS 재측정 버킷 분리: 안내 중 1초 / 유휴(검색·대기) 5초.
+    유휴 화면에서 매초 재측정→rerun 이 searchbox 클릭~첫 글자 사이에 끼어들어
+    검색이 리셋되던 회귀(전역 1초 버킷)의 근본수정. 유휴 5초 autorefresh 가
+    '값 도착→rerun' 우연 루프 대신 재측정을 결정론적으로 구동한다."""
+    source = PAGE.read_text(encoding="utf-8")
+
+    assert "_GPS_POLL_BUCKET_RUNNING_SEC = 1" in source
+    assert "_GPS_POLL_BUCKET_IDLE_SEC = 5" in source
+    assert "time.time() // _gps_poll_bucket_sec()" in source
 
 
 def test_reroute_cooldown_is_three_seconds():
