@@ -1,5 +1,6 @@
 streamlit==1.54.0
 plotly==6.7.0
+pydeck>=0.9.2
 narwhals>=1.15.1
 pandas==2.3.3
 requests>=2.31.0

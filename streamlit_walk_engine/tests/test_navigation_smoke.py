@@ -67,6 +67,26 @@ def test_dest_entry_pauses_periodic_reruns():
     assert "and not _dest_entry_active()" in source
 
 
+def test_headingup_pydeck_map_when_running():
+    """안내 중 지도 = pydeck 헤딩업(진행 방향이 위) + 사용자 핀치줌 유지.
+    핵심 계약: Streamlit 1.38+ 는 initial_view_state 를 '바뀐 키만' merge 하므로
+    zoom 은 rerun 간 동일 상수(_DECK_ZOOM)로 보내야 사용자 핀치줌이 보존되고,
+    lat/lon/bearing 만 매 틱 갱신해 팔로우+회전한다. plotly 는 zoom·bearing 이
+    uirevision 한 그룹이라 이 조합이 불가(PR#56 무효 원인) — 유휴 화면만 plotly 유지."""
+    source = PAGE.read_text(encoding="utf-8")
+
+    assert "import pydeck as pdk" in source
+    assert "def _build_map_deck(" in source
+    assert "zoom=_DECK_ZOOM" in source                      # 줌 고정(핀치줌 보존 계약)
+    assert "bearing=bearing" in source                      # 헤딩업 회전
+    assert 'character_set="auto"' in source                 # TextLayer 한글 라벨 필수
+    assert 'st.session_state["nav_running"] and _HAS_PYDECK' in source  # 안내 중에만
+    assert "st.pydeck_chart" in source
+    assert 'map_style="road"' in source                     # 토큰 없는 Carto 도로 스타일
+    # pydeck 미설치 환경 폴백: 기존 plotly 지도 경로가 남아 있어야 한다.
+    assert 'key="nav_map"' in source
+
+
 def test_compass_heading_collected_and_used():
     """나침반 방향(DeviceOrientation) — 서 있어도(GPS 헤딩 없음) 방향 인식:
     ① GPS 수집 iframe에 리스너 1회 등록 + 매 틱 payload 동승(compass)
