@@ -67,6 +67,24 @@ def test_dest_entry_pauses_periodic_reruns():
     assert "and not _dest_entry_active()" in source
 
 
+def test_compass_heading_collected_and_used():
+    """나침반 방향(DeviceOrientation) — 서 있어도(GPS 헤딩 없음) 방향 인식:
+    ① GPS 수집 iframe에 리스너 1회 등록 + 매 틱 payload 동승(compass)
+    ② 세션(nav_compass_deg) 저장 ③ 정지 시 마커 화살표 폴백
+    ④ 다음 회전 카드에 '보는 방향 기준' 상대 방향 ⑤ iOS 권한 버튼(제스처 필수)."""
+    source = PAGE.read_text(encoding="utf-8")
+
+    assert "_walkCompass" in source                       # 리스너 전역 1회 등록 가드
+    assert "webkitCompassHeading" in source               # iOS 방위각
+    assert "deviceorientationabsolute" in source          # Android 절대 방위각
+    assert "compass:(window._walkCompass||{h:null}).h" in source   # payload 동승
+    assert '"nav_compass_deg"' in source                  # 세션 저장 키
+    assert '''hdg = st.session_state.get("nav_compass_deg")''' in source  # 마커 폴백
+    assert "보는 방향 기준" in source                      # 상대 방향 안내
+    assert "DeviceOrientationEvent.requestPermission" in source     # iOS 권한 버튼
+    assert "def _render_compass_enable()" in source
+
+
 def test_gps_poll_bucket_splits_running_vs_idle():
     """GPS 재측정 버킷 분리: 안내 중 1초 / 유휴(검색·대기) 5초.
     유휴 화면에서 매초 재측정→rerun 이 searchbox 클릭~첫 글자 사이에 끼어들어
