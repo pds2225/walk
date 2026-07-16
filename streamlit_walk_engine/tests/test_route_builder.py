@@ -887,9 +887,151 @@ class TestGeocodeFallbackChain:
 
     def test_geocode_address_uses_tmap_poi_when_naver_none(self, monkeypatch):
         monkeypatch.setattr(route_builder, "_naver_geocode", lambda q: None)
+        monkeypatch.setattr(route_builder, "_tmap_addr_results", lambda q, limit=1: [])
         hit = (Coordinate(latitude=37.5, longitude=127.0), "경복궁")
         monkeypatch.setattr(route_builder, "_tmap_poi_results", lambda q, limit=1: [hit])
         def _boom(*a, **k):
             raise AssertionError("POI 성공 시 Nominatim을 호출하면 안 됨")
         monkeypatch.setattr(route_builder.requests, "get", _boom)
         assert route_builder.geocode_address("경복궁") == hit
+
+
+class TestTmapAddrResults:
+    """TMAP 주소 지오코딩(fullAddrGeo) — Naver 키 없는 배포 환경의 주소 검색 대체."""
+
+    def test_no_app_key_returns_empty_without_network(self, monkeypatch):
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: None)
+        def _boom(*a, **k):
+            raise AssertionError("앱키 없으면 네트워크를 호출하면 안 됨")
+        monkeypatch.setattr(route_builder.requests, "get", _boom)
+        assert route_builder._tmap_addr_results("서판로 30") == []
+
+    def test_parses_road_address_from_new_fields(self, monkeypatch):
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: "k")
+        payload = {"coordinateInfo": {"coordinate": [{
+            "newLat": "37.4500", "newLon": "126.7200",
+            "city_do": "인천광역시", "gu_gun": "남동구",
+            "newRoadName": "서판로", "newBuildingIndex": "30",
+        }]}}
+        monkeypatch.setattr(route_builder.requests, "get",
+                            lambda *a, **k: _FakeResp(200, payload))
+        out = route_builder._tmap_addr_results("서판로 30")
+        assert len(out) == 1
+        coord, display = out[0]
+        assert display == "인천광역시 남동구 서판로 30"
+        assert abs(coord.latitude - 37.45) < 1e-6
+        assert abs(coord.longitude - 126.72) < 1e-6
+
+    def test_jibun_fallback_when_no_road_name(self, monkeypatch):
+        # 도로명 미보유 주소지 — city_do·gu_gun 만으로 도로명이 조립돼 지번 폴백이
+        # 죽지 않아야 한다(_tmap_reverse 지번 유실 수정과 같은 원칙의 정방향 가드).
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: "k")
+        payload = {"coordinateInfo": {"coordinate": [{
+            "lat": "37.5495", "lon": "126.9137",
+            "city_do": "서울특별시", "gu_gun": "마포구",
+            "legalDong": "합정동", "bunji": "355-1",
+        }]}}
+        monkeypatch.setattr(route_builder.requests, "get",
+                            lambda *a, **k: _FakeResp(200, payload))
+        out = route_builder._tmap_addr_results("합정동 355-1")
+        assert out[0][1] == "서울특별시 마포구 합정동 355-1"
+
+    def test_rural_eup_myun_ri_preserved(self, monkeypatch):
+        # 읍·면·리 시골 지번 주소가 동 단위로 뭉개지지 않아야 한다.
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: "k")
+        payload = {"coordinateInfo": {"coordinate": [{
+            "lat": "34.9900", "lon": "126.4800",
+            "city_do": "전라남도", "gu_gun": "무안군",
+            "eup_myun": "삼향읍", "ri": "남악리", "bunji": "100",
+        }]}}
+        monkeypatch.setattr(route_builder.requests, "get",
+                            lambda *a, **k: _FakeResp(200, payload))
+        out = route_builder._tmap_addr_results("남악리 100")
+        assert out[0][1] == "전라남도 무안군 삼향읍 남악리 100"
+
+    def test_retries_spaced_variant_when_original_empty(self, monkeypatch):
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: "k")
+        seen = []
+
+        def _fake_get(url, params=None, **k):
+            seen.append(params["fullAddr"])
+            if params["fullAddr"] == "서판로 30":
+                return _FakeResp(200, {"coordinateInfo": {"coordinate": [{
+                    "newLat": "37.45", "newLon": "126.72",
+                    "city_do": "인천광역시", "gu_gun": "남동구",
+                    "newRoadName": "서판로", "newBuildingIndex": "30"}]}})
+            return _FakeResp(200, {"coordinateInfo": {"coordinate": []}})
+        monkeypatch.setattr(route_builder.requests, "get", _fake_get)
+        out = route_builder._tmap_addr_results("서판로30")
+        assert seen == ["서판로30", "서판로 30"]  # 원본 먼저, 빈 결과 시 공백 변형
+        assert len(out) == 1
+
+    def test_network_error_returns_empty(self, monkeypatch):
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: "k")
+
+        def _raise(*a, **k):
+            raise route_builder.requests.RequestException("boom")
+        monkeypatch.setattr(route_builder.requests, "get", _raise)
+        assert route_builder._tmap_addr_results("서판로 30") == []
+
+    def test_non_list_coordinate_payload_returns_empty(self, monkeypatch):
+        # 규격 밖 응답: coordinate 가 배열이 아니라 단일 dict 로 와도
+        # 예외 전파 없이 [] (예외 미전파 계약 — 검색창이 죽지 않아야 한다).
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: "k")
+        payload = {"coordinateInfo": {"coordinate": {"lat": "37.5", "lon": "127.0"}}}
+        monkeypatch.setattr(route_builder.requests, "get",
+                            lambda *a, **k: _FakeResp(200, payload))
+        assert route_builder._tmap_addr_results("서판로 30") == []
+
+
+class TestAddrGeoFallbackChain:
+    """주소 소스 폴백·병합 — Naver 키 없이도 주소지가 뜨고, 주소·POI 가 함께 뜬다."""
+
+    def test_suggestions_use_tmap_addr_when_naver_keyless(self, monkeypatch):
+        # 배포 환경 재현: Naver 키 없음 → fullAddrGeo 가 주소 후보를 채우고
+        # POI 는 뒤에 보충된다(주소 후보가 먼저).
+        monkeypatch.setattr(route_builder, "_naver_headers", lambda: None)
+        addr_hit = (Coordinate(latitude=37.45, longitude=126.72),
+                    "인천광역시 남동구 서판로 30")
+        poi_hit = (Coordinate(latitude=37.46, longitude=126.73),
+                   "인천광역시 남동구 만수동 어느건물")
+        monkeypatch.setattr(route_builder, "_tmap_addr_results",
+                            lambda q, limit=5: [addr_hit])
+        monkeypatch.setattr(route_builder, "_tmap_poi_results",
+                            lambda q, limit=5, center=None: [poi_hit])
+
+        def _boom(*a, **k):
+            raise AssertionError("주소·POI 성공 시 Nominatim을 호출하면 안 됨")
+        monkeypatch.setattr(route_builder.requests, "get", _boom)
+        out = route_builder.geocode_suggestions("서판로 30")
+        assert out[0] == addr_hit
+        assert poi_hit in out
+
+    def test_suggestions_supplement_poi_even_when_naver_has_results(self, monkeypatch):
+        # 양자택일(주소가 1건이라도 있으면 POI 통째 생략) 제거 가드 —
+        # 주소 후보와 건물·장소 후보가 한 목록에 함께 떠야 한다.
+        monkeypatch.setattr(route_builder, "_naver_headers", lambda: {"X": "y"})
+        payload = {"addresses": [
+            {"y": "37.5759", "x": "126.9769", "roadAddress": "서울 종로구 사직로 161"},
+        ]}
+        monkeypatch.setattr(route_builder.requests, "get",
+                            lambda *a, **k: _FakeResp(200, payload))
+        poi_hit = (Coordinate(latitude=37.58, longitude=126.98),
+                   "서울 종로구 세종로 경복궁")
+        monkeypatch.setattr(route_builder, "_tmap_poi_results",
+                            lambda q, limit=5, center=None: [poi_hit])
+        out = route_builder.geocode_suggestions("경복궁", limit=5)
+        assert "서울 종로구 사직로 161" in [d for _, d in out]
+        assert poi_hit in out
+
+    def test_geocode_address_uses_tmap_addr_before_poi(self, monkeypatch):
+        monkeypatch.setattr(route_builder, "_naver_geocode", lambda q: None)
+        hit = (Coordinate(latitude=37.45, longitude=126.72),
+               "인천광역시 남동구 서판로 30")
+        monkeypatch.setattr(route_builder, "_tmap_addr_results",
+                            lambda q, limit=1: [hit])
+
+        def _poi_boom(*a, **k):
+            raise AssertionError("주소 지오코딩 성공 시 POI 를 호출하면 안 됨")
+        monkeypatch.setattr(route_builder, "_tmap_poi_results", _poi_boom)
+        assert route_builder.geocode_address("서판로 30") == hit
