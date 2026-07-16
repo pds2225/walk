@@ -1,30 +1,22 @@
 {
   "version": 1,
   "entries": {
-    "4f7a67fba0a8473e9883d9e8dffbb2d72e00a4a1eeb4fa80cb14213b167dc90f": {
-      "last_emitted_at_ms": 1784134740121,
-      "message": "Mark todos in_progress BEFORE starting, completed IMMEDIATELY after finishing."
-    },
-    "445ed27a3872b681d98190bae61ccb84954e1bc4e140df5370be958dee776b3a": {
-      "last_emitted_at_ms": 1784134698792,
-      "message": "Verify changes work after editing. Test functionality before marking complete."
-    },
     "466399dafa2d20f60587180bad0a07358eb7f2bce724df0ff682f038ad33f5ad": {
-      "last_emitted_at_ms": 1784134673697,
+      "last_emitted_at_ms": 1784161282162,
       "message": "Read multiple files in parallel when possible for faster analysis."
     },
+    "445ed27a3872b681d98190bae61ccb84954e1bc4e140df5370be958dee776b3a": {
+      "last_emitted_at_ms": 1784161235325,
+      "message": "Verify changes work after editing. Test functionality before marking complete."
+    },
+    "4f7a67fba0a8473e9883d9e8dffbb2d72e00a4a1eeb4fa80cb14213b167dc90f": {
+      "last_emitted_at_ms": 1784161194035,
+      "message": "Mark todos in_progress BEFORE starting, completed IMMEDIATELY after finishing."
+    },
     "79a93d4a2f8f50b95f852280616242fee1855dc99a3c75211917f55e72e95fae": {
-      "last_emitted_at_ms": 1784134606681,
+      "last_emitted_at_ms": 1784161181013,
       "message": "Use parallel execution for independent tasks. Use run_in_background for long operations (npm install, builds, tests)."
-    },
-    "459c54e5f35d6a58dcd90d2aecc21fa6d1f35d241bc5b134c506f87dc7b6d67b": {
-      "last_emitted_at_ms": 1784134134098,
-      "message": "Combine searches in parallel when investigating multiple patterns."
-    },
-    "d2322c340d538dba244f1f34a81a3c068a3b9f0ecb1201f8796aaa16739fccf6": {
-      "last_emitted_at_ms": 1784132900085,
-      "message": "Spawning agent: general-purpose (inherit) | Task: pydeck 헤딩업 지도 검토"
     }
   },
-  "updated_at": "2026-07-15T16:59:00.121Z"
+  "updated_at": "2026-07-16T00:21:22.162Z"
 }
