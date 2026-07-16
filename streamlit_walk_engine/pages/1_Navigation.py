@@ -81,6 +81,19 @@ except ImportError:
     _HAS_PYDECK = False
     pdk = None  # type: ignore[assignment]
 
+# MapLibre 양방향 컴포넌트(부드러운 헤딩업) — declare_component iframe 은 rerun 에도
+# 재마운트되지 않아 지도 인스턴스가 살아 있고, 매 틱 easeTo(900ms)로 카메라를
+# 애니메이션시켜 pydeck 의 '1초 스텝' 회전을 매끈하게 만든다. 선언은 반드시
+# import 되는 별도 모듈에서 — 페이지 스크립트에서 직접 declare 하면 모듈 탐지가
+# 실패해 등록이 조용히 죽는다(maplibre_nav_component 모듈 주석 참조).
+# 자산 없음·등록 실패 시 pydeck → plotly 순으로 폴백(안내 기능은 어느 층에서도 동작).
+try:
+    from maplibre_nav_component import maplibre_nav as _maplibre_nav
+    _HAS_MAPLIBRE = True
+except Exception:
+    _maplibre_nav = None
+    _HAS_MAPLIBRE = False
+
 
 # GPS 재측정 주기(초). streamlit_js_eval 프런트엔드는 '같은 js_expressions 문자열'은
 # 다시 평가하지 않으므로(once-per-string 가드), 표현식을 고정하면 위치가 세션당 1회만
@@ -1191,6 +1204,22 @@ def _hex_rgb(hex_color: str, alpha: Optional[int] = None) -> list[int]:
     return rgb + [alpha] if alpha is not None else rgb
 
 
+def _heading_up_bearing(samples: list[PositionSample]) -> float:
+    """헤딩업 지도 방위 — GPS 헤딩(이동 중) → 나침반(정지) → 직전 방위(순간 결측 유지) → 0.
+
+    직전 방위(nav_map_bearing)를 세션에 남겨, 헤딩·나침반이 잠깐 끊겨도 지도가
+    북쪽으로 스냅백하지 않는다. pydeck·MapLibre 지도 공용.
+    """
+    hdg = samples[-1].heading_degrees if samples else None
+    if hdg is None:
+        hdg = st.session_state.get("nav_compass_deg")
+    if hdg is None:
+        hdg = st.session_state.get("nav_map_bearing")
+    bearing = float(hdg) % 360.0 if hdg is not None else 0.0
+    st.session_state["nav_map_bearing"] = bearing
+    return bearing
+
+
 def _build_map_deck(
     route: RouteModel,
     dest: Coordinate,
@@ -1209,14 +1238,7 @@ def _build_map_deck(
     구조적으로 불가능했다(PR#56 무효의 근본 원인). 정본: 위키 walk-pydeck-headingup.
     주의: TextLayer 는 기본 charset 이 ASCII 라 한글 라벨엔 character_set="auto" 필수.
     """
-    # 헤딩업 방위: GPS 헤딩(이동 중) → 나침반(정지) → 직전 방위(순간 결측 시 유지) → 0.
-    hdg = samples[-1].heading_degrees if samples else None
-    if hdg is None:
-        hdg = st.session_state.get("nav_compass_deg")
-    if hdg is None:
-        hdg = st.session_state.get("nav_map_bearing")
-    bearing = float(hdg) % 360.0 if hdg is not None else 0.0
-    st.session_state["nav_map_bearing"] = bearing
+    bearing = _heading_up_bearing(samples)
 
     if display_coord is not None:
         clat, clon = display_coord.latitude, display_coord.longitude
@@ -1288,6 +1310,53 @@ def _build_map_deck(
                          bearing=bearing, pitch=0)
     # map_style="road": 토큰 없는 Carto 도로 스타일 — pydeck 기본(dark)은 보행 지도에 부적합.
     return pdk.Deck(layers=layers, initial_view_state=view, map_style="road")
+
+
+def _maplibre_nav_args(
+    route: RouteModel,
+    dest: Coordinate,
+    results: list[EngineResult],
+    samples: list[PositionSample],
+    display_coord: Optional[Coordinate] = None,
+    height: int = 640,
+) -> dict:
+    """MapLibre 컴포넌트에 보낼 지도 데이터 — pydeck 지도(_build_map_deck)와 동일 요소.
+
+    zoom(_DECK_ZOOM)은 '최초 진입' 축척으로만 쓰인다 — iframe 이 rerun 에도 살아 있어
+    이후엔 사용자가 만진 줌이 지도 안에서 그대로 유지된다(컴포넌트가 easeTo 에 zoom 을
+    넣지 않는 계약 — components/maplibre_nav/index.html 주석 참조). 좌표는 [lon, lat].
+    """
+    bearing = _heading_up_bearing(samples)
+    if display_coord is not None:
+        clat, clon = display_coord.latitude, display_coord.longitude
+    elif samples:
+        clat, clon = samples[-1].latitude, samples[-1].longitude
+    else:
+        mid = route.polyline[len(route.polyline) // 2]
+        clat, clon = mid.latitude, mid.longitude
+
+    pois = [
+        {"p": [route.polyline[0].longitude, route.polyline[0].latitude],
+         "t": "출발", "c": "#2980b9"},
+        {"p": [dest.longitude, dest.latitude], "t": "목적지", "c": "#e74c3c"},
+    ] + [
+        {"p": [tp.coordinate.longitude, tp.coordinate.latitude],
+         "t": f"{_DIR_ARROW.get(tp.direction, '↑')} 회전", "c": "#8e44ad"}
+        for tp in route.turn_points
+    ]
+    hist_r, hist_s = results[:-1], samples[:-1]
+    me = None
+    if results:
+        me = {"p": ([clon, clat] if display_coord is not None
+                    else [samples[-1].longitude, samples[-1].latitude]),
+              "c": STATE_COLOR[results[-1].state]}
+    return {
+        "center": [clon, clat], "bearing": bearing, "zoom": _DECK_ZOOM,
+        "route": [[c.longitude, c.latitude] for c in route.polyline],
+        "history": [{"p": [s.longitude, s.latitude], "c": STATE_COLOR[r.state]}
+                    for s, r in zip(hist_s, hist_r)],
+        "pois": pois, "me": me, "height": height,
+    }
 
 
 _DEFAULT_CENTER = Coordinate(latitude=37.5665, longitude=126.9780)  # 서울시청
@@ -2685,8 +2754,19 @@ def main() -> None:
     def _render_map() -> None:
         # 보행 중엔 지도를 더 크게(다음 방향 배지가 위에 있으니 지도에 자리 양보).
         map_h = 640 if st.session_state["nav_running"] else 560
+        if st.session_state["nav_running"] and _HAS_MAPLIBRE:
+            # 안내 중 1순위: MapLibre 컴포넌트 — iframe 유지 + easeTo(900ms)로
+            # 부드러운 헤딩업 회전 + 핀치줌 유지(제스처 중 따라가기 일시정지).
+            _maplibre_nav(
+                **_maplibre_nav_args(route, dest, st.session_state["nav_results"],
+                                     st.session_state["nav_samples"],
+                                     display_coord=st.session_state.get("nav_display_origin"),
+                                     height=map_h),
+                key="nav_map_ml", default=None,
+            )
+            return
         if st.session_state["nav_running"] and _HAS_PYDECK:
-            # 안내 중: 헤딩업 지도(pydeck) — 진행 방향이 항상 위 + 핀치줌 유지.
+            # 안내 중 2순위(폴백): 헤딩업 지도(pydeck) — 진행 방향이 항상 위 + 핀치줌 유지.
             # (plotly 는 zoom·bearing 이 uirevision 한 그룹이라 동시 불가 — _build_map_deck 주석)
             st.pydeck_chart(
                 _build_map_deck(route, dest, st.session_state["nav_results"],

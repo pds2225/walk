@@ -67,6 +67,36 @@ def test_dest_entry_pauses_periodic_reruns():
     assert "and not _dest_entry_active()" in source
 
 
+def test_maplibre_smooth_headingup_component():
+    """부드러운 헤딩업(PR#63 후속 업그레이드): 안내 중 1순위 지도 = MapLibre 컴포넌트.
+    declare_component iframe 은 rerun 에도 재마운트되지 않아 easeTo(900ms) 카메라
+    애니메이션이 가능 — pydeck 의 '1초 스텝' 회전을 매끈하게. 계약: easeTo 에 zoom
+    미포함(핀치줌 유지) + 사용자 조작 후 2.5초 따라가기 정지(핀치 제스처 보호).
+    자산 없음/등록 실패 시 pydeck → plotly 폴백."""
+    source = PAGE.read_text(encoding="utf-8")
+
+    assert "from maplibre_nav_component import maplibre_nav" in source
+    assert 'st.session_state["nav_running"] and _HAS_MAPLIBRE' in source
+    assert 'key="nav_map_ml"' in source
+    assert "def _heading_up_bearing(" in source     # pydeck 과 공용 방위 폴백 체인
+    assert "def _maplibre_nav_args(" in source
+
+    # 등록은 반드시 import 되는 모듈에서 — 페이지 안 declare 는 모듈 탐지 실패로
+    # 등록이 조용히 죽는다(iframe 404, 실브라우저 검증으로 확정된 함정).
+    mod = (PAGE.parent.parent / "maplibre_nav_component.py").read_text(encoding="utf-8")
+    assert 'components.declare_component("walk_maplibre_nav"' in mod
+    assert "components.declare_component(" not in source
+
+    html = (PAGE.parent.parent / "components" / "maplibre_nav" / "index.html").read_text(
+        encoding="utf-8")
+    assert "streamlit:componentReady" in html and "streamlit:render" in html
+    assert "streamlit:setFrameHeight" in html
+    # 핵심 계약을 통째로 고정: zoom 이 easeTo 에 들어가는 순간 핀치줌 유지가 깨진다.
+    assert "map.easeTo({center:a.center, bearing:a.bearing, duration:900, essential:true})" in html
+    assert "USER_GRACE_MS" in html                  # 제스처 중 따라가기 일시정지
+    assert '["Noto Sans Regular"]' in html          # 한글 라벨 글리프 지정
+
+
 def test_headingup_pydeck_map_when_running():
     """안내 중 지도 = pydeck 헤딩업(진행 방향이 위) + 사용자 핀치줌 유지.
     핵심 계약: Streamlit 1.38+ 는 initial_view_state 를 '바뀐 키만' merge 하므로

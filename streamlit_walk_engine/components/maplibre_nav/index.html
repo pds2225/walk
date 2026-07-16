@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<!--
+  walk 안내 중 지도 — MapLibre 양방향 커스텀 컴포넌트 (부드러운 헤딩업 + 핀치줌 유지)
+
+  왜 커스텀 컴포넌트인가: st.pydeck_chart 는 rerun 마다 카메라를 '1초 스텝'으로만 옮길 수
+  있어 회전이 뚝뚝 끊긴다. declare_component 로 만든 이 iframe 은 rerun 에도 재마운트되지
+  않고(스트림릿이 render 이벤트로 args 만 postMessage) 지도 인스턴스가 계속 살아 있어,
+  매 틱 map.easeTo(duration 900ms)로 카메라를 '애니메이션'시켜 티맵처럼 부드럽게 돈다.
+
+  계약(깨면 안 됨):
+  - easeTo 에 zoom 을 절대 넣지 않는다 → 사용자 핀치줌이 그대로 유지된다.
+  - 사용자가 지도를 만지는 중(터치/휠 후 2.5초)엔 easeTo 를 건너뛴다 → 핀치 제스처를
+    프로그램 카메라 이동이 끊지 않는다(따라가기는 손을 뗀 뒤 자동 재개).
+  - 스트림릿 컴포넌트 프로토콜: componentReady → (parent) streamlit:render → setFrameHeight.
+-->
+<html>
+<head>
+<meta charset="utf-8"/>
+<script src="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.js"></script>
+<link href="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.css" rel="stylesheet"/>
+<style>
+  html, body, #map { margin:0; padding:0; height:100%; width:100%; }
+  .me-marker {
+    display:flex; align-items:center; justify-content:center;
+    width:26px; height:26px; border-radius:50%;
+    border:2px solid #fff; color:#fff; font-size:13px; font-weight:700;
+    box-shadow:0 0 6px rgba(0,0,0,.45);
+  }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+"use strict";
+function send(msg){ parent.postMessage(Object.assign({isStreamlitMessage:true}, msg), "*"); }
+function fc(features){ return {type:"FeatureCollection", features:features}; }
+function pt(coord, props){ return {type:"Feature", geometry:{type:"Point", coordinates:coord}, properties:props||{}}; }
+function line(coords){ return {type:"Feature", geometry:{type:"LineString", coordinates:coords||[]}}; }
+
+var map = null, meMarker = null, firstCam = true, lastH = 0, lastUserTs = 0;
+var USER_GRACE_MS = 2500;  // 사용자 조작 후 이 시간 동안 따라가기(easeTo) 일시정지
+
+function ensureMap(a){
+  if (map !== null) return;
+  map = new maplibregl.Map({
+    container: "map",
+    // 토큰 불필요 Carto voyager(도로 스타일). 글리프에 한글(Noto Sans) 포함.
+    style: "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json",
+    center: a.center, zoom: a.zoom, bearing: a.bearing, pitch: 0,
+  });
+  // 사용자 조작 감지 — 제스처 중 프로그램 카메라 이동이 끼어들지 않게.
+  ["touchstart","mousedown","wheel"].forEach(function(ev){
+    map.getContainer().addEventListener(ev, function(){ lastUserTs = Date.now(); }, {passive:true});
+  });
+  ["touchend","mouseup"].forEach(function(ev){
+    map.getContainer().addEventListener(ev, function(){ lastUserTs = Date.now(); }, {passive:true});
+  });
+  map.on("load", function(){
+    map.addSource("route", {type:"geojson", data: line(a.route)});
+    map.addLayer({id:"route", type:"line", source:"route",
+      layout:{"line-cap":"round","line-join":"round"},
+      paint:{"line-color":"#2980b9","line-width":5}});
+    map.addSource("hist", {type:"geojson", data: fc([])});
+    map.addLayer({id:"hist", type:"circle", source:"hist",
+      paint:{"circle-radius":4,"circle-color":["get","c"],"circle-opacity":0.55}});
+    map.addSource("pois", {type:"geojson", data: fc([])});
+    map.addLayer({id:"pois", type:"circle", source:"pois",
+      paint:{"circle-radius":6,"circle-color":["get","c"],
+             "circle-stroke-color":"#fff","circle-stroke-width":1.5}});
+    map.addLayer({id:"poi-labels", type:"symbol", source:"pois",
+      layout:{"text-field":["get","t"], "text-size":12, "text-offset":[0,-1.3],
+              "text-font":["Noto Sans Regular"], "text-allow-overlap":true},
+      paint:{"text-color":"#1a1a1a","text-halo-color":"#fff","text-halo-width":1.3}});
+    applyData(a);
+  });
+}
+
+function applyData(a){
+  if (!map || !map.getSource("route")) return;  // 스타일 로드 전이면 load 핸들러가 처리
+  map.getSource("route").setData(line(a.route));
+  map.getSource("hist").setData(fc((a.history||[]).map(function(h){ return pt(h.p, {c:h.c}); })));
+  map.getSource("pois").setData(fc((a.pois||[]).map(function(p){ return pt(p.p, {t:p.t||"", c:p.c}); })));
+  if (a.me){
+    if (meMarker === null){
+      var el = document.createElement("div");
+      el.className = "me-marker";
+      el.textContent = "▲";  // 헤딩업이라 진행 방향 = 항상 화면 위 → 고정 ▲
+      meMarker = new maplibregl.Marker({element:el, rotationAlignment:"viewport"})
+        .setLngLat(a.me.p).addTo(map);
+    } else {
+      meMarker.setLngLat(a.me.p);
+    }
+    meMarker.getElement().style.background = a.me.c;
+  }
+}
+
+window.addEventListener("resize", function(){ if (map) map.resize(); });
+
+window.addEventListener("message", function(ev){
+  var d = ev.data || {};
+  if (d.type !== "streamlit:render") return;
+  var a = (d.args) || {};
+  if (a.height && a.height !== lastH){
+    lastH = a.height;
+    send({type:"streamlit:setFrameHeight", height:a.height});
+    if (map) setTimeout(function(){ map.resize(); }, 50);
+  }
+  ensureMap(a);
+  applyData(a);
+  if (firstCam){
+    map.jumpTo({center:a.center, bearing:a.bearing});  // 첫 프레임은 즉시
+    firstCam = false;
+  } else if (Date.now() - lastUserTs > USER_GRACE_MS){
+    // 부드러운 헤딩업: zoom 은 절대 포함하지 않는다(핀치줌 유지 계약).
+    map.easeTo({center:a.center, bearing:a.bearing, duration:900, essential:true});
+  }
+});
+
+send({type:"streamlit:componentReady", apiVersion:1});
+send({type:"streamlit:setFrameHeight", height:640});
+</script>
+</body>
+</html>

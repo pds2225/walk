@@ -1,8 +1,10 @@
 # RESUME.md - D:\walk checkpoint
 
-> **⏭️ 다음 액션(최우선, 2026-07-16 저녁 — 미해결 3건 + pydeck 전환까지 전부 머지 완료)**
-> 1. **[폰 확인 목록(누적)]** ⓐ**검색 리셋(#61)**: 도착지 입력이 이제 안 끊기는지 ⓑ**나침반(#62)**: 서서 폰만 돌려도 지도 화살표가 도는지(Android 자동 / iPhone은 '🧭 방향 켜기' 탭 1회), 안내 중 '보는 방향 기준 왼쪽' 문구 ⓒ**헤딩업 지도(#63)**: 걷기 시작 후 지도가 진행 방향으로 회전하는지·핀치줌이 유지되는지 ⓓ알림음 테스트버튼 ⓔ재탐색 경로 교체(PR#58) ⓕ핀 추종(P1) ⓖ회전예고 9초 ⓗ거리순 검색.
-> 2. **[선택·차후]** 헤딩업 회전이 1초 스텝이라 뚝뚝 끊겨 보이면 → MapLibre 양방향 커스텀 컴포넌트(작업량 L, easeTo 애니메이션)가 업그레이드 경로(위키 walk-pydeck 참조). streamlit 버전 pin(1.54.0) 변경 금지 — pydeck diff-merge가 소스 동작 의존.
+> **⏭️ 다음 액션(최우선, 2026-07-16 밤 — MapLibre 부드러운 헤딩업까지 전부 머지 완료)**
+> 1. **[폰 확인 목록(누적)]** ⓐ**검색 리셋(#61)**: 도착지 입력이 이제 안 끊기는지 ⓑ**나침반(#62)**: 서서 폰만 돌려도 지도 화살표가 도는지(Android 자동 / iPhone은 '🧭 방향 켜기' 탭 1회), 안내 중 '보는 방향 기준 왼쪽' 문구 ⓒ**부드러운 헤딩업(#64)**: 걷는 중 지도가 티맵처럼 매끈하게 회전하는지·핀치줌 유지·손 뗀 뒤 ~2.5초 후 따라가기 재개 ⓓ알림음 테스트버튼 ⓔ재탐색 경로 교체(PR#58) ⓕ핀 추종(P1) ⓖ회전예고 9초 ⓗ거리순 검색.
+> 2. **[유의]** streamlit 버전 pin(1.54.0) 변경 금지 — 컴포넌트 프로토콜·pydeck diff-merge가 소스 동작 의존. MapLibre 지도가 폰에서 비면 CDN(unpkg)/Carto 접근 확인(판정·음성은 그대로 동작, pydeck 폴백은 자산 삭제 시에만).
+>
+> **[2026-07-16 PR #64 MERGED, main=6898146, 305 passed] 부드러운 헤딩업(MapLibre 양방향 컴포넌트)** — pydeck 1초 스텝 회전을 easeTo(900ms) 애니메이션으로. iframe이 rerun에도 재마운트 안 됨(지도 인스턴스 유지) → easeTo에 zoom 미포함=핀치줌 완전 보존 + USER_GRACE_MS 2.5초 제스처 보호. **함정 발견·해결: pages/*.py 안 declare_component는 모듈 탐지 실패로 등록이 조용히 죽음(iframe 404)** → 등록 전용 모듈 `maplibre_nav_component.py`로 분리(정본: 위키 walk-maplibre-pr-64). 폴백 체인 MapLibre→pydeck→plotly. 검증: 305 passed·JS node --check·프로브 E2E(Playwright, bearing 45° 회전 스크린샷+canvas)·실앱 세션 컴포넌트 서빙 200.
 >
 > **[2026-07-16 PR #63 MERGED, main=c8e62ea, 304 passed]** **안내 중 지도 pydeck 헤딩업 전환** — plotly는 uirevision이 zoom·bearing을 한 '사용자 뷰' 그룹으로 묶어 (A)헤딩업+(B)핀치줌 유지 동시 불가(PR#56 무효 근본 원인, 공식이슈 #5107/#8882 미해결). Streamlit 1.38+가 pydeck initial_view_state를 **키 단위 diff-merge** → lat/lon/bearing 매 틱 갱신+`zoom=_DECK_ZOOM(17)` 고정으로 둘 다 충족. `_build_map_deck`(PathLayer+상태색 레이어+TextLayer `character_set="auto"`+`map_style="road"`), bearing 폴백=GPS헤딩→나침반→직전 방위(`nav_map_bearing`). 유휴 화면·pydeck 미설치는 plotly 폴백 보존. requirements 2곳 `pydeck>=0.9.2`. 검증: 304 passed+Deck 스모크 3케이스+헤드리스 Navigation HTTP 200. **야간 자동개발**: night-autodev-walk이 01:25 실행분 행(Running 고착)으로 오늘 밤 실행 차단 위험 → Stop 처리, Ready·NextRun 07-17 01:15 확인.
 >
