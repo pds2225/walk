@@ -1,9 +1,10 @@
 # RESUME.md - D:\walk checkpoint
 
-> **⏭️ 다음 액션(최우선, 2026-07-16 밤 — 야간 반영 PR#65까지 완료 + 신규 요청 2건)**
+> **⏭️ 다음 액션(최우선, 2026-07-16 — 사용자 지시 "클리어 후 1번 착수")**
+> 0. **[착수 예약·최우선] walk 산책 기록 MVP(사진 제외)** — 소셜 비전 1단계(VISION_SOCIAL.md §3). 범위: 도착 시 궤적+소요시간+한줄메모를 localStorage 저장 → "산책 기록" 목록 → 상세(지도에 궤적 재생). 부품 실재 확인(2026-07-16): nav_samples 축적(1_Navigation.py:2661, ⚠`_MAX_SAMPLES=500` 한도라 긴 산책 앞부분 유실 → 기록용 다운샘플 사본 별도 축적 필요), 도착요약 소요시간 계산(:1022-1029), `_save_list_to_ls`(:679, 즐겨찾기·최근기록·예약이 이미 사용 — 재사용). **사진은 범위 제외**(localStorage 5MB 한계, 썸네일 압축 vs 제외 별도 결정). 배경: 네이버지도 v6.8.0(2026-07-13)이 도보코스 그리기+GPX '기록' 영역 진입(위키 walk-v6-8-0-gpx-2026-07-13) → 자동 실측 기록+안내 결합이 walk 차별점, 1단계 서두르기로 함. 작업규칙: 격리 워크트리+브랜치, 1_Navigation.py 최소 변경, engine 비침습.
 > 1. **[신규·이어가기] mail 자가학습 루프 배선** — 사용자 요청: "자동개발 = 기존 메일 정오답(적합/오탐·누락) 학습→자가학습→개발 반영 지속보완". **mail 레포(D:\mail) 대상.** 보유 자산 재사용(신설 금지): `mail-accuracy-orchestrator`(FP/FN S0~S5), `agent-self-learning`(평가·교훈), `night-autodev`(야간 무인). 설계 4단계=①발송 추천의 맞음/틀림 라벨 축적→②판정 로직 빈틈 자동 색출→③최소수정+회귀테스트→④야간 반복. **다음: mail 레포로 이동해 이 4단계를 night-autodev에 연결하는 배선 설계(사용자 확인 후 착수).**
 > 2. **[정리 완료]** 레포단위 요청사항 원장 = `D:\walk\REQUESTS_LEDGER.md`(원 요구사항+테마별 요청·PR 매핑·상태). 폰 확인 목록은 그 §7.
-> 3. **[폰 확인 목록(누적)]** ⓐ검색 리셋(#61) ⓑ나침반(#62, iPhone '방향 켜기' 1회) ⓒ부드러운 헤딩업(#64, 회전·핀치줌·따라가기 재개) ⓓ알림음 ⓔ재탐색 경로교체(#58) ⓕ핀 추종 ⓖ회전예고 9초 ⓗ거리순 검색.
+> 3. **[폰 확인 목록(누적)]** ⓐ검색 리셋(#61) ⓑ나침반(#62, iPhone '방향 켜기' 1회) ⓒ부드러운 헤딩업(#64, 회전·핀치줌·따라가기 재개) ⓓ알림음 ⓔ재탐색 경로교체(#58) ⓕ핀 추종 ⓖ회전예고 9초 ⓗ거리순 검색 ⓘ도로명 없는 지역 주소(동·지번 포함) 표시(#65 — 코드수정·회귀테스트 완료, 실기기만 미확인).
 > 4. **[관찰·정책 대기]** 대중교통 중간 환승 구간 도착지명 없을 때 "도착" 오표기(크래시 아님, PR#65 관찰) — 빈칸 vs 다음구간명 결정 필요.
 > 5. **[유의]** streamlit 1.54.0 pin 변경 금지(컴포넌트 프로토콜·pydeck diff-merge 소스 동작 의존). MapLibre 지도가 폰에서 비면 CDN(unpkg)/Carto 접근 확인(판정·음성은 동작).
 >
@@ -62,22 +63,4 @@
 - `autopilot` was read. It is a full autonomous lifecycle skill: expand idea, plan, execute, QA, multi-review, cleanup. In Plan Mode, use it to create an execution plan only; do not implement code until Plan Mode ends.
 - Autopilot precheck: `.omc\plans` exists, but no `ralplan-*.md` or `consensus-*.md` was found, so a future autopilot run would need a concrete target or use an existing non-consensus plan as input by explicit choice.
 - Closeout precheck: global closeout auto is `ON`; `D:\walk` project-local closeout auto is `OFF`; recent active-session detector returned `d:\auto_write`.
-- User approved implementation of the Korean plan: add transit+walking journey support to walk, with GPS guidance only on walking legs and transit legs shown as manual cards.
-- Executing-plans and using-git-worktrees skills were read. Work must happen in an isolated worktree/branch, not local `main`.
-- Implementation has not yet touched app code at this checkpoint; only this `RESUME.md` checkpoint was updated in `D:\walk`.
-
-## Resume Commands
-
-```powershell
-cd D:\walk
-git -C D:\walk status --short
-git -C D:\walk fetch --prune
-python -m pytest streamlit_walk_engine\tests -q
-```
-
-## Next Actions
-
-1. Create a fresh worktree from latest `origin/main`, likely `D:\walk-transit-journey` on branch `codex/transit-walk-journey`.
-2. Implement only the approved transit+walk scope: new `transit_builder.py`, minimal `1_Navigation.py` additions, tests, no `engine.py`/`route_builder.py` edits.
-3. Validate with `python -m pytest streamlit_walk_engine\tests -q` and `python -m py_compile streamlit_walk_engine\transit_builder.py streamlit_walk_engine\pages\1_Navigation.py`.
-4. Do not install local `session-closeout-auto`; global is already ON.
+- User approved impleme
