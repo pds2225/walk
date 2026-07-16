@@ -82,3 +82,26 @@ class TestMissedTurn:
     def test_no_deviated(self):
         states = run_scenario("missed_turn")
         assert "deviated" not in states, f"unexpected deviated in missed_turn: {states}"
+
+
+class TestScenarioDataIntegrity:
+    """시나리오 메타데이터(expected_states·positions)가 실제 엔진 출력과 어긋나지 않도록 고정.
+
+    시뮬레이션 UI가 expected_states/positions 를 그대로 표시·시각화하므로, 샘플을 바꿔
+    실제 상태가 달라졌는데 expected_states 를 안 고치면(또는 그 반대) 화면이 어긋난다.
+    """
+
+    def test_observed_states_match_declared_expected_states(self):
+        # 관측된 상태 집합 == 선언한 expected_states 집합 (양방향 — 누락/과잉 모두 탐지)
+        for scenario in get_scenarios():
+            observed = set(run_scenario(scenario.key))
+            assert observed == set(scenario.expected_states), (
+                f"{scenario.key}: 관측 {sorted(observed)} != 선언 {sorted(scenario.expected_states)}"
+            )
+
+    def test_positions_align_with_samples(self):
+        # 시각화용 positions 개수는 samples 개수와 일치해야 한다(핀 오프셋 방지)
+        for scenario in get_scenarios():
+            assert len(scenario.positions) == len(scenario.samples), (
+                f"{scenario.key}: positions {len(scenario.positions)} != samples {len(scenario.samples)}"
+            )

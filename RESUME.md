@@ -1,8 +1,13 @@
 # RESUME.md - D:\walk checkpoint
 
-> **⏭️ 다음 액션(최우선, 2026-07-16 밤 — MapLibre 부드러운 헤딩업까지 전부 머지 완료)**
-> 1. **[폰 확인 목록(누적)]** ⓐ**검색 리셋(#61)**: 도착지 입력이 이제 안 끊기는지 ⓑ**나침반(#62)**: 서서 폰만 돌려도 지도 화살표가 도는지(Android 자동 / iPhone은 '🧭 방향 켜기' 탭 1회), 안내 중 '보는 방향 기준 왼쪽' 문구 ⓒ**부드러운 헤딩업(#64)**: 걷는 중 지도가 티맵처럼 매끈하게 회전하는지·핀치줌 유지·손 뗀 뒤 ~2.5초 후 따라가기 재개 ⓓ알림음 테스트버튼 ⓔ재탐색 경로 교체(PR#58) ⓕ핀 추종(P1) ⓖ회전예고 9초 ⓗ거리순 검색.
-> 2. **[유의]** streamlit 버전 pin(1.54.0) 변경 금지 — 컴포넌트 프로토콜·pydeck diff-merge가 소스 동작 의존. MapLibre 지도가 폰에서 비면 CDN(unpkg)/Carto 접근 확인(판정·음성은 그대로 동작, pydeck 폴백은 자산 삭제 시에만).
+> **⏭️ 다음 액션(최우선, 2026-07-16 밤 — 야간 반영 PR#65까지 완료 + 신규 요청 2건)**
+> 1. **[신규·이어가기] mail 자가학습 루프 배선** — 사용자 요청: "자동개발 = 기존 메일 정오답(적합/오탐·누락) 학습→자가학습→개발 반영 지속보완". **mail 레포(D:\mail) 대상.** 보유 자산 재사용(신설 금지): `mail-accuracy-orchestrator`(FP/FN S0~S5), `agent-self-learning`(평가·교훈), `night-autodev`(야간 무인). 설계 4단계=①발송 추천의 맞음/틀림 라벨 축적→②판정 로직 빈틈 자동 색출→③최소수정+회귀테스트→④야간 반복. **다음: mail 레포로 이동해 이 4단계를 night-autodev에 연결하는 배선 설계(사용자 확인 후 착수).**
+> 2. **[정리 완료]** 레포단위 요청사항 원장 = `D:\walk\REQUESTS_LEDGER.md`(원 요구사항+테마별 요청·PR 매핑·상태). 폰 확인 목록은 그 §7.
+> 3. **[폰 확인 목록(누적)]** ⓐ검색 리셋(#61) ⓑ나침반(#62, iPhone '방향 켜기' 1회) ⓒ부드러운 헤딩업(#64, 회전·핀치줌·따라가기 재개) ⓓ알림음 ⓔ재탐색 경로교체(#58) ⓕ핀 추종 ⓖ회전예고 9초 ⓗ거리순 검색.
+> 4. **[관찰·정책 대기]** 대중교통 중간 환승 구간 도착지명 없을 때 "도착" 오표기(크래시 아님, PR#65 관찰) — 빈칸 vs 다음구간명 결정 필요.
+> 5. **[유의]** streamlit 1.54.0 pin 변경 금지(컴포넌트 프로토콜·pydeck diff-merge 소스 동작 의존). MapLibre 지도가 폰에서 비면 CDN(unpkg)/Carto 접근 확인(판정·음성은 동작).
+>
+> **[2026-07-16 PR #65 MERGED, main=6dcb697, 350 passed] 야간 자율점검 반영** — 야간 자동개발이 격리 복사본에서 발견한 실버그(route_builder._tmap_reverse 지번주소 유실: 도로명 없는 지역서 roadName 없어도 city_do·gu_gun만으로 road가 차 지번 폴백이 죽던 것 → roadName 존재 시로 게이트)+무검사 지대 안전망 45건(engine 강이탈 승격·snap_router 0division 가드·transit RAIL/transfer 폴백 등)을 원본에 반영. engine.py 무수정. 소실 반복(동기화 때마다 야간 테스트 삭제) 종료. 야간보고서=D:\_night_pilot\walk-copy\NIGHT_REPORT.md.
 >
 > **[2026-07-16 PR #64 MERGED, main=6898146, 305 passed] 부드러운 헤딩업(MapLibre 양방향 컴포넌트)** — pydeck 1초 스텝 회전을 easeTo(900ms) 애니메이션으로. iframe이 rerun에도 재마운트 안 됨(지도 인스턴스 유지) → easeTo에 zoom 미포함=핀치줌 완전 보존 + USER_GRACE_MS 2.5초 제스처 보호. **함정 발견·해결: pages/*.py 안 declare_component는 모듈 탐지 실패로 등록이 조용히 죽음(iframe 404)** → 등록 전용 모듈 `maplibre_nav_component.py`로 분리(정본: 위키 walk-maplibre-pr-64). 폴백 체인 MapLibre→pydeck→plotly. 검증: 305 passed·JS node --check·프로브 E2E(Playwright, bearing 45° 회전 스크린샷+canvas)·실앱 세션 컴포넌트 서빙 200.
 >

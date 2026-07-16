@@ -3,6 +3,8 @@
 import sys
 import os
 
+import pytest
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from engine import (
@@ -156,6 +158,61 @@ class TestCustomConfig:
         result = engine.process_sample(sample(20, 18, 90, 1_000))
 
         assert result.state == "on_route"
+
+
+class TestRerouteEscalation:
+    """재탐색 게이트 결합의 엔진측 계약 — 강한 이탈은 reroute_candidate 로 승격.
+
+    기존 테스트는 deviated→warn_user 경로만 고정했다. 실사용 재탐색 파이프라인은
+    엔진의 reroute_candidate 신호에서 시작하므로 이 승격 계약이 깨지면
+    자동 재탐색이 영구히 발동하지 않는다.
+    """
+
+    def test_strong_sustained_deviation_suggests_reroute_candidate(self):
+        engine = RouteDeviationEngine(straight_route())
+        # 횡거리 30m(≥강한 이탈 25m) + 경로와 90도 어긋난 heading 을 3표본 지속
+        engine.process_sample(sample(20, 30, 0, 1_000))
+        engine.process_sample(sample(25, 30, 0, 3_000))
+        result = engine.process_sample(sample(30, 30, 0, 5_000))
+
+        assert result.state == "deviated"
+        assert result.suggested_next_action == "reroute_candidate"
+        assert "strong_distance_breach" in result.reasons
+
+
+class TestReset:
+    def test_reset_clears_session_and_recovers_on_route(self):
+        # 새 경로 안내 시작 시 reset() 이 이전 이탈 카운터를 남기면 첫 표본부터
+        # 오탐 이탈이 뜬다 — 세션 초기화 계약을 고정한다.
+        engine = RouteDeviationEngine(straight_route())
+        engine.process_sample(sample(20, 18, 0, 1_000))
+        engine.process_sample(sample(25, 18, 0, 3_000))
+        assert engine.process_sample(sample(30, 18, 0, 5_000)).state == "deviated"
+
+        engine.reset()
+        recovered = engine.process_sample(sample(35, 0, 90, 6_000))
+        assert recovered.state == "on_route"
+        assert recovered.metrics.consecutive_threshold_breaches == 0
+
+
+class TestPrepareRouteValidation:
+    """경로 데이터 오류(양끝 turn_point)는 안내 시작 전에 ValueError 로 조기 검출."""
+
+    def test_turn_point_at_polyline_start_raises(self):
+        route = RouteModel(
+            polyline=(ORIGIN, move(40, 0), move(40, 40)),
+            turn_points=(TurnPoint(id="bad-start", coordinate=ORIGIN, route_index=0, direction="left"),),
+        )
+        with pytest.raises(ValueError):
+            RouteDeviationEngine(route)
+
+    def test_turn_point_at_polyline_end_raises(self):
+        route = RouteModel(
+            polyline=(ORIGIN, move(40, 0), move(40, 40)),
+            turn_points=(TurnPoint(id="bad-end", coordinate=move(40, 40), route_index=2, direction="left"),),
+        )
+        with pytest.raises(ValueError):
+            RouteDeviationEngine(route)
 
 
 class TestSessionBehavior:
