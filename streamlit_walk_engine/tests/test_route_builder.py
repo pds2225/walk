@@ -696,25 +696,29 @@ class TestTmapPoiResults:
         monkeypatch.setattr(route_builder.requests, "get", lambda *a, **k: _FakeResp(403, {}))
         assert route_builder._tmap_poi_results("경복궁") == []
 
-    def test_center_requests_distance_sort(self, monkeypatch):
-        """center(현재 위치)를 주면 TMAP 에 거리순(searchtypCd=R)+중심좌표로 요청한다 —
-        전국 인기순 상위 N개만 받아 그중에서 정렬하던 한계(근처 지점 누락) 제거."""
+    def test_center_requests_distance_sort_nationwide(self, monkeypatch):
+        """center(현재 위치)를 주면 거리순(searchtypCd=R)+중심좌표+radius=0(전국)으로 요청 —
+        근처 지점을 위로 올리되, radius 를 안 줘 기본 반경에 걸려 먼 장소가 통째로 빠지던
+        문제를 막는다. 결과가 있으면 거리순 1회로 끝(정확도순 폴백 없음)."""
         monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: "k")
         captured: dict = {}
 
         def _capture(url, params=None, **k):
             captured.update(params or {})
-            return _FakeResp(200, {"searchPoiInfo": {"pois": {"poi": []}}})
+            return _FakeResp(200, {"searchPoiInfo": {"pois": {"poi": [
+                {"name": "카페", "noorLat": "37.55", "noorLon": "126.91"}]}}})
 
         monkeypatch.setattr(route_builder.requests, "get", _capture)
         center = route_builder.Coordinate(latitude=37.55, longitude=126.91)
-        route_builder._tmap_poi_results("카페", 5, center=center)
+        out = route_builder._tmap_poi_results("카페", 5, center=center)
+        assert out
         assert captured.get("searchtypCd") == "R"
+        assert captured.get("radius") == "0"  # 전국 — 먼 장소도 후보에서 빠지지 않게
         assert str(captured.get("centerLat", "")).startswith("37.55")
         assert str(captured.get("centerLon", "")).startswith("126.91")
 
-    def test_no_center_keeps_default_params(self, monkeypatch):
-        """center 없으면 기존 파라미터 그대로(정확도순) — 회귀 방지."""
+    def test_no_center_uses_accuracy_order(self, monkeypatch):
+        """center 없으면 정확도순(searchtypCd=A) — 거리/중심좌표 없이 이름 매칭 우선."""
         monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: "k")
         captured: dict = {}
 
@@ -724,8 +728,29 @@ class TestTmapPoiResults:
 
         monkeypatch.setattr(route_builder.requests, "get", _capture)
         route_builder._tmap_poi_results("카페", 5)
-        assert "searchtypCd" not in captured
+        assert captured.get("searchtypCd") == "A"
         assert "centerLat" not in captured
+        assert "radius" not in captured
+
+    def test_far_poi_falls_back_to_accuracy_order(self, monkeypatch):
+        """근본 수정: 인천에서 검색한 서울 '대륭포스트타워8차'처럼 반경 밖 장소가 거리순
+        검색에서 비면, center 없이 정확도순으로 한 번 더 검색해 반드시 뜨게 한다."""
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: "k")
+        calls: list = []
+
+        def _seq(url, params=None, **k):
+            calls.append(dict(params or {}))
+            if (params or {}).get("searchtypCd") == "R":
+                return _FakeResp(200, {"searchPoiInfo": {"pois": {"poi": []}}})  # 반경 밖 → 0건
+            return _FakeResp(200, {"searchPoiInfo": {"pois": {"poi": [
+                {"name": "대륭포스트타워8차", "noorLat": "37.48", "noorLon": "126.88",
+                 "upperAddrName": "서울", "middleAddrName": "금천구"}]}}})
+
+        monkeypatch.setattr(route_builder.requests, "get", _seq)
+        center = route_builder.Coordinate(latitude=37.45, longitude=126.72)  # 인천
+        out = route_builder._tmap_poi_results("대륭포스트타워8차", 5, center=center)
+        assert [d for _, d in out] == ["서울 금천구 대륭포스트타워8차"]
+        assert [c.get("searchtypCd") for c in calls] == ["R", "A"]  # 거리순 → 정확도순 폴백
 
     def test_skips_poi_without_usable_coords(self, monkeypatch):
         monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: "k")

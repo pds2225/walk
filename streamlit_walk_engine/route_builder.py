@@ -189,53 +189,62 @@ def _tmap_poi_results(query: str, limit: int = 5,
     Naver 지오코딩은 주소 전용이라 장소명 검색이 비는데, 그 빈틈을 국내 POI DB로
     메운다. 앱키 없음·오류·결과 없음이면 빈 리스트(다음 폴백으로 넘어감).
     좌표는 입구(frontLat/Lon)를 우선하고 0이거나 없으면 중심점(noorLat/Lon)을 쓴다.
-    center 를 주면 그 좌표 기준 '거리순'으로 검색한다(searchtypCd=R) — 전국 인기순
-    상위 N개만 받아 그중에서 정렬하던 한계(가까운 지점이 후보에 아예 못 듦)를 제거.
+    center 를 주면 그 좌표 기준 '거리순'(searchtypCd=R)으로 검색하되 radius=0(전국)으로
+    둔다 — radius 를 안 주면 TMAP 이 기본 반경으로 좁혀, 멀리 있는 장소(예: 인천에서
+    검색한 서울 '대륭포스트타워8차')가 후보에서 통째로 빠진다. 거리순이 비면(반경·좌표
+    이슈) center 없이 '정확도순'(searchtypCd=A)으로 한 번 더 시도해, 이름이 정확하면
+    거리와 무관하게 반드시 뜨게 한다.
     """
     app_key = _tmap_app_key()
     if not app_key:
         return []
-    params = {"version": "1", "searchKeyword": query, "count": limit,
-              "reqCoordType": "WGS84GEO", "resCoordType": "WGS84GEO"}
-    if center is not None:
-        params.update({"centerLat": f"{center.latitude:.8f}",
-                       "centerLon": f"{center.longitude:.8f}",
-                       "searchtypCd": "R"})
-    try:
-        resp = requests.get(
-            _TMAP_POI,
-            params=params,
-            headers={"appKey": app_key, "Accept": "application/json"},
-            timeout=_TIMEOUT,
-        )
-        if resp.status_code != 200:
+    base = {"version": "1", "searchKeyword": query, "count": limit,
+            "reqCoordType": "WGS84GEO", "resCoordType": "WGS84GEO"}
+
+    def _fetch(extra: dict[str, str]) -> list[tuple[Coordinate, str]]:
+        try:
+            resp = requests.get(
+                _TMAP_POI, params={**base, **extra},
+                headers={"appKey": app_key, "Accept": "application/json"},
+                timeout=_TIMEOUT,
+            )
+            if resp.status_code != 200:
+                return []
+            pois = resp.json().get("searchPoiInfo", {}).get("pois", {}).get("poi", []) or []
+        except (requests.RequestException, KeyError, ValueError):
             return []
-        pois = resp.json().get("searchPoiInfo", {}).get("pois", {}).get("poi", []) or []
-    except (requests.RequestException, KeyError, ValueError):
-        return []
-    out: list[tuple[Coordinate, str]] = []
-    for p in pois[:limit]:
-        coord = None
-        for lat_key, lon_key in (("frontLat", "frontLon"), ("noorLat", "noorLon")):
-            try:
-                lat, lon = float(p.get(lat_key) or 0), float(p.get(lon_key) or 0)
-            except (TypeError, ValueError):
+        found: list[tuple[Coordinate, str]] = []
+        for p in pois[:limit]:
+            coord = None
+            for lat_key, lon_key in (("frontLat", "frontLon"), ("noorLat", "noorLon")):
+                try:
+                    lat, lon = float(p.get(lat_key) or 0), float(p.get(lon_key) or 0)
+                except (TypeError, ValueError):
+                    continue
+                if lat and lon:
+                    coord = Coordinate(latitude=lat, longitude=lon)
+                    break
+            if coord is None:
                 continue
-            if lat and lon:
-                coord = Coordinate(latitude=lat, longitude=lon)
-                break
-        if coord is None:
-            continue
-        name = (p.get("name") or "").strip()
-        addr = " ".join(
-            s.strip() for s in (p.get("upperAddrName"), p.get("middleAddrName"),
-                                p.get("lowerAddrName"), p.get("detailAddrName"))
-            if s and s.strip()
-        )
-        # 한국식 표기: 주소(광역→세부) 뒤에 장소명. 예) '서울 종로구 세종로 경복궁'
-        display = f"{addr} {name}" if name and addr else (name or addr or query)
-        out.append((coord, display))
-    return out
+            name = (p.get("name") or "").strip()
+            addr = " ".join(
+                s.strip() for s in (p.get("upperAddrName"), p.get("middleAddrName"),
+                                    p.get("lowerAddrName"), p.get("detailAddrName"))
+                if s and s.strip()
+            )
+            # 한국식 표기: 주소(광역→세부) 뒤에 장소명. 예) '서울 종로구 세종로 경복궁'
+            display = f"{addr} {name}" if name and addr else (name or addr or query)
+            found.append((coord, display))
+        return found
+
+    if center is not None:
+        near = _fetch({"centerLat": f"{center.latitude:.8f}",
+                       "centerLon": f"{center.longitude:.8f}",
+                       "searchtypCd": "R", "radius": "0"})
+        if near:
+            return near
+        # 거리순이 비면 정확도순으로 폴백(먼 곳의 유일한 이름이 반경에 걸려 누락되는 것 방지)
+    return _fetch({"searchtypCd": "A"})
 
 
 def geocode_address(query: str) -> tuple[Coordinate, str] | None:
