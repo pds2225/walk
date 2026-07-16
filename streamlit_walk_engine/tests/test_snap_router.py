@@ -87,3 +87,56 @@ def test_bad_accuracy_advancing_still_on_route_likely():
 def test_insufficient_window_defers():
     win = _win([100, 104], offset=25, moved=4)  # 2개 < MIN_WINDOW(3)
     assert sr.classify(win, net_move_m=4.0) == sr.DEFER
+
+
+# ── net_move_m 미제공(None): 이동경로 합으로 보수적 대체 ──────────────────────
+# 실사용 호출부가 순변위를 못 넘기는 경우(디폴트 None). 이땐 total_path 를 순변위로
+# 대체(과대평가) → '정지'로 오판하지 않는 안전측. 이 대체 경로가 전량 미테스트였다.
+def test_net_move_none_advancing_is_on_route_likely():
+    # net_move_m 없이도 total_path(=16)로 진행 판정 → 코리도어 안이면 뒷단 위임
+    win = _win([100, 104, 108, 112, 116], offset=25, moved=4)
+    assert sr.classify(win) == sr.ON_ROUTE_LIKELY
+
+
+def test_net_move_none_still_confirms_clear_offroute():
+    # 진행 정체 + 지속 큰 횡거리 + 실이동(대체값=20) → net_move 미제공이어도 이탈 확정
+    win = _win([100, 100.3, 100.6, 100.8, 101.0], offset=25, moved=5)
+    assert sr.classify(win) == sr.OFF_ROUTE_CONFIRMED
+
+
+def test_net_move_none_does_not_falsely_mark_stationary():
+    # 대체값은 순변위를 과대평가하므로, 제자리 흔들림이라도 '정지'로 단정하지 않는다
+    # (안전측 절충 — 실제 정지 판정엔 호출부가 순변위를 넘겨야 한다).
+    win = _win([100, 101, 100, 101, 100, 101], offset=26, moved=5)
+    assert sr.classify(win) != sr.STATIONARY
+
+
+# ── 미테스트 분기 회귀(야간 점검): 후퇴 경계·미세 윈도·동일점 가드 ──────────────
+def test_backward_along_jump_defers_not_confirms():
+    # 왕복/재스냅으로 진행도가 물리 이동보다 훨씬 크게 '후퇴'(-200m)해도
+    # 이탈 확정 금지 → 보류(뒷단 위임). 기존 테스트는 전진 점프만 다뤘다.
+    win = _win([300, 250, 180, 130, 100], offset=25, moved=4)
+    assert sr.classify(win, net_move_m=15.0) == sr.DEFER
+
+
+def test_retreat_beyond_net_move_defers():
+    # 후퇴량(20m)이 순변위(15m)를 초과 = 진행도 신뢰 불가 → 확정하지 않고 보류.
+    # 완만후퇴 확정(test_modest_reverse_confirms: -8m vs 순변위 20m)과 경계쌍.
+    win = _win([100, 95, 90, 85, 80], offset=30, moved=5)
+    assert sr.classify(win, net_move_m=15.0) == sr.DEFER
+
+
+def test_tiny_window_low_direction_is_not_stationary():
+    # 이동경로 합이 STATIONARY_MIN_PATH_M(3m) 미만이면 방향성이 낮아도 '정지' 단정 금지
+    # (작은 윈도 노이즈로 정지 오판 → 진짜 이탈 후보를 무료층이 삼키는 것 방지).
+    win = _win([100, 100.2, 100.4], offset=5, moved=0.9)
+    out = sr.classify(win, net_move_m=0.5)
+    assert out != sr.STATIONARY
+    assert out == sr.DEFER
+
+
+def test_all_identical_points_no_crash_and_defers():
+    # 전 표본 동일점(total_path=0) → 방향성 나눗셈 가드(1e-6)로 크래시 없이 보류.
+    # 정지 중 큰 횡거리 편향(20m)이라도 실이동(순변위 0)이 없으면 확정하지 않는다.
+    win = _win([100, 100, 100, 100], offset=20, moved=0)
+    assert sr.classify(win) == sr.DEFER

@@ -318,6 +318,129 @@ class TestOdsayWalkLegCoordinateInterpolation:
         assert all(leg.start is not None and leg.end is not None for leg in journey.legs)
 
 
+class TestParserFallbackBranches:
+    """파서 폴백 분기 회귀(야간 점검) — 실응답 변형이 와도 여정이 죽지 않게 고정."""
+
+    def test_rail_maps_to_subway_and_unknown_mode_to_transfer(self):
+        # plan 없이 최상위 itineraries 만 있는 변형 + RAIL/미상(TRAM) mode 분류
+        payload = {"itineraries": [{"legs": [
+            {"mode": "TRAM",
+             "start": {"name": "A", "lat": 37.1, "lon": 127.1},
+             "end": {"name": "B", "lat": 37.2, "lon": 127.2}},
+            {"mode": "RAIL", "route": "경의중앙선",
+             "start": {"name": "B", "lat": 37.2, "lon": 127.2},
+             "end": {"name": "C", "lat": 37.3, "lon": 127.3}},
+        ]}]}
+        journey = transit_builder.parse_tmap_transit(payload)
+
+        assert [leg.mode for leg in journey.legs] == ["transfer", "subway"]
+        assert journey.legs[0].transit is None  # transfer 는 대중교통 카드 메타 없음
+        assert journey.legs[1].transit.line_name == "경의중앙선"
+
+    def test_leg_level_prefixed_coords_are_parsed(self):
+        # start/end dict 없이 leg 레벨 startX/startY 만 주는 변형도 좌표를 읽는다
+        payload = {"itineraries": [{"legs": [
+            {"mode": "WALK", "startName": "출발지", "endName": "역",
+             "startX": 126.97, "startY": 37.56, "endX": 126.98, "endY": 37.57},
+        ]}]}
+        journey = transit_builder.parse_tmap_transit(payload)
+
+        leg = journey.legs[0]
+        assert leg.start == Coordinate(latitude=37.56, longitude=126.97)
+        assert leg.end == Coordinate(latitude=37.57, longitude=126.98)
+        assert leg.start_label == "출발지"
+
+    def test_missing_coordinates_raise(self):
+        payload = {"itineraries": [{"legs": [{"mode": "WALK", "startName": "출발"}]}]}
+        with pytest.raises(ValueError):
+            transit_builder.parse_tmap_transit(payload)
+
+    def test_empty_legs_raise(self):
+        payload = {"itineraries": [{"legs": []}]}
+        with pytest.raises(ValueError):
+            transit_builder.parse_tmap_transit(payload)
+
+    def test_line_name_defaults_and_station_count_from_stop_list(self):
+        def leg(mode):
+            return {"mode": mode,
+                    "start": {"name": "A", "lat": 37.1, "lon": 127.1},
+                    "end": {"name": "B", "lat": 37.2, "lon": 127.2},
+                    "passStopList": {"stationList": [{}, {}, {}]}}
+
+        payload = {"itineraries": [{"legs": [leg("SUBWAY"), leg("BUS")]}]}
+        journey = transit_builder.parse_tmap_transit(payload)
+
+        # 노선명 미제공 → 모드별 한국어 기본값
+        assert journey.legs[0].transit.line_name == "지하철"
+        assert journey.legs[1].transit.line_name == "버스"
+        # stationCount 미제공 → 정차역 목록 길이로 유도
+        assert journey.legs[0].transit.station_count == 3
+
+    def test_odsay_unknown_traffic_type_is_transfer(self):
+        payload = _odsay_payload()
+        payload["result"]["path"][0]["subPath"][1]["trafficType"] = 9
+        journey = transit_builder.parse_odsay_transit(payload)
+
+        assert journey.legs[1].mode == "transfer"
+        assert journey.legs[1].transit is None
+
+
+class TestSmallHelpers:
+    def test_line_name_from_lane_variants(self):
+        f = transit_builder._line_name_from_lane
+        assert f([{"name": "2호선"}]) == "2호선"
+        assert f([{"busNo": "7011"}]) == "7011"
+        assert f({"name": "9호선"}) == "9호선"   # list 아닌 dict 단독 형태
+        assert f(["간선"]) == "간선"             # dict 아닌 스칼라 목록
+        assert f(None) == "대중교통"
+        assert f([]) == "대중교통"
+
+    def test_as_int_boundaries(self):
+        f = transit_builder._as_int
+        assert f(None) is None
+        assert f("") is None
+        assert f("abc") is None
+        assert f("12.7") == 12
+        assert f(3.9) == 3
+
+    def test_polyline_from_any_skips_junk(self):
+        f = transit_builder._polyline_from_any
+        assert f(None) == ()
+        assert f("not-a-list") == ()
+        # float 불가 항목·길이 부족 항목은 건너뛰고 유효 좌표만 수집
+        pts = f([[126.97, 37.56], ["x", "y"], {"lat": 37.57, "lon": 126.98}, [1.0]])
+        assert pts == (
+            Coordinate(latitude=37.56, longitude=126.97),
+            Coordinate(latitude=37.57, longitude=126.98),
+        )
+
+
+class TestHydrateTotals:
+    def test_single_leg_journey_totals_updated_from_route_info(self, monkeypatch):
+        # 도보 단독 여정은 하이드레이션된 실경로의 거리·시간으로 총계를 채운다
+        journey = transit_builder.build_walking_only_journey(ORIGIN, DEST)
+        monkeypatch.setattr(
+            transit_builder, "fetch_walking_route_with_engine",
+            lambda s, e: (_dummy_route(s, e), "fake", RouteInfo(1234, 900)))
+
+        hydrated = transit_builder._hydrate_walk_legs(journey)
+
+        assert hydrated.total_distance_meters == 1234
+        assert hydrated.total_time_seconds == 900
+
+    def test_multi_leg_journey_keeps_provider_totals(self, monkeypatch):
+        # 다구간 여정은 도보 구간을 하이드레이션해도 제공자 총계(전 구간 합)를 보존한다
+        journey = transit_builder.parse_tmap_transit(_tmap_payload())
+        monkeypatch.setattr(
+            transit_builder, "fetch_walking_route_with_engine",
+            lambda s, e: (_dummy_route(s, e), "fake", RouteInfo(1, 1)))
+
+        hydrated = transit_builder._hydrate_walk_legs(journey)
+
+        assert hydrated.total_distance_meters == 2500
+        assert hydrated.total_time_seconds == 1200
+
+
 class TestAdvanceLeg:
     def test_tracked_walk_near_end_advances_when_not_last(self):
         first = transit_builder.JourneyLeg(
@@ -369,3 +492,35 @@ class TestAdvanceLeg:
         journey = transit_builder.Journey(legs=(first, second), source="test")
 
         assert transit_builder.advance_leg(journey, 0, MID, 80.0) == 0
+
+    def test_negative_index_returns_unchanged(self):
+        # 음수 인덱스는 방어적으로 그대로 반환(범위 밖 접근 크래시 방지)
+        leg = transit_builder.JourneyLeg(
+            mode="walk", start=ORIGIN, end=MID, start_label="출발", end_label="중간",
+            tracked=True, route=_dummy_route(ORIGIN, MID),
+        )
+        journey = transit_builder.Journey(legs=(leg,), source="test")
+
+        assert transit_builder.advance_leg(journey, -1, MID, 10.0) == -1
+
+    def test_out_of_range_index_returns_unchanged(self):
+        # legs 길이를 넘는 인덱스도 그대로 반환(IndexError 방지)
+        leg = transit_builder.JourneyLeg(
+            mode="walk", start=ORIGIN, end=MID, start_label="출발", end_label="중간",
+            tracked=True, route=_dummy_route(ORIGIN, MID),
+        )
+        journey = transit_builder.Journey(legs=(leg,), source="test")
+
+        assert transit_builder.advance_leg(journey, 5, MID, 10.0) == 5
+
+    def test_untracked_walk_leg_does_not_advance(self):
+        # 하이드레이션 실패로 tracked=False 된 도보 레그는 도착 거리·양호 정확도라도
+        # 자동 전진하지 않는다(추적 안 되는 구간은 이탈/도착을 신뢰할 수 없음).
+        first = transit_builder.JourneyLeg(
+            mode="walk", start=ORIGIN, end=MID, start_label="출발", end_label="중간",
+            tracked=False,
+        )
+        second = transit_builder.JourneyLeg(mode="walk", start=MID, end=DEST, start_label="중간", end_label="도착")
+        journey = transit_builder.Journey(legs=(first, second), source="test")
+
+        assert transit_builder.advance_leg(journey, 0, MID, 10.0) == 0
