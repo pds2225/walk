@@ -974,6 +974,15 @@ class TestTmapAddrResults:
         monkeypatch.setattr(route_builder.requests, "get", _raise)
         assert route_builder._tmap_addr_results("서판로 30") == []
 
+    def test_non_list_coordinate_payload_returns_empty(self, monkeypatch):
+        # 규격 밖 응답: coordinate 가 배열이 아니라 단일 dict 로 와도
+        # 예외 전파 없이 [] (예외 미전파 계약 — 검색창이 죽지 않아야 한다).
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: "k")
+        payload = {"coordinateInfo": {"coordinate": {"lat": "37.5", "lon": "127.0"}}}
+        monkeypatch.setattr(route_builder.requests, "get",
+                            lambda *a, **k: _FakeResp(200, payload))
+        assert route_builder._tmap_addr_results("서판로 30") == []
+
 
 class TestAddrGeoFallbackChain:
     """주소 소스 폴백·병합 — Naver 키 없이도 주소지가 뜨고, 주소·POI 가 함께 뜬다."""

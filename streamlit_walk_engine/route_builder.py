@@ -267,6 +267,10 @@ def _tmap_addr_results(query: str, limit: int = 5) -> list[tuple[Coordinate, str
         except (requests.RequestException, KeyError, ValueError,
                 TypeError, AttributeError):
             continue
+        # 규격 밖 응답 방어: coordinate 가 배열이 아니면(단일 dict 등) 건너뜀 —
+        # 아래 슬라이스는 try 밖이라 여기서 막아야 "예외 미전파" 계약이 지켜진다.
+        if not isinstance(rows, list):
+            continue
         out: list[tuple[Coordinate, str]] = []
         for row in rows[:limit]:
             if not isinstance(row, dict):
