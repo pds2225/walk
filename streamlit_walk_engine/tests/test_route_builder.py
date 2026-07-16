@@ -105,6 +105,10 @@ class TestFormatPlaceLabel:
         d = "서울 종로구 세종대로 대한민국역사박물관"
         assert format_place_label(d) == d
 
+    def test_metro_only_falls_back_to_body(self):
+        # 광역시도 토큰만 남으면 라벨이 비지 않도록 body로 폴백(빈 라벨 방지)
+        assert format_place_label("서울특별시, 대한민국") == "서울특별시"
+
     def test_none_and_empty(self):
         assert format_place_label(None) == ""
         assert format_place_label("") == ""
@@ -136,6 +140,10 @@ class TestFormatKoreanAddress:
         # '대한민국역사박물관'은 실존 장소 — 부분문자열 치환으로 잘리면 안 된다.
         d = "서울 종로구 세종대로 대한민국역사박물관"
         assert format_korean_address(d) == d
+
+    def test_postcode_only_when_body_empty(self):
+        # 본문이 전부 국가명/우편번호뿐이면 우편번호만 괄호로 남긴다(빈 문자열 아님)
+        assert format_korean_address("06141, 대한민국") == "(06141)"
 
     def test_none_and_empty(self):
         assert format_korean_address(None) == ""
@@ -748,10 +756,112 @@ class TestTmapReverse:
         monkeypatch.setattr(route_builder.requests, "get", lambda *a, **k: _FakeResp(200, payload))
         assert route_builder._tmap_reverse(self._COORD) == "서울특별시 중구 세종대로 110"
 
+    # ── 구조필드 조립(A10 fullAddress 는 행정동·지번·도로명 삼중 연결이라 읽기 불가 —
+    #    도로명 하나만, 없으면 지번 하나만 조립하는 실기기 버그 수정분 회귀 고정) ──
+    def _reverse_with(self, monkeypatch, address_info):
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: "k")
+        monkeypatch.setattr(route_builder.requests, "get",
+                            lambda *a, **k: _FakeResp(200, {"addressInfo": address_info}))
+        return route_builder._tmap_reverse(self._COORD)
+
+    def test_road_address_assembled_from_structured_fields(self, monkeypatch):
+        # 도로명 주소가 있으면 fullAddress(삼중 연결) 대신 도로명 '하나만' 조립
+        out = self._reverse_with(monkeypatch, {
+            "city_do": "서울특별시", "gu_gun": "마포구",
+            "roadName": "어울마당로3길", "buildingIndex": "19",
+            "legalDong": "합정동", "bunji": "355-1",
+            "fullAddress": "서울특별시 마포구 합정동 서울특별시 마포구 합정동 355-1 어울마당로3길 19",
+        })
+        assert out == "서울특별시 마포구 어울마당로3길 19"
+
+    def test_building_name_appended_to_road_address(self, monkeypatch):
+        out = self._reverse_with(monkeypatch, {
+            "city_do": "서울특별시", "gu_gun": "중구",
+            "roadName": "세종대로", "buildingIndex": "110", "buildingName": "서울특별시청",
+        })
+        assert out == "서울특별시 중구 세종대로 110 서울특별시청"
+
+    def test_jibun_fallback_when_road_name_missing(self, monkeypatch):
+        # roadName 없음 + 지번 있음 → 지번 주소로 폴백(도로명 미보유 지역).
+        # city_do·gu_gun 만으로 road 가 차서 지번 폴백이 죽던 버그의 회귀 고정.
+        out = self._reverse_with(monkeypatch, {
+            "city_do": "서울특별시", "gu_gun": "마포구",
+            "legalDong": "합정동", "bunji": "355-1",
+        })
+        assert out == "서울특별시 마포구 합정동 355-1"
+
+    def test_partial_fields_do_not_crash_and_fall_back(self, monkeypatch):
+        # 구조필드가 광역·구뿐이면 그거라도 반환(빈 문자열/크래시 없음)
+        out = self._reverse_with(monkeypatch, {"city_do": "서울특별시", "gu_gun": "마포구"})
+        assert out == "서울특별시 마포구"
+
     def test_non_200_returns_none(self, monkeypatch):
         monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: "k")
         monkeypatch.setattr(route_builder.requests, "get", lambda *a, **k: _FakeResp(403, {}))
         assert route_builder._tmap_reverse(self._COORD) is None
+
+class TestNaverReverse:
+    """Naver Reverse Geocoding — 실사용 1순위 폴백. 행정구역+도로명+번지 조립을 고정."""
+
+    _COORD = Coordinate(latitude=37.5665, longitude=126.9780)
+
+    def _reverse_with(self, monkeypatch, payload, status=200):
+        monkeypatch.setattr(route_builder, "_naver_headers", lambda: {"X": "y"})
+        monkeypatch.setattr(route_builder.requests, "get",
+                            lambda *a, **k: _FakeResp(status, payload))
+        return route_builder._naver_reverse(self._COORD)
+
+    def test_no_headers_returns_none_without_network(self, monkeypatch):
+        monkeypatch.setattr(route_builder, "_naver_headers", lambda: None)
+        def _boom(*a, **k):
+            raise AssertionError("키 없으면 네트워크를 호출하면 안 됨")
+        monkeypatch.setattr(route_builder.requests, "get", _boom)
+        assert route_builder._naver_reverse(self._COORD) is None
+
+    def test_road_address_assembly_with_subnumber(self, monkeypatch):
+        # 행정구역 area1~4 + 도로명 + 번지-부번지 조립 (빈 구역은 건너뜀)
+        payload = {"results": [{
+            "region": {"area1": {"name": "서울특별시"}, "area2": {"name": "마포구"},
+                       "area3": {"name": "서교동"}, "area4": {"name": ""}},
+            "land": {"name": "양화로", "number1": "45", "number2": "1"},
+        }]}
+        assert self._reverse_with(monkeypatch, payload) == "서울특별시 마포구 서교동 양화로 45-1"
+
+    def test_number2_absent_keeps_plain_number(self, monkeypatch):
+        payload = {"results": [{
+            "region": {"area1": {"name": "서울특별시"}, "area2": {"name": "중구"}},
+            "land": {"name": "세종대로", "number1": "110"},
+        }]}
+        assert self._reverse_with(monkeypatch, payload) == "서울특별시 중구 세종대로 110"
+
+    def test_land_missing_returns_region_only(self, monkeypatch):
+        # land 가 None(행정동 응답만) — 크래시 없이 행정구역만 반환
+        payload = {"results": [{
+            "region": {"area1": {"name": "서울특별시"}, "area2": {"name": "마포구"},
+                       "area3": {"name": "합정동"}},
+            "land": None,
+        }]}
+        assert self._reverse_with(monkeypatch, payload) == "서울특별시 마포구 합정동"
+
+    def test_empty_results_returns_none(self, monkeypatch):
+        assert self._reverse_with(monkeypatch, {"results": []}) is None
+
+    def test_non_200_returns_none(self, monkeypatch):
+        # 서비스 미활성(403) 등 — None 폴백(예외 전파 없음)
+        assert self._reverse_with(monkeypatch, {}, status=403) is None
+
+    def test_reverse_geocode_uses_naver_first(self, monkeypatch):
+        # 폴백 체인 1순위 — Naver 성공 시 TMAP/Nominatim 미호출
+        monkeypatch.setattr(route_builder, "_naver_reverse", lambda c: "네이버 주소")
+        def _boom(*a, **k):
+            raise AssertionError("Naver 성공 시 다음 폴백을 호출하면 안 됨")
+        monkeypatch.setattr(route_builder, "_tmap_reverse", _boom)
+        monkeypatch.setattr(route_builder.requests, "get", _boom)
+        assert route_builder.reverse_geocode(self._COORD) == "네이버 주소"
+
+
+class TestTmapReverseChain:
+    _COORD = Coordinate(latitude=37.5665, longitude=126.9780)
 
     def test_reverse_geocode_uses_tmap_before_nominatim(self, monkeypatch):
         monkeypatch.setattr(route_builder, "_naver_reverse", lambda c: None)

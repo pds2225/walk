@@ -104,3 +104,35 @@ def test_distance_to_polyline_matches_offset():
     d40 = mm._dist_to_polyline_m(_pt_east(40), _PLANNED)
     assert 3.0 < d5 < 8.0
     assert 35.0 < d40 < 45.0
+
+
+# ── _dist_to_polyline_m 경계: 빈/단일점 폴리라인 ─────────────────────────────
+def test_dist_to_empty_polyline_is_inf():
+    # 빈 계획 경로 → 최단거리 무한대(비교 시 항상 '멀다'로 판정, 크래시 없음)
+    assert mm._dist_to_polyline_m((126.978, 37.5665), []) == float("inf")
+
+
+def test_dist_to_single_point_polyline_uses_haversine():
+    # 점이 하나뿐이면 선분이 없으므로 그 점까지의 haversine 거리
+    d = mm._dist_to_polyline_m(_pt_east(10), [(126.978, 37.5680)])
+    assert 8.0 < d < 12.0
+
+
+# ── 좌표 준비(_prep_coords): 근접 중복 제거·짧은 튜플 스킵·상한 절단 ──────────
+def test_prep_coords_dedupes_near_duplicates():
+    # 0.5m 미만 이동은 중복으로 간주해 하나로 합친다
+    pts = mm._prep_coords([(126.978, 37.5665), (126.978, 37.5665), _pt_east(10)])
+    assert len(pts) == 2
+
+
+def test_prep_coords_skips_short_tuples():
+    # 좌표 성분이 2개 미만인 항목은 건너뛴다(형식 이상 입력 방어)
+    pts = mm._prep_coords([(126.978,), (126.978, 37.5665), _pt_east(10)])
+    assert len(pts) == 2
+
+
+def test_prep_coords_truncates_to_max():
+    # 최근 MAX_TRACE_POINTS 개만 남겨 latency·비용을 억제한다
+    many = [_pt_east(0, lat=37.5665 + i * 0.001) for i in range(mm.MAX_TRACE_POINTS + 10)]
+    pts = mm._prep_coords(many)
+    assert len(pts) == mm.MAX_TRACE_POINTS

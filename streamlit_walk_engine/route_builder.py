@@ -416,8 +416,13 @@ def _tmap_reverse(coord: Coordinate) -> str | None:
         # addressType=A10 의 fullAddress 는 행정동·지번·도로명 주소를 공백으로 이어붙여
         # "…합정동 …합정동 355-1 …어울마당로3길 19 …" 처럼 읽기 불가능하다(실기기 보고).
         # 구조 필드로 도로명(없으면 지번) 주소 '하나만' 조립하고, 실패 시에만 fullAddress.
-        road = " ".join(p for p in (info.get("city_do"), info.get("gu_gun"),
-                                    info.get("roadName"), info.get("buildingIndex")) if p)
+        # roadName 이 없으면 city_do·gu_gun 만으로 road 가 비어있지 않게 조립돼
+        # 지번 폴백이 죽는다(예: '서울특별시 마포구'만 남고 '합정동 355-1' 유실) —
+        # 도로명 주소는 roadName 이 실제로 있을 때만 조립한다.
+        road = ""
+        if info.get("roadName"):
+            road = " ".join(p for p in (info.get("city_do"), info.get("gu_gun"),
+                                        info.get("roadName"), info.get("buildingIndex")) if p)
         if road and info.get("buildingName"):
             road = f"{road} {info['buildingName']}"
         jibun = " ".join(p for p in (info.get("city_do"), info.get("gu_gun"),
