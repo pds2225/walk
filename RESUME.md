@@ -63,4 +63,22 @@
 - `autopilot` was read. It is a full autonomous lifecycle skill: expand idea, plan, execute, QA, multi-review, cleanup. In Plan Mode, use it to create an execution plan only; do not implement code until Plan Mode ends.
 - Autopilot precheck: `.omc\plans` exists, but no `ralplan-*.md` or `consensus-*.md` was found, so a future autopilot run would need a concrete target or use an existing non-consensus plan as input by explicit choice.
 - Closeout precheck: global closeout auto is `ON`; `D:\walk` project-local closeout auto is `OFF`; recent active-session detector returned `d:\auto_write`.
-- User approved impleme
+- User approved implementation of the Korean plan: add transit+walking journey support to walk, with GPS guidance only on walking legs and transit legs shown as manual cards.
+- Executing-plans and using-git-worktrees skills were read. Work must happen in an isolated worktree/branch, not local `main`.
+- Implementation has not yet touched app code at this checkpoint; only this `RESUME.md` checkpoint was updated in `D:\walk`.
+
+## Resume Commands
+
+```powershell
+cd D:\walk
+git -C D:\walk status --short
+git -C D:\walk fetch --prune
+python -m pytest streamlit_walk_engine\tests -q
+```
+
+## Next Actions
+
+1. Create a fresh worktree from latest `origin/main`, likely `D:\walk-transit-journey` on branch `codex/transit-walk-journey`.
+2. Implement only the approved transit+walk scope: new `transit_builder.py`, minimal `1_Navigation.py` additions, tests, no `engine.py`/`route_builder.py` edits.
+3. Validate with `python -m pytest streamlit_walk_engine\tests -q` and `python -m py_compile streamlit_walk_engine\transit_builder.py streamlit_walk_engine\pages\1_Navigation.py`.
+4. Do not install local `session-closeout-auto`; global is already ON.

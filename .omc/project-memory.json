@@ -202,8 +202,8 @@
   "hotPaths": [
     {
       "path": "streamlit_walk_engine\\pages\\1_Navigation.py",
-      "accessCount": 164,
-      "lastAccessed": 1784134207880,
+      "accessCount": 166,
+      "lastAccessed": 1784187273505,
       "type": "file"
     },
     {
@@ -226,8 +226,8 @@
     },
     {
       "path": "RESUME.md",
-      "accessCount": 20,
-      "lastAccessed": 1784165252910,
+      "accessCount": 23,
+      "lastAccessed": 1784187634252,
       "type": "file"
     },
     {
@@ -243,16 +243,16 @@
       "type": "file"
     },
     {
+      "path": "streamlit_walk_engine",
+      "accessCount": 12,
+      "lastAccessed": 1784187555112,
+      "type": "directory"
+    },
+    {
       "path": "streamlit_walk_engine\\snap_router.py",
       "accessCount": 10,
       "lastAccessed": 1784019250532,
       "type": "file"
-    },
-    {
-      "path": "streamlit_walk_engine",
-      "accessCount": 9,
-      "lastAccessed": 1784019169790,
-      "type": "directory"
     },
     {
       "path": ".worktrees\\tick1s\\streamlit_walk_engine\\pages\\1_Navigation.py",
@@ -411,6 +411,12 @@
       "type": "directory"
     },
     {
+      "path": "VISION_SOCIAL.md",
+      "accessCount": 2,
+      "lastAccessed": 1784186833403,
+      "type": "file"
+    },
+    {
       "path": "streamlit_walk_engine\\tests\\test_snap_router.py",
       "accessCount": 1,
       "lastAccessed": 1783860109156,
@@ -439,12 +445,6 @@
       "accessCount": 1,
       "lastAccessed": 1784015540599,
       "type": "directory"
-    },
-    {
-      "path": "VISION_SOCIAL.md",
-      "accessCount": 1,
-      "lastAccessed": 1784015592570,
-      "type": "file"
     },
     {
       "path": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\claude\\d--walk\\96394405-4377-4ea4-9fc2-3285e21d4f16\\scratchpad\\accuracy_p1_sim.py",
