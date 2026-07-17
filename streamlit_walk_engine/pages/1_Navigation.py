@@ -1379,7 +1379,7 @@ def _build_placeholder_map(center: Optional[Coordinate]) -> go.Figure:
         map=dict(style="open-street-map", center=dict(lat=c.latitude, lon=c.longitude),
                  zoom=15 if center is not None else 12, uirevision="nav-placeholder"),
         uirevision="nav-placeholder",
-        height=560,
+        height=400,
         margin=dict(l=0, r=0, t=0, b=0),
         showlegend=False,
     )
@@ -2752,8 +2752,10 @@ def main() -> None:
     #   - 보행 중: '지금 할 일'(판정)을 지도 위로 올려 가장 먼저 보이게.
     #   - 그 외: 지도를 먼저, 판정/요약은 아래로.
     def _render_map() -> None:
-        # 보행 중엔 지도를 더 크게(다음 방향 배지가 위에 있으니 지도에 자리 양보).
-        map_h = 640 if st.session_state["nav_running"] else 560
+        # 폰 세로 화면에서 지도가 뷰포트를 꽉 채우면 지도 아래 컨트롤(정지·목적지 바꾸기)로
+        # 스크롤이 막힌다(지도 캔버스가 세로 스와이프를 팬으로 가로챔). 지도 아래에 스크롤로
+        # 잡을 여백이 남도록 높이를 낮춘다 — 보행 중엔 조금 더 크게(방향 배지가 위에 있음).
+        map_h = 460 if st.session_state["nav_running"] else 400
         if st.session_state["nav_running"] and _HAS_MAPLIBRE:
             # 안내 중 1순위: MapLibre 컴포넌트 — iframe 유지 + easeTo(900ms)로
             # 부드러운 헤딩업 회전 + 핀치줌 유지(제스처 중 따라가기 일시정지).
