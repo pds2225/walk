@@ -1060,3 +1060,53 @@ class TestAddrGeoFallbackChain:
             raise AssertionError("주소 지오코딩 성공 시 POI 를 호출하면 안 됨")
         monkeypatch.setattr(route_builder, "_tmap_poi_results", _poi_boom)
         assert route_builder.geocode_address("서판로 30") == hit
+
+
+class TestSuggestionsParallel:
+    """검색 소스 병렬화 — 직렬 폴백 체인의 지연 합산('도착지 검색 느림') 제거 가드."""
+
+    def test_sources_fetched_concurrently(self, monkeypatch):
+        # 세 소스가 각 0.25초 걸려도 전체는 1회분(<0.6초)이어야 한다(직렬이면 ≥0.75초).
+        import time as _t
+
+        def _slow(ret):
+            def _f(*a, **k):
+                _t.sleep(0.25)
+                return ret
+            return _f
+        addr_hit = (Coordinate(latitude=37.1, longitude=127.1), "주소 후보")
+        poi_hit = (Coordinate(latitude=37.2, longitude=127.2), "장소 후보")
+        monkeypatch.setattr(route_builder, "_naver_suggestion_hits", _slow([addr_hit]))
+        monkeypatch.setattr(route_builder, "_tmap_addr_results", _slow([]))
+        monkeypatch.setattr(route_builder, "_tmap_poi_results", _slow([poi_hit]))
+        t0 = _t.perf_counter()
+        out = route_builder.geocode_suggestions("아무거나", limit=5)
+        elapsed = _t.perf_counter() - t0
+        assert elapsed < 0.6, f"병렬화 안 됨(직렬 의심): {elapsed:.2f}s"
+        assert out[0] == addr_hit   # 주소 후보가 먼저
+        assert poi_hit in out       # POI 보충 유지
+
+    def test_naver_hits_take_priority_over_addr_geo(self, monkeypatch):
+        # 병렬 투기 호출이어도 병합 우선순위는 직렬 때와 동일: Naver 있으면 fullAddrGeo 폐기.
+        naver_hit = (Coordinate(latitude=37.1, longitude=127.1), "네이버 주소")
+        addr_hit = (Coordinate(latitude=37.2, longitude=127.2), "TMAP 주소")
+        monkeypatch.setattr(route_builder, "_naver_suggestion_hits",
+                            lambda q, limit: [naver_hit])
+        monkeypatch.setattr(route_builder, "_tmap_addr_results",
+                            lambda q, limit=5: [addr_hit])
+        monkeypatch.setattr(route_builder, "_tmap_poi_results",
+                            lambda q, limit=5, center=None: [])
+        out = route_builder.geocode_suggestions("주소", limit=5)
+        assert naver_hit in out
+        assert addr_hit not in out
+
+    def test_source_exception_degrades_to_empty(self, monkeypatch):
+        # 한 소스가 예외로 죽어도 전체 제안은 계속(예외 미전파 계약 — _future_result).
+        def _boom(*a, **k):
+            raise RuntimeError("source down")
+        poi_hit = (Coordinate(latitude=37.2, longitude=127.2), "장소 후보")
+        monkeypatch.setattr(route_builder, "_naver_suggestion_hits", _boom)
+        monkeypatch.setattr(route_builder, "_tmap_addr_results", _boom)
+        monkeypatch.setattr(route_builder, "_tmap_poi_results",
+                            lambda q, limit=5, center=None: [poi_hit])
+        assert poi_hit in route_builder.geocode_suggestions("아무거나", limit=5)

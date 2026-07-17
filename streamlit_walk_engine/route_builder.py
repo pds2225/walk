@@ -18,6 +18,7 @@ import math
 import os
 import re
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import quote
@@ -359,6 +360,46 @@ def geocode_address(query: str) -> tuple[Coordinate, str] | None:
     return None
 
 
+def _naver_suggestion_hits(query: str, limit: int) -> list[tuple[Coordinate, str]]:
+    """Naver 지오코딩 addresses 다중 후보(주소 전용). 키 없음·오류·결과 없음 → [].
+
+    '서판로30'처럼 주소단위·번호가 붙은 검색어는 공백 변형('서판로 30')도 순서대로
+    시도하고, 원본이 후보를 채우면 변형은 건너뛴다(불필요한 호출 방지).
+    중복 제거는 호출부(geocode_suggestions 의 _add)가 일괄 처리한다.
+    """
+    headers = _naver_headers()
+    if headers is None:
+        return []
+    hits: list[tuple[Coordinate, str]] = []
+    for q_variant in _road_number_variants(query):
+        try:
+            resp = requests.get(
+                _NAVER_GEOCODE, params={"query": q_variant, "count": limit},
+                headers=headers, timeout=_TIMEOUT,
+            )
+            if resp.status_code == 200:
+                for hit in resp.json().get("addresses", [])[:limit]:
+                    try:
+                        lat, lon = float(hit["y"]), float(hit["x"])
+                    except (KeyError, ValueError, TypeError):
+                        continue
+                    hits.append((Coordinate(latitude=lat, longitude=lon),
+                                 hit.get("roadAddress") or hit.get("jibunAddress") or query))
+        except (requests.RequestException, KeyError, ValueError):
+            pass
+        if hits:
+            break
+    return hits
+
+
+def _future_result(future) -> list:
+    """병렬 소스 결과 회수 — 실패는 빈 리스트(제안 검색의 '예외 미전파' 계약 유지)."""
+    try:
+        return future.result() or []
+    except Exception:
+        return []
+
+
 def geocode_suggestions(query: str, limit: int = 5,
                         center: Coordinate | None = None) -> list[tuple[Coordinate, str]]:
     """검색어로 후보 장소 목록을 반환(경로 탐색 전 미리보기/자동완성용).
@@ -392,43 +433,31 @@ def geocode_suggestions(query: str, limit: int = 5,
             seen_labels.add(label)
         out.append((Coordinate(latitude=lat, longitude=lon), display))
 
-    # 1) Naver addresses 배열(여러 후보)
-    #    '서판로30'처럼 도로명·건물번호가 붙은 검색어는 공백 변형('서판로 30')도 시도.
-    #    원본이 후보를 채우면 변형은 건너뛴다(불필요한 호출·근접 중복 방지).
-    headers = _naver_headers()
-    if headers is not None:
-        for q_variant in _road_number_variants(q):
-            try:
-                resp = requests.get(
-                    _NAVER_GEOCODE, params={"query": q_variant, "count": limit},
-                    headers=headers, timeout=_TIMEOUT,
-                )
-                if resp.status_code == 200:
-                    for hit in resp.json().get("addresses", [])[:limit]:
-                        try:
-                            lat, lon = float(hit["y"]), float(hit["x"])
-                        except (KeyError, ValueError, TypeError):
-                            continue
-                        _add(lat, lon, hit.get("roadAddress") or hit.get("jibunAddress") or q)
-            except (requests.RequestException, KeyError, ValueError):
-                pass
-            if out:
-                break
+    # 세 소스(주소=Naver, 주소=TMAP fullAddrGeo, 장소=TMAP POI)를 '동시에' 요청한다.
+    # 직렬 폴백 체인은 소스별 네트워크 지연이 합산(최악 수 초)돼 자동완성 체감을
+    # 늦추므로("도착지 검색이 느림" 실기기 보고), 병렬로 받아 아래에서 기존
+    # 우선순위 그대로 병합한다 — 후보 구성·순서는 직렬 때와 동일.
+    # (Naver 성공 시 fullAddrGeo 결과는 버려지는 투기 호출이지만 지연 0·쿼터 여유.
+    #  키 없는 소스는 네트워크 없이 즉시 [] 반환이라 스레드 낭비도 없음.)
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        f_naver = pool.submit(_naver_suggestion_hits, q, limit)
+        f_addr = pool.submit(_tmap_addr_results, q, limit)
+        f_poi = pool.submit(_tmap_poi_results, q, limit, center)
+        naver_hits = _future_result(f_naver)
+        addr_hits = _future_result(f_addr)
+        poi_hits = _future_result(f_poi)
 
-    # 1-b) Naver 가 키 없음·결과 없음이면 TMAP 주소 지오코딩(fullAddrGeo)으로
-    #      주소 후보를 보충 — 배포 환경에 Naver 키가 없으면 주소 전용 검색이
-    #      통째로 죽어 건물(POI)만 나오던 문제의 근본 수정(TMAP 앱키 재사용).
-    if not out:
-        for coord, display in _tmap_addr_results(q, limit):
-            _add(coord.latitude, coord.longitude, display)
+    # 1) 주소 후보 먼저: Naver → 키 없음·결과 없음이면 TMAP 주소 지오코딩(fullAddrGeo)
+    #    — 배포 환경에 Naver 키가 없으면 주소 검색이 통째로 죽던 문제의 수정(#67) 보존.
+    for coord, display in (naver_hits or addr_hits):
+        _add(coord.latitude, coord.longitude, display)
 
-    # 2) TMAP 장소(POI) 검색 — '경복궁' 같은 장소명은 여기서 잡힌다.
-    #    주소 후보가 있어도 남은 자리는 POI 로 채운다(기존엔 주소가 1건이라도
-    #    있으면 POI 를 통째로 생략하는 양자택일이라 주소·건물 중 한쪽만 보였고,
-    #    반대로 POI 가 아무 건물이나 잡으면 주소 폴백이 영영 안 불렸다).
-    if len(out) < limit:
-        for coord, display in _tmap_poi_results(q, limit - len(out), center=center):
-            _add(coord.latitude, coord.longitude, display)
+    # 2) 남은 자리는 장소(POI) 후보로 보충 — '경복궁' 같은 장소명은 여기서 잡히고,
+    #    주소 후보가 있어도 건물·장소가 함께 뜬다(양자택일 금지 — #67).
+    for coord, display in poi_hits:
+        if len(out) >= limit:
+            break
+        _add(coord.latitude, coord.longitude, display)
 
     # 3) 둘 다 없을 때만 Nominatim 변형 검색으로 폴백
     #    (혼합 출처의 근접 중복 후보 방지 + 결과 나오면 추가 변형 호출 생략으로 API 절약)

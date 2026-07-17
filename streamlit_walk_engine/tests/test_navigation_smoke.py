@@ -141,6 +141,14 @@ def test_compass_heading_collected_and_used():
     assert "def _render_compass_enable()" in source
 
 
+def test_searchbox_debounce_wired():
+    """검색창 debounce 배선(2026-07-17 '도착지 검색 느림') — 키 입력마다 검색 API
+    콜백이 돌던 것을 입력 멈춤 후 1회로 축소. 미지원 구버전엔 미전달(TypeError 방지)."""
+    source = PAGE.read_text(encoding="utf-8")
+    assert '_SEARCHBOX_KW["debounce"]' in source        # 지원 시에만 debounce 설정
+    assert "**_SEARCHBOX_KW" in source                  # 목적지 searchbox 에 실제 전달
+
+
 def test_gps_poll_bucket_splits_running_vs_idle():
     """GPS 재측정 버킷 분리: 안내 중 1초 / 유휴(검색·대기) 5초.
     유휴 화면에서 매초 재측정→rerun 이 searchbox 클릭~첫 글자 사이에 끼어들어
