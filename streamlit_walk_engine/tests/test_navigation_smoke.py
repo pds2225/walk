@@ -129,6 +129,12 @@ def test_compass_heading_collected_and_used():
     assert "deviceorientationabsolute" in source          # Android 절대 방위각
     assert "compass:(window._walkCompass||{h:null}).h" in source   # payload 동승
     assert '"nav_compass_deg"' in source                  # 세션 저장 키
+    # 정확도 3종(2026-07-17): ①iOS 미보정 나침반(accuracy<0) 배제 ②원시값 대신
+    # 원형 평균 스무딩(0/360 경계 안전) ③자북→진북 편각 보정(진북 기준 GPS·경로와 통일)
+    assert "webkitCompassAccuracy" in source              # 미보정 배제 가드
+    assert "Math.atan2(sx,sy)" in source                  # 원형 평균 스무딩
+    assert "_COMPASS_DECL_DEG" in source                  # 편각 보정 상수
+    assert "+ _COMPASS_DECL_DEG) % 360.0" in source       # 수신부 실제 적용
     assert '''hdg = st.session_state.get("nav_compass_deg")''' in source  # 마커 폴백
     assert "보는 방향 기준" in source                      # 상대 방향 안내
     assert "DeviceOrientationEvent.requestPermission" in source     # iOS 권한 버튼
