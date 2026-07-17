@@ -48,7 +48,7 @@ import gps_filter
 import mapbox_matcher
 import snap_router
 import transit_builder
-from alert_voice import build_tts_script, tts_phrase
+from alert_voice import build_tts_prime_script, build_tts_script, tts_phrase
 from route_builder import (
     fetch_walking_route_with_engine, format_korean_address, geocode_address,
     geocode_suggestions, label_with_distance, reverse_geocode, route_engine_label,
@@ -300,6 +300,7 @@ def _init() -> None:
         "nav_last_weak_toast_ts_ms": None,
         "nav_alert_enabled": True,
         "nav_tts_enabled": True,
+        "nav_tts_primed": False,         # 안내 시작(제스처) 시 브라우저 TTS 해금 1회 실행 여부
         "nav_turn_announced_id": None,   # 회전 예고 음성을 낸 회전점 id(회전점당 1회)
         "nav_origin_address": None,
         "nav_origin_address_coord": None,
@@ -930,6 +931,24 @@ def _trigger_alert(state: str, tts: bool = True) -> None:
         f"{voice_script}"
         f"}})();</script>",
         height=0,
+    )
+
+
+def _prime_tts_once() -> None:
+    """안내 시작(사용자 제스처) 직후 브라우저 TTS를 1회 해금한다.
+
+    모바일 브라우저는 사용자 조작 없이 speak()를 무시하므로, 비동기 rerun 에서 울리는
+    이탈 음성이 조용히 막힌다. 시작 버튼→rerun 으로 도달하는 이 첫 렌더(제스처 활성창
+    안)에서 무음 발화를 한 번 재생해 이후 발화를 허용시킨다. 세션당 1회(nav_tts_primed).
+    음성 OFF면 아무것도 하지 않는다.
+    """
+    if not st.session_state.get("nav_tts_enabled"):
+        return
+    if st.session_state.get("nav_tts_primed"):
+        return
+    st.session_state["nav_tts_primed"] = True
+    components.html(
+        f"<script>(function(){{{build_tts_prime_script()}}})();</script>", height=0,
     )
 
 
@@ -2114,6 +2133,7 @@ def _render_action_buttons() -> None:
         if st.session_state["nav_running"]:
             if st.button("⏹ 중지", width="stretch", type="primary"):
                 st.session_state["nav_running"] = False
+                st.session_state["nav_tts_primed"] = False  # 다음 시작 제스처에서 다시 해금
                 st.rerun()
         else:
             if st.button("▶ 시작", disabled=(origin is None), width="stretch", type="primary"):
@@ -2795,6 +2815,9 @@ def main() -> None:
 
     arrived = (not st.session_state["nav_running"]) and bool(st.session_state.get("nav_arrival_summary"))
     if st.session_state["nav_running"]:
+        # 시작 제스처→rerun 으로 도달한 첫 렌더(활성창 안)에서 TTS 해금 — 이탈 음성이
+        # 비동기 rerun 에서 조용히 막히지 않게 한다(모바일 자동재생 정책 대응).
+        _prime_tts_once()
         if st.session_state["nav_results"]:
             # 판정(상태·다음 회전·핵심 지표)을 지도 위 가장 큰 요소로.
             _render_metrics(st.session_state["nav_results"])
