@@ -1,7 +1,0 @@
-{
-  "tool_name": "Bash",
-  "tool_input_preview": "{\"command\":\"cd .worktrees/mapbox/streamlit_walk_engine && python -m pytest tests -q 2>&1 | tail -20\",\"description\":\"전체 pytest 회귀 검증(스모크 포함)\"}",
-  "error": "Exit code 1\n/usr/bin/bash: line 1: cd: .worktrees/mapbox/streamlit_walk_engine: No such file or directory",
-  "timestamp": "2026-07-12T10:49:12.305Z",
-  "retry_count": 1
-}

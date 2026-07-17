@@ -74,6 +74,18 @@ try:
 except ImportError:
     _HAS_SEARCHBOX = False
 
+# searchbox 디바운스(지원 버전에서만 전달): 키 입력마다 검색 콜백(외부 API)이 돌던 것을
+# 0.35초 입력 멈춤 후 1회로 줄인다 — 타이핑 중 API 폭주가 검색 지연 체감의 큰 몫.
+# 파라미터 없는 구버전엔 아무것도 전달하지 않아 TypeError 없이 기존 동작을 유지한다.
+_SEARCHBOX_KW: dict = {}
+if _HAS_SEARCHBOX:
+    try:
+        import inspect as _inspect
+        if "debounce" in _inspect.signature(st_searchbox).parameters:
+            _SEARCHBOX_KW["debounce"] = 350
+    except Exception:
+        pass
+
 try:
     import pydeck as pdk
     _HAS_PYDECK = True
@@ -113,6 +125,12 @@ def _gps_poll_bucket_sec() -> int:
 # 위치 샘플/판정 누적 상한 — 장시간 보행 시 메모리·지도 렌더 무한 증가 차단.
 _MAX_SAMPLES = 500
 
+# 자북→진북 편각 보정(도, 동쪽+): 나침반(webkitCompassHeading·absolute alpha)은 '자북'
+# 기준인데 GPS heading·경로 방위(bearing_degrees)는 '진북' 기준이라 그대로 섞으면
+# 한국에서 약 8~9° 계통 오차가 난다(정지 화살표·'보는 방향' 8분할 안내가 늘 같은
+# 방향으로 조금 틀어지던 원인). 국내 전용 앱(TMAP 좌표)이라 남한 평균 ≈8.5°W 상수 보정.
+_COMPASS_DECL_DEG = -8.5
+
 
 def _get_geolocation_high_accuracy(component_key: str = "walk_hi_acc_geo", multi: bool = False):
     """현재 위치를 enableHighAccuracy로 요청한다 (실패 시 스톡 get_geolocation 폴백).
@@ -138,17 +156,32 @@ def _get_geolocation_high_accuracy(component_key: str = "walk_hi_acc_geo", multi
     """
     bucket = int(time.time() // _gps_poll_bucket_sec())
     # 나침반(DeviceOrientation) 리스너 — iframe 전역(window)에 1회만 등록해 두고 매 GPS
-    # 틱마다 마지막 방위각을 payload에 실어 보낸다. GPS heading은 이동 중에만 나오므로,
+    # 틱마다 방위각을 payload에 실어 보낸다. GPS heading은 이동 중에만 나오므로,
     # 서 있어도 사용자가 '보는 방향'을 알 수 있게 하는 유일한 소스다.
-    # iOS: webkitCompassHeading(진북 시계방향, 권한 탭 1회 필요 — _render_compass_enable).
-    # Android: deviceorientationabsolute 의 alpha → (360-alpha)%360 = 시계방향 방위각.
+    # iOS: webkitCompassHeading(자북 시계방향, 권한 탭 1회 필요 — _render_compass_enable).
+    #      webkitCompassAccuracy<0 은 '보정 안 된 나침반'(8자 흔들기 전) — 배제.
+    # Android: deviceorientationabsolute 의 alpha → (360-alpha)%360 = 자북 시계방향.
+    # 정확도: 자기 센서는 ±10~15° 떨림이 기본이라 원시 마지막 값 대신 최근 0.8초의
+    # '원형 평균'(sin/cos 합산 후 atan2 — 359°↔1° 경계에서 180°로 튀지 않는 평균)을
+    # 보낸다(~16Hz 스로틀). 자북→진북 편각 보정은 수신부(_COMPASS_DECL_DEG) 일괄 적용.
     compass_setup_js = (
-        "try{if(!window._walkCompass){window._walkCompass={h:null};"
+        "try{if(!window._walkCompass){window._walkCompass={h:null,buf:[]};"
         "var _ce=('ondeviceorientationabsolute' in window)?'deviceorientationabsolute':'deviceorientation';"
         "window.addEventListener(_ce,function(ev){"
-        "var h=(ev.webkitCompassHeading!=null)?ev.webkitCompassHeading:"
-        "((ev.absolute&&ev.alpha!=null)?((360-ev.alpha)%360):null);"
-        "if(h!=null)window._walkCompass.h=h;},true);}}catch(e){}"
+        "var h=null;"
+        "if(ev.webkitCompassHeading!=null){"
+        "if(ev.webkitCompassAccuracy!=null&&ev.webkitCompassAccuracy<0)return;"
+        "h=ev.webkitCompassHeading%360;}"
+        "else if(ev.absolute&&ev.alpha!=null){h=(360-ev.alpha)%360;}"
+        "if(h==null)return;"
+        "var C=window._walkCompass,now=Date.now();"
+        "if(C.buf.length&&(now-C.buf[C.buf.length-1].t)<60)return;"
+        "C.buf.push({t:now,h:h});"
+        "while(C.buf.length&&(now-C.buf[0].t)>800)C.buf.shift();"
+        "var sx=0,sy=0;for(var i=0;i<C.buf.length;i++){"
+        "var r=C.buf[i].h*Math.PI/180;sx+=Math.sin(r);sy+=Math.cos(r);}"
+        "C.h=(Math.atan2(sx,sy)*180/Math.PI+360)%360;"
+        "},true);}}catch(e){}"
     )
     coords_js = (
         "coords:{accuracy:p.coords.accuracy,altitude:p.coords.altitude,"
@@ -1379,7 +1412,7 @@ def _build_placeholder_map(center: Optional[Coordinate]) -> go.Figure:
         map=dict(style="open-street-map", center=dict(lat=c.latitude, lon=c.longitude),
                  zoom=15 if center is not None else 12, uirevision="nav-placeholder"),
         uirevision="nav-placeholder",
-        height=560,
+        height=400,
         margin=dict(l=0, r=0, t=0, b=0),
         showlegend=False,
     )
@@ -1694,6 +1727,7 @@ def _render_dest_inputs() -> None:
             placeholder="예) 경복궁, 강남역 10번출구",
             label="",  # 안내문은 '목적지' 제목 우측에 한 줄로 표시(중복 라벨 제거)
             key="nav_dest_sb",
+            **_SEARCHBOX_KW,  # debounce(지원 버전 한정) — 입력 멈춘 뒤 1회만 검색
         )
         if sel is not None:
             coord, disp = sel
@@ -2333,7 +2367,9 @@ def main() -> None:
                 # '보는 방향 기준' 안내용. 미지원/미권한 기기는 None 유지(기능 저하 없음).
                 if isinstance(geo, dict) and geo.get("compass") is not None:
                     try:
-                        st.session_state["nav_compass_deg"] = float(geo["compass"]) % 360.0
+                        # 자북(센서) → 진북(GPS 헤딩·경로 방위와 같은 기준) 편각 보정
+                        st.session_state["nav_compass_deg"] = (
+                            float(geo["compass"]) + _COMPASS_DECL_DEG) % 360.0
                     except (TypeError, ValueError):
                         pass
                 if geo and geo.get("coords"):
@@ -2752,8 +2788,10 @@ def main() -> None:
     #   - 보행 중: '지금 할 일'(판정)을 지도 위로 올려 가장 먼저 보이게.
     #   - 그 외: 지도를 먼저, 판정/요약은 아래로.
     def _render_map() -> None:
-        # 보행 중엔 지도를 더 크게(다음 방향 배지가 위에 있으니 지도에 자리 양보).
-        map_h = 640 if st.session_state["nav_running"] else 560
+        # 폰 세로 화면에서 지도가 뷰포트를 꽉 채우면 지도 아래 컨트롤(정지·목적지 바꾸기)로
+        # 스크롤이 막힌다(지도 캔버스가 세로 스와이프를 팬으로 가로챔). 지도 아래에 스크롤로
+        # 잡을 여백이 남도록 높이를 낮춘다 — 보행 중엔 조금 더 크게(방향 배지가 위에 있음).
+        map_h = 460 if st.session_state["nav_running"] else 400
         if st.session_state["nav_running"] and _HAS_MAPLIBRE:
             # 안내 중 1순위: MapLibre 컴포넌트 — iframe 유지 + easeTo(900ms)로
             # 부드러운 헤딩업 회전 + 핀치줌 유지(제스처 중 따라가기 일시정지).

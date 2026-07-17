@@ -129,10 +129,24 @@ def test_compass_heading_collected_and_used():
     assert "deviceorientationabsolute" in source          # Android 절대 방위각
     assert "compass:(window._walkCompass||{h:null}).h" in source   # payload 동승
     assert '"nav_compass_deg"' in source                  # 세션 저장 키
+    # 정확도 3종(2026-07-17): ①iOS 미보정 나침반(accuracy<0) 배제 ②원시값 대신
+    # 원형 평균 스무딩(0/360 경계 안전) ③자북→진북 편각 보정(진북 기준 GPS·경로와 통일)
+    assert "webkitCompassAccuracy" in source              # 미보정 배제 가드
+    assert "Math.atan2(sx,sy)" in source                  # 원형 평균 스무딩
+    assert "_COMPASS_DECL_DEG" in source                  # 편각 보정 상수
+    assert "+ _COMPASS_DECL_DEG) % 360.0" in source       # 수신부 실제 적용
     assert '''hdg = st.session_state.get("nav_compass_deg")''' in source  # 마커 폴백
     assert "보는 방향 기준" in source                      # 상대 방향 안내
     assert "DeviceOrientationEvent.requestPermission" in source     # iOS 권한 버튼
     assert "def _render_compass_enable()" in source
+
+
+def test_searchbox_debounce_wired():
+    """검색창 debounce 배선(2026-07-17 '도착지 검색 느림') — 키 입력마다 검색 API
+    콜백이 돌던 것을 입력 멈춤 후 1회로 축소. 미지원 구버전엔 미전달(TypeError 방지)."""
+    source = PAGE.read_text(encoding="utf-8")
+    assert '_SEARCHBOX_KW["debounce"]' in source        # 지원 시에만 debounce 설정
+    assert "**_SEARCHBOX_KW" in source                  # 목적지 searchbox 에 실제 전달
 
 
 def test_gps_poll_bucket_splits_running_vs_idle():

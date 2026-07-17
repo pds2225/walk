@@ -1,7 +1,0 @@
-{
-  "tool_name": "Bash",
-  "tool_input_preview": "{\"command\":\"repo=/d/mail\\necho \\\"=== mail 변경 상세 ===\\\" && git -C \\\"$repo\\\" status --short\\necho \\\"=== 수정파일 diff 규모 ===\\\" && git -C \\\"$repo\\\" diff --stat\\necho \\\"=== 새 파일 정체(크기/행수) ===\\\"\\nfor f in compa...",
-  "error": "Exit code 1\n=== mail 변경 상세 ===\n M monitor.py\n M review_pipeline.py\n M sites.json\n?? companies.json\n?? company_match.py\n?? reports/company_match/\n?? scripts/run_company_match.py\n?? test_company_match.py\n=== 수정파일 diff 규모 ===\nwarning: in the working copy of 'review_pipeline.py', LF will be replaced by CRLF the next time Git touches it\n monitor.py         | 34 ++++++++++++++++++++++++++++++++++\n review_pipeline.py | 38 +++++++++++++++++++++++++-------------\n sites.json         |  4 ++--\n 3 files cha...",
-  "timestamp": "2026-06-07T12:48:32.591Z",
-  "retry_count": 1
-}

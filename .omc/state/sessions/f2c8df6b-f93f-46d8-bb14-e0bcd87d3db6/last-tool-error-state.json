@@ -1,7 +1,0 @@
-{
-  "tool_name": "PowerShell",
-  "tool_input_preview": "{\"command\":\"$code = @'\\nimport json\\nout = json.load(open(r\\\"C:\\\\Users\\\\ekth3\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--walk\\\\4e8264af-b27e-4422-a8ef-19cbe5d4bc6f\\\\tasks\\\\wu0on3uer.output\\\", encoding=\\\"utf-8\\...",
-  "error": "Exit code 1\nKEYS: ['approved', 'iterations', 'plan', 'architectReview', 'critic']\r\napproved: False | iterations: 5\r\nplan len: 38345\r\n=== CRITIC verdict: ITERATE\r\nTraceback (most recent call last):\r\n  File \u001b[35m\"<stdin>\"\u001b[0m, line \u001b[35m9\u001b[0m, in \u001b[35m<module>\u001b[0m\r\n\u001b[1;35mUnicodeEncodeError\u001b[0m: \u001b[35m'cp949' codec can't encode character '\\u2014' in position 405: illegal multibyte sequence\u001b[0m",
-  "timestamp": "2026-06-10T03:50:21.698Z",
-  "retry_count": 1
-}

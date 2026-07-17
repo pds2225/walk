@@ -1,7 +1,0 @@
-{
-  "tool_name": "PowerShell",
-  "tool_input_preview": "{\"command\":\"Get-NetTCPConnection -LocalPort 8600 -State Listen -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -Confirm:$false }; Start-Sleep 2; cd d:\\\\walk\\\\...",
-  "error": "Exit code 1\n\u001b[31;1mStop-Process: \u001b[31;1mCannot find a process with the process identifier 37048.\u001b[0m\r\nROUTE_BEFORE sig: (42, 37.566424, 126.978002, 37.570141, 126.985005, 1577.84621)\r\ndir along=(1.00,0.02) perp=(-0.02,1.00)\r\nafter on-route phase, toasts: []\r\nROUTE_AFTER sig: (42, 37.566424, 126.978002, 37.570141, 126.985005, 1577.84621)\r\n--- events ---\r\nstep 10 [deviate 8m]: TEXT '��Ż ����'\r\nstep 11 [deviate 10m]: TEXT '��Ż ����'\r\nstep 12 [deviate 12m]: TEXT '��� ��Ż'\r\nstep 13 [deviate 15m]: TEX...",
-  "timestamp": "2026-07-14T08:58:29.893Z",
-  "retry_count": 1
-}

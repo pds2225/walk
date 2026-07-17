@@ -1,7 +1,0 @@
-{
-  "tool_name": "PowerShell",
-  "tool_input_preview": "{\"command\":\"Get-ChildItem \\\"C:\\\\Users\\\\ekth3\\\\.claude\\\\commands\\\" -Filter \\\"*gsync*\\\" -ErrorAction SilentlyContinue; Get-ChildItem \\\"C:\\\\Users\\\\ekth3\\\\.claude\\\\skills\\\" -Directory -Filter \\\"*gsync*\\\" ...",
-  "error": "Exit code 1",
-  "timestamp": "2026-06-12T09:22:26.397Z",
-  "retry_count": 1
-}

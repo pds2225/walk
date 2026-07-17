@@ -1,7 +1,0 @@
-{
-  "tool_name": "PowerShell",
-  "tool_input_preview": "{\"command\":\"git -C \\\"D:\\\\walk\\\\.claude\\\\worktrees\\\\naver-maps-api\\\" fetch origin 2>&1 | Out-Null; git -C \\\"D:\\\\walk\\\\.claude\\\\worktrees\\\\naver-maps-api\\\" merge origin/main 2>&1 | Select-Object -Last 3...",
-  "error": "Exit code 1\nAuto-merging streamlit_walk_engine/route_builder.py\r\nCONFLICT (content): Merge conflict in streamlit_walk_engine/route_builder.py\r\nAutomatic merge failed; fix conflicts and then commit the result.",
-  "timestamp": "2026-06-11T05:45:09.497Z",
-  "retry_count": 1
-}
