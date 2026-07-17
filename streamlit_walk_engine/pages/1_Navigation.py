@@ -74,6 +74,18 @@ try:
 except ImportError:
     _HAS_SEARCHBOX = False
 
+# searchbox 디바운스(지원 버전에서만 전달): 키 입력마다 검색 콜백(외부 API)이 돌던 것을
+# 0.35초 입력 멈춤 후 1회로 줄인다 — 타이핑 중 API 폭주가 검색 지연 체감의 큰 몫.
+# 파라미터 없는 구버전엔 아무것도 전달하지 않아 TypeError 없이 기존 동작을 유지한다.
+_SEARCHBOX_KW: dict = {}
+if _HAS_SEARCHBOX:
+    try:
+        import inspect as _inspect
+        if "debounce" in _inspect.signature(st_searchbox).parameters:
+            _SEARCHBOX_KW["debounce"] = 350
+    except Exception:
+        pass
+
 try:
     import pydeck as pdk
     _HAS_PYDECK = True
@@ -1715,6 +1727,7 @@ def _render_dest_inputs() -> None:
             placeholder="예) 경복궁, 강남역 10번출구",
             label="",  # 안내문은 '목적지' 제목 우측에 한 줄로 표시(중복 라벨 제거)
             key="nav_dest_sb",
+            **_SEARCHBOX_KW,  # debounce(지원 버전 한정) — 입력 멈춘 뒤 1회만 검색
         )
         if sel is not None:
             coord, disp = sel
