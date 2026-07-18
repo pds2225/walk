@@ -7,13 +7,17 @@
   diag_summary  → 이벤트/상태 카운트, 정확도 p50/p90, 기록 시간
 """
 
+import base64
 import json
 import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from walk_diag import DIAG_CAP, append_capped, diag_json, diag_record, diag_summary
+from walk_diag import (
+    DIAG_CAP, GITHUB_LOG_BRANCH, append_capped, diag_json, diag_record,
+    diag_summary, github_upload_payload,
+)
 
 
 class TestDiagRecord:
@@ -88,3 +92,28 @@ class TestDiagSummary:
 
     def test_span_zero_for_single_record(self):
         assert diag_summary([diag_record(999, "start")])["span_s"] == 0.0
+
+
+class TestGithubUploadPayload:
+    def test_path_and_branch_and_message(self):
+        log = [diag_record(1, "tick"), diag_record(2, "reroute")]
+        path, body = github_upload_payload("abc123", 1699999999000, log)
+        assert path == "logs/abc123-1699999999000.json"
+        assert body["branch"] == GITHUB_LOG_BRANCH
+        assert "2 recs" in body["message"]
+
+    def test_content_is_base64_of_json_roundtrip(self):
+        log = [diag_record(1, "alert", note="경로 이탈")]
+        _, body = github_upload_payload("s", 1000, log)
+        decoded = json.loads(base64.b64decode(body["content"]).decode("utf-8"))
+        assert decoded[0]["note"] == "경로 이탈"  # 한글 base64 왕복 보존
+
+    def test_session_id_sanitized_against_path_injection(self):
+        # 파일명에 안전한 문자만 남긴다 — 경로 주입(../)·특수문자 제거
+        path, _ = github_upload_payload("../../etc/passwd!@#", 1000, [])
+        assert ".." not in path and "!" not in path and "@" not in path
+        assert path.startswith("logs/") and path.endswith("-1000.json")
+
+    def test_empty_session_id_falls_back(self):
+        path, _ = github_upload_payload("", 1000, [])
+        assert path == "logs/sess-1000.json"

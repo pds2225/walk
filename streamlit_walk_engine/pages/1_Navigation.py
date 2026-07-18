@@ -50,7 +50,8 @@ import snap_router
 import transit_builder
 from alert_voice import build_tts_prime_script, build_tts_script, tts_phrase
 from walk_diag import (
-    DIAG_CAP, append_capped, diag_json, diag_record, diag_summary,
+    DIAG_CAP, GITHUB_LOG_BRANCH, append_capped, diag_json, diag_record,
+    diag_summary, github_upload_payload,
 )
 from route_builder import (
     fetch_walking_route_with_engine, format_korean_address, geocode_address,
@@ -339,6 +340,7 @@ def _init() -> None:
         "nav_tts_primed": False,         # 안내 시작(제스처) 시 브라우저 TTS 해금 1회 실행 여부
         "nav_diag_enabled": True,        # 도보 진단 로그 수집 on/off(기본 on — 문제 진단용)
         "nav_diag_log": [],              # 진단 레코드 누적(GPS·판정·재탐색·음성) — LS 로 영속
+        "nav_diag_last_upload": None,    # 마지막 GitHub 자동 업로드 결과(상태 표시용)
         "nav_turn_announced_id": None,   # 회전 예고 음성을 낸 회전점 id(회전점당 1회)
         "nav_origin_address": None,
         "nav_origin_address_coord": None,
@@ -728,6 +730,51 @@ def _diag(event: str, **fields) -> None:
     except Exception:
         pass
 
+
+_GH_API = "https://api.github.com"
+_GH_REPO_DEFAULT = "pds2225/walk"  # secrets WALK_DIAG_REPO 로 덮어쓸 수 있음
+
+
+def _diag_gh_config() -> tuple[Optional[str], str]:
+    """진단 로그 자동 업로드용 (토큰, repo). 토큰은 Streamlit secrets 에서만 읽는다
+    (코드·저장소에 절대 넣지 않음). 없으면 (None, repo) → 업로드는 조용히 생략."""
+    token = None
+    repo = _GH_REPO_DEFAULT
+    try:
+        token = str(st.secrets.get("WALK_DIAG_GH_TOKEN", "") or "").strip() or None
+        repo = str(st.secrets.get("WALK_DIAG_REPO", "") or "").strip() or _GH_REPO_DEFAULT
+    except Exception:
+        pass
+    return token, repo
+
+
+def _upload_diag_to_github(log: list) -> bool:
+    """진단 로그를 GitHub walk-diag-logs 브랜치에 자동 업로드(토큰이 있을 때만).
+
+    토큰 없음·빈 로그·오류는 조용히 False(안내를 막지 않는다). 새 파일이라 sha 불필요.
+    사용자가 파일을 직접 넘기지 않아도, 걷기 종료 시 로그가 저장소로 올라와 진단 가능해진다.
+    """
+    token, repo = _diag_gh_config()
+    if not token or not log:
+        return False
+    path, body = github_upload_payload(_session_id(), int(time.time() * 1000),
+                                       list(log), GITHUB_LOG_BRANCH)
+    try:
+        resp = requests.put(
+            f"{_GH_API}/repos/{repo}/contents/{path}",
+            headers={"Authorization": f"Bearer {token}",
+                     "Accept": "application/vnd.github+json",
+                     "X-GitHub-Api-Version": "2022-11-28"},
+            json=body, timeout=8,
+        )
+        ok = resp.status_code in (200, 201)
+        st.session_state["nav_diag_last_upload"] = (
+            f"✅ 업로드됨: {path}" if ok else f"⚠️ 업로드 실패({resp.status_code})")
+        return ok
+    except Exception:
+        st.session_state["nav_diag_last_upload"] = "⚠️ 업로드 실패(네트워크)"
+        return False
+
 # 마지막 위치 캐시를 새로 저장할 최소 이동거리(m) — 매 폴링마다 쓰지 않도록 스로틀.
 _LASTFIX_SAVE_MOVE_M = 100.0
 
@@ -1042,6 +1089,21 @@ def _render_diag_panel() -> None:
                            width="stretch")
         if st.checkbox("📋 복사용 JSON 보기(모바일)", value=False):
             st.code(payload, language="json")
+
+        # ── 자동 업로드(파일 안 줘도 됨): 토큰 설정 시 중지·도착에 저장소로 자동 전송 ──
+        token, repo = _diag_gh_config()
+        if token:
+            st.caption(f"🔄 자동 업로드 켜짐 — 중지·도착 시 `{repo}` 의 `{GITHUB_LOG_BRANCH}` "
+                       f"브랜치로 전송됩니다.")
+            if st.button("⬆️ 지금 업로드", width="stretch"):
+                _upload_diag_to_github(log)
+                st.rerun()
+        else:
+            st.caption("🔒 자동 업로드 꺼짐 — Streamlit Secrets 에 `WALK_DIAG_GH_TOKEN` "
+                       "(저장소 contents 쓰기 권한)을 넣으면 걷기 종료 시 로그가 자동 업로드됩니다.")
+        if st.session_state.get("nav_diag_last_upload"):
+            st.caption(st.session_state["nav_diag_last_upload"])
+
         if st.button("🗑️ 로그 지우기", width="stretch"):
             st.session_state["nav_diag_log"] = []
             _save_list_to_ls(_LS_KEY_DIAG, [])
@@ -1145,6 +1207,7 @@ def _maybe_finish_arrival(origin: Coordinate) -> bool:
     st.session_state["nav_running"] = False
     _diag("arrive", detail=detail or None)
     _save_list_to_ls(_LS_KEY_DIAG, st.session_state["nav_diag_log"])  # 도착 시 진단로그 영속화
+    _upload_diag_to_github(st.session_state["nav_diag_log"])          # 토큰 있으면 자동 업로드
     st.session_state["nav_active_booking_id"] = None  # 같은 예약 경로 재발동 허용
     if journey is not None and transit_builder.is_last_leg(
             journey, st.session_state.get("nav_active_leg_index", 0)):
@@ -2235,6 +2298,7 @@ def _render_action_buttons() -> None:
                 st.session_state["nav_tts_primed"] = False  # 다음 시작 제스처에서 다시 해금
                 _diag("stop")
                 _save_list_to_ls(_LS_KEY_DIAG, st.session_state["nav_diag_log"])  # 중지 시 영속화
+                _upload_diag_to_github(st.session_state["nav_diag_log"])  # 토큰 있으면 자동 업로드
                 st.rerun()
         else:
             if st.button("▶ 시작", disabled=(origin is None), width="stretch", type="primary"):
