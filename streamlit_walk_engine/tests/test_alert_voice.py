@@ -12,7 +12,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from alert_voice import build_tts_script, tts_phrase
+from alert_voice import build_tts_prime_script, build_tts_script, tts_phrase
 
 
 class TestTtsPhrase:
@@ -67,3 +67,26 @@ class TestBuildTtsScript:
         script = build_tts_script(phrase)
         # ensure_ascii=False 이므로 한글이 그대로 보존된다.
         assert phrase in script
+
+    def test_resumes_before_speak_for_chrome_pause_bug(self):
+        # 크롬이 큐를 'paused'로 두면 speak()가 무시된다 — resume 으로 깨운 뒤 발화.
+        script = build_tts_script("안내")
+        assert "speechSynthesis.resume" in script
+        assert script.index("resume") < script.index("speak")
+
+
+class TestBuildTtsPrimeScript:
+    """안내 시작(제스처) 시 TTS 해금용 무음 발화 스니펫."""
+
+    def test_primes_with_silent_utterance(self):
+        script = build_tts_prime_script()
+        assert "SpeechSynthesisUtterance" in script
+        assert "u.volume=0" in script                 # 무음 — 사용자에게 안 들림
+        assert "speechSynthesis.speak" in script
+        assert "getVoices" in script                  # 한국어 음성 목록 예열
+        assert "ko-KR" in script
+
+    def test_guarded_for_unsupported_browsers(self):
+        script = build_tts_prime_script()
+        assert "try{" in script and "}catch(e){}" in script
+        assert "if(window.speechSynthesis)" in script

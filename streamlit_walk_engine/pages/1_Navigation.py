@@ -48,7 +48,10 @@ import gps_filter
 import mapbox_matcher
 import snap_router
 import transit_builder
-from alert_voice import build_tts_script, tts_phrase
+from alert_voice import build_tts_prime_script, build_tts_script, tts_phrase
+from walk_diag import (
+    DIAG_CAP, append_capped, diag_json, diag_record, diag_summary,
+)
 from route_builder import (
     fetch_walking_route_with_engine, format_korean_address, geocode_address,
     geocode_suggestions, label_with_distance, reverse_geocode, route_engine_label,
@@ -333,6 +336,9 @@ def _init() -> None:
         "nav_last_weak_toast_ts_ms": None,
         "nav_alert_enabled": True,
         "nav_tts_enabled": True,
+        "nav_tts_primed": False,         # 안내 시작(제스처) 시 브라우저 TTS 해금 1회 실행 여부
+        "nav_diag_enabled": True,        # 도보 진단 로그 수집 on/off(기본 on — 문제 진단용)
+        "nav_diag_log": [],              # 진단 레코드 누적(GPS·판정·재탐색·음성) — LS 로 영속
         "nav_turn_announced_id": None,   # 회전 예고 음성을 낸 회전점 id(회전점당 1회)
         "nav_origin_address": None,
         "nav_origin_address_coord": None,
@@ -704,6 +710,23 @@ _LS_KEY           = "walk_navi_history"
 _LS_KEY_BOOKINGS  = "walk_navi_booking_history"
 _LS_KEY_FAVORITES = "walk_navi_favorites"
 _LS_KEY_LASTFIX   = "walk_navi_last_fix"
+_LS_KEY_DIAG      = "walk_navi_diag_log"   # 도보 진단 로그(새로고침·세션 넘어 누적)
+
+
+def _diag(event: str, **fields) -> None:
+    """도보 진단 로그에 이벤트 1건을 쌓는다(수집 off면 무시). 실패해도 안내를 막지 않는다.
+
+    시각은 서버 time.time()(밀리초) — 레코드 간 상대 시간 분석용. GPS fix timestamp 는
+    필드로 따로 남긴다. session_state 에 누적돼 rerun 을 넘어 살아남고, 중지·도착 때
+    localStorage 로 영속화해 새로고침·다음 세션에도 이어 쌓인다.
+    """
+    try:
+        if not st.session_state.get("nav_diag_enabled", True):
+            return
+        append_capped(st.session_state["nav_diag_log"],
+                      diag_record(int(time.time() * 1000), event, **fields))
+    except Exception:
+        pass
 
 # 마지막 위치 캐시를 새로 저장할 최소 이동거리(m) — 매 폴링마다 쓰지 않도록 스로틀.
 _LASTFIX_SAVE_MOVE_M = 100.0
@@ -738,6 +761,7 @@ def _load_history_from_ls() -> None:
     _load_list_from_ls(_LS_KEY,           "nav_search_history",  10)
     _load_list_from_ls(_LS_KEY_BOOKINGS,  "nav_booking_history", 20)
     _load_list_from_ls(_LS_KEY_FAVORITES, "nav_favorites",       50)
+    _load_list_from_ls(_LS_KEY_DIAG,      "nav_diag_log",        DIAG_CAP)
 
 
 def _save_last_fix(lat: float, lon: float, accuracy: Optional[float], ts: Optional[int]) -> None:
@@ -966,6 +990,64 @@ def _trigger_alert(state: str, tts: bool = True) -> None:
     )
 
 
+def _prime_tts_once() -> None:
+    """안내 시작(사용자 제스처) 직후 브라우저 TTS를 1회 해금한다.
+
+    모바일 브라우저는 사용자 조작 없이 speak()를 무시하므로, 비동기 rerun 에서 울리는
+    이탈 음성이 조용히 막힌다. 시작 버튼→rerun 으로 도달하는 이 첫 렌더(제스처 활성창
+    안)에서 무음 발화를 한 번 재생해 이후 발화를 허용시킨다. 세션당 1회(nav_tts_primed).
+    음성 OFF면 아무것도 하지 않는다.
+    """
+    if not st.session_state.get("nav_tts_enabled"):
+        return
+    if st.session_state.get("nav_tts_primed"):
+        return
+    st.session_state["nav_tts_primed"] = True
+    components.html(
+        f"<script>(function(){{{build_tts_prime_script()}}})();</script>", height=0,
+    )
+
+
+def _render_diag_panel() -> None:
+    """도보 진단 로그 패널 — 수집 토글·요약 통계·JSON 내려받기/복사·지우기.
+
+    걷는 동안 쌓인 GPS·이탈판정·재탐색·음성 이벤트를 요약해 보여주고 JSON 으로
+    내려받거나(모바일은 복사) 지운다. 이 로그를 공유하면 실제 데이터로 이탈 오판정·
+    GPS 튐·재탐색 폭주·음성 누락을 진단할 수 있다. expander 중첩 금지라 최상위에서 호출.
+    """
+    with st.expander("🧪 도보 진단 로그 (문제 진단용)", expanded=False):
+        st.session_state["nav_diag_enabled"] = st.checkbox(
+            "진단 로그 수집", value=st.session_state.get("nav_diag_enabled", True),
+            help="걷는 동안 위치·정확도·이탈 판정·재탐색·음성 이벤트를 기록합니다.")
+        log = st.session_state.get("nav_diag_log") or []
+        if not log:
+            st.caption("아직 기록이 없어요 — ▶ 시작으로 걸으면 자동으로 쌓입니다.")
+            return
+        summ = diag_summary(log)
+        ev = summ.get("events", {})
+        c1, c2, c3 = st.columns(3)
+        c1.metric("레코드", summ.get("records", 0))
+        c2.metric("기록 시간", f"{summ.get('span_s', 0)}초")
+        c3.metric("재탐색", f"{ev.get('reroute', 0)}회")
+        c4, c5, c6 = st.columns(3)
+        c4.metric("이탈 알림", f"{ev.get('alert', 0)}회")
+        c5.metric("정확도 p50", f"{summ.get('acc_p50', '-')}m")
+        c6.metric("정확도 p90", f"{summ.get('acc_p90', '-')}m")
+        states = summ.get("states", {})
+        if states:
+            st.caption("판정 분포: " + ", ".join(f"{k} {v}" for k, v in states.items()))
+        payload = diag_json(log)
+        st.download_button("⬇️ 진단 로그 내려받기 (JSON)", payload,
+                           file_name="walk_diag.json", mime="application/json",
+                           width="stretch")
+        if st.checkbox("📋 복사용 JSON 보기(모바일)", value=False):
+            st.code(payload, language="json")
+        if st.button("🗑️ 로그 지우기", width="stretch"):
+            st.session_state["nav_diag_log"] = []
+            _save_list_to_ls(_LS_KEY_DIAG, [])
+            st.rerun()
+
+
 # 다음 회전 예고 음성 '기본' 거리(m). 실제 엔진+GPS 노이즈(σ6m)+1초 폴링 시뮬(720회 보행) 실측:
 # 10m = 보통 걸음(시속 5km) 평균 9초 전(천천 14s/빠름 7s, 최악 p10 3.6s — 음성 2초+반응 확보).
 # 30m 는 평균 24초 전으로 너무 일렀음(실기기 피드백).
@@ -1061,6 +1143,8 @@ def _maybe_finish_arrival(origin: Coordinate) -> bool:
     detail = " · ".join(parts)
     st.session_state["nav_arrival_summary"] = "🏁 도착 완료" + (f" — {detail}" if detail else "")
     st.session_state["nav_running"] = False
+    _diag("arrive", detail=detail or None)
+    _save_list_to_ls(_LS_KEY_DIAG, st.session_state["nav_diag_log"])  # 도착 시 진단로그 영속화
     st.session_state["nav_active_booking_id"] = None  # 같은 예약 경로 재발동 허용
     if journey is not None and transit_builder.is_last_leg(
             journey, st.session_state.get("nav_active_leg_index", 0)):
@@ -2148,6 +2232,9 @@ def _render_action_buttons() -> None:
         if st.session_state["nav_running"]:
             if st.button("⏹ 중지", width="stretch", type="primary"):
                 st.session_state["nav_running"] = False
+                st.session_state["nav_tts_primed"] = False  # 다음 시작 제스처에서 다시 해금
+                _diag("stop")
+                _save_list_to_ls(_LS_KEY_DIAG, st.session_state["nav_diag_log"])  # 중지 시 영속화
                 st.rerun()
         else:
             if st.button("▶ 시작", disabled=(origin is None), width="stretch", type="primary"):
@@ -2697,8 +2784,22 @@ def main() -> None:
             st.session_state["nav_samples"].append(sample)
             st.session_state["nav_prev_coord"]   = origin
             st.session_state["nav_prev_ts_ms"]   = sample.timestamp_ms
+            _acc_now = (st.session_state["nav_raw_gps"] or {}).get("coords", {}).get("accuracy")
             if st.session_state["nav_start_ts_ms"] is None:
                 st.session_state["nav_start_ts_ms"] = sample.timestamp_ms  # 이번 안내(레그) 시작
+                _diag("start", lat=round(sample.latitude, 6), lon=round(sample.longitude, 6),
+                      dest=st.session_state.get("nav_dest_display"),
+                      pts=len(st.session_state["nav_route"].polyline)
+                      if st.session_state.get("nav_route") is not None else None)
+            # 매 판정 tick 기록 — 위치·정확도·이탈상태·경로이탈거리·연속카운트·표류시간·헤딩차.
+            _m = result.metrics
+            _diag("tick", lat=round(sample.latitude, 6), lon=round(sample.longitude, 6),
+                  acc=round(_acc_now, 1) if isinstance(_acc_now, (int, float)) else None,
+                  fix_ms=sample.timestamp_ms, st=result.state,
+                  dist=round(_m.distance_from_route_meters, 1),
+                  brk=_m.consecutive_threshold_breaches, drift_ms=_m.drift_duration_ms,
+                  hdiff=round(_m.heading_difference_degrees, 0),
+                  spd=round(sample.speed_meters_per_second, 1))
             if (st.session_state.get("nav_journey") is not None
                     and st.session_state.get("nav_journey_start_ts_ms") is None):
                 # 다구간 여정 '전체' 시작 — 레그 전환 _reset 에 지워지지 않아
@@ -2722,8 +2823,12 @@ def main() -> None:
             )
             if decision.fire_full:
                 _trigger_alert(result.state, st.session_state["nav_tts_enabled"])
+                _diag("alert", st=result.state, tts=bool(st.session_state["nav_tts_enabled"]),
+                      lvl=lvl)
             if decision.fire_weak_toast:
                 st.toast("⚠️ 경로 이탈 가능 — 위치 정확도 낮음, 확인 필요")
+                _diag("weak_toast", st=result.state, acc=round(acc, 1)
+                      if isinstance(acc, (int, float)) else None)
             st.session_state["nav_last_alerted_state"] = decision.new_last_alerted
             st.session_state["nav_last_weak_toast_ts_ms"] = decision.new_last_weak_ts_ms
 
@@ -2756,6 +2861,9 @@ def main() -> None:
                     # 쿨다운을 fetch '이전'에 기록: 예전엔 fetch 뒤 커밋이 rerun 중단으로
                     # 유실되면 쿨다운도 안 남아 매 표본(~1.4초) fetch 폭주가 됐다(E2E 22회).
                     st.session_state["nav_last_reroute_ts_ms"] = now_ms
+                    _diag("reroute", st=result.state,
+                          dist=round(result.metrics.distance_from_route_meters, 1),
+                          n=st.session_state.get("nav_reroute_count", 0) + 1)
                     # 동기 _fetch_route 금지: 1초 autorefresh 가 fetch 대기 중 이 실행을
                     # 중단시키면 이후 모든 세션 쓰기가 유실된다 → 백그라운드 fetch 후
                     # 다음 rerun 시작부(_commit_pending_reroute)에서 커밋.
@@ -2831,6 +2939,9 @@ def main() -> None:
 
     arrived = (not st.session_state["nav_running"]) and bool(st.session_state.get("nav_arrival_summary"))
     if st.session_state["nav_running"]:
+        # 시작 제스처→rerun 으로 도달한 첫 렌더(활성창 안)에서 TTS 해금 — 이탈 음성이
+        # 비동기 rerun 에서 조용히 막히지 않게 한다(모바일 자동재생 정책 대응).
+        _prime_tts_once()
         if st.session_state["nav_results"]:
             # 판정(상태·다음 회전·핵심 지표)을 지도 위 가장 큰 요소로.
             _render_metrics(st.session_state["nav_results"])
@@ -2846,6 +2957,9 @@ def main() -> None:
         _render_map()
         st.markdown("#### 도착 — 안내 종료" if arrived else "#### 현재 판정")
         _render_metrics(st.session_state["nav_results"])
+
+    # 도보 진단 로그 — 걷기 후 데이터로 문제(이탈 오판정·GPS 튐·재탐색·음성)를 진단·공유.
+    _render_diag_panel()
 
 
 import requests  # noqa: E402 — exception types used in _add_single_booking
