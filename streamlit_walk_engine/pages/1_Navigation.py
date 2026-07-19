@@ -1000,6 +1000,10 @@ def _restore_active_session() -> None:
         d = json.loads(raw)
         lat, lon = float(d["lat"]), float(d["lon"])
     except (ValueError, TypeError, KeyError):
+        components.html(
+            f"<script>try{{localStorage.removeItem('{_LS_KEY_ACTIVE}')}}catch(e){{}}</script>",
+            height=0,
+        )
         return
     ts = d.get("ts")
     if ts is not None:
