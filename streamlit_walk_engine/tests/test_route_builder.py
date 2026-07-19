@@ -438,6 +438,18 @@ class TestGeocodeSuggestions:
         assert "남동구 서판로 32" in labels
         assert len(out) == 2
 
+    def test_keeps_same_label_when_far_apart(self, monkeypatch):
+        # 라벨(화면 글자)이 '완전히 동일'해도 좌표가 멀면 다른 장소이므로 둘 다 남긴다
+        # (동명 지점이 라벨만 보고 하나로 합쳐져 검색에서 사라지던 문제 방지).
+        monkeypatch.setattr(route_builder, "_naver_headers", lambda: {"X": "y"})
+        payload = {"addresses": [  # 같은 라벨('남동구 서판로 30')이지만 ~30km 떨어짐
+            {"y": "37.4500", "x": "126.7200", "roadAddress": "인천광역시 남동구 서판로 30"},
+            {"y": "37.5000", "x": "127.0000", "roadAddress": "인천광역시 남동구 서판로 30"},
+        ]}
+        monkeypatch.setattr(route_builder.requests, "get", lambda *a, **k: _FakeResp(200, payload))
+        out = route_builder.geocode_suggestions("서판로30", limit=8)
+        assert len(out) == 2  # 멀리 떨어진 동명은 합치지 않고 둘 다 유지
+
     def test_network_error_returns_empty_gracefully(self, monkeypatch):
         monkeypatch.setattr(route_builder, "_naver_headers", lambda: None)
 
