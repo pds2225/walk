@@ -2566,6 +2566,15 @@ def _render_action_buttons() -> None:
         _clear_journey_state()
         st.session_state["nav_running"] = False
         st.session_state["nav_arrival_summary"] = None
+        # 대기 중인 자동 재개(폰 잠금·새로고침 복귀)와 저장된 안내 세션도 함께 지운다 —
+        # 안 그러면 초기화 직후 resume 블록이 방금 지운 안내를 되살린다(고: bugbot High).
+        st.session_state["nav_resume_pending"] = None
+        st.session_state["nav_resume_attempts"] = 0
+        st.session_state["nav_active_saved_sig"] = None
+        components.html(
+            f"<script>try{{localStorage.removeItem('{_LS_KEY_ACTIVE}')}}catch(e){{}}</script>",
+            height=0,
+        )
         # nav_active_booking_id 는 여기서 지우지 않는다 — 출발 반경 안에 서 있는 채로
         # 지우면 _try_activate_booking 이 5초 뒤 예약을 다시 자동 시작해 초기화가
         # 무력화된다. 대신 그 함수가 '출발 반경을 벗어나면' 재무장한다.

@@ -128,8 +128,11 @@ def test_booking_activation_hardening():
 # ── 초기화: 목적지 배너 잔존 방지 ─────────────────────────────────────────────
 def test_reset_clears_dest_banner():
     reset_at = SRC.index('if st.button("↺ 초기화"')
-    block = SRC[reset_at:reset_at + 700]
+    block = SRC[reset_at:reset_at + 1100]
     assert '"nav_dest_display"' in block  # [18]
+    # 초기화는 대기 중인 자동 재개·저장된 안내 세션도 지운다(되살아나지 않게).
+    assert '"nav_resume_pending"] = None' in block
+    assert "removeItem('walk_navi_active_session')" in block or "_LS_KEY_ACTIVE" in block
 
 
 # ── 폰 잠금·새로고침 복귀: 화면 꺼짐 방지 + 안내 세션 자동 재개 ────────────────
