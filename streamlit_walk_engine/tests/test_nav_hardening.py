@@ -167,6 +167,12 @@ def test_active_session_persist_and_restore_wired():
     resume = resume[:resume.index('st.markdown("## 🚶 도보 내비게이션")')]
     assert "_activate_route(resume_origin" in resume
     assert "_activate_journey(journey, start_now=True)" in resume
+    # 사용자가 그새 새 목적지를 잡았으면 복원을 취소(저장 세션이 새 선택을 덮지 않게).
+    assert 'st.session_state.get("nav_route") is not None' in resume
+    assert 'st.session_state.get("nav_journey") is not None' in resume
+    # 성공했을 때만 pending 소비 + 실패는 상한까지 재시도(무한 fetch·영구 유실 방지).
+    assert "_RESUME_MAX_ATTEMPTS" in resume
+    assert "nav_resume_attempts" in resume
 
 
 # ── 걷는 방향 보정: 원형 평균 스무딩을 지도 화살표·헤딩업에 적용 ───────────────
