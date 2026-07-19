@@ -731,6 +731,11 @@ _ACTIVE_SESSION_MAX_AGE_MS = 6 * 60 * 60 * 1000
 # 매 유휴 rerun 마다 fetch 가 폭주하는 것을 막는다(사용자가 직접 다시 검색 가능).
 _RESUME_MAX_ATTEMPTS = 3
 
+# 저장 세션 ts 를 갱신할 주기(ms) — 스로틀 서명에 이 시간 버킷을 넣어, 목적지가
+# 안 바뀌는 장시간 안내에도 주기적으로 재기록돼 ts 가 신선하게 유지된다(안 그러면
+# 진행 중인 안내가 _ACTIVE_SESSION_MAX_AGE_MS 뒤 만료로 버려진다). 30분.
+_ACTIVE_SESSION_TS_REFRESH_MS = 30 * 60 * 1000
+
 
 def _diag(event: str, **fields) -> None:
     """도보 진단 로그에 이벤트 1건을 쌓는다(수집 off면 무시). 실패해도 안내를 막지 않는다.
@@ -944,19 +949,45 @@ def _save_active_session() -> None:
     바뀐 경우에만 스크립트를 주입해(스로틀) 매 rerun 마다 쓰지 않는다.
     """
     running = bool(st.session_state.get("nav_running"))
-    dest: Optional[Coordinate] = st.session_state.get("nav_dest")
-    if running and dest is not None:
+    journey = st.session_state.get("nav_journey")
+    # 저장 대상 결정:
+    #  · 대중교통 여정이 활성이면 여정의 '최종' 목적지(마지막 leg 의 end)를 저장한다.
+    #    안내 중(nav_dest)은 현재 leg 의 중간 정류장이라, 그걸 저장하면 복귀 시 정류장까지만
+    #    안내된다. 또 in-vehicle leg 은 nav_running=False 라, running 만 보면 여정 중에
+    #    저장이 지워져 복귀 시 여정을 통째로 잃는다 — 여정 활성 여부로 별도 판단한다.
+    #  · 여정이 없고 도보 안내 중이면 nav_dest(도보 목적지)를 저장한다.
+    save_dest: Optional[Coordinate] = None
+    save_label = ""
+    save_transit = bool(st.session_state.get("nav_transit_enabled", True))
+    if journey is not None and getattr(journey, "legs", None):
+        final_leg = journey.legs[-1]
+        save_dest = final_leg.end
+        save_label = (final_leg.end_label
+                      or st.session_state.get("nav_dest_display") or "")
+        save_transit = True  # 여정 복원은 대중교통으로 재계획
+    elif running:
+        d: Optional[Coordinate] = st.session_state.get("nav_dest")
+        if d is not None:
+            save_dest = d
+            save_label = (st.session_state.get("nav_dest_display")
+                          or st.session_state.get("nav_dest_input") or "")
+
+    if save_dest is not None:
+        now_ms = int(time.time() * 1000)
         obj = {
-            "lat": dest.latitude,
-            "lon": dest.longitude,
-            "label": (st.session_state.get("nav_dest_display")
-                      or st.session_state.get("nav_dest_input") or ""),
-            "transit": bool(st.session_state.get("nav_transit_enabled", True)),
-            "ts": int(time.time() * 1000),
+            "lat": save_dest.latitude,
+            "lon": save_dest.longitude,
+            "label": save_label,
+            "transit": save_transit,
+            "ts": now_ms,
         }
-        # ts 는 스로틀 비교에서 제외(매초 달라져 스로틀이 무의미해짐) — 좌표·라벨·모드만.
-        sig = json.dumps({k: obj[k] for k in ("lat", "lon", "label", "transit")},
-                         ensure_ascii=False)
+        # ts 는 스로틀 비교에서 제외하되, 시간 버킷을 서명에 넣어 목적지가 안 바뀌어도
+        # 주기적으로(_ACTIVE_SESSION_TS_REFRESH_MS) 재기록돼 ts 가 갱신되게 한다 —
+        # 장시간 안내가 만료로 잘못 버려지는 것을 막는다.
+        sig = json.dumps({
+            "lat": obj["lat"], "lon": obj["lon"], "label": obj["label"],
+            "transit": obj["transit"], "b": now_ms // _ACTIVE_SESSION_TS_REFRESH_MS,
+        }, ensure_ascii=False)
         if st.session_state.get("nav_active_saved_sig") == sig:
             return
         st.session_state["nav_active_saved_sig"] = sig
@@ -2641,6 +2672,13 @@ def main() -> None:
     resume = st.session_state.get("nav_resume_pending")
     if resume is not None:
         resume_origin: Optional[Coordinate] = st.session_state["nav_origin"]
+        # 사용자가 경로 확정 전이라도 새 목적지를 입력/선택 중이면(검색어·후보·입력창)
+        # 저장 트립이 그 검색을 덮어쓰지 않게 취소한다.
+        user_choosing_dest = (
+            st.session_state.get("nav_dest_picked") is not None
+            or bool((st.session_state.get("nav_dest_input") or "").strip())
+            or _dest_entry_active()
+        )
         # pending 이 걸린 뒤 사용자가 그새 새 목적지를 잡았으면 취소, 위치가 잡혔으면 재개,
         # 아직이면 대기(pending 유지) — 판정은 순수 함수로 분리(nav_session.resume_action).
         action = nav_session.resume_action(
@@ -2648,6 +2686,7 @@ def main() -> None:
             has_route=st.session_state.get("nav_route") is not None,
             has_journey=st.session_state.get("nav_journey") is not None,
             origin_present=resume_origin is not None,
+            user_choosing_dest=user_choosing_dest,
         )
         if action == "cancel":
             # 저장 세션이 사용자의 새 선택을 덮어쓰지 않게 복원을 취소한다.

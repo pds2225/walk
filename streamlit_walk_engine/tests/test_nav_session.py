@@ -97,3 +97,14 @@ class TestResumeAction:
         # 사용자가 새 목적지를 잡았으면 위치 유무와 무관하게 취소.
         assert nav_session.resume_action(
             running=False, has_route=True, has_journey=False, origin_present=False) == "cancel"
+
+    def test_cancel_when_user_choosing_dest(self):
+        # 경로 확정 전이라도 새 목적지 입력/선택 중이면 취소(진행 중 검색 보호).
+        assert nav_session.resume_action(
+            running=False, has_route=False, has_journey=False,
+            origin_present=True, user_choosing_dest=True) == "cancel"
+
+    def test_go_when_not_choosing_dest(self):
+        assert nav_session.resume_action(
+            running=False, has_route=False, has_journey=False,
+            origin_present=True, user_choosing_dest=False) == "go"

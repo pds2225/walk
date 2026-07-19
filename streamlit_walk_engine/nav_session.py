@@ -72,15 +72,18 @@ def resume_action(
     has_route: bool,
     has_journey: bool,
     origin_present: bool,
+    user_choosing_dest: bool = False,
 ) -> ResumeAction:
     """대기 중인 자동 재개(pending)를 지금 어떻게 처리할지 결정한다.
 
     - 안내 중이거나 이미 경로/여정이 있으면 "cancel" — pending 이 걸린 뒤 사용자가
       새 목적지를 잡은 경우라, 저장 세션이 새 선택을 덮어쓰지 않게 취소한다.
-    - 아니면서 위치가 잡혔으면 "go" — 지금 재계획해 재개한다.
+    - 아직 경로는 없어도 사용자가 새 목적지를 '입력/선택 중'이면(user_choosing_dest)
+      마찬가지로 "cancel" — 저장 트립이 진행 중인 검색을 덮어쓰지 않게 한다.
+    - 그 외로 위치가 잡혔으면 "go" — 지금 재계획해 재개한다.
     - 위치가 아직 없으면 "wait" — pending 을 유지해 다음 rerun 에서 재시도한다.
     """
-    if running or has_route or has_journey:
+    if running or has_route or has_journey or user_choosing_dest:
         return "cancel"
     if origin_present:
         return "go"
