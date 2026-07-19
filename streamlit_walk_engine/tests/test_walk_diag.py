@@ -167,3 +167,10 @@ class TestDiagFindings:
         log.append(diag_record(99000, "weak_toast", st="deviated"))
         out = diag_findings(diag_summary(log))
         assert not any("음성 미작동" in f for f in out)
+
+    def test_no_accuracy_data_does_not_claim_all_clear(self):
+        # acc 값이 없으면 '정확도 정상' 올클리어를 띄우지 않고 '데이터 없음'을 명시한다
+        log = [diag_record(i * 1000, "tick") for i in range(6)]  # acc 없음
+        out = diag_findings(diag_summary(log))
+        assert any("정확도 데이터 없음" in f for f in out)
+        assert not any("특이사항 없음" in f for f in out)

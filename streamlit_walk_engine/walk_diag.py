@@ -132,11 +132,14 @@ def diag_findings(summary: dict) -> list[str]:
     findings: list[str] = []
 
     p90 = summary.get("acc_p90")
-    if isinstance(p90, (int, float)):
-        if p90 > 50:
-            findings.append(f"🔴 GPS 정확도 매우 낮음 (p90 {p90}m) — 위치 튐·이탈 오판정 가능성 큼")
-        elif p90 > 30:
-            findings.append(f"🟡 GPS 정확도 낮음 (p90 {p90}m) — 이탈 오판정 가능")
+    if not isinstance(p90, (int, float)):
+        # 정확도 데이터가 없으면 정확도 판단을 못 한다 — '정상'이라고 단정하지 않도록
+        # 명시(이 항목이 있으면 아래 '특이사항 없음' 올클리어가 뜨지 않아 오해를 막는다).
+        findings.append("ℹ️ GPS 정확도 데이터 없음 — 정확도는 판단할 수 없음")
+    elif p90 > 50:
+        findings.append(f"🔴 GPS 정확도 매우 낮음 (p90 {p90}m) — 위치 튐·이탈 오판정 가능성 큼")
+    elif p90 > 30:
+        findings.append(f"🟡 GPS 정확도 낮음 (p90 {p90}m) — 이탈 오판정 가능")
 
     reroutes = events.get("reroute", 0)
     span_min = max(summary.get("span_s", 0.0) / 60.0, 0.01)
