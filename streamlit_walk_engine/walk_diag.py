@@ -8,10 +8,14 @@
 
 from __future__ import annotations
 
+import base64
 import json
 from typing import Any
 
 DIAG_CAP = 3000  # 레코드 상한 — 초과 시 오래된 것부터 버림(1초 폴링 ≈ 50분 분량)
+
+GITHUB_LOG_BRANCH = "walk-diag-logs"  # 로그 전용 브랜치(main 미변경 → 앱 재배포 안 됨)
+GITHUB_LOG_DIR = "logs"
 
 
 def diag_record(t_ms: int, event: str, **fields: Any) -> dict:
@@ -37,6 +41,25 @@ def append_capped(log: list, record: dict, cap: int = DIAG_CAP) -> list:
 def diag_json(log: list) -> str:
     """로그를 옮기기 쉬운 JSON 문자열로 직렬화(한글 보존)."""
     return json.dumps(log, ensure_ascii=False)
+
+
+def github_upload_payload(session_id: str, t_ms: int, log: list,
+                          branch: str = GITHUB_LOG_BRANCH) -> tuple[str, dict]:
+    """GitHub Contents API(PUT /repos/{owner}/{repo}/contents/{path}) 요청 payload 생성(순수).
+
+    반환: ``(path, body)`` — body 는 ``{"message", "content"(base64), "branch"}``.
+    session_id 는 파일명에 안전한 문자만 남긴다(경로 주입·특수문자 방지). 새 파일이므로
+    기존 sha 는 필요 없다(경로가 매번 t_ms 로 유일).
+    """
+    safe_sid = "".join(c for c in str(session_id) if c.isalnum() or c in "-_")[:32] or "sess"
+    path = f"{GITHUB_LOG_DIR}/{safe_sid}-{int(t_ms)}.json"
+    content_b64 = base64.b64encode(diag_json(log).encode("utf-8")).decode("ascii")
+    body = {
+        "message": f"walk diag: {safe_sid} @ {int(t_ms)} ({len(log)} recs)",
+        "content": content_b64,
+        "branch": branch,
+    }
+    return path, body
 
 
 def _percentile(sorted_vals: list[float], pct: float) -> float:

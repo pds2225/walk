@@ -50,7 +50,8 @@ import snap_router
 import transit_builder
 from alert_voice import build_tts_prime_script, build_tts_script, tts_phrase
 from walk_diag import (
-    DIAG_CAP, append_capped, diag_json, diag_record, diag_summary,
+    DIAG_CAP, GITHUB_LOG_BRANCH, append_capped, diag_json, diag_record,
+    diag_summary, github_upload_payload,
 )
 from route_builder import (
     fetch_walking_route_with_engine, format_korean_address, geocode_address,
@@ -339,6 +340,7 @@ def _init() -> None:
         "nav_tts_primed": False,         # 안내 시작(제스처) 시 브라우저 TTS 해금 1회 실행 여부
         "nav_diag_enabled": True,        # 도보 진단 로그 수집 on/off(기본 on — 문제 진단용)
         "nav_diag_log": [],              # 진단 레코드 누적(GPS·판정·재탐색·음성) — LS 로 영속
+        "nav_diag_last_upload": None,    # 마지막 GitHub 자동 업로드 결과(상태 표시용)
         "nav_turn_announced_id": None,   # 회전 예고 음성을 낸 회전점 id(회전점당 1회)
         "nav_origin_address": None,
         "nav_origin_address_coord": None,
@@ -517,12 +519,8 @@ def _commit_pending_reroute() -> None:
     # 이탈 음성 뒤 재탐색 성공이 화면 토스트뿐이면 폰을 안 보는 보행자는 새 경로를
     # 찾았는지 알 수 없다 → 성공도 음성으로. 회전 방향은 id 리셋 덕에 이어서 예고된다.
     if st.session_state["nav_tts_enabled"]:
-        components.html(
-            "<script>(function(){"
-            + build_tts_script("경로를 다시 찾았습니다. 새 경로로 안내합니다.")
-            + "})();</script>",
-            height=0,
-        )
+        # 렌더 끝 _flush_audio 에서 재생 — 도착(우선순위 100)이 같은 rerun 이면 도착이 이긴다.
+        _speak("경로를 다시 찾았습니다. 새 경로로 안내합니다.", _AUDIO_PRIO_REROUTE)
 
 
 def _clear_journey_state() -> None:
@@ -727,6 +725,52 @@ def _diag(event: str, **fields) -> None:
                       diag_record(int(time.time() * 1000), event, **fields))
     except Exception:
         pass
+
+
+_GH_API = "https://api.github.com"
+_GH_REPO_DEFAULT = "pds2225/walk"  # secrets WALK_DIAG_REPO 로 덮어쓸 수 있음
+
+
+def _diag_gh_config() -> tuple[Optional[str], str]:
+    """진단 로그 자동 업로드용 (토큰, repo). 토큰은 Streamlit secrets 에서만 읽는다
+    (코드·저장소에 절대 넣지 않음). 없으면 (None, repo) → 업로드는 조용히 생략."""
+    token = None
+    repo = _GH_REPO_DEFAULT
+    try:
+        token = str(st.secrets.get("WALK_DIAG_GH_TOKEN", "") or "").strip() or None
+        repo = str(st.secrets.get("WALK_DIAG_REPO", "") or "").strip() or _GH_REPO_DEFAULT
+    except Exception:
+        pass
+    return token, repo
+
+
+def _upload_diag_to_github(log: list) -> None:
+    """진단 로그를 GitHub walk-diag-logs 브랜치에 '백그라운드로' 자동 업로드(토큰 있을 때만).
+
+    네트워크 PUT(최대 8초)을 Streamlit 스크립트 스레드에서 동기로 돌리면, 토큰이 설정된
+    경우 GitHub 응답이 느릴 때 도착 안내·⏹중지 반응이 그만큼 지연된다. 그래서 업로드는
+    데몬 스레드로 던지고(fire-and-forget) 즉시 반환한다. 워커 스레드는 st.session_state 를
+    만지지 않는다(고아 스레드 쓰기 금지 원칙 — 상태 표시는 메인 스레드에서 낙관적으로 기록).
+    토큰 없음·빈 로그는 조용히 생략.
+    """
+    token, repo = _diag_gh_config()
+    if not token or not log:
+        return
+    path, body = github_upload_payload(_session_id(), int(time.time() * 1000),
+                                       list(log), GITHUB_LOG_BRANCH)
+    url = f"{_GH_API}/repos/{repo}/contents/{path}"
+    headers = {"Authorization": f"Bearer {token}",
+               "Accept": "application/vnd.github+json",
+               "X-GitHub-Api-Version": "2022-11-28"}
+    st.session_state["nav_diag_last_upload"] = f"⬆️ 업로드 요청됨: {path}"
+
+    def _work() -> None:
+        try:
+            requests.put(url, headers=headers, json=body, timeout=8)
+        except Exception:
+            pass
+
+    threading.Thread(target=_work, daemon=True).start()
 
 # 마지막 위치 캐시를 새로 저장할 최소 이동거리(m) — 매 폴링마다 쓰지 않도록 스로틀.
 _LASTFIX_SAVE_MOVE_M = 100.0
@@ -967,27 +1011,100 @@ def _alert_tone_wav(state: str) -> bytes:
     return buf.getvalue()
 
 
+# 오디오 자동재생은 rerun 당 '1개'만 낸다 — 모바일은 업데이트당 autoplay 오디오를 하나만
+# 허용할 수 있어, 한 rerun 에 알림음·이탈음성·회전예고·재탐색성공·도착이 겹치면 나머지가
+# 조용히 잘린다. 그래서 각 이벤트는 '즉시 재생' 대신 (우선순위, 문구, 알림음state)를 큐에
+# 넣고(_queue_audio), 렌더 끝에서 '가장 중요한 것 1개'만 재생한다(_flush_audio). 순서(누가
+# 먼저 실행됐나)가 아니라 우선순위로 뽑으므로 '재탐색 음성이 도착 음성을 밀어내는' 문제가
+# 없다. 페이지 스크립트는 매 rerun 재실행되므로 이 모듈 전역은 자동 리셋된다.
+_AUDIO_PRIORITY = {"arrived": 100, "deviated": 80, "passed_turn": 80, "drifting": 60}
+_AUDIO_PRIO_REROUTE = 70   # 재탐색 성공(이탈~도착 사이) — 이탈보다 낮고 도착보다 낮게
+_AUDIO_PRIO_TURN = 40      # 회전 예고 — 상태 경고보다 낮음
+_pending_audio: Optional[tuple] = None  # (priority, phrase|None, beep_state|None)
+
+
+def _queue_audio(priority: int, phrase: Optional[str] = None,
+                 beep_state: Optional[str] = None) -> None:
+    """이 rerun 에 재생할 오디오 후보를 큐에 넣는다 — 더 높은 우선순위만 남긴다."""
+    global _pending_audio
+    if _pending_audio is None or priority > _pending_audio[0]:
+        _pending_audio = (priority, phrase, beep_state)
+
+
+@st.cache_data(ttl=86400, show_spinner=False)
+def _tts_mp3_cached(phrase: str) -> bytes:
+    """gTTS 합성(성공 결과만 캐시). 실패 시 예외를 던진다 — st.cache_data 는 예외를
+    캐시하지 않으므로 다음 rerun 에 재시도된다(None 을 하루 캐시해 이후 계속 무음이 되던
+    문제 방지). 고정 문구라 성공 1회 뒤로는 캐시 히트."""
+    from gtts import gTTS
+    buf = io.BytesIO()
+    gTTS(text=phrase, lang="ko").write_to_fp(buf)
+    data = buf.getvalue()
+    if not data:
+        raise ValueError("gTTS empty output")
+    return data
+
+
+def _tts_mp3(phrase: str) -> Optional[bytes]:
+    """한국어 문구 → MP3(gTTS). 미설치·네트워크 실패는 None(캐시 안 됨 → 다음에 재시도).
+
+    브라우저 speechSynthesis 는 모바일 iframe 에서 조용히 막히는데, 서버에서 오디오로
+    합성해 st.audio(최상위 문서·autoplay)로 재생하면 알림음처럼 확실히 들린다.
+    """
+    if not phrase:
+        return None
+    try:
+        return _tts_mp3_cached(phrase)
+    except Exception:
+        return None
+
+
+def _flush_audio() -> None:
+    """렌더 끝에서 이번 rerun 최우선 오디오 1개를 재생한다.
+
+    음성 문구가 있으면 gTTS MP3 우선(st.audio, 모바일 확실), 실패 시 알림음(있으면)+
+    speechSynthesis 폴백. 문구 없이 알림음만이면 알림음 재생. st.audio 자동재생은 최대 1회.
+    """
+    global _pending_audio
+    if _pending_audio is None:
+        return
+    _priority, phrase, beep_state = _pending_audio
+    _pending_audio = None  # 소비 후 비움 — 한 rerun 에 두 번 호출돼도(틱 뒤 + main 끝) 1회만 재생
+    mp3 = _tts_mp3(phrase) if phrase else None
+    if mp3:
+        st.audio(mp3, format="audio/mp3", autoplay=True)
+        return
+    if beep_state is not None:
+        st.audio(_alert_tone_wav(beep_state), format="audio/wav", autoplay=True)
+    if phrase:  # gTTS 실패/미설치 — 브라우저 TTS 폴백(iframe, st.audio 자동재생과 무관)
+        components.html(
+            f"<script>(function(){{{build_tts_script(phrase)}}})();</script>", height=0,
+        )
+
+
+def _speak(phrase: str, priority: int = _AUDIO_PRIO_TURN) -> None:
+    """음성 문구를 오디오 큐에 넣는다(즉시 재생 아님 — 렌더 끝 _flush_audio 에서 1개만).
+
+    priority 로 다른 안내(이탈·도착·재탐색)와 겨룬다 — 기본값은 회전 예고 수준.
+    """
+    if phrase:
+        _queue_audio(priority, phrase, beep_state=None)
+
+
 def _trigger_alert(state: str, tts: bool = True) -> None:
     cfg = _ALERT.get(state)
     if cfg is None:
         return
-    st.toast(cfg["toast"])
-    # 소리: 최상위 문서에서 자동재생(위 _alert_tone_wav 설명 참조). 플레이어 바가 잠깐
-    # 보이는 것은 의도 — 무슨 알림이 울렸는지 시각 단서도 된다(다음 rerun에 사라짐).
-    st.audio(_alert_tone_wav(state), format="audio/wav", autoplay=True)
-    # 진동·음성은 iframe 스크립트 유지(진동은 Android 한정, 음성은 브라우저 TTS).
-    voice_script = ""
-    if tts:
-        phrase = tts_phrase(state)
-        if phrase:
-            voice_script = build_tts_script(phrase)
+    st.toast(cfg["toast"])  # 토스트는 즉시(오디오와 무관)
+    # 진동(Android 한정)은 즉시 iframe 스크립트로. 오디오는 큐에 넣어 렌더 끝에서 1개만.
     components.html(
         f"<script>(function(){{"
         f"try{{if(navigator.vibrate)navigator.vibrate({cfg['vibrate']});}}catch(e){{}}"
-        f"{voice_script}"
         f"}})();</script>",
         height=0,
     )
+    phrase = tts_phrase(state) if tts else None
+    _queue_audio(_AUDIO_PRIORITY.get(state, 70), phrase, beep_state=state)
 
 
 def _prime_tts_once() -> None:
@@ -1042,6 +1159,21 @@ def _render_diag_panel() -> None:
                            width="stretch")
         if st.checkbox("📋 복사용 JSON 보기(모바일)", value=False):
             st.code(payload, language="json")
+
+        # ── 자동 업로드(파일 안 줘도 됨): 토큰 설정 시 중지·도착에 저장소로 자동 전송 ──
+        token, repo = _diag_gh_config()
+        if token:
+            st.caption(f"🔄 자동 업로드 켜짐 — 중지·도착 시 `{repo}` 의 `{GITHUB_LOG_BRANCH}` "
+                       f"브랜치로 전송됩니다.")
+            if st.button("⬆️ 지금 업로드", width="stretch"):
+                _upload_diag_to_github(log)
+                st.rerun()
+        else:
+            st.caption("🔒 자동 업로드 꺼짐 — Streamlit Secrets 에 `WALK_DIAG_GH_TOKEN` "
+                       "(저장소 contents 쓰기 권한)을 넣으면 걷기 종료 시 로그가 자동 업로드됩니다.")
+        if st.session_state.get("nav_diag_last_upload"):
+            st.caption(st.session_state["nav_diag_last_upload"])
+
         if st.button("🗑️ 로그 지우기", width="stretch"):
             st.session_state["nav_diag_log"] = []
             _save_list_to_ls(_LS_KEY_DIAG, [])
@@ -1086,10 +1218,7 @@ def _maybe_announce_turn(result, tts_enabled: bool,
     st.session_state["nav_turn_announced_id"] = turn_id
     st.toast(f"{_DIR_ARROW.get(direction, '↑')} 잠시 후 {label} — {dist:.0f}m 앞")
     if tts_enabled:
-        components.html(
-            f"<script>(function(){{{build_tts_script(f'잠시 후 {label}입니다.')}}})();</script>",
-            height=0,
-        )
+        _speak(f"잠시 후 {label}입니다.")  # gTTS MP3 우선(모바일 확실) → speechSynthesis 폴백
 
 
 # ── 도착 판정 ─────────────────────────────────────────────────────────────────
@@ -1145,6 +1274,7 @@ def _maybe_finish_arrival(origin: Coordinate) -> bool:
     st.session_state["nav_running"] = False
     _diag("arrive", detail=detail or None)
     _save_list_to_ls(_LS_KEY_DIAG, st.session_state["nav_diag_log"])  # 도착 시 진단로그 영속화
+    _upload_diag_to_github(st.session_state["nav_diag_log"])          # 토큰 있으면 자동 업로드
     st.session_state["nav_active_booking_id"] = None  # 같은 예약 경로 재발동 허용
     if journey is not None and transit_builder.is_last_leg(
             journey, st.session_state.get("nav_active_leg_index", 0)):
@@ -2235,6 +2365,7 @@ def _render_action_buttons() -> None:
                 st.session_state["nav_tts_primed"] = False  # 다음 시작 제스처에서 다시 해금
                 _diag("stop")
                 _save_list_to_ls(_LS_KEY_DIAG, st.session_state["nav_diag_log"])  # 중지 시 영속화
+                _upload_diag_to_github(st.session_state["nav_diag_log"])  # 토큰 있으면 자동 업로드
                 st.rerun()
         else:
             if st.button("▶ 시작", disabled=(origin is None), width="stretch", type="primary"):
@@ -2869,6 +3000,11 @@ def main() -> None:
                     # 다음 rerun 시작부(_commit_pending_reroute)에서 커밋.
                     _start_reroute_fetch(_session_id(), origin, dest_coord)
 
+    # 오디오 재생은 여기서 한다 — 이 지점까지 모든 소리 이벤트(시작부 재탐색 성공,
+    # 도착, tick 의 이탈 알림·회전 예고)가 큐에 들어왔고, 아래 UI(⏹중지·진단 패널 버튼)의
+    # st.rerun() 은 이 뒤에 나므로 '큐만 채우고 flush 전에 rerun 돼 소리가 유실'되는 것을 막는다.
+    _flush_audio()
+
     # ── 지도 + 판정 패널 ──────────────────────────────────────────────────────
     route = st.session_state["nav_route"]
     dest  = st.session_state["nav_dest"]
@@ -2960,6 +3096,10 @@ def main() -> None:
 
     # 도보 진단 로그 — 걷기 후 데이터로 문제(이탈 오판정·GPS 튐·재탐색·음성)를 진단·공유.
     _render_diag_panel()
+
+    # 이번 rerun 최우선 오디오 1개 재생 — 알림음·이탈/도착/재탐색/회전 음성이 겹쳐도
+    # 우선순위대로 하나만 낸다(모바일 1-autoplay 제한 준수). 렌더 맨 끝에서 1회.
+    _flush_audio()
 
 
 import requests  # noqa: E402 — exception types used in _add_single_booking

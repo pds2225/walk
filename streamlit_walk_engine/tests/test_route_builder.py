@@ -526,6 +526,57 @@ class _FakeSecrets:
         return self._data.get(key, default)
 
 
+class TestNaverLocalSearch:
+    """네이버 지역검색(장소 DB) — 네이버 지도에 뜨는 상호·건물·POI 검색."""
+
+    def test_parse_extracts_wgs84_and_strips_html(self):
+        items = [{"title": "<b>경복궁</b>", "roadAddress": "서울 종로구 사직로 161",
+                  "address": "서울 종로구 세종로 1-1", "mapx": "1269779400", "mapy": "375759200"}]
+        out = route_builder._parse_naver_local_items(items, 5, "q")
+        assert len(out) == 1
+        coord, display = out[0]
+        assert abs(coord.latitude - 37.5759) < 1e-3 and abs(coord.longitude - 126.9779) < 1e-3
+        assert display == "서울 종로구 사직로 161 경복궁"  # <b> 제거 + 주소 뒤 상호
+
+    def test_parse_skips_out_of_range_coords(self):
+        # KATECH 등 다른 좌표계가 섞이면 /1e7 값이 한국 범위를 벗어난다 → 건너뛴다.
+        items = [{"title": "x", "roadAddress": "a", "mapx": "126897", "mapy": "37477"},
+                 {"title": "y", "address": "b", "mapx": "0", "mapy": "0"}]
+        assert route_builder._parse_naver_local_items(items, 5, "q") == []
+
+    def test_local_hits_no_key_returns_empty_without_network(self, monkeypatch):
+        monkeypatch.setattr(route_builder, "_naver_search_headers", lambda: None)
+
+        def _boom(*a, **k):
+            raise AssertionError("키 없으면 네트워크 호출 금지")
+        monkeypatch.setattr(route_builder.requests, "get", _boom)
+        assert route_builder._naver_local_hits("경복궁") == []
+
+    def test_local_hits_parses_response(self, monkeypatch):
+        monkeypatch.setattr(route_builder, "_naver_search_headers", lambda: {"X": "y"})
+        payload = {"items": [
+            {"title": "스타벅스 <b>강남</b>점", "roadAddress": "서울 강남구 테헤란로 101",
+             "mapx": "1270276000", "mapy": "374979000"},
+        ]}
+        monkeypatch.setattr(route_builder.requests, "get", lambda *a, **k: _FakeResp(200, payload))
+        out = route_builder._naver_local_hits("스타벅스", 5)
+        assert len(out) == 1
+        assert out[0][1] == "서울 강남구 테헤란로 101 스타벅스 강남점"
+
+    def test_suggestions_include_naver_local_places(self, monkeypatch):
+        # 지오코딩은 주소 전용이라 장소명이 비어도, 지역검색이 장소를 채워 넣는다.
+        monkeypatch.setattr(route_builder, "_naver_headers", lambda: None)
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: None)
+        monkeypatch.setattr(route_builder, "_naver_search_headers", lambda: {"X": "y"})
+        payload = {"items": [
+            {"title": "대륭포스트타워<b>8차</b>", "roadAddress": "서울 금천구 가산디지털1로 186",
+             "mapx": "1268873000", "mapy": "374766000"},
+        ]}
+        monkeypatch.setattr(route_builder.requests, "get", lambda *a, **k: _FakeResp(200, payload))
+        out = route_builder.geocode_suggestions("대륭포스트타워8차", limit=5)
+        assert any("대륭포스트타워8차" in d for _, d in out)
+
+
 class TestNaverHeaders:
     """Naver 키 공급원: 환경변수 → st.secrets(Streamlit Cloud) → 마스터 .env."""
 
