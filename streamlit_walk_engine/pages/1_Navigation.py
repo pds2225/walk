@@ -743,32 +743,33 @@ def _diag_gh_config() -> tuple[Optional[str], str]:
     return token, repo
 
 
-def _upload_diag_to_github(log: list) -> bool:
-    """진단 로그를 GitHub walk-diag-logs 브랜치에 자동 업로드(토큰이 있을 때만).
+def _upload_diag_to_github(log: list) -> None:
+    """진단 로그를 GitHub walk-diag-logs 브랜치에 '백그라운드로' 자동 업로드(토큰 있을 때만).
 
-    토큰 없음·빈 로그·오류는 조용히 False(안내를 막지 않는다). 새 파일이라 sha 불필요.
-    사용자가 파일을 직접 넘기지 않아도, 걷기 종료 시 로그가 저장소로 올라와 진단 가능해진다.
+    네트워크 PUT(최대 8초)을 Streamlit 스크립트 스레드에서 동기로 돌리면, 토큰이 설정된
+    경우 GitHub 응답이 느릴 때 도착 안내·⏹중지 반응이 그만큼 지연된다. 그래서 업로드는
+    데몬 스레드로 던지고(fire-and-forget) 즉시 반환한다. 워커 스레드는 st.session_state 를
+    만지지 않는다(고아 스레드 쓰기 금지 원칙 — 상태 표시는 메인 스레드에서 낙관적으로 기록).
+    토큰 없음·빈 로그는 조용히 생략.
     """
     token, repo = _diag_gh_config()
     if not token or not log:
-        return False
+        return
     path, body = github_upload_payload(_session_id(), int(time.time() * 1000),
                                        list(log), GITHUB_LOG_BRANCH)
-    try:
-        resp = requests.put(
-            f"{_GH_API}/repos/{repo}/contents/{path}",
-            headers={"Authorization": f"Bearer {token}",
-                     "Accept": "application/vnd.github+json",
-                     "X-GitHub-Api-Version": "2022-11-28"},
-            json=body, timeout=8,
-        )
-        ok = resp.status_code in (200, 201)
-        st.session_state["nav_diag_last_upload"] = (
-            f"✅ 업로드됨: {path}" if ok else f"⚠️ 업로드 실패({resp.status_code})")
-        return ok
-    except Exception:
-        st.session_state["nav_diag_last_upload"] = "⚠️ 업로드 실패(네트워크)"
-        return False
+    url = f"{_GH_API}/repos/{repo}/contents/{path}"
+    headers = {"Authorization": f"Bearer {token}",
+               "Accept": "application/vnd.github+json",
+               "X-GitHub-Api-Version": "2022-11-28"}
+    st.session_state["nav_diag_last_upload"] = f"⬆️ 업로드 요청됨: {path}"
+
+    def _work() -> None:
+        try:
+            requests.put(url, headers=headers, json=body, timeout=8)
+        except Exception:
+            pass
+
+    threading.Thread(target=_work, daemon=True).start()
 
 # 마지막 위치 캐시를 새로 저장할 최소 이동거리(m) — 매 폴링마다 쓰지 않도록 스로틀.
 _LASTFIX_SAVE_MOVE_M = 100.0
@@ -1049,19 +1050,27 @@ def _trigger_alert(state: str, tts: bool = True) -> None:
     if cfg is None:
         return
     st.toast(cfg["toast"])
-    # 소리: 최상위 문서에서 자동재생(위 _alert_tone_wav 설명 참조). 플레이어 바가 잠깐
-    # 보이는 것은 의도 — 무슨 알림이 울렸는지 시각 단서도 된다(다음 rerun에 사라짐).
-    st.audio(_alert_tone_wav(state), format="audio/wav", autoplay=True)
-    # 진동은 iframe 스크립트로(진동은 Android 한정).
+    # 오디오는 '한 번의 업데이트에 1개'만 자동재생한다 — 모바일 브라우저는 업데이트당
+    # autoplay 오디오를 하나만 허용할 수 있어, 삐(WAV)+음성(MP3)을 둘 다 넣으면 정작
+    # 중요한 '음성'이 삐에 밀려 재생 안 될 수 있다. 음성이 있으면 음성만, 없으면 삐만.
+    phrase = tts_phrase(state) if tts else None
+    mp3 = _tts_mp3(phrase) if phrase else None
+    voice_script = ""
+    if mp3:
+        st.audio(mp3, format="audio/mp3", autoplay=True)  # 음성 우선(삐 생략) — 진동은 유지
+    else:
+        # 음성 없음/합성 실패: 알림음 재생 + 음성은 speechSynthesis 폴백(iframe, st.audio 아님).
+        st.audio(_alert_tone_wav(state), format="audio/wav", autoplay=True)
+        if phrase:
+            voice_script = build_tts_script(phrase)
+    # 진동(Android 한정) + 음성 폴백 스니펫은 iframe 스크립트로(st.audio 자동재생과 무관).
     components.html(
         f"<script>(function(){{"
         f"try{{if(navigator.vibrate)navigator.vibrate({cfg['vibrate']});}}catch(e){{}}"
+        f"{voice_script}"
         f"}})();</script>",
         height=0,
     )
-    # 음성: gTTS MP3(최상위 문서 재생, 모바일에서도 확실) 우선 — speechSynthesis 폴백.
-    if tts:
-        _speak(tts_phrase(state) or "")
 
 
 def _prime_tts_once() -> None:
