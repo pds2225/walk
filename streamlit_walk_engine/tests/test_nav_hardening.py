@@ -155,10 +155,9 @@ def test_active_session_persist_and_restore_wired():
     assert "removeItem" in save and "setItem" in save
     # 매 rerun 재주입 방지 스로틀(직렬화 서명 비교)
     assert "nav_active_saved_sig" in save
-    # 대중교통 여정은 '최종' 목적지(마지막 leg)를 저장(중간 정류장 아님)
-    assert "journey.legs[-1]" in save
-    # 여정 활성이면 nav_running=False(in-vehicle)여도 저장 유지
-    assert "nav_journey" in save
+    # 자동 재개는 '단독 도보 안내'만 저장한다 — 여정 중에는 저장하지 않는다
+    # (중간 정류장 저장·leg 0 재시작·중지 후 잔존 등 엣지 회피).
+    assert "journey is None" in save
     # 장시간 안내에도 ts 가 갱신되게 서명에 시간 버킷 포함(만료 오판 방지)
     assert "_ACTIVE_SESSION_TS_REFRESH_MS" in save
 

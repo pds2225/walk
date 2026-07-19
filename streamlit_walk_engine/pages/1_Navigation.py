@@ -950,27 +950,17 @@ def _save_active_session() -> None:
     """
     running = bool(st.session_state.get("nav_running"))
     journey = st.session_state.get("nav_journey")
-    # 저장 대상 결정:
-    #  · 대중교통 여정이 활성이면 여정의 '최종' 목적지(마지막 leg 의 end)를 저장한다.
-    #    안내 중(nav_dest)은 현재 leg 의 중간 정류장이라, 그걸 저장하면 복귀 시 정류장까지만
-    #    안내된다. 또 in-vehicle leg 은 nav_running=False 라, running 만 보면 여정 중에
-    #    저장이 지워져 복귀 시 여정을 통째로 잃는다 — 여정 활성 여부로 별도 판단한다.
-    #  · 여정이 없고 도보 안내 중이면 nav_dest(도보 목적지)를 저장한다.
+    dest: Optional[Coordinate] = st.session_state.get("nav_dest")
+    # 자동 재개는 '단독 도보 안내'만 지원한다(running·경로만 있는 상태). 대중교통 여정은
+    # 저장 목적지 하나로 구간(leg) 진행·승하차 상태를 충실히 복원할 수 없다 — 중간 정류장이
+    # 저장되거나(leg.end), 복귀 시 leg 0 부터 재시작하거나, ⏹ 중지 후에도 여정이 남아
+    # 되살아나는 등 엣지가 많아, 여정 중에는 저장하지 않는다(사용자가 다시 계획).
     save_dest: Optional[Coordinate] = None
     save_label = ""
-    save_transit = bool(st.session_state.get("nav_transit_enabled", True))
-    if journey is not None and getattr(journey, "legs", None):
-        final_leg = journey.legs[-1]
-        save_dest = final_leg.end
-        save_label = (final_leg.end_label
-                      or st.session_state.get("nav_dest_display") or "")
-        save_transit = True  # 여정 복원은 대중교통으로 재계획
-    elif running:
-        d: Optional[Coordinate] = st.session_state.get("nav_dest")
-        if d is not None:
-            save_dest = d
-            save_label = (st.session_state.get("nav_dest_display")
-                          or st.session_state.get("nav_dest_input") or "")
+    if running and journey is None and dest is not None:
+        save_dest = dest
+        save_label = (st.session_state.get("nav_dest_display")
+                      or st.session_state.get("nav_dest_input") or "")
 
     if save_dest is not None:
         now_ms = int(time.time() * 1000)
@@ -978,7 +968,8 @@ def _save_active_session() -> None:
             "lat": save_dest.latitude,
             "lon": save_dest.longitude,
             "label": save_label,
-            "transit": save_transit,
+            # 단독 도보 안내만 저장하므로 재개도 도보 재계획으로 고정한다(여정 복원 안 함).
+            "transit": False,
             "ts": now_ms,
         }
         # ts 는 스로틀 비교에서 제외하되, 시간 버킷을 서명에 넣어 목적지가 안 바뀌어도
