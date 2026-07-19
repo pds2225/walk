@@ -180,6 +180,10 @@ def test_active_session_persist_and_restore_wired():
     assert 'st.session_state.get("nav_journey") is not None' in resume
     # 경로 확정 전 '입력/선택 중'도 취소 신호로 넘긴다(진행 중 검색 보호).
     assert "user_choosing_dest" in resume
+    # 취소 시 저장 세션도 지운다(declined 트립이 새로고침에 되살아나지 않게).
+    cancel = resume[resume.index('if action == "cancel":'):]
+    cancel = cancel[:cancel.index('elif action == "go":')]
+    assert "removeItem" in cancel and "nav_resume_pending" in cancel
     # 성공했을 때만 pending 소비 + 실패는 상한까지 재시도(무한 fetch·영구 유실 방지).
     assert "_RESUME_MAX_ATTEMPTS" in resume
     assert "nav_resume_attempts" in resume

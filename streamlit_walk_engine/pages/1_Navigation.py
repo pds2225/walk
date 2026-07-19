@@ -2680,8 +2680,15 @@ def main() -> None:
             user_choosing_dest=user_choosing_dest,
         )
         if action == "cancel":
-            # 저장 세션이 사용자의 새 선택을 덮어쓰지 않게 복원을 취소한다.
+            # 저장 세션이 사용자의 새 선택을 덮어쓰지 않게 복원을 취소하고, 저장 항목도
+            # 지운다 — 안 그러면 다음 새로고침에 declined 트립이 다시 예약된다. 활성 도보
+            # 안내가 있으면 같은 run 의 _save_active_session 이 곧바로 다시 저장한다.
             st.session_state["nav_resume_pending"] = None
+            st.session_state["nav_active_saved_sig"] = None
+            components.html(
+                f"<script>try{{localStorage.removeItem('{_LS_KEY_ACTIVE}')}}catch(e){{}}</script>",
+                height=0,
+            )
         elif action == "go":
             with st.spinner("이전 안내를 이어가는 중…"):
                 try:
