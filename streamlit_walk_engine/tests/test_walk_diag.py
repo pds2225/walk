@@ -15,7 +15,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from walk_diag import (
-    DIAG_CAP, GITHUB_LOG_BRANCH, append_capped, diag_json, diag_record,
+    DIAG_CAP, GITHUB_LOG_BRANCH, append_capped, diag_findings, diag_json, diag_record,
     diag_summary, github_upload_payload,
 )
 
@@ -117,3 +117,36 @@ class TestGithubUploadPayload:
     def test_empty_session_id_falls_back(self):
         path, _ = github_upload_payload("", 1000, [])
         assert path == "logs/sess-1000.json"
+
+
+class TestDiagFindings:
+    """요약 → 사람이 읽는 자동 진단 힌트."""
+
+    def _summ(self, log):
+        return diag_summary(log)
+
+    def test_empty_log_no_findings(self):
+        assert diag_findings({"records": 0}) == []
+        assert diag_findings({}) == []
+
+    def test_healthy_log_reports_ok(self):
+        log = [diag_record(i * 1000, "tick", st="on_route", acc=10.0) for i in range(20)]
+        log.append(diag_record(21000, "alert", st="deviated"))
+        out = diag_findings(diag_summary(log))
+        assert any("특이사항 없음" in f for f in out)
+
+    def test_flags_low_gps_accuracy(self):
+        log = [diag_record(i * 1000, "tick", st="on_route", acc=55.0) for i in range(20)]
+        out = diag_findings(diag_summary(log))
+        assert any("GPS 정확도 매우 낮음" in f for f in out)
+
+    def test_flags_silent_voice_when_deviations_but_no_alert(self):
+        # 이탈(deviated) tick 은 있는데 alert 이벤트가 0 → 음성 미작동 의심
+        log = [diag_record(i * 1000, "tick", st="deviated", acc=10.0) for i in range(12)]
+        out = diag_findings(diag_summary(log))
+        assert any("음성" in f and "0회" in f for f in out)
+
+    def test_flags_small_sample(self):
+        log = [diag_record(i * 1000, "tick", acc=8.0) for i in range(3)]
+        out = diag_findings(diag_summary(log))
+        assert any("표본이 적음" in f for f in out)

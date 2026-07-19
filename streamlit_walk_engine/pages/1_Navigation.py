@@ -50,8 +50,8 @@ import snap_router
 import transit_builder
 from alert_voice import build_tts_prime_script, build_tts_script, tts_phrase
 from walk_diag import (
-    DIAG_CAP, GITHUB_LOG_BRANCH, append_capped, diag_json, diag_record,
-    diag_summary, github_upload_payload,
+    DIAG_CAP, GITHUB_LOG_BRANCH, append_capped, diag_findings, diag_json,
+    diag_record, diag_summary, github_upload_payload,
 )
 from route_builder import (
     fetch_walking_route_with_engine, format_korean_address, geocode_address,
@@ -1153,6 +1153,10 @@ def _render_diag_panel() -> None:
         states = summ.get("states", {})
         if states:
             st.caption("판정 분포: " + ", ".join(f"{k} {v}" for k, v in states.items()))
+        # 자동 진단 — 원시 로그를 사람이 읽는 힌트로(GPS 정확도·재탐색·이탈·음성 미작동 의심).
+        st.markdown("**자동 진단**")
+        for finding in diag_findings(summ):
+            st.write(finding)
         payload = diag_json(log)
         st.download_button("⬇️ 진단 로그 내려받기 (JSON)", payload,
                            file_name="walk_diag.json", mime="application/json",

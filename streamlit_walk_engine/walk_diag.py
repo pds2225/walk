@@ -109,3 +109,45 @@ def diag_summary(log: list) -> dict:
         summary["acc_p90"] = round(_percentile(accs_sorted, 90), 1)
         summary["acc_max"] = round(max(accs), 1)
     return summary
+
+
+def diag_findings(summary: dict) -> list[str]:
+    """요약 통계에서 사람이 읽는 '자동 진단 힌트'를 뽑는다(순수 함수).
+
+    정밀 진단이 아니라 '무엇을 의심할지' 안내용 — GPS 정확도, 재탐색 빈도, 이탈 비율,
+    음성 미작동 의심, 표본 부족을 대략 임계치로 판단한다. 로그가 비면 빈 리스트,
+    문제가 없으면 '특이사항 없음' 1건을 돌려준다(사용자가 '정상'임을 알 수 있게).
+    """
+    if not summary or summary.get("records", 0) == 0:
+        return []
+    events = summary.get("events", {}) or {}
+    states = summary.get("states", {}) or {}
+    ticks = events.get("tick", 0)
+    findings: list[str] = []
+
+    p90 = summary.get("acc_p90")
+    if isinstance(p90, (int, float)):
+        if p90 > 50:
+            findings.append(f"🔴 GPS 정확도 매우 낮음 (p90 {p90}m) — 위치 튐·이탈 오판정 가능성 큼")
+        elif p90 > 30:
+            findings.append(f"🟡 GPS 정확도 낮음 (p90 {p90}m) — 이탈 오판정 가능")
+
+    reroutes = events.get("reroute", 0)
+    span_min = max(summary.get("span_s", 0.0) / 60.0, 0.01)
+    if reroutes >= 5 or (reroutes >= 2 and reroutes / span_min > 1.0):
+        findings.append(f"🟡 재탐색 잦음 ({reroutes}회) — 경로 이탈이 반복됨(신호·경로 확인)")
+
+    dev = states.get("deviated", 0) + states.get("passed_turn", 0)
+    if ticks >= 10 and dev / ticks > 0.3:
+        findings.append(f"🟡 이탈 판정 비율 높음 ({dev}/{ticks} tick)")
+
+    alerts = events.get("alert", 0)
+    if dev >= 3 and alerts == 0:
+        findings.append("🔴 이탈이 있었는데 음성/알림 기록 0회 — 음성 미작동 의심")
+
+    if ticks < 5:
+        findings.append(f"ℹ️ 표본이 적음 (tick {ticks}) — 더 걸어야 진단 신뢰도가 올라감")
+
+    if not findings:
+        findings.append("🟢 특이사항 없음 — 정확도·이탈·음성 모두 정상 범위")
+    return findings
