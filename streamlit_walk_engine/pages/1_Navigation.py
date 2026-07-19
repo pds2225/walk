@@ -1000,6 +1000,12 @@ def _restore_active_session() -> None:
         d = json.loads(raw)
         lat, lon = float(d["lat"]), float(d["lon"])
     except (ValueError, TypeError, KeyError):
+        # 손상된 값은 localStorage 에서 제거한다 — 남겨 두면 이후 세션마다 같은
+        # 파싱 실패로 자동 재개가 계속 막힌다(고: bugbot Medium).
+        components.html(
+            f"<script>try{{localStorage.removeItem('{_LS_KEY_ACTIVE}')}}catch(e){{}}</script>",
+            height=0,
+        )
         return
     ts = d.get("ts")
     if ts is not None:
