@@ -1065,9 +1065,11 @@ def _flush_audio() -> None:
     음성 문구가 있으면 gTTS MP3 우선(st.audio, 모바일 확실), 실패 시 알림음(있으면)+
     speechSynthesis 폴백. 문구 없이 알림음만이면 알림음 재생. st.audio 자동재생은 최대 1회.
     """
+    global _pending_audio
     if _pending_audio is None:
         return
     _priority, phrase, beep_state = _pending_audio
+    _pending_audio = None  # 소비 후 비움 — 한 rerun 에 두 번 호출돼도(틱 뒤 + main 끝) 1회만 재생
     mp3 = _tts_mp3(phrase) if phrase else None
     if mp3:
         st.audio(mp3, format="audio/mp3", autoplay=True)
@@ -2997,6 +2999,11 @@ def main() -> None:
                     # 중단시키면 이후 모든 세션 쓰기가 유실된다 → 백그라운드 fetch 후
                     # 다음 rerun 시작부(_commit_pending_reroute)에서 커밋.
                     _start_reroute_fetch(_session_id(), origin, dest_coord)
+
+    # 오디오 재생은 여기서 한다 — 이 지점까지 모든 소리 이벤트(시작부 재탐색 성공,
+    # 도착, tick 의 이탈 알림·회전 예고)가 큐에 들어왔고, 아래 UI(⏹중지·진단 패널 버튼)의
+    # st.rerun() 은 이 뒤에 나므로 '큐만 채우고 flush 전에 rerun 돼 소리가 유실'되는 것을 막는다.
+    _flush_audio()
 
     # ── 지도 + 판정 패널 ──────────────────────────────────────────────────────
     route = st.session_state["nav_route"]
