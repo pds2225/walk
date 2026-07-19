@@ -1010,20 +1010,50 @@ def _alert_tone_wav(state: str) -> bytes:
     return buf.getvalue()
 
 
-@st.cache_data(ttl=86400, show_spinner=False)
-def _tts_mp3(phrase: str) -> Optional[bytes]:
-    """한국어 문구를 MP3로 합성(gTTS). 고정 문구라 캐시로 1회만 네트워크 호출.
+# 이 rerun 에 st.audio autoplay 를 이미 냈는지 — 모바일은 업데이트당 자동재생 오디오를
+# 1개만 허용할 수 있어, 한 rerun 에 여러 오디오(알림음·이탈음성·회전예고)가 겹치면 뒤가
+# 조용히 잘린다. 페이지 스크립트는 매 rerun 통째로 재실행되므로 이 모듈 전역은 자동 리셋된다.
+_audio_autoplay_used = False
 
-    브라우저 speechSynthesis 는 모바일 iframe 에서 조용히 막히는데, 이렇게 서버에서
-    오디오로 합성해 st.audio(최상위 문서·autoplay)로 재생하면 알림음처럼 확실히 들린다.
-    gTTS 미설치·네트워크 실패는 None → 호출부가 speechSynthesis 로 폴백(무회귀).
+
+def _play_audio_once(data: bytes, fmt: str) -> bool:
+    """이 rerun 에서 '처음' 요청된 오디오만 자동재생한다(모바일 1-autoplay 제한 준수).
+
+    이미 이번 rerun 에 자동재생한 오디오가 있으면 재생하지 않고 False 를 반환한다
+    (호출부가 폴백을 고르게). 호출 순서상 더 중요한 안내(이탈 알림)가 먼저 자리를 잡는다.
     """
+    global _audio_autoplay_used
+    if _audio_autoplay_used:
+        return False
+    st.audio(data, format=fmt, autoplay=True)
+    _audio_autoplay_used = True
+    return True
+
+
+@st.cache_data(ttl=86400, show_spinner=False)
+def _tts_mp3_cached(phrase: str) -> bytes:
+    """gTTS 합성(성공 결과만 캐시). 실패 시 예외를 던진다 — st.cache_data 는 예외를
+    캐시하지 않으므로 다음 rerun 에 재시도된다(None 을 하루 캐시해 이후 계속 무음이 되던
+    문제 방지). 고정 문구라 성공 1회 뒤로는 캐시 히트."""
+    from gtts import gTTS
+    buf = io.BytesIO()
+    gTTS(text=phrase, lang="ko").write_to_fp(buf)
+    data = buf.getvalue()
+    if not data:
+        raise ValueError("gTTS empty output")
+    return data
+
+
+def _tts_mp3(phrase: str) -> Optional[bytes]:
+    """한국어 문구 → MP3(gTTS). 미설치·네트워크 실패는 None(캐시 안 됨 → 다음에 재시도).
+
+    브라우저 speechSynthesis 는 모바일 iframe 에서 조용히 막히는데, 서버에서 오디오로
+    합성해 st.audio(최상위 문서·autoplay)로 재생하면 알림음처럼 확실히 들린다.
+    """
+    if not phrase:
+        return None
     try:
-        from gtts import gTTS
-        buf = io.BytesIO()
-        gTTS(text=phrase, lang="ko").write_to_fp(buf)
-        data = buf.getvalue()
-        return data or None
+        return _tts_mp3_cached(phrase)
     except Exception:
         return None
 
@@ -1031,18 +1061,17 @@ def _tts_mp3(phrase: str) -> Optional[bytes]:
 def _speak(phrase: str) -> None:
     """문구를 음성으로 재생 — gTTS MP3(st.audio, 모바일 확실) 우선, 실패 시 브라우저 TTS.
 
-    이 함수는 최상위 문서 오디오를 우선한다. gTTS 가 없거나 실패하면 기존 speechSynthesis
-    iframe 스니펫으로 폴백(데스크톱·일부 브라우저에서 동작).
+    이 rerun 에 이미 다른 오디오가 자동재생됐으면(_play_audio_once=False) MP3 대신
+    speechSynthesis 폴백으로 시도한다(오디오 1개 제한 준수 + 그래도 발화 시도).
     """
     if not phrase:
         return
     mp3 = _tts_mp3(phrase)
-    if mp3:
-        st.audio(mp3, format="audio/mp3", autoplay=True)
-    else:
-        components.html(
-            f"<script>(function(){{{build_tts_script(phrase)}}})();</script>", height=0,
-        )
+    if mp3 and _play_audio_once(mp3, "audio/mp3"):
+        return
+    components.html(
+        f"<script>(function(){{{build_tts_script(phrase)}}})();</script>", height=0,
+    )
 
 
 def _trigger_alert(state: str, tts: bool = True) -> None:
@@ -1056,11 +1085,12 @@ def _trigger_alert(state: str, tts: bool = True) -> None:
     phrase = tts_phrase(state) if tts else None
     mp3 = _tts_mp3(phrase) if phrase else None
     voice_script = ""
-    if mp3:
-        st.audio(mp3, format="audio/mp3", autoplay=True)  # 음성 우선(삐 생략) — 진동은 유지
+    if mp3 and _play_audio_once(mp3, "audio/mp3"):
+        pass  # 음성 우선(삐 생략) — 진동은 유지. 이 rerun 오디오 자리 1개 사용.
     else:
-        # 음성 없음/합성 실패: 알림음 재생 + 음성은 speechSynthesis 폴백(iframe, st.audio 아님).
-        st.audio(_alert_tone_wav(state), format="audio/wav", autoplay=True)
+        # 음성 없음/합성 실패/이미 오디오 재생됨: 알림음 재생 시도(이미 쓰였으면 생략) +
+        # 음성은 speechSynthesis 폴백(iframe, st.audio 자동재생 제한과 무관).
+        _play_audio_once(_alert_tone_wav(state), "audio/wav")
         if phrase:
             voice_script = build_tts_script(phrase)
     # 진동(Android 한정) + 음성 폴백 스니펫은 iframe 스크립트로(st.audio 자동재생과 무관).
