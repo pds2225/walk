@@ -160,3 +160,10 @@ class TestDiagFindings:
         assert summ["tick_states"].get("deviated", 0) == 0  # tick 중 이탈 0
         out = diag_findings(summ)
         assert not any("이탈 판정 비율 높음" in f for f in out)
+
+    def test_weak_toast_counts_as_notification(self):
+        # 저정확도 이탈은 alert 대신 weak_toast 로 알림 → '음성 미작동' 오탐 금지
+        log = [diag_record(i * 1000, "tick", st="deviated", acc=40.0) for i in range(12)]
+        log.append(diag_record(99000, "weak_toast", st="deviated"))
+        out = diag_findings(diag_summary(log))
+        assert not any("음성 미작동" in f for f in out)

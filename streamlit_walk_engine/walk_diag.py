@@ -147,8 +147,10 @@ def diag_findings(summary: dict) -> list[str]:
     if ticks >= 10 and dev / ticks > 0.3:
         findings.append(f"🟡 이탈 판정 비율 높음 ({dev}/{ticks} tick)")
 
-    alerts = events.get("alert", 0)
-    if dev >= 3 and alerts == 0:
+    # 알림 발생 = 전체 알림(alert) + 저정확도 약경고(weak_toast) 둘 다 포함 — 신호가 나빠
+    # 이탈을 약경고로만 알린 경우까지 '알림 0'으로 오판해 음성 미작동으로 몰지 않게 한다.
+    notified = events.get("alert", 0) + events.get("weak_toast", 0)
+    if dev >= 3 and notified == 0:
         findings.append("🔴 이탈이 있었는데 음성/알림 기록 0회 — 음성 미작동 의심")
 
     if ticks < 5:
