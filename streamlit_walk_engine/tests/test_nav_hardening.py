@@ -176,6 +176,8 @@ def test_active_session_persist_and_restore_wired():
     # 성공했을 때만 pending 소비 + 실패는 상한까지 재시도(무한 fetch·영구 유실 방지).
     assert "_RESUME_MAX_ATTEMPTS" in resume
     assert "nav_resume_attempts" in resume
+    give_up = resume[resume.index("if tries >= _RESUME_MAX_ATTEMPTS:"):]
+    assert "removeItem" in give_up and "_LS_KEY_ACTIVE" in give_up
 
 
 # ── 걷는 방향 보정: 원형 평균 스무딩을 지도 화살표·헤딩업에 적용 ───────────────

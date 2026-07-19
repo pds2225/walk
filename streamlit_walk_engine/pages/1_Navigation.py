@@ -2688,11 +2688,16 @@ def main() -> None:
                         st.toast("🔁 이전 안내를 이어갑니다")
                     except Exception:
                         # 재개 실패(네트워크 등): pending 을 지우지 않고 몇 번 재시도한다.
-                        # 상한을 넘으면 포기(무한 fetch 방지) — 사용자가 직접 다시 검색 가능.
+                        # 상한을 넘으면 포기하고 저장 항목도 지운다(고아 세션/무한 fetch 방지).
                         tries = st.session_state.get("nav_resume_attempts", 0) + 1
                         st.session_state["nav_resume_attempts"] = tries
                         if tries >= _RESUME_MAX_ATTEMPTS:
                             st.session_state["nav_resume_pending"] = None
+                            st.session_state["nav_resume_attempts"] = 0
+                            components.html(
+                                f"<script>try{{localStorage.removeItem('{_LS_KEY_ACTIVE}')}}catch(e){{}}</script>",
+                                height=0,
+                            )
 
     st.markdown("## 🚶 도보 내비게이션")
     st.caption("가고 싶은 곳을 입력하면 걷는 길을 안내하고, 길을 벗어나면 바로 알려줍니다.")
