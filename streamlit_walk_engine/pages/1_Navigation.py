@@ -519,7 +519,8 @@ def _commit_pending_reroute() -> None:
     # 이탈 음성 뒤 재탐색 성공이 화면 토스트뿐이면 폰을 안 보는 보행자는 새 경로를
     # 찾았는지 알 수 없다 → 성공도 음성으로. 회전 방향은 id 리셋 덕에 이어서 예고된다.
     if st.session_state["nav_tts_enabled"]:
-        _speak("경로를 다시 찾았습니다. 새 경로로 안내합니다.")  # gTTS 우선 → TTS 폴백
+        # 렌더 끝 _flush_audio 에서 재생 — 도착(우선순위 100)이 같은 rerun 이면 도착이 이긴다.
+        _speak("경로를 다시 찾았습니다. 새 경로로 안내합니다.", _AUDIO_PRIO_REROUTE)
 
 
 def _clear_journey_state() -> None:
@@ -1010,24 +1011,24 @@ def _alert_tone_wav(state: str) -> bytes:
     return buf.getvalue()
 
 
-# 이 rerun 에 st.audio autoplay 를 이미 냈는지 — 모바일은 업데이트당 자동재생 오디오를
-# 1개만 허용할 수 있어, 한 rerun 에 여러 오디오(알림음·이탈음성·회전예고)가 겹치면 뒤가
-# 조용히 잘린다. 페이지 스크립트는 매 rerun 통째로 재실행되므로 이 모듈 전역은 자동 리셋된다.
-_audio_autoplay_used = False
+# 오디오 자동재생은 rerun 당 '1개'만 낸다 — 모바일은 업데이트당 autoplay 오디오를 하나만
+# 허용할 수 있어, 한 rerun 에 알림음·이탈음성·회전예고·재탐색성공·도착이 겹치면 나머지가
+# 조용히 잘린다. 그래서 각 이벤트는 '즉시 재생' 대신 (우선순위, 문구, 알림음state)를 큐에
+# 넣고(_queue_audio), 렌더 끝에서 '가장 중요한 것 1개'만 재생한다(_flush_audio). 순서(누가
+# 먼저 실행됐나)가 아니라 우선순위로 뽑으므로 '재탐색 음성이 도착 음성을 밀어내는' 문제가
+# 없다. 페이지 스크립트는 매 rerun 재실행되므로 이 모듈 전역은 자동 리셋된다.
+_AUDIO_PRIORITY = {"arrived": 100, "deviated": 80, "passed_turn": 80, "drifting": 60}
+_AUDIO_PRIO_REROUTE = 70   # 재탐색 성공(이탈~도착 사이) — 이탈보다 낮고 도착보다 낮게
+_AUDIO_PRIO_TURN = 40      # 회전 예고 — 상태 경고보다 낮음
+_pending_audio: Optional[tuple] = None  # (priority, phrase|None, beep_state|None)
 
 
-def _play_audio_once(data: bytes, fmt: str) -> bool:
-    """이 rerun 에서 '처음' 요청된 오디오만 자동재생한다(모바일 1-autoplay 제한 준수).
-
-    이미 이번 rerun 에 자동재생한 오디오가 있으면 재생하지 않고 False 를 반환한다
-    (호출부가 폴백을 고르게). 호출 순서상 더 중요한 안내(이탈 알림)가 먼저 자리를 잡는다.
-    """
-    global _audio_autoplay_used
-    if _audio_autoplay_used:
-        return False
-    st.audio(data, format=fmt, autoplay=True)
-    _audio_autoplay_used = True
-    return True
+def _queue_audio(priority: int, phrase: Optional[str] = None,
+                 beep_state: Optional[str] = None) -> None:
+    """이 rerun 에 재생할 오디오 후보를 큐에 넣는다 — 더 높은 우선순위만 남긴다."""
+    global _pending_audio
+    if _pending_audio is None or priority > _pending_audio[0]:
+        _pending_audio = (priority, phrase, beep_state)
 
 
 @st.cache_data(ttl=86400, show_spinner=False)
@@ -1058,49 +1059,50 @@ def _tts_mp3(phrase: str) -> Optional[bytes]:
         return None
 
 
-def _speak(phrase: str) -> None:
-    """문구를 음성으로 재생 — gTTS MP3(st.audio, 모바일 확실) 우선, 실패 시 브라우저 TTS.
+def _flush_audio() -> None:
+    """렌더 끝에서 이번 rerun 최우선 오디오 1개를 재생한다.
 
-    이 rerun 에 이미 다른 오디오가 자동재생됐으면(_play_audio_once=False) MP3 대신
-    speechSynthesis 폴백으로 시도한다(오디오 1개 제한 준수 + 그래도 발화 시도).
+    음성 문구가 있으면 gTTS MP3 우선(st.audio, 모바일 확실), 실패 시 알림음(있으면)+
+    speechSynthesis 폴백. 문구 없이 알림음만이면 알림음 재생. st.audio 자동재생은 최대 1회.
     """
-    if not phrase:
+    if _pending_audio is None:
         return
-    mp3 = _tts_mp3(phrase)
-    if mp3 and _play_audio_once(mp3, "audio/mp3"):
+    _priority, phrase, beep_state = _pending_audio
+    mp3 = _tts_mp3(phrase) if phrase else None
+    if mp3:
+        st.audio(mp3, format="audio/mp3", autoplay=True)
         return
-    components.html(
-        f"<script>(function(){{{build_tts_script(phrase)}}})();</script>", height=0,
-    )
+    if beep_state is not None:
+        st.audio(_alert_tone_wav(beep_state), format="audio/wav", autoplay=True)
+    if phrase:  # gTTS 실패/미설치 — 브라우저 TTS 폴백(iframe, st.audio 자동재생과 무관)
+        components.html(
+            f"<script>(function(){{{build_tts_script(phrase)}}})();</script>", height=0,
+        )
+
+
+def _speak(phrase: str, priority: int = _AUDIO_PRIO_TURN) -> None:
+    """음성 문구를 오디오 큐에 넣는다(즉시 재생 아님 — 렌더 끝 _flush_audio 에서 1개만).
+
+    priority 로 다른 안내(이탈·도착·재탐색)와 겨룬다 — 기본값은 회전 예고 수준.
+    """
+    if phrase:
+        _queue_audio(priority, phrase, beep_state=None)
 
 
 def _trigger_alert(state: str, tts: bool = True) -> None:
     cfg = _ALERT.get(state)
     if cfg is None:
         return
-    st.toast(cfg["toast"])
-    # 오디오는 '한 번의 업데이트에 1개'만 자동재생한다 — 모바일 브라우저는 업데이트당
-    # autoplay 오디오를 하나만 허용할 수 있어, 삐(WAV)+음성(MP3)을 둘 다 넣으면 정작
-    # 중요한 '음성'이 삐에 밀려 재생 안 될 수 있다. 음성이 있으면 음성만, 없으면 삐만.
-    phrase = tts_phrase(state) if tts else None
-    mp3 = _tts_mp3(phrase) if phrase else None
-    voice_script = ""
-    if mp3 and _play_audio_once(mp3, "audio/mp3"):
-        pass  # 음성 우선(삐 생략) — 진동은 유지. 이 rerun 오디오 자리 1개 사용.
-    else:
-        # 음성 없음/합성 실패/이미 오디오 재생됨: 알림음 재생 시도(이미 쓰였으면 생략) +
-        # 음성은 speechSynthesis 폴백(iframe, st.audio 자동재생 제한과 무관).
-        _play_audio_once(_alert_tone_wav(state), "audio/wav")
-        if phrase:
-            voice_script = build_tts_script(phrase)
-    # 진동(Android 한정) + 음성 폴백 스니펫은 iframe 스크립트로(st.audio 자동재생과 무관).
+    st.toast(cfg["toast"])  # 토스트는 즉시(오디오와 무관)
+    # 진동(Android 한정)은 즉시 iframe 스크립트로. 오디오는 큐에 넣어 렌더 끝에서 1개만.
     components.html(
         f"<script>(function(){{"
         f"try{{if(navigator.vibrate)navigator.vibrate({cfg['vibrate']});}}catch(e){{}}"
-        f"{voice_script}"
         f"}})();</script>",
         height=0,
     )
+    phrase = tts_phrase(state) if tts else None
+    _queue_audio(_AUDIO_PRIORITY.get(state, 70), phrase, beep_state=state)
 
 
 def _prime_tts_once() -> None:
@@ -3087,6 +3089,10 @@ def main() -> None:
 
     # 도보 진단 로그 — 걷기 후 데이터로 문제(이탈 오판정·GPS 튐·재탐색·음성)를 진단·공유.
     _render_diag_panel()
+
+    # 이번 rerun 최우선 오디오 1개 재생 — 알림음·이탈/도착/재탐색/회전 음성이 겹쳐도
+    # 우선순위대로 하나만 낸다(모바일 1-autoplay 제한 준수). 렌더 맨 끝에서 1회.
+    _flush_audio()
 
 
 import requests  # noqa: E402 — exception types used in _add_single_booking
