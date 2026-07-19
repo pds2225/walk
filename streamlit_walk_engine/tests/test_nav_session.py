@@ -85,6 +85,11 @@ class TestResumeAction:
         assert nav_session.resume_action(
             running=False, has_route=False, has_journey=True, origin_present=True) == "cancel"
 
+    def test_cancel_when_new_destination_exists(self):
+        assert nav_session.resume_action(
+            running=False, has_route=False, has_journey=False,
+            has_new_destination=True, origin_present=True) == "cancel"
+
     def test_go_when_idle_and_origin_present(self):
         assert nav_session.resume_action(
             running=False, has_route=False, has_journey=False, origin_present=True) == "go"
@@ -96,4 +101,5 @@ class TestResumeAction:
     def test_cancel_takes_priority_over_missing_origin(self):
         # 사용자가 새 목적지를 잡았으면 위치 유무와 무관하게 취소.
         assert nav_session.resume_action(
-            running=False, has_route=True, has_journey=False, origin_present=False) == "cancel"
+            running=False, has_route=False, has_journey=False,
+            has_new_destination=True, origin_present=False) == "cancel"

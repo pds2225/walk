@@ -155,6 +155,9 @@ def test_active_session_persist_and_restore_wired():
     assert "removeItem" in save and "setItem" in save
     # 매 rerun 재주입 방지 스로틀(직렬화 서명 비교)
     assert "nav_active_saved_sig" in save
+    # 좌표·라벨이 그대로여도 ts 버킷은 갱신해 장시간 안내가 만료되지 않게 한다.
+    assert "_ACTIVE_SESSION_REFRESH_MS" in save
+    assert '"ts_bucket"' in save
 
     restore = SRC[SRC.index("def _restore_active_session"):]
     restore = restore[:restore.index("# ── 알림")]
@@ -173,6 +176,7 @@ def test_active_session_persist_and_restore_wired():
     # 사용자가 그새 새 목적지를 잡았으면 복원을 취소(저장 세션이 새 선택을 덮지 않게).
     assert 'st.session_state.get("nav_route") is not None' in resume
     assert 'st.session_state.get("nav_journey") is not None' in resume
+    assert "_resume_has_new_destination(resume)" in resume
     # 성공했을 때만 pending 소비 + 실패는 상한까지 재시도(무한 fetch·영구 유실 방지).
     assert "_RESUME_MAX_ATTEMPTS" in resume
     assert "nav_resume_attempts" in resume
