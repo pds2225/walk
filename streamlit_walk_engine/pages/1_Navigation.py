@@ -514,6 +514,9 @@ def _commit_pending_reroute() -> None:
         "nav_results":             [],
         "nav_samples":             [],
         "nav_prev_coord":          None,
+        "nav_heading_buf":         [],
+        "nav_smoothed_heading":    None,
+        "nav_map_bearing":         None,
         "nav_last_reroute_ts_ms":  int(time.time() * 1000),
         "nav_reroute_count":       new_count,
         "nav_last_alerted_state":  "on_route",
@@ -2635,31 +2638,37 @@ def main() -> None:
     # 없으면 pending 을 유지해(유휴 autorefresh 가 rerun 을 만듦) 다음 rerun 에서 재시도.
     resume = st.session_state.get("nav_resume_pending")
     if resume is not None:
-        resume_origin: Optional[Coordinate] = st.session_state["nav_origin"]
-        if resume_origin is not None:
+        if (st.session_state.get("nav_running")
+                or st.session_state.get("nav_route") is not None
+                or st.session_state.get("nav_journey") is not None):
+            # 사용자가 이미 새 경로를 띄운 경우 저장된 이전 안내로 덮어쓰지 않는다.
             st.session_state["nav_resume_pending"] = None
-            with st.spinner("이전 안내를 이어가는 중…"):
-                try:
-                    r_dest = Coordinate(latitude=resume["lat"], longitude=resume["lon"])
-                    r_label = resume.get("label") or ""
-                    st.session_state["nav_transit_enabled"] = bool(resume.get("transit", True))
-                    if st.session_state["nav_transit_enabled"]:
-                        journey = transit_builder.fetch_transit_journey(resume_origin, r_dest)
-                        _activate_journey(journey, start_now=True)
+        else:
+            resume_origin: Optional[Coordinate] = st.session_state["nav_origin"]
+            if resume_origin is not None:
+                with st.spinner("이전 안내를 이어가는 중…"):
+                    try:
+                        r_dest = Coordinate(latitude=resume["lat"], longitude=resume["lon"])
+                        r_label = resume.get("label") or ""
+                        st.session_state["nav_transit_enabled"] = bool(resume.get("transit", True))
+                        if st.session_state["nav_transit_enabled"]:
+                            journey = transit_builder.fetch_transit_journey(resume_origin, r_dest)
+                            _activate_journey(journey, start_now=True)
+                            if r_label:
+                                st.session_state["nav_dest_display"] = r_label
+                            if journey.source.startswith("도보 강등"):
+                                st.session_state["nav_downgrade_notice"] = journey.source
+                        else:
+                            new_route = _fetch_route(resume_origin, r_dest)
+                            _clear_journey_state()
+                            _activate_route(resume_origin, r_dest, r_label, new_route, start_now=True)
                         if r_label:
-                            st.session_state["nav_dest_display"] = r_label
-                        if journey.source.startswith("도보 강등"):
-                            st.session_state["nav_downgrade_notice"] = journey.source
-                    else:
-                        new_route = _fetch_route(resume_origin, r_dest)
-                        _clear_journey_state()
-                        _activate_route(resume_origin, r_dest, r_label, new_route, start_now=True)
-                    if r_label:
-                        st.session_state["nav_dest_input"] = r_label
-                    st.toast("🔁 이전 안내를 이어갑니다")
-                except Exception:
-                    # 재개 실패(네트워크 등)는 조용히 넘긴다 — 사용자가 다시 입력할 수 있게.
-                    pass
+                            st.session_state["nav_dest_input"] = r_label
+                        st.session_state["nav_resume_pending"] = None
+                        st.toast("🔁 이전 안내를 이어갑니다")
+                    except Exception:
+                        # 재개 실패(네트워크 등)는 pending 을 보존해 다음 rerun 에서 재시도한다.
+                        pass
 
     st.markdown("## 🚶 도보 내비게이션")
     st.caption("가고 싶은 곳을 입력하면 걷는 길을 안내하고, 길을 벗어나면 바로 알려줍니다.")
