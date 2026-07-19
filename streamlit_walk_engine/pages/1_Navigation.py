@@ -1847,7 +1847,9 @@ def _suggest_destinations(query: str, lat3: Optional[float] = None,
     5개만 받아 그중에서 정렬하던 한계(근처 지점이 후보에 아예 못 듦) 제거."""
     center = (Coordinate(latitude=lat3, longitude=lon3)
               if lat3 is not None and lon3 is not None else None)
-    return geocode_suggestions(query, 5, center=center)
+    # 후보 8개(기존 5개) — 소스별로 더 많이 받아 '상위 5개 밖'이라 목적지가 아예 안 뜨던
+    # 경우를 줄인다. 드롭다운은 스크롤되므로 개수를 늘려도 화면 부담이 적다.
+    return geocode_suggestions(query, 8, center=center)
 
 
 def _origin_round3() -> tuple[Optional[float], Optional[float]]:
