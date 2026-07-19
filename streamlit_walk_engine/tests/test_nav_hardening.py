@@ -159,6 +159,8 @@ def test_active_session_persist_and_restore_wired():
     assert "journey.legs[-1]" in save
     # 여정 활성이면 nav_running=False(in-vehicle)여도 저장 유지
     assert "nav_journey" in save
+    assert "nav_journey_active" in save
+    assert "leg_index" in save and "leg_mode" in save
     # 장시간 안내에도 ts 가 갱신되게 서명에 시간 버킷 포함(만료 오판 방지)
     assert "_ACTIVE_SESSION_TS_REFRESH_MS" in save
 
@@ -175,7 +177,7 @@ def test_active_session_persist_and_restore_wired():
     resume = SRC[SRC.index('resume = st.session_state.get("nav_resume_pending")'):]
     resume = resume[:resume.index('st.markdown("## 🚶 도보 내비게이션")')]
     assert "_activate_route(resume_origin" in resume
-    assert "_activate_journey(journey, start_now=True)" in resume
+    assert "_saved_resume_leg_index(journey, resume)" in resume
     # 사용자가 그새 새 목적지를 잡았으면 복원을 취소(저장 세션이 새 선택을 덮지 않게).
     assert 'st.session_state.get("nav_route") is not None' in resume
     assert 'st.session_state.get("nav_journey") is not None' in resume

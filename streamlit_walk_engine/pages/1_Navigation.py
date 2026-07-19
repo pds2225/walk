@@ -368,6 +368,7 @@ def _init() -> None:
         "nav_recent_fixes": [],
         "nav_journey": None,
         "nav_active_leg_index": 0,
+        "nav_journey_active": False,       # 시작된 다구간 여정 여부(nav_running=False 대중교통 구간 포함)
         "nav_transit_enabled": True,
         # 안내 세션 영속화(폰 잠금·새로고침 복귀)
         "nav_active_saved_sig": None,      # LS 저장 스로틀용 직렬화 서명
@@ -538,6 +539,7 @@ def _commit_pending_reroute() -> None:
 def _clear_journey_state() -> None:
     st.session_state["nav_journey"] = None
     st.session_state["nav_active_leg_index"] = 0
+    st.session_state["nav_journey_active"] = False
 
 
 def _activate_leg(journey: transit_builder.Journey, active_index: int, *, start_now: bool) -> None:
@@ -546,6 +548,8 @@ def _activate_leg(journey: transit_builder.Journey, active_index: int, *, start_
     leg = journey.legs[safe_index]
     st.session_state["nav_journey"] = journey
     st.session_state["nav_active_leg_index"] = safe_index
+    if start_now:
+        st.session_state["nav_journey_active"] = True
     st.session_state["nav_route_engine"] = leg.walk_engine_label or journey.source
     st.session_state["nav_route_info"] = leg.route_info
 
@@ -562,13 +566,34 @@ def _activate_leg(journey: transit_builder.Journey, active_index: int, *, start_
     _reset()
 
 
-def _activate_journey(journey: transit_builder.Journey, *, start_now: bool) -> None:
+def _activate_journey(
+    journey: transit_builder.Journey,
+    *,
+    start_now: bool,
+    active_index: int = 0,
+) -> None:
     st.session_state["nav_journey"] = journey
-    st.session_state["nav_active_leg_index"] = 0
+    st.session_state["nav_active_leg_index"] = active_index
+    st.session_state["nav_journey_active"] = bool(start_now)
     # 여정 전체 소요시간·누적 재탐색 집계 초기화(레그 전환 _reset 에는 안 지워짐).
     st.session_state["nav_journey_start_ts_ms"] = None
     st.session_state["nav_journey_reroute_total"] = 0
-    _activate_leg(journey, 0, start_now=start_now)
+    _activate_leg(journey, active_index, start_now=start_now)
+
+
+def _saved_resume_leg_index(journey: transit_builder.Journey, resume: dict) -> int:
+    """Return the saved leg index when it still matches the replanned journey."""
+    if not journey.legs:
+        return 0
+    try:
+        idx = int(resume.get("leg_index", 0))
+    except (TypeError, ValueError):
+        idx = 0
+    idx = max(0, min(idx, len(journey.legs) - 1))
+    saved_mode = resume.get("leg_mode")
+    if saved_mode and journey.legs[idx].mode != saved_mode:
+        return 0
+    return idx
 
 
 def _meters_text(value: int | None) -> str:
@@ -950,21 +975,32 @@ def _save_active_session() -> None:
     """
     running = bool(st.session_state.get("nav_running"))
     journey = st.session_state.get("nav_journey")
+    journey_active = bool(st.session_state.get("nav_journey_active"))
     # 저장 대상 결정:
-    #  · 대중교통 여정이 활성이면 여정의 '최종' 목적지(마지막 leg 의 end)를 저장한다.
+    #  · 시작된 대중교통 여정이면 여정의 '최종' 목적지(마지막 leg 의 end)를 저장한다.
     #    안내 중(nav_dest)은 현재 leg 의 중간 정류장이라, 그걸 저장하면 복귀 시 정류장까지만
     #    안내된다. 또 in-vehicle leg 은 nav_running=False 라, running 만 보면 여정 중에
-    #    저장이 지워져 복귀 시 여정을 통째로 잃는다 — 여정 활성 여부로 별도 판단한다.
+    #    저장이 지워져 복귀 시 여정을 통째로 잃는다 — 시작된 여정 여부로 별도 판단한다.
     #  · 여정이 없고 도보 안내 중이면 nav_dest(도보 목적지)를 저장한다.
     save_dest: Optional[Coordinate] = None
     save_label = ""
     save_transit = bool(st.session_state.get("nav_transit_enabled", True))
-    if journey is not None and getattr(journey, "legs", None):
+    save_leg_index: Optional[int] = None
+    save_leg_mode = ""
+    if journey_active and journey is not None and getattr(journey, "legs", None):
+        try:
+            active_idx = int(st.session_state.get("nav_active_leg_index", 0))
+        except (TypeError, ValueError):
+            active_idx = 0
+        active_idx = max(0, min(active_idx, len(journey.legs) - 1))
+        active_leg = journey.legs[active_idx]
         final_leg = journey.legs[-1]
         save_dest = final_leg.end
         save_label = (final_leg.end_label
                       or st.session_state.get("nav_dest_display") or "")
         save_transit = True  # 여정 복원은 대중교통으로 재계획
+        save_leg_index = active_idx
+        save_leg_mode = active_leg.mode
     elif running:
         d: Optional[Coordinate] = st.session_state.get("nav_dest")
         if d is not None:
@@ -981,12 +1017,16 @@ def _save_active_session() -> None:
             "transit": save_transit,
             "ts": now_ms,
         }
+        if save_leg_index is not None:
+            obj["leg_index"] = save_leg_index
+            obj["leg_mode"] = save_leg_mode
         # ts 는 스로틀 비교에서 제외하되, 시간 버킷을 서명에 넣어 목적지가 안 바뀌어도
         # 주기적으로(_ACTIVE_SESSION_TS_REFRESH_MS) 재기록돼 ts 가 갱신되게 한다 —
         # 장시간 안내가 만료로 잘못 버려지는 것을 막는다.
         sig = json.dumps({
             "lat": obj["lat"], "lon": obj["lon"], "label": obj["label"],
-            "transit": obj["transit"], "b": now_ms // _ACTIVE_SESSION_TS_REFRESH_MS,
+            "transit": obj["transit"], "leg_index": obj.get("leg_index"),
+            "leg_mode": obj.get("leg_mode"), "b": now_ms // _ACTIVE_SESSION_TS_REFRESH_MS,
         }, ensure_ascii=False)
         if st.session_state.get("nav_active_saved_sig") == sig:
             return
@@ -2562,7 +2602,10 @@ def _render_action_buttons() -> None:
         if st.session_state["nav_running"]:
             if st.button("⏹ 중지", width="stretch", type="primary"):
                 st.session_state["nav_running"] = False
+                st.session_state["nav_journey_active"] = False
                 st.session_state["nav_tts_primed"] = False  # 다음 시작 제스처에서 다시 해금
+                st.session_state["nav_active_saved_sig"] = (
+                    st.session_state.get("nav_active_saved_sig") or "__force_clear__")
                 _diag("stop")
                 _save_list_to_ls(_LS_KEY_DIAG, st.session_state["nav_diag_log"])  # 중지 시 영속화
                 _upload_diag_to_github(st.session_state["nav_diag_log"])  # 토큰 있으면 자동 업로드
@@ -2576,6 +2619,7 @@ def _render_action_buttons() -> None:
                     "nav_samples":  [],
                     "nav_arrival_summary": None,
                     "nav_start_ts_ms": None,
+                    "nav_journey_active": st.session_state.get("nav_journey") is not None,
                 })
                 st.toast("🚶 안내를 시작합니다")
                 st.rerun()
@@ -2699,7 +2743,11 @@ def main() -> None:
                     st.session_state["nav_transit_enabled"] = bool(resume.get("transit", True))
                     if st.session_state["nav_transit_enabled"]:
                         journey = transit_builder.fetch_transit_journey(resume_origin, r_dest)
-                        _activate_journey(journey, start_now=True)
+                        _activate_journey(
+                            journey,
+                            start_now=True,
+                            active_index=_saved_resume_leg_index(journey, resume),
+                        )
                         if r_label:
                             st.session_state["nav_dest_display"] = r_label
                         if journey.source.startswith("도보 강등"):

@@ -70,6 +70,18 @@ class TestClassifySavedSession:
         s = nav_session.classify_saved_session(_raw(transit=False), 1_000_000, _MAX_AGE)
         assert s.data["transit"] is False
 
+    def test_transit_leg_state_preserved(self):
+        s = nav_session.classify_saved_session(
+            _raw(leg_index=2, leg_mode="subway"), 1_000_000, _MAX_AGE)
+        assert s.data["leg_index"] == 2
+        assert s.data["leg_mode"] == "subway"
+
+    def test_bad_leg_index_is_ignored(self):
+        s = nav_session.classify_saved_session(
+            _raw(leg_index="bad", leg_mode="bus"), 1_000_000, _MAX_AGE)
+        assert "leg_index" not in s.data
+        assert s.data["leg_mode"] == "bus"
+
 
 # ── resume_action ────────────────────────────────────────────────────────────
 class TestResumeAction:

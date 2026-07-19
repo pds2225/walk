@@ -28,7 +28,7 @@ ResumeAction = Literal["go", "cancel", "wait"]
 
 class SavedSession(NamedTuple):
     status: SavedStatus
-    data: Optional[dict]  # status=="resume" 일 때만 {lat, lon, label, transit}
+    data: Optional[dict]  # status=="resume" 일 때만 {lat, lon, label, transit, ...}
 
 
 def classify_saved_session(
@@ -58,12 +58,20 @@ def classify_saved_session(
         except (ValueError, TypeError):
             pass  # ts 형식 이상 → 나이 판정만 건너뛰고 계속
 
-    return SavedSession("resume", {
+    data = {
         "lat": lat,
         "lon": lon,
         "label": d.get("label") or "",
         "transit": bool(d.get("transit", True)),
-    })
+    }
+    try:
+        data["leg_index"] = max(0, int(d["leg_index"]))
+    except (ValueError, TypeError, KeyError):
+        pass  # 예전 저장분 호환: leg_index 가 없거나 이상하면 첫 구간으로 재개
+    leg_mode = d.get("leg_mode")
+    if isinstance(leg_mode, str) and leg_mode:
+        data["leg_mode"] = leg_mode
+    return SavedSession("resume", data)
 
 
 def resume_action(
