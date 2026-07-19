@@ -519,12 +519,7 @@ def _commit_pending_reroute() -> None:
     # 이탈 음성 뒤 재탐색 성공이 화면 토스트뿐이면 폰을 안 보는 보행자는 새 경로를
     # 찾았는지 알 수 없다 → 성공도 음성으로. 회전 방향은 id 리셋 덕에 이어서 예고된다.
     if st.session_state["nav_tts_enabled"]:
-        components.html(
-            "<script>(function(){"
-            + build_tts_script("경로를 다시 찾았습니다. 새 경로로 안내합니다.")
-            + "})();</script>",
-            height=0,
-        )
+        _speak("경로를 다시 찾았습니다. 새 경로로 안내합니다.")  # gTTS 우선 → TTS 폴백
 
 
 def _clear_journey_state() -> None:
@@ -1014,6 +1009,41 @@ def _alert_tone_wav(state: str) -> bytes:
     return buf.getvalue()
 
 
+@st.cache_data(ttl=86400, show_spinner=False)
+def _tts_mp3(phrase: str) -> Optional[bytes]:
+    """한국어 문구를 MP3로 합성(gTTS). 고정 문구라 캐시로 1회만 네트워크 호출.
+
+    브라우저 speechSynthesis 는 모바일 iframe 에서 조용히 막히는데, 이렇게 서버에서
+    오디오로 합성해 st.audio(최상위 문서·autoplay)로 재생하면 알림음처럼 확실히 들린다.
+    gTTS 미설치·네트워크 실패는 None → 호출부가 speechSynthesis 로 폴백(무회귀).
+    """
+    try:
+        from gtts import gTTS
+        buf = io.BytesIO()
+        gTTS(text=phrase, lang="ko").write_to_fp(buf)
+        data = buf.getvalue()
+        return data or None
+    except Exception:
+        return None
+
+
+def _speak(phrase: str) -> None:
+    """문구를 음성으로 재생 — gTTS MP3(st.audio, 모바일 확실) 우선, 실패 시 브라우저 TTS.
+
+    이 함수는 최상위 문서 오디오를 우선한다. gTTS 가 없거나 실패하면 기존 speechSynthesis
+    iframe 스니펫으로 폴백(데스크톱·일부 브라우저에서 동작).
+    """
+    if not phrase:
+        return
+    mp3 = _tts_mp3(phrase)
+    if mp3:
+        st.audio(mp3, format="audio/mp3", autoplay=True)
+    else:
+        components.html(
+            f"<script>(function(){{{build_tts_script(phrase)}}})();</script>", height=0,
+        )
+
+
 def _trigger_alert(state: str, tts: bool = True) -> None:
     cfg = _ALERT.get(state)
     if cfg is None:
@@ -1022,19 +1052,16 @@ def _trigger_alert(state: str, tts: bool = True) -> None:
     # 소리: 최상위 문서에서 자동재생(위 _alert_tone_wav 설명 참조). 플레이어 바가 잠깐
     # 보이는 것은 의도 — 무슨 알림이 울렸는지 시각 단서도 된다(다음 rerun에 사라짐).
     st.audio(_alert_tone_wav(state), format="audio/wav", autoplay=True)
-    # 진동·음성은 iframe 스크립트 유지(진동은 Android 한정, 음성은 브라우저 TTS).
-    voice_script = ""
-    if tts:
-        phrase = tts_phrase(state)
-        if phrase:
-            voice_script = build_tts_script(phrase)
+    # 진동은 iframe 스크립트로(진동은 Android 한정).
     components.html(
         f"<script>(function(){{"
         f"try{{if(navigator.vibrate)navigator.vibrate({cfg['vibrate']});}}catch(e){{}}"
-        f"{voice_script}"
         f"}})();</script>",
         height=0,
     )
+    # 음성: gTTS MP3(최상위 문서 재생, 모바일에서도 확실) 우선 — speechSynthesis 폴백.
+    if tts:
+        _speak(tts_phrase(state) or "")
 
 
 def _prime_tts_once() -> None:
@@ -1148,10 +1175,7 @@ def _maybe_announce_turn(result, tts_enabled: bool,
     st.session_state["nav_turn_announced_id"] = turn_id
     st.toast(f"{_DIR_ARROW.get(direction, '↑')} 잠시 후 {label} — {dist:.0f}m 앞")
     if tts_enabled:
-        components.html(
-            f"<script>(function(){{{build_tts_script(f'잠시 후 {label}입니다.')}}})();</script>",
-            height=0,
-        )
+        _speak(f"잠시 후 {label}입니다.")  # gTTS MP3 우선(모바일 확실) → speechSynthesis 폴백
 
 
 # ── 도착 판정 ─────────────────────────────────────────────────────────────────
