@@ -46,6 +46,7 @@ from engine import (
 )
 import gps_filter
 import mapbox_matcher
+import nav_session
 import snap_router
 import transit_builder
 from alert_voice import build_tts_prime_script, build_tts_script, tts_phrase
@@ -996,33 +997,17 @@ def _restore_active_session() -> None:
     if raw is None:
         return  # 대기(다음 rerun 에서 값 도착) 또는 키 없음 — 어느 쪽이든 무해
     st.session_state["nav_active_restore_tried"] = True
-    try:
-        d = json.loads(raw)
-        lat, lon = float(d["lat"]), float(d["lon"])
-    except (ValueError, TypeError, KeyError):
-        # 손상된 값은 localStorage 에서 제거한다 — 남겨 두면 이후 세션마다 같은
-        # 파싱 실패로 자동 재개가 계속 막힌다(고: bugbot Medium).
+    saved = nav_session.classify_saved_session(
+        raw, int(time.time() * 1000), _ACTIVE_SESSION_MAX_AGE_MS)
+    if saved.status in ("bad", "expired"):
+        # 손상·만료된 값은 localStorage 에서 제거한다 — 남겨 두면 이후 세션마다 같은
+        # 실패로 자동 재개가 계속 막힌다(고: bugbot Medium — 손상 JSON / 만료 세션).
         components.html(
             f"<script>try{{localStorage.removeItem('{_LS_KEY_ACTIVE}')}}catch(e){{}}</script>",
             height=0,
         )
         return
-    ts = d.get("ts")
-    if ts is not None:
-        try:
-            if (int(time.time() * 1000) - int(ts)) > _ACTIVE_SESSION_MAX_AGE_MS:
-                components.html(
-                    f"<script>try{{localStorage.removeItem('{_LS_KEY_ACTIVE}')}}catch(e){{}}</script>",
-                    height=0,
-                )
-                return
-        except (ValueError, TypeError):
-            pass
-    st.session_state["nav_resume_pending"] = {
-        "lat": lat, "lon": lon,
-        "label": d.get("label") or "",
-        "transit": bool(d.get("transit", True)),
-    }
+    st.session_state["nav_resume_pending"] = saved.data
 
 
 # ── 알림 ─────────────────────────────────────────────────────────────────────
@@ -2655,44 +2640,48 @@ def main() -> None:
     # 없으면 pending 을 유지해(유휴 autorefresh 가 rerun 을 만듦) 다음 rerun 에서 재시도.
     resume = st.session_state.get("nav_resume_pending")
     if resume is not None:
-        # pending 이 걸린 뒤 사용자가 그새 새 목적지를 잡았으면(경로/여정/안내 중)
-        # 복원을 취소한다 — 저장 세션이 사용자의 새 선택을 덮어쓰지 않게 한다.
-        if (st.session_state.get("nav_running")
-                or st.session_state.get("nav_route") is not None
-                or st.session_state.get("nav_journey") is not None):
+        resume_origin: Optional[Coordinate] = st.session_state["nav_origin"]
+        # pending 이 걸린 뒤 사용자가 그새 새 목적지를 잡았으면 취소, 위치가 잡혔으면 재개,
+        # 아직이면 대기(pending 유지) — 판정은 순수 함수로 분리(nav_session.resume_action).
+        action = nav_session.resume_action(
+            running=bool(st.session_state.get("nav_running")),
+            has_route=st.session_state.get("nav_route") is not None,
+            has_journey=st.session_state.get("nav_journey") is not None,
+            origin_present=resume_origin is not None,
+        )
+        if action == "cancel":
+            # 저장 세션이 사용자의 새 선택을 덮어쓰지 않게 복원을 취소한다.
             st.session_state["nav_resume_pending"] = None
-        else:
-            resume_origin: Optional[Coordinate] = st.session_state["nav_origin"]
-            if resume_origin is not None:
-                with st.spinner("이전 안내를 이어가는 중…"):
-                    try:
-                        r_dest = Coordinate(latitude=resume["lat"], longitude=resume["lon"])
-                        r_label = resume.get("label") or ""
-                        st.session_state["nav_transit_enabled"] = bool(resume.get("transit", True))
-                        if st.session_state["nav_transit_enabled"]:
-                            journey = transit_builder.fetch_transit_journey(resume_origin, r_dest)
-                            _activate_journey(journey, start_now=True)
-                            if r_label:
-                                st.session_state["nav_dest_display"] = r_label
-                            if journey.source.startswith("도보 강등"):
-                                st.session_state["nav_downgrade_notice"] = journey.source
-                        else:
-                            new_route = _fetch_route(resume_origin, r_dest)
-                            _clear_journey_state()
-                            _activate_route(resume_origin, r_dest, r_label, new_route, start_now=True)
+        elif action == "go":
+            with st.spinner("이전 안내를 이어가는 중…"):
+                try:
+                    r_dest = Coordinate(latitude=resume["lat"], longitude=resume["lon"])
+                    r_label = resume.get("label") or ""
+                    st.session_state["nav_transit_enabled"] = bool(resume.get("transit", True))
+                    if st.session_state["nav_transit_enabled"]:
+                        journey = transit_builder.fetch_transit_journey(resume_origin, r_dest)
+                        _activate_journey(journey, start_now=True)
                         if r_label:
-                            st.session_state["nav_dest_input"] = r_label
-                        # 성공했을 때만 pending 을 소비한다 — 아래 except 는 남겨 둔다.
+                            st.session_state["nav_dest_display"] = r_label
+                        if journey.source.startswith("도보 강등"):
+                            st.session_state["nav_downgrade_notice"] = journey.source
+                    else:
+                        new_route = _fetch_route(resume_origin, r_dest)
+                        _clear_journey_state()
+                        _activate_route(resume_origin, r_dest, r_label, new_route, start_now=True)
+                    if r_label:
+                        st.session_state["nav_dest_input"] = r_label
+                    # 성공했을 때만 pending 을 소비한다 — 아래 except 는 남겨 둔다.
+                    st.session_state["nav_resume_pending"] = None
+                    st.session_state["nav_resume_attempts"] = 0
+                    st.toast("🔁 이전 안내를 이어갑니다")
+                except Exception:
+                    # 재개 실패(네트워크 등): pending 을 지우지 않고 몇 번 재시도한다.
+                    # 상한을 넘으면 포기(무한 fetch 방지) — 사용자가 직접 다시 검색 가능.
+                    tries = st.session_state.get("nav_resume_attempts", 0) + 1
+                    st.session_state["nav_resume_attempts"] = tries
+                    if tries >= _RESUME_MAX_ATTEMPTS:
                         st.session_state["nav_resume_pending"] = None
-                        st.session_state["nav_resume_attempts"] = 0
-                        st.toast("🔁 이전 안내를 이어갑니다")
-                    except Exception:
-                        # 재개 실패(네트워크 등): pending 을 지우지 않고 몇 번 재시도한다.
-                        # 상한을 넘으면 포기(무한 fetch 방지) — 사용자가 직접 다시 검색 가능.
-                        tries = st.session_state.get("nav_resume_attempts", 0) + 1
-                        st.session_state["nav_resume_attempts"] = tries
-                        if tries >= _RESUME_MAX_ATTEMPTS:
-                            st.session_state["nav_resume_pending"] = None
 
     st.markdown("## 🚶 도보 내비게이션")
     st.caption("가고 싶은 곳을 입력하면 걷는 길을 안내하고, 길을 벗어나면 바로 알려줍니다.")
