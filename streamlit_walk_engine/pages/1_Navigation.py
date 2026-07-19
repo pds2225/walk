@@ -371,6 +371,7 @@ def _init() -> None:
         # 안내 세션 영속화(폰 잠금·새로고침 복귀)
         "nav_active_saved_sig": None,      # LS 저장 스로틀용 직렬화 서명
         "nav_active_restore_tried": False, # 저장 세션 복원 시도 완료(1회)
+        "nav_active_clear_requested": False, # 저장 세션 강제 삭제 예약
         "nav_resume_pending": None,        # origin 확보 후 자동 재개할 목적지
         "nav_resume_attempts": 0,          # 자동 재개 경로 계획 실패 재시도 횟수
         # 진행 방향 보정(원형 평균 스무딩)
@@ -956,6 +957,7 @@ def _save_active_session() -> None:
         # ts 는 스로틀 비교에서 제외(매초 달라져 스로틀이 무의미해짐) — 좌표·라벨·모드만.
         sig = json.dumps({k: obj[k] for k in ("lat", "lon", "label", "transit")},
                          ensure_ascii=False)
+        st.session_state["nav_active_clear_requested"] = False
         if st.session_state.get("nav_active_saved_sig") == sig:
             return
         st.session_state["nav_active_saved_sig"] = sig
@@ -965,9 +967,11 @@ def _save_active_session() -> None:
             height=0,
         )
     else:
-        if st.session_state.get("nav_active_saved_sig") is None:
+        if (st.session_state.get("nav_active_saved_sig") is None
+                and not st.session_state.get("nav_active_clear_requested")):
             return  # 이미 지워진 상태 — 스크립트 재주입 불필요
         st.session_state["nav_active_saved_sig"] = None
+        st.session_state["nav_active_clear_requested"] = False
         components.html(
             f"<script>try{{localStorage.removeItem('{_LS_KEY_ACTIVE}')}}catch(e){{}}</script>",
             height=0,
@@ -2566,6 +2570,10 @@ def _render_action_buttons() -> None:
         _clear_journey_state()
         st.session_state["nav_running"] = False
         st.session_state["nav_arrival_summary"] = None
+        st.session_state["nav_resume_pending"] = None
+        st.session_state["nav_resume_attempts"] = 0
+        st.session_state["nav_active_restore_tried"] = True
+        st.session_state["nav_active_clear_requested"] = True
         # nav_active_booking_id 는 여기서 지우지 않는다 — 출발 반경 안에 서 있는 채로
         # 지우면 _try_activate_booking 이 5초 뒤 예약을 다시 자동 시작해 초기화가
         # 무력화된다. 대신 그 함수가 '출발 반경을 벗어나면' 재무장한다.
