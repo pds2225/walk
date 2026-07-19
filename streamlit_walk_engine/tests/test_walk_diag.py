@@ -150,3 +150,13 @@ class TestDiagFindings:
         log = [diag_record(i * 1000, "tick", acc=8.0) for i in range(3)]
         out = diag_findings(diag_summary(log))
         assert any("표본이 적음" in f for f in out)
+
+    def test_deviation_ratio_uses_tick_states_only(self):
+        # alert 레코드도 st='deviated'를 달지만, 이탈 비율 분자는 tick 만 세야 한다
+        # (안 그러면 dev 가 ticks 를 넘어 '이탈 비율 높음'이 오탐).
+        log = [diag_record(i * 1000, "tick", st="on_route", acc=10.0) for i in range(10)]
+        log += [diag_record(100000 + i, "alert", st="deviated") for i in range(8)]
+        summ = diag_summary(log)
+        assert summ["tick_states"].get("deviated", 0) == 0  # tick 중 이탈 0
+        out = diag_findings(summ)
+        assert not any("이탈 판정 비율 높음" in f for f in out)

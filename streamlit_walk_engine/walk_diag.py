@@ -83,6 +83,7 @@ def diag_summary(log: list) -> dict:
         return {"records": 0}
     events: dict[str, int] = {}
     states: dict[str, int] = {}
+    tick_states: dict[str, int] = {}  # 판정(tick) 레코드에서만 센 상태 — 비율 계산의 분모/분자 일치용
     accs: list[float] = []
     times: list[float] = []
     for rec in log:
@@ -91,6 +92,8 @@ def diag_summary(log: list) -> dict:
         state = rec.get("st")
         if state:
             states[state] = states.get(state, 0) + 1
+            if ev == "tick":  # alert·reroute 레코드도 st 를 달고 있어, 비율엔 tick 만 센다
+                tick_states[state] = tick_states.get(state, 0) + 1
         acc = rec.get("acc")
         if isinstance(acc, (int, float)):
             accs.append(float(acc))
@@ -102,6 +105,7 @@ def diag_summary(log: list) -> dict:
         "span_s": round((max(times) - min(times)) / 1000.0, 1) if len(times) >= 2 else 0.0,
         "events": events,
         "states": states,
+        "tick_states": tick_states,
     }
     if accs:
         accs_sorted = sorted(accs)
@@ -121,7 +125,9 @@ def diag_findings(summary: dict) -> list[str]:
     if not summary or summary.get("records", 0) == 0:
         return []
     events = summary.get("events", {}) or {}
-    states = summary.get("states", {}) or {}
+    # 이탈 관련 비율은 '판정(tick) 레코드'만으로 센다 — alert·reroute 레코드도 st 를 달고
+    # 있어 states(전체)를 쓰면 분자가 부풀어 15/10 같은 잘못된 비율이 나온다(dev ≤ ticks 보장).
+    tick_states = summary.get("tick_states", summary.get("states", {})) or {}
     ticks = events.get("tick", 0)
     findings: list[str] = []
 
@@ -137,7 +143,7 @@ def diag_findings(summary: dict) -> list[str]:
     if reroutes >= 5 or (reroutes >= 2 and reroutes / span_min > 1.0):
         findings.append(f"🟡 재탐색 잦음 ({reroutes}회) — 경로 이탈이 반복됨(신호·경로 확인)")
 
-    dev = states.get("deviated", 0) + states.get("passed_turn", 0)
+    dev = tick_states.get("deviated", 0) + tick_states.get("passed_turn", 0)
     if ticks >= 10 and dev / ticks > 0.3:
         findings.append(f"🟡 이탈 판정 비율 높음 ({dev}/{ticks} tick)")
 
