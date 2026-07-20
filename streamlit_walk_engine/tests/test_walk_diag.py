@@ -15,7 +15,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from walk_diag import (
-    DIAG_CAP, GITHUB_LOG_BRANCH, append_capped, diag_json, diag_record,
+    DIAG_CAP, GITHUB_LOG_BRANCH, append_capped, diag_findings, diag_json, diag_record,
     diag_summary, github_upload_payload,
 )
 
@@ -117,3 +117,60 @@ class TestGithubUploadPayload:
     def test_empty_session_id_falls_back(self):
         path, _ = github_upload_payload("", 1000, [])
         assert path == "logs/sess-1000.json"
+
+
+class TestDiagFindings:
+    """요약 → 사람이 읽는 자동 진단 힌트."""
+
+    def _summ(self, log):
+        return diag_summary(log)
+
+    def test_empty_log_no_findings(self):
+        assert diag_findings({"records": 0}) == []
+        assert diag_findings({}) == []
+
+    def test_healthy_log_reports_ok(self):
+        log = [diag_record(i * 1000, "tick", st="on_route", acc=10.0) for i in range(20)]
+        log.append(diag_record(21000, "alert", st="deviated"))
+        out = diag_findings(diag_summary(log))
+        assert any("특이사항 없음" in f for f in out)
+
+    def test_flags_low_gps_accuracy(self):
+        log = [diag_record(i * 1000, "tick", st="on_route", acc=55.0) for i in range(20)]
+        out = diag_findings(diag_summary(log))
+        assert any("GPS 정확도 매우 낮음" in f for f in out)
+
+    def test_flags_silent_voice_when_deviations_but_no_alert(self):
+        # 이탈(deviated) tick 은 있는데 alert 이벤트가 0 → 음성 미작동 의심
+        log = [diag_record(i * 1000, "tick", st="deviated", acc=10.0) for i in range(12)]
+        out = diag_findings(diag_summary(log))
+        assert any("음성" in f and "0회" in f for f in out)
+
+    def test_flags_small_sample(self):
+        log = [diag_record(i * 1000, "tick", acc=8.0) for i in range(3)]
+        out = diag_findings(diag_summary(log))
+        assert any("표본이 적음" in f for f in out)
+
+    def test_deviation_ratio_uses_tick_states_only(self):
+        # alert 레코드도 st='deviated'를 달지만, 이탈 비율 분자는 tick 만 세야 한다
+        # (안 그러면 dev 가 ticks 를 넘어 '이탈 비율 높음'이 오탐).
+        log = [diag_record(i * 1000, "tick", st="on_route", acc=10.0) for i in range(10)]
+        log += [diag_record(100000 + i, "alert", st="deviated") for i in range(8)]
+        summ = diag_summary(log)
+        assert summ["tick_states"].get("deviated", 0) == 0  # tick 중 이탈 0
+        out = diag_findings(summ)
+        assert not any("이탈 판정 비율 높음" in f for f in out)
+
+    def test_weak_toast_counts_as_notification(self):
+        # 저정확도 이탈은 alert 대신 weak_toast 로 알림 → '음성 미작동' 오탐 금지
+        log = [diag_record(i * 1000, "tick", st="deviated", acc=40.0) for i in range(12)]
+        log.append(diag_record(99000, "weak_toast", st="deviated"))
+        out = diag_findings(diag_summary(log))
+        assert not any("음성 미작동" in f for f in out)
+
+    def test_no_accuracy_data_does_not_claim_all_clear(self):
+        # acc 값이 없으면 '정확도 정상' 올클리어를 띄우지 않고 '데이터 없음'을 명시한다
+        log = [diag_record(i * 1000, "tick") for i in range(6)]  # acc 없음
+        out = diag_findings(diag_summary(log))
+        assert any("정확도 데이터 없음" in f for f in out)
+        assert not any("특이사항 없음" in f for f in out)
