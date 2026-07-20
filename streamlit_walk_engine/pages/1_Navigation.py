@@ -1842,6 +1842,18 @@ def _render_metrics(results: list[EngineResult]) -> None:
         unsafe_allow_html=True,
     )
 
+    # ── GPS 위치 정확도 표시 — 위치·이탈 판정이 얼마나 믿을 만한지 사용자가 인지하게.
+    #    정확도가 나쁘면(트인 곳으로 이동) 행동으로 실제 정확도를 올릴 수 있다.
+    _acc = _gating_accuracy()
+    if isinstance(_acc, (int, float)):
+        if _acc <= 15:
+            _acc_icon, _acc_txt = "🟢", "양호"
+        elif _acc <= 30:
+            _acc_icon, _acc_txt = "🟡", "보통"
+        else:
+            _acc_icon, _acc_txt = "🔴", "낮음 — 트인 곳으로 이동 권장"
+        st.caption(f"{_acc_icon} GPS 정확도 ±{round(_acc)}m ({_acc_txt})")
+
     # ── 보행자 핵심 지표 (크게 위에): 다음 회전 = '지금 할 일', 경로까지 거리 ──
     next_turn_m = last.metrics.distance_to_next_turn_point_meters
     if next_turn_m is not None:
@@ -3114,6 +3126,20 @@ def main() -> None:
                     "<script>try{if(navigator.vibrate)navigator.vibrate([200,100,300]);}"
                     "catch(e){}</script>", height=0)
                 st.toast("🔔 알림 테스트 — 삐삐 소리가 나면 정상입니다")
+            # 음성(TTS)이 폰에서 실제로 나는지 걷기 전에 확인 — '음성 안내 재확인'용.
+            # gTTS MP3(최상위 문서 autoplay) 우선, 실패 시 브라우저 speechSynthesis 폴백.
+            # 버튼 클릭 자체가 사용자 제스처라 이후 자동재생 허용에도 도움이 된다.
+            if st.button("🔊 음성 테스트 (목소리 확인)", width="stretch"):
+                _phrase = "음성 안내 테스트입니다. 경로를 이탈하면 이렇게 알려드립니다."
+                _mp3 = _tts_mp3(_phrase)
+                if _mp3:
+                    st.audio(_mp3, format="audio/mp3", autoplay=True)
+                    st.toast("🔊 음성 테스트 — 목소리가 들리면 정상입니다")
+                else:
+                    components.html(
+                        f"<script>(function(){{{build_tts_script(_phrase)}}})();</script>",
+                        height=0)
+                    st.toast("🔊 음성 테스트 — 브라우저 음성으로 시도(안 들리면 기기 제약)")
             with st.expander("🔧 고급 설정 (이탈 감지 민감도)", expanded=False):
                 st.caption("GPS가 얼마나 벗어나야 경고할지 — 보통은 기본값 그대로 두세요")
                 drift_t = st.slider(

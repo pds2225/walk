@@ -320,3 +320,15 @@ def test_map_zoom_persists_across_reruns():
     assert 'key="nav_map"' in source                        # 차트 컴포넌트 identity 고정
     assert "route-{st.session_state['nav_reroute_count']}" in source  # 재탐색 시에만 리셋
     assert 'uirevision="nav-placeholder"' in source         # 경로 전 지도도 유지
+
+
+def test_voice_test_button_and_gps_accuracy_shown():
+    """음성 재확인용 '음성 테스트' 버튼 + 안내 중 GPS 정확도 표시(위치 품질 인지)."""
+    source = PAGE.read_text(encoding="utf-8")
+    # 음성 테스트: gTTS MP3 우선(st.audio) → speechSynthesis 폴백
+    assert "🔊 음성 테스트" in source
+    assert "_mp3 = _tts_mp3(_phrase)" in source
+    # GPS 정확도 표시: 판정 패널에 ±Nm + 품질(양호/보통/낮음)
+    assert "GPS 정확도 ±" in source
+    assert "_acc = _gating_accuracy()" in source
+    assert "트인 곳으로 이동 권장" in source  # 정확도 낮을 때 행동 유도
