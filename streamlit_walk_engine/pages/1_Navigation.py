@@ -2091,6 +2091,200 @@ def _render_compass_enable() -> None:
         )
 
 
+_HEADING_DEBUG_HTML = """
+<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:13px">
+ <div id="st" style="padding:6px 8px;border-radius:6px;background:#fff3cd;margin-bottom:6px"></div>
+ <div style="display:flex;gap:6px;margin-bottom:8px">
+  <button id="fz" style="flex:1;font-size:14px;padding:9px 6px;border-radius:8px;
+    border:1px solid #bbb;background:#f7f7f7;cursor:pointer">⏸ 값 고정</button>
+  <button id="cp" style="flex:1;font-size:14px;padding:9px 6px;border-radius:8px;
+    border:1px solid #bbb;background:#f7f7f7;cursor:pointer">📋 값 복사</button>
+ </div>
+ <div style="font-weight:600;margin:2px 0 4px">앱이 지금 쓰는 값</div>
+ <div id="app"></div>
+ <div style="font-weight:600;margin:10px 0 4px">센서로 계산한 후보 — 어느 게 맞나요?</div>
+ <div id="cand"></div>
+ <details style="margin-top:8px">
+  <summary style="cursor:pointer;color:#555">원시 센서값 보기</summary>
+  <div id="raw" style="font-family:ui-monospace,Menlo,Consolas,monospace;
+    font-size:12px;line-height:1.7;padding:6px 2px;color:#333"></div>
+ </details>
+</div>
+<script>
+(function(){
+ var DECL=__DECL__, APPVAL=__APPVAL__, MAPVAL=__MAPVAL__;
+ var DIRS=["북","북동","동","남동","남","남서","서","북서"];
+ var A={n:0,alpha:null,beta:null,gamma:null,abs:null,t:0};
+ var P={n:0,alpha:null,beta:null,gamma:null,abs:null,t:0};
+ var W={h:null,acc:null};
+ var G={h:null,sp:null,acc:null,lat:null,lon:null,n:0};
+ var frozen=false;
+
+ function norm(d){return d==null?null:((d%360)+360)%360;}
+ function lab(d){return d==null?"—":DIRS[Math.floor((norm(d)+22.5)/45)%8];}
+ function fx(v,k){return v==null?"—":(+v).toFixed(k==null?1:k);}
+
+ function onOri(slot,ev){
+  slot.n++; slot.t=Date.now(); slot.abs=ev.absolute;
+  slot.alpha=ev.alpha; slot.beta=ev.beta; slot.gamma=ev.gamma;
+  if(ev.webkitCompassHeading!=null)W.h=ev.webkitCompassHeading;
+  if(ev.webkitCompassAccuracy!=null)W.acc=ev.webkitCompassAccuracy;
+ }
+ try{window.addEventListener('deviceorientationabsolute',function(e){onOri(A,e);},true);}catch(e){}
+ try{window.addEventListener('deviceorientation',function(e){onOri(P,e);},true);}catch(e){}
+
+ // 기울기 보정 방위 — 폰 뒷면(카메라)이 향하는 쪽을 수평면에 투영한 값.
+ // 폰을 세워 들고 보는 자세에서 '사용자가 보는 방향'과 일치한다.
+ // 단 폰을 수평으로 눕히면 뒷면이 바닥을 향해 투영 길이가 0 → 방위 미정의.
+ // 이때 0°(=북)를 그대로 내보내면 패널이 거짓 '북'을 표시해 오진을 부르므로
+ // null 로 돌려 '—'가 뜨게 한다(node 검증에서 실제로 발견된 함정).
+ function tilt(al,be,ga){
+  if(al==null||be==null||ga==null)return null;
+  var x=be*Math.PI/180,y=ga*Math.PI/180,z=al*Math.PI/180;
+  var cX=Math.cos(x),cY=Math.cos(y),cZ=Math.cos(z);
+  var sX=Math.sin(x),sY=Math.sin(y),sZ=Math.sin(z);
+  var Vx=-cZ*sY-sZ*sX*cY, Vy=-sZ*sY+cZ*sX*cY;
+  if(Math.sqrt(Vx*Vx+Vy*Vy)<0.08)return null;   // 거의 수평 → 미정의
+  return norm(Math.atan2(Vx,Vy)*180/Math.PI);
+ }
+ function scr(){
+  try{if(screen.orientation&&screen.orientation.angle!=null)return screen.orientation.angle;}catch(e){}
+  try{if(window.orientation!=null)return window.orientation;}catch(e){}
+  return 0;
+ }
+ try{navigator.geolocation.watchPosition(function(p){
+   G.n++; G.h=p.coords.heading; G.sp=p.coords.speed; G.acc=p.coords.accuracy;
+   G.lat=p.coords.latitude; G.lon=p.coords.longitude;
+  },function(){},{enableHighAccuracy:true,maximumAge:0,timeout:15000});}catch(e){}
+
+ function cands(){
+  var S=(A.n>0)?A:P, sa=scr();
+  var t=tilt(S.alpha,S.beta,S.gamma);
+  return [
+   {k:"A", d:norm(S.alpha==null?null:(360-S.alpha)+DECL), t:"지금 앱이 쓰는 방식 (alpha만)"},
+   {k:"B", d:norm(t==null?null:t+DECL),                   t:"기울기 보정"},
+   {k:"C", d:norm(t==null?null:t+sa+DECL),                t:"기울기 + 화면회전(＋)"},
+   {k:"D", d:norm(t==null?null:t-sa+DECL),                t:"기울기 + 화면회전(－)"},
+   {k:"E", d:norm(W.h==null?null:W.h+DECL),               t:"iOS 나침반"},
+   {k:"F", d:norm(G.h),                                   t:"GPS 진행방향(걸을 때만)"}
+  ];
+ }
+ // 앱이 실제로 쓰고 있는 값 — 나침반 폴백이 죽어 지도가 엉뚱한 방향을 쓰는지
+ // 폰에서 바로 드러내는 핵심 증거. 서 있는데 '지도' 행이 0°(북) 고정이거나
+ // 나침반 행과 크게 다르면 그게 원인이다.
+ function appRows(){
+  return [
+   {t:"지도·화살표", d:norm(MAPVAL), n:"MAPVAL"},
+   {t:"나침반(방향 카드)", d:norm(APPVAL), n:"APPVAL"}
+  ];
+ }
+ function snapshot(){
+  var S=(A.n>0)?A:P, L=[];
+  L.push("[walk 방향진단]");
+  L.push("이벤트 absolute="+A.n+"건 / plain="+P.n+"건 / absolute플래그="+S.abs);
+  L.push("alpha="+fx(S.alpha)+" beta="+fx(S.beta)+" gamma="+fx(S.gamma)+" 화면회전="+scr());
+  L.push("webkitCompass="+fx(W.h)+" (정확도 "+fx(W.acc)+")");
+  L.push("GPS heading="+fx(G.h)+" speed="+fx(G.sp,2)+" acc="+fx(G.acc)+" fix="+G.n);
+  L.push("앱 지도값 heading="+(MAPVAL==null?"없음":fx(MAPVAL))
+        +" / 앱 나침반값 nav_compass_deg="+(APPVAL==null?"없음":fx(APPVAL)));
+  cands().forEach(function(c){L.push(c.k+") "+c.t+" = "+fx(c.d)+"° "+lab(c.d));});
+  return L.join("\\n");
+ }
+ function draw(){
+  if(frozen)return;
+  var S=(A.n>0)?A:P;
+  var ok=(A.n+P.n)>0, live=(Date.now()-Math.max(A.t,P.t))<3000;
+  var e=document.getElementById("st");
+  if(!ok){e.style.background="#f8d7da";
+   e.innerHTML="⚠ 방향 센서 값이 <b>0건</b> 들어옵니다 — 나침반이 아예 안 잡히는 상태입니다.";}
+  else{e.style.background=live?"#d1e7dd":"#fff3cd";
+   e.innerHTML=(live?"✅ 센서 수신 중":"⏳ 값이 멈춤")+" · absolute "+A.n+"건 / 일반 "+P.n+"건"
+    +(A.n===0?" · <b>절대방위 이벤트 없음(방향 부정확 원인)</b>":"");}
+  var ah="";
+  appRows().forEach(function(c){
+   var on=c.d!=null;
+   ah+='<div style="display:flex;align-items:center;gap:8px;padding:7px 8px;margin-bottom:4px;'
+    +'border-radius:8px;background:#fef3f2;border:1px solid #fca5a5;opacity:'+(on?1:0.45)+'">'
+    +'<span style="flex:1;color:#555">'+c.t+'</span>'
+    +'<b style="font-size:19px;min-width:52px;text-align:right">'+lab(c.d)+'</b>'
+    +'<span style="width:52px;text-align:right;color:#666">'+fx(c.d,0)+'°</span></div>';
+  });
+  document.getElementById("app").innerHTML=ah;
+  var h="";
+  cands().forEach(function(c){
+   var on=c.d!=null;
+   h+='<div style="display:flex;align-items:center;gap:8px;padding:7px 8px;margin-bottom:4px;'
+    +'border-radius:8px;background:'+(on?"#f1f5f9":"#fafafa")+';opacity:'+(on?1:0.45)+'">'
+    +'<b style="width:16px">'+c.k+'</b>'
+    +'<span style="flex:1;color:#555">'+c.t+'</span>'
+    +'<b style="font-size:19px;min-width:52px;text-align:right">'+lab(c.d)+'</b>'
+    +'<span style="width:52px;text-align:right;color:#666">'+fx(c.d,0)+'°</span></div>';
+  });
+  document.getElementById("cand").innerHTML=h;
+  document.getElementById("raw").innerHTML=snapshot().replace(/\\n/g,"<br>");
+ }
+ document.getElementById("fz").onclick=function(){
+  frozen=!frozen; this.textContent=frozen?"▶ 다시 측정":"⏸ 값 고정";
+  this.style.background=frozen?"#ffe08a":"#f7f7f7";};
+ document.getElementById("cp").onclick=function(){
+  var t=snapshot(), b=this;
+  var done=function(){b.textContent="✓ 복사됨";setTimeout(function(){b.textContent="📋 값 복사";},1500);};
+  try{navigator.clipboard.writeText(t).then(done,function(){window.prompt("복사하세요",t);});}
+  catch(e){window.prompt("복사하세요",t);}};
+ setInterval(draw,250); draw();
+})();
+</script>
+"""
+
+
+def _render_heading_debug() -> None:
+    """방향(헤딩) 실측 진단 패널 — 폰에서 '내가 보는 방향'이 왜 틀리는지 눈으로 확인.
+
+    방위각 계산은 기기·브라우저마다 축/부호 규약이 갈려서 코드만 보고 한 방식을
+    고르면 또 틀어진다. 그래서 후보 6가지(A~F)를 동시에 계산해 나란히 보여주고,
+    사용자가 실제 길에서 '어느 글자가 맞는지'만 고르면 원인이 확정되게 했다.
+
+    - A: 현재 앱 방식(alpha 단독) — 폰을 세워 들면 방위각이 성립하지 않는다.
+    - B: 기울기(beta/gamma) 보정 — 세워 들어도 성립.
+    - C/D: 거기에 화면회전(screen.orientation.angle)을 ±로 각각 반영.
+    - E: iOS webkitCompassHeading, F: GPS 진행방향(걸을 때만 유효).
+
+    이 패널은 GPS 폴링 왕복(_get_geolocation_high_accuracy)을 타지 않고 iframe 안에서
+    센서를 직접 구독한다 — 본 경로는 GPS 틱에만 나침반을 갱신해서, 제자리에서 몸만
+    돌리면 값이 안 따라오는 문제가 있어 진단값까지 같이 굳어버리기 때문이다.
+    """
+    if not _HAS_GEO:
+        return
+
+    def _js_num(v) -> str:
+        """세션값을 JS 리터럴로 — 없거나 숫자가 아니면 null(패널에서 '—'로 표시)."""
+        try:
+            f = float(v)
+        except (TypeError, ValueError):
+            return "null"
+        return "null" if f != f else repr(f)  # NaN 방어
+
+    app_val = st.session_state.get("nav_compass_deg")
+    # 지도·화살표를 실제로 돌리는 값(마지막 샘플의 heading) — 나침반과 다를 수 있고,
+    # 그 '다름' 자체가 이 진단의 핵심이라 별도로 뽑아 보여준다.
+    samples = st.session_state.get("nav_samples") or []
+    map_val = getattr(samples[-1], "heading_degrees", None) if samples else None
+
+    with st.expander("🧭 방향이 틀릴 때 — 방향값 진단(폰에서 확인)", expanded=False):
+        st.caption(
+            "실제 길에 서서 **정면으로 보고 있는 방향**과 아래 A~F 중 어느 값이 맞는지 "
+            "비교해 주세요. 맞는 글자 하나만 알려주시면 원인이 확정됩니다. "
+            "(‘값 복사’를 누르면 전체 수치가 클립보드에 담겨요)"
+        )
+        components.html(
+            _HEADING_DEBUG_HTML
+            .replace("__DECL__", repr(float(_COMPASS_DECL_DEG)))
+            .replace("__APPVAL__", _js_num(app_val))
+            .replace("__MAPVAL__", _js_num(map_val)),
+            height=560,
+        )
+
+
 def _search_places(query: str) -> list:
     """st_searchbox 콜백 — 입력 즉시 자동완성 후보를 (라벨, 값) 목록으로 반환.
 
@@ -2830,6 +3024,8 @@ def main() -> None:
             st.divider()
             st.markdown("**현재 위치**")
             _render_compass_enable()  # iOS 나침반 권한(탭 1회) — 값 들어오면 자동 숨김
+        # 방향 진단 패널 — 안내 중에도 보이게 running 분기 밖에 둔다(실제 길 위에서 확인).
+        _render_heading_debug()
         if _HAS_GEO:
             # nav 실행 중, 위치 미취득, 또는 대략 위치(부트스트랩)면 계속 폴링해
             # 더 정확한 fix로 자동 교체한다. (모바일은 첫 GPS fix로 곧 정밀 위치 확보)
