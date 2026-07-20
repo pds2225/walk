@@ -563,3 +563,39 @@ class TestAnnounceDistanceM:
     def test_custom_base(self):
         assert announce_distance_m(None, base_m=12.0) == 12.0
         assert announce_distance_m(25.0, base_m=12.0) == 17.0
+
+
+# ── smooth_heading: 진행 방향 원형 평균 보정 ──────────────────────────────────
+from gps_filter import smooth_heading, HEADING_SMOOTH_WINDOW  # noqa: E402
+
+
+class TestSmoothHeading:
+    def test_empty_and_all_none_return_none(self):
+        assert smooth_heading([]) is None
+        assert smooth_heading([None, None]) is None
+        assert smooth_heading(None) is None
+
+    def test_single_value_passthrough(self):
+        assert smooth_heading([137.0]) == 137.0
+
+    def test_wraps_around_north(self):
+        # 350°와 10° 의 평균은 0° 근처여야 한다(산술평균 180° 는 오답).
+        out = smooth_heading([350.0, 10.0])
+        assert out < 30.0 or out > 330.0
+
+    def test_ignores_none_entries(self):
+        assert smooth_heading([None, 90.0, None]) == 90.0
+
+    def test_recent_weighted(self):
+        # 최근값(90°)에 더 가깝게 — 선형 가중이라 단순 평균(36°)보다 크다.
+        out = smooth_heading([0.0, 0.0, 0.0, 90.0, 90.0])
+        assert out > 45.0
+
+    def test_window_limits_history(self):
+        # window 밖의 오래된 값은 무시된다 — 최근 window 개만 반영.
+        vals = [0.0] * 10 + [180.0] * HEADING_SMOOTH_WINDOW
+        assert abs(smooth_heading(vals) - 180.0) < 1e-6
+
+    def test_output_normalized_range(self):
+        for out in (smooth_heading([359.0, 1.0]), smooth_heading([270.0, 350.0])):
+            assert 0.0 <= out < 360.0

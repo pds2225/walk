@@ -413,13 +413,44 @@ def _tmap_addr_results(query: str, limit: int = 5) -> list[tuple[Coordinate, str
     return []
 
 
+# 좌표 직접 입력 매칭: "37.5665, 126.9780" / "37.5665 126.978" / "위도,경도".
+# 위경도 순만 허용(국내 통용). 대한민국 대략 경계로 범위 검증해 일반 숫자 텍스트를
+# 좌표로 오인하지 않는다(위도 33~39, 경도 124~132).
+_COORD_LITERAL_RE = re.compile(
+    r"^\s*(-?\d{1,3}(?:\.\d+)?)\s*[,\s]\s*(-?\d{1,3}(?:\.\d+)?)\s*$"
+)
+
+
+def parse_coord_literal(query: str) -> tuple[Coordinate, str] | None:
+    """검색어가 '위도, 경도' 좌표면 그 좌표로 바로 해석한다(지오코딩 불필요).
+
+    어떤 제공자도 결과를 못 줄 때도 좌표를 직접 넣어 목적지를 항상 찍을 수 있게 하는
+    최종 폴백. 대한민국 대략 경계 밖 값은 좌표로 보지 않고 None(주소·장소명으로 검색).
+    """
+    if not query:
+        return None
+    m = _COORD_LITERAL_RE.match(query)
+    if not m:
+        return None
+    try:
+        lat, lon = float(m.group(1)), float(m.group(2))
+    except (TypeError, ValueError):
+        return None
+    if not (33.0 <= lat <= 39.0 and 124.0 <= lon <= 132.0):
+        return None
+    return Coordinate(latitude=lat, longitude=lon), f"위치 {lat:.5f}, {lon:.5f}"
+
+
 def geocode_address(query: str) -> tuple[Coordinate, str] | None:
     """주소/장소명 → (Coordinate, 표시 주소).
 
-    Naver 지오코딩(주소 전용) → TMAP 주소 지오코딩(fullAddrGeo) →
-    TMAP 장소(POI) 검색 → Nominatim 변형 검색 순으로 폴백합니다
-    (키 없는 소스는 자동으로 건너뜀).
+    좌표 직접 입력('위도, 경도') → Naver 지오코딩(주소 전용) → TMAP 주소
+    지오코딩(fullAddrGeo) → TMAP 장소(POI) 검색 → Nominatim 변형 검색 순으로
+    폴백합니다 (키 없는 소스는 자동으로 건너뜀).
     """
+    literal = parse_coord_literal(query)
+    if literal is not None:
+        return literal
     naver = _naver_geocode(query)
     if naver is not None:
         return naver
@@ -502,6 +533,10 @@ def geocode_suggestions(query: str, limit: int = 5,
     q = (query or "").strip()
     if not q:
         return []
+    # 0) 좌표 직접 입력이면 그 좌표를 첫 후보로 — 제공자가 다 죽어도 목적지를 찍게.
+    literal = parse_coord_literal(q)
+    if literal is not None:
+        return [literal]
     out: list[tuple[Coordinate, str]] = []
     seen: set[tuple[float, float]] = set()
     label_coords: dict[str, list[tuple[float, float]]] = {}

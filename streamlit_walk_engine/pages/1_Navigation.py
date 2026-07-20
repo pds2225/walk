@@ -46,6 +46,7 @@ from engine import (
 )
 import gps_filter
 import mapbox_matcher
+import nav_session
 import snap_router
 import transit_builder
 from alert_voice import build_tts_prime_script, build_tts_script, tts_phrase
@@ -368,6 +369,14 @@ def _init() -> None:
         "nav_journey": None,
         "nav_active_leg_index": 0,
         "nav_transit_enabled": True,
+        # 안내 세션 영속화(폰 잠금·새로고침 복귀)
+        "nav_active_saved_sig": None,      # LS 저장 스로틀용 직렬화 서명
+        "nav_active_restore_tried": False, # 저장 세션 복원 시도 완료(1회)
+        "nav_resume_pending": None,        # origin 확보 후 자동 재개할 목적지
+        "nav_resume_attempts": 0,          # 자동 재개 경로 계획 실패 재시도 횟수
+        # 진행 방향 보정(원형 평균 스무딩)
+        "nav_heading_buf": [],             # 최근 표본 heading 버퍼
+        "nav_smoothed_heading": None,      # 스무딩된 진행 방향(지도 화살표·헤딩업)
     }.items():
         if k not in st.session_state:
             st.session_state[k] = v
@@ -391,6 +400,9 @@ def _reset() -> None:
     # 표시 스무딩 체인·게이팅 accuracy도 새 안내 기준으로 재시드(다음 fix에서 재구성).
     st.session_state["nav_display_origin"] = None
     st.session_state["nav_gating_acc"] = None
+    # 진행 방향 스무딩 버퍼도 초기화(이전 안내의 방향이 새 안내에 새지 않게).
+    st.session_state["nav_heading_buf"] = []
+    st.session_state["nav_smoothed_heading"] = None
 
 
 def _activate_route(
@@ -709,6 +721,20 @@ _LS_KEY_BOOKINGS  = "walk_navi_booking_history"
 _LS_KEY_FAVORITES = "walk_navi_favorites"
 _LS_KEY_LASTFIX   = "walk_navi_last_fix"
 _LS_KEY_DIAG      = "walk_navi_diag_log"   # 도보 진단 로그(새로고침·세션 넘어 누적)
+_LS_KEY_ACTIVE    = "walk_navi_active_session"   # 안내 중이던 목적지(폰 잠금·새로고침 복귀용)
+
+# 저장된 안내를 자동 재개할 최대 나이(ms) — 이보다 오래된 세션은 되살리지 않는다
+# (어제 하던 길이 오늘 앱을 열자마자 다시 켜지는 당황스러움 방지). 6시간.
+_ACTIVE_SESSION_MAX_AGE_MS = 6 * 60 * 60 * 1000
+
+# 자동 재개 경로 계획이 네트워크 등으로 실패할 때 재시도 상한 — 넘으면 포기해
+# 매 유휴 rerun 마다 fetch 가 폭주하는 것을 막는다(사용자가 직접 다시 검색 가능).
+_RESUME_MAX_ATTEMPTS = 3
+
+# 저장 세션 ts 를 갱신할 주기(ms) — 스로틀 서명에 이 시간 버킷을 넣어, 목적지가
+# 안 바뀌는 장시간 안내에도 주기적으로 재기록돼 ts 가 신선하게 유지된다(안 그러면
+# 진행 중인 안내가 _ACTIVE_SESSION_MAX_AGE_MS 뒤 만료로 버려진다). 30분.
+_ACTIVE_SESSION_TS_REFRESH_MS = 30 * 60 * 1000
 
 
 def _diag(event: str, **fields) -> None:
@@ -856,6 +882,154 @@ def _restore_last_fix() -> None:
     }
     st.session_state["nav_origin_coarse"] = True
     st.session_state["nav_origin_source"] = "cache"
+
+
+# ── 화면 꺼짐 방지(Screen Wake Lock) ─────────────────────────────────────────
+
+def _apply_wake_lock(active: bool) -> None:
+    """안내 중(active)이면 화면이 자동으로 꺼지지 않게 Screen Wake Lock 을 잡는다.
+
+    폰 잠금·앱 전환으로 페이지가 hidden 되면 브라우저가 lock 을 자동 해제하므로,
+    다시 보일 때(visibilitychange) 재획득해야 한다 — 그 리스너를 상위 window 에 한 번만
+    건다(원하는 상태는 g.__walkWakeWant 로 갱신). 미지원 브라우저(iOS 구버전 등)에서는
+    조용히 무시된다(try/catch). active=False 면 잡고 있던 lock 을 해제한다.
+    Streamlit 컴포넌트 iframe 은 같은 오리진이라 상위 문서/네비게이터 접근이 가능하며,
+    실패 시 iframe 로컬 컨텍스트로 폴백한다.
+    """
+    flag = "true" if active else "false"
+    components.html(
+        """
+        <script>
+        (function() {
+          var g, doc, nav;
+          try { g = window.parent; doc = g.document; nav = g.navigator;
+                if (!doc || !nav) throw 0; }
+          catch (e) { g = window; doc = document; nav = navigator; }
+          g.__walkWakeWant = %s;
+          async function acquire() {
+            try {
+              if (!g.__walkWakeWant) return;
+              if (!nav.wakeLock) return;
+              if (doc.visibilityState !== 'visible') return;
+              if (g.__walkWakeLock) return;
+              g.__walkWakeLock = await nav.wakeLock.request('screen');
+              g.__walkWakeLock.addEventListener('release', function() {
+                g.__walkWakeLock = null;
+              });
+            } catch (e) { g.__walkWakeLock = null; }
+          }
+          async function release() {
+            try {
+              if (g.__walkWakeLock) {
+                var l = g.__walkWakeLock; g.__walkWakeLock = null; await l.release();
+              }
+            } catch (e) {}
+          }
+          if (!g.__walkWakeBound) {
+            g.__walkWakeBound = true;
+            doc.addEventListener('visibilitychange', function() {
+              if (doc.visibilityState === 'visible' && g.__walkWakeWant) acquire();
+            });
+          }
+          if (g.__walkWakeWant) { acquire(); } else { release(); }
+        })();
+        </script>
+        """ % flag,
+        height=0,
+    )
+
+
+# ── 안내 세션 영속화(폰 잠금·새로고침 복귀 시 이어가기) ───────────────────────
+
+def _save_active_session() -> None:
+    """안내 중인 목적지를 localStorage 에 저장한다 — 폰 잠금·새로고침으로 Streamlit
+    세션이 초기화돼도 다음 진입에서 자동으로 같은 안내를 이어가기 위함.
+
+    안내 중이 아니면 저장 항목을 지운다(중지·초기화·도착 시 자동 정리). 직렬화 값이
+    바뀐 경우에만 스크립트를 주입해(스로틀) 매 rerun 마다 쓰지 않는다.
+    """
+    running = bool(st.session_state.get("nav_running"))
+    journey = st.session_state.get("nav_journey")
+    dest: Optional[Coordinate] = st.session_state.get("nav_dest")
+    # 자동 재개는 '단독 도보 안내'만 지원한다(running·경로만 있는 상태). 대중교통 여정은
+    # 저장 목적지 하나로 구간(leg) 진행·승하차 상태를 충실히 복원할 수 없다 — 중간 정류장이
+    # 저장되거나(leg.end), 복귀 시 leg 0 부터 재시작하거나, ⏹ 중지 후에도 여정이 남아
+    # 되살아나는 등 엣지가 많아, 여정 중에는 저장하지 않는다(사용자가 다시 계획).
+    save_dest: Optional[Coordinate] = None
+    save_label = ""
+    if running and journey is None and dest is not None:
+        save_dest = dest
+        save_label = (st.session_state.get("nav_dest_display")
+                      or st.session_state.get("nav_dest_input") or "")
+
+    if save_dest is not None:
+        now_ms = int(time.time() * 1000)
+        obj = {
+            "lat": save_dest.latitude,
+            "lon": save_dest.longitude,
+            "label": save_label,
+            # 단독 도보 안내만 저장하므로 재개도 도보 재계획으로 고정한다(여정 복원 안 함).
+            "transit": False,
+            "ts": now_ms,
+        }
+        # ts 는 스로틀 비교에서 제외하되, 시간 버킷을 서명에 넣어 목적지가 안 바뀌어도
+        # 주기적으로(_ACTIVE_SESSION_TS_REFRESH_MS) 재기록돼 ts 가 갱신되게 한다 —
+        # 장시간 안내가 만료로 잘못 버려지는 것을 막는다.
+        sig = json.dumps({
+            "lat": obj["lat"], "lon": obj["lon"], "label": obj["label"],
+            "transit": obj["transit"], "b": now_ms // _ACTIVE_SESSION_TS_REFRESH_MS,
+        }, ensure_ascii=False)
+        if st.session_state.get("nav_active_saved_sig") == sig:
+            return
+        st.session_state["nav_active_saved_sig"] = sig
+        js_payload = json.dumps(json.dumps(obj, ensure_ascii=False))
+        components.html(
+            f"<script>try{{localStorage.setItem('{_LS_KEY_ACTIVE}',{js_payload})}}catch(e){{}}</script>",
+            height=0,
+        )
+    else:
+        if st.session_state.get("nav_active_saved_sig") is None:
+            return  # 이미 지워진 상태 — 스크립트 재주입 불필요
+        st.session_state["nav_active_saved_sig"] = None
+        components.html(
+            f"<script>try{{localStorage.removeItem('{_LS_KEY_ACTIVE}')}}catch(e){{}}</script>",
+            height=0,
+        )
+
+
+def _restore_active_session() -> None:
+    """재진입 시 저장된 안내 목적지를 읽어 자동 재개를 예약한다(nav_resume_pending).
+
+    이미 안내/경로가 있으면 복원하지 않는다. 실제 경로 재계획은 origin 이 잡힌 뒤
+    main 의 재개 핸들러가 _activate_route/_activate_journey 로 수행한다. 세션당 1회만
+    시도(nav_active_restore_tried). 6시간 넘은 세션은 되살리지 않고 저장 항목만 정리한다.
+    streamlit-js-eval 첫 렌더는 None(대기·키없음 공통) — 값이 오면 rerun 으로 갱신.
+    """
+    if not _HAS_GEO or _js_eval is None:
+        return
+    if st.session_state.get("nav_active_restore_tried"):
+        return
+    if (st.session_state.get("nav_running")
+            or st.session_state.get("nav_route") is not None
+            or st.session_state.get("nav_journey") is not None):
+        st.session_state["nav_active_restore_tried"] = True
+        return
+    raw = _js_eval(js_expressions=f"localStorage.getItem('{_LS_KEY_ACTIVE}')",
+                   key="ls_active_session")
+    if raw is None:
+        return  # 대기(다음 rerun 에서 값 도착) 또는 키 없음 — 어느 쪽이든 무해
+    st.session_state["nav_active_restore_tried"] = True
+    saved = nav_session.classify_saved_session(
+        raw, int(time.time() * 1000), _ACTIVE_SESSION_MAX_AGE_MS)
+    if saved.status in ("bad", "expired"):
+        # 손상·만료된 값은 localStorage 에서 제거한다 — 남겨 두면 이후 세션마다 같은
+        # 실패로 자동 재개가 계속 막힌다(고: bugbot Medium — 손상 JSON / 만료 세션).
+        components.html(
+            f"<script>try{{localStorage.removeItem('{_LS_KEY_ACTIVE}')}}catch(e){{}}</script>",
+            height=0,
+        )
+        return
+    st.session_state["nav_resume_pending"] = saved.data
 
 
 # ── 알림 ─────────────────────────────────────────────────────────────────────
@@ -1395,7 +1569,10 @@ def _build_map(
         cur_lon = display_coord.longitude if display_coord is not None else last_s.longitude
         # 진행 방향(GPS 헤딩)을 8방향 화살표로 마커 가운데에 얹는다 — 지도만 봐도
         # 내가 어느 쪽으로 걷는 중인지 보이게(실기기 요청). 헤딩이 없으면 점만.
-        hdg = last_s.heading_degrees
+        # 보정: 매 표본 튀는 raw 헤딩 대신 원형 평균으로 스무딩한 방향을 우선 사용한다.
+        hdg = st.session_state.get("nav_smoothed_heading")
+        if hdg is None:
+            hdg = last_s.heading_degrees
         if hdg is None:
             # 정지 상태(GPS 헤딩 없음)엔 나침반 방위각으로 폴백 — 서 있어도 지도에서
             # 내가 '보는 방향'이 보인다(나침반 미지원/미권한이면 기존처럼 점만).
@@ -1452,12 +1629,16 @@ def _hex_rgb(hex_color: str, alpha: Optional[int] = None) -> list[int]:
 
 
 def _heading_up_bearing(samples: list[PositionSample]) -> float:
-    """헤딩업 지도 방위 — GPS 헤딩(이동 중) → 나침반(정지) → 직전 방위(순간 결측 유지) → 0.
+    """헤딩업 지도 방위 — 보정 헤딩(이동 중) → 나침반(정지) → 직전 방위(순간 결측 유지) → 0.
 
     직전 방위(nav_map_bearing)를 세션에 남겨, 헤딩·나침반이 잠깐 끊겨도 지도가
     북쪽으로 스냅백하지 않는다. pydeck·MapLibre 지도 공용.
+    보정: 매 표본 튀는 raw 헤딩 대신 원형 평균으로 스무딩한 진행 방향을 우선 사용해
+    헤딩업 회전이 떨리지 않게 한다.
     """
-    hdg = samples[-1].heading_degrees if samples else None
+    hdg = st.session_state.get("nav_smoothed_heading")
+    if hdg is None:
+        hdg = samples[-1].heading_degrees if samples else None
     if hdg is None:
         hdg = st.session_state.get("nav_compass_deg")
     if hdg is None:
@@ -1954,6 +2135,14 @@ def _render_dest_inputs() -> None:
             # 세션에 남아 있을 때 경로 찾기의 geocode 폴백(geocode_address)이 사용해야
             # 하기 때문이다. 출발지처럼 ""로 비우면 그 폴백 경로가 깨진다.
             st.session_state["nav_dest_picked"] = None
+            # 자동완성 후보가 비어도(네트워크·API 키 문제 등) 목적지를 놓치지 않도록,
+            # 입력 중인 검색어를 nav_dest_input 에 남긴다 → '걷기/대중교통' 버튼이 활성화되고
+            # 클릭 시 geocode_address(좌표 직접 입력 포함) 폴백이 목적지를 해석한다.
+            sb = st.session_state.get("nav_dest_sb")
+            if isinstance(sb, dict):
+                typed = (sb.get("search") or "").strip()
+                if typed:
+                    st.session_state["nav_dest_input"] = typed
         # (1) 즐겨찾기·히스토리가 nav_dest_input만 설정했을 때(picked=None) 사용자 인지 안내
         if st.session_state.get("nav_dest_input") and not st.session_state.get("nav_dest_picked"):
             st.caption(f"📌 선택된 목적지: {st.session_state['nav_dest_input']}")
@@ -2390,6 +2579,15 @@ def _render_action_buttons() -> None:
         _clear_journey_state()
         st.session_state["nav_running"] = False
         st.session_state["nav_arrival_summary"] = None
+        # 대기 중인 자동 재개(폰 잠금·새로고침 복귀)와 저장된 안내 세션도 함께 지운다 —
+        # 안 그러면 초기화 직후 resume 블록이 방금 지운 안내를 되살린다(고: bugbot High).
+        st.session_state["nav_resume_pending"] = None
+        st.session_state["nav_resume_attempts"] = 0
+        st.session_state["nav_active_saved_sig"] = None
+        components.html(
+            f"<script>try{{localStorage.removeItem('{_LS_KEY_ACTIVE}')}}catch(e){{}}</script>",
+            height=0,
+        )
         # nav_active_booking_id 는 여기서 지우지 않는다 — 출발 반경 안에 서 있는 채로
         # 지우면 _try_activate_booking 이 5초 뒤 예약을 다시 자동 시작해 초기화가
         # 무력화된다. 대신 그 함수가 '출발 반경을 벗어나면' 재무장한다.
@@ -2409,6 +2607,7 @@ def main() -> None:
     _init()
     _load_history_from_ls()
     _restore_last_fix()  # 재방문 시 마지막 위치를 즉시 대략위치로 부트스트랩(실측/IP가 곧 대체)
+    _restore_active_session()  # 폰 잠금·새로고침으로 세션이 끊겼으면 하던 안내를 자동 재개 예약
 
     _booking_armed = any(b.get("enabled", True)
                          for b in st.session_state.get("nav_route_bookings") or [])
@@ -2457,6 +2656,69 @@ def main() -> None:
                     st.success(f"'{pending_hist['query']}' 경로를 찾았어요")
                 except Exception as e:
                     st.error(f"경로 찾기 실패: {e}")
+
+    # 폰 잠금·새로고침으로 세션이 초기화됐을 때 저장된 안내를 자동 재개.
+    # origin(위치)이 잡히면 재계획 후 바로 안내를 시작한다(start_now=True). 아직 위치가
+    # 없으면 pending 을 유지해(유휴 autorefresh 가 rerun 을 만듦) 다음 rerun 에서 재시도.
+    resume = st.session_state.get("nav_resume_pending")
+    if resume is not None:
+        resume_origin: Optional[Coordinate] = st.session_state["nav_origin"]
+        # 사용자가 경로 확정 전이라도 새 목적지를 입력/선택 중이면(검색어·후보·입력창)
+        # 저장 트립이 그 검색을 덮어쓰지 않게 취소한다.
+        user_choosing_dest = (
+            st.session_state.get("nav_dest_picked") is not None
+            or bool((st.session_state.get("nav_dest_input") or "").strip())
+            or _dest_entry_active()
+        )
+        # pending 이 걸린 뒤 사용자가 그새 새 목적지를 잡았으면 취소, 위치가 잡혔으면 재개,
+        # 아직이면 대기(pending 유지) — 판정은 순수 함수로 분리(nav_session.resume_action).
+        action = nav_session.resume_action(
+            running=bool(st.session_state.get("nav_running")),
+            has_route=st.session_state.get("nav_route") is not None,
+            has_journey=st.session_state.get("nav_journey") is not None,
+            origin_present=resume_origin is not None,
+            user_choosing_dest=user_choosing_dest,
+        )
+        if action == "cancel":
+            # 저장 세션이 사용자의 새 선택을 덮어쓰지 않게 복원을 취소하고, 저장 항목도
+            # 지운다 — 안 그러면 다음 새로고침에 declined 트립이 다시 예약된다. 활성 도보
+            # 안내가 있으면 같은 run 의 _save_active_session 이 곧바로 다시 저장한다.
+            st.session_state["nav_resume_pending"] = None
+            st.session_state["nav_active_saved_sig"] = None
+            components.html(
+                f"<script>try{{localStorage.removeItem('{_LS_KEY_ACTIVE}')}}catch(e){{}}</script>",
+                height=0,
+            )
+        elif action == "go":
+            with st.spinner("이전 안내를 이어가는 중…"):
+                try:
+                    r_dest = Coordinate(latitude=resume["lat"], longitude=resume["lon"])
+                    r_label = resume.get("label") or ""
+                    st.session_state["nav_transit_enabled"] = bool(resume.get("transit", True))
+                    if st.session_state["nav_transit_enabled"]:
+                        journey = transit_builder.fetch_transit_journey(resume_origin, r_dest)
+                        _activate_journey(journey, start_now=True)
+                        if r_label:
+                            st.session_state["nav_dest_display"] = r_label
+                        if journey.source.startswith("도보 강등"):
+                            st.session_state["nav_downgrade_notice"] = journey.source
+                    else:
+                        new_route = _fetch_route(resume_origin, r_dest)
+                        _clear_journey_state()
+                        _activate_route(resume_origin, r_dest, r_label, new_route, start_now=True)
+                    if r_label:
+                        st.session_state["nav_dest_input"] = r_label
+                    # 성공했을 때만 pending 을 소비한다 — 아래 except 는 남겨 둔다.
+                    st.session_state["nav_resume_pending"] = None
+                    st.session_state["nav_resume_attempts"] = 0
+                    st.toast("🔁 이전 안내를 이어갑니다")
+                except Exception:
+                    # 재개 실패(네트워크 등): pending 을 지우지 않고 몇 번 재시도한다.
+                    # 상한을 넘으면 포기(무한 fetch 방지) — 사용자가 직접 다시 검색 가능.
+                    tries = st.session_state.get("nav_resume_attempts", 0) + 1
+                    st.session_state["nav_resume_attempts"] = tries
+                    if tries >= _RESUME_MAX_ATTEMPTS:
+                        st.session_state["nav_resume_pending"] = None
 
     st.markdown("## 🚶 도보 내비게이션")
     st.caption("가고 싶은 곳을 입력하면 걷는 길을 안내하고, 길을 벗어나면 바로 알려줍니다.")
@@ -2918,6 +3180,15 @@ def main() -> None:
             st.session_state["nav_prev_coord"]   = origin
             st.session_state["nav_prev_ts_ms"]   = sample.timestamp_ms
             _acc_now = (st.session_state["nav_raw_gps"] or {}).get("coords", {}).get("accuracy")
+            # 진행 방향 보정: 실제 이동으로 얻은 heading 만 버퍼에 쌓아 원형 평균으로
+            # 스무딩한다(저속·지터로 매 표본 튀는 화살표·헤딩업 지도 안정화). prev_coord 가
+            # 있고(파생/GPS 헤딩이 실제 이동에서 나옴) 표본 게이트(>1m 이동)를 통과한 경우만
+            # 넣어, 정지 시 0.0 북향 폴백이 버퍼를 오염시키지 않게 한다.
+            if prev_coord is not None:
+                buf = st.session_state["nav_heading_buf"]
+                buf.append(sample.heading_degrees)
+                del buf[:-gps_filter.HEADING_SMOOTH_WINDOW]
+                st.session_state["nav_smoothed_heading"] = gps_filter.smooth_heading(buf)
             if st.session_state["nav_start_ts_ms"] is None:
                 st.session_state["nav_start_ts_ms"] = sample.timestamp_ms  # 이번 안내(레그) 시작
                 _diag("start", lat=round(sample.latitude, 6), lon=round(sample.longitude, 6),
@@ -3006,6 +3277,14 @@ def main() -> None:
     # 도착, tick 의 이탈 알림·회전 예고)가 큐에 들어왔고, 아래 UI(⏹중지·진단 패널 버튼)의
     # st.rerun() 은 이 뒤에 나므로 '큐만 채우고 flush 전에 rerun 돼 소리가 유실'되는 것을 막는다.
     _flush_audio()
+
+    # ── 화면 꺼짐 방지 + 안내 세션 저장 ────────────────────────────────────────
+    # 여기까지 오면 이번 rerun 의 nav_running 이 확정(도착 판정 반영). 안내 중이면
+    # 화면 꺼짐을 막고(Wake Lock) 목적지를 저장해, 폰을 잠갔다 켜도 안내가 이어진다.
+    # 아래 지도 렌더에는 early return 이 있어 이 두 호출을 그 앞에 둔다(매 rerun 실행 보장).
+    _running_now = bool(st.session_state["nav_running"])
+    _apply_wake_lock(_running_now)
+    _save_active_session()
 
     # ── 지도 + 판정 패널 ──────────────────────────────────────────────────────
     route = st.session_state["nav_route"]

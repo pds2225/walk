@@ -1173,3 +1173,44 @@ class TestSuggestionsParallel:
         monkeypatch.setattr(route_builder, "_tmap_poi_results",
                             lambda q, limit=5, center=None: [poi_hit])
         assert poi_hit in route_builder.geocode_suggestions("아무거나", limit=5)
+
+
+# ── parse_coord_literal: 좌표 직접 입력 폴백(목적지 항상 해석) ────────────────
+from route_builder import parse_coord_literal  # noqa: E402
+
+
+class TestParseCoordLiteral:
+    def test_comma_separated(self):
+        res = parse_coord_literal("37.5665, 126.9780")
+        assert res is not None
+        coord, label = res
+        assert abs(coord.latitude - 37.5665) < 1e-9
+        assert abs(coord.longitude - 126.9780) < 1e-9
+        assert "37.5665" in label
+
+    def test_space_separated(self):
+        res = parse_coord_literal("37.5665 126.978")
+        assert res is not None and abs(res[0].longitude - 126.978) < 1e-9
+
+    def test_place_name_is_not_coord(self):
+        assert parse_coord_literal("경복궁") is None
+        assert parse_coord_literal("강남역 10번출구") is None
+
+    def test_empty_and_none(self):
+        assert parse_coord_literal("") is None
+        assert parse_coord_literal(None) is None
+
+    def test_out_of_korea_bounds_rejected(self):
+        # 위경도 뒤바뀐 입력(경도,위도)은 위도 범위 밖 → 좌표로 보지 않는다.
+        assert parse_coord_literal("126.9780, 37.5665") is None
+        # 해외 좌표(뉴욕)도 국내 경계 밖 → None.
+        assert parse_coord_literal("40.7128, -74.0060") is None
+
+    def test_geocode_address_uses_literal(self):
+        # 지오코딩 제공자 호출 없이도 좌표 입력은 즉시 해석된다.
+        res = route_builder.geocode_address("37.5, 127.0")
+        assert res is not None and abs(res[0].latitude - 37.5) < 1e-9
+
+    def test_geocode_suggestions_uses_literal(self):
+        out = route_builder.geocode_suggestions("37.5, 127.0")
+        assert len(out) == 1 and abs(out[0][0].longitude - 127.0) < 1e-9
