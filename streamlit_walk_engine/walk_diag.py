@@ -83,6 +83,7 @@ def diag_summary(log: list) -> dict:
         return {"records": 0}
     events: dict[str, int] = {}
     states: dict[str, int] = {}
+    tick_states: dict[str, int] = {}  # 판정(tick) 레코드에서만 센 상태 — 비율 계산의 분모/분자 일치용
     accs: list[float] = []
     times: list[float] = []
     for rec in log:
@@ -91,6 +92,8 @@ def diag_summary(log: list) -> dict:
         state = rec.get("st")
         if state:
             states[state] = states.get(state, 0) + 1
+            if ev == "tick":  # alert·reroute 레코드도 st 를 달고 있어, 비율엔 tick 만 센다
+                tick_states[state] = tick_states.get(state, 0) + 1
         acc = rec.get("acc")
         if isinstance(acc, (int, float)):
             accs.append(float(acc))
@@ -102,6 +105,7 @@ def diag_summary(log: list) -> dict:
         "span_s": round((max(times) - min(times)) / 1000.0, 1) if len(times) >= 2 else 0.0,
         "events": events,
         "states": states,
+        "tick_states": tick_states,
     }
     if accs:
         accs_sorted = sorted(accs)
@@ -109,3 +113,52 @@ def diag_summary(log: list) -> dict:
         summary["acc_p90"] = round(_percentile(accs_sorted, 90), 1)
         summary["acc_max"] = round(max(accs), 1)
     return summary
+
+
+def diag_findings(summary: dict) -> list[str]:
+    """요약 통계에서 사람이 읽는 '자동 진단 힌트'를 뽑는다(순수 함수).
+
+    정밀 진단이 아니라 '무엇을 의심할지' 안내용 — GPS 정확도, 재탐색 빈도, 이탈 비율,
+    음성 미작동 의심, 표본 부족을 대략 임계치로 판단한다. 로그가 비면 빈 리스트,
+    문제가 없으면 '특이사항 없음' 1건을 돌려준다(사용자가 '정상'임을 알 수 있게).
+    """
+    if not summary or summary.get("records", 0) == 0:
+        return []
+    events = summary.get("events", {}) or {}
+    # 이탈 관련 비율은 '판정(tick) 레코드'만으로 센다 — alert·reroute 레코드도 st 를 달고
+    # 있어 states(전체)를 쓰면 분자가 부풀어 15/10 같은 잘못된 비율이 나온다(dev ≤ ticks 보장).
+    tick_states = summary.get("tick_states", summary.get("states", {})) or {}
+    ticks = events.get("tick", 0)
+    findings: list[str] = []
+
+    p90 = summary.get("acc_p90")
+    if not isinstance(p90, (int, float)):
+        # 정확도 데이터가 없으면 정확도 판단을 못 한다 — '정상'이라고 단정하지 않도록
+        # 명시(이 항목이 있으면 아래 '특이사항 없음' 올클리어가 뜨지 않아 오해를 막는다).
+        findings.append("ℹ️ GPS 정확도 데이터 없음 — 정확도는 판단할 수 없음")
+    elif p90 > 50:
+        findings.append(f"🔴 GPS 정확도 매우 낮음 (p90 {p90}m) — 위치 튐·이탈 오판정 가능성 큼")
+    elif p90 > 30:
+        findings.append(f"🟡 GPS 정확도 낮음 (p90 {p90}m) — 이탈 오판정 가능")
+
+    reroutes = events.get("reroute", 0)
+    span_min = max(summary.get("span_s", 0.0) / 60.0, 0.01)
+    if reroutes >= 5 or (reroutes >= 2 and reroutes / span_min > 1.0):
+        findings.append(f"🟡 재탐색 잦음 ({reroutes}회) — 경로 이탈이 반복됨(신호·경로 확인)")
+
+    dev = tick_states.get("deviated", 0) + tick_states.get("passed_turn", 0)
+    if ticks >= 10 and dev / ticks > 0.3:
+        findings.append(f"🟡 이탈 판정 비율 높음 ({dev}/{ticks} tick)")
+
+    # 알림 발생 = 전체 알림(alert) + 저정확도 약경고(weak_toast) 둘 다 포함 — 신호가 나빠
+    # 이탈을 약경고로만 알린 경우까지 '알림 0'으로 오판해 음성 미작동으로 몰지 않게 한다.
+    notified = events.get("alert", 0) + events.get("weak_toast", 0)
+    if dev >= 3 and notified == 0:
+        findings.append("🔴 이탈이 있었는데 음성/알림 기록 0회 — 음성 미작동 의심")
+
+    if ticks < 5:
+        findings.append(f"ℹ️ 표본이 적음 (tick {ticks}) — 더 걸어야 진단 신뢰도가 올라감")
+
+    if not findings:
+        findings.append("🟢 특이사항 없음 — 정확도·이탈·음성 모두 정상 범위")
+    return findings
