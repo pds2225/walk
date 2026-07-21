@@ -165,35 +165,48 @@ def _get_geolocation_high_accuracy(component_key: str = "walk_hi_acc_geo", multi
     # 서 있어도 사용자가 '보는 방향'을 알 수 있게 하는 유일한 소스다.
     # iOS: webkitCompassHeading(자북 시계방향, 권한 탭 1회 필요 — _render_compass_enable).
     #      webkitCompassAccuracy<0 은 '보정 안 된 나침반'(8자 흔들기 전) — 배제.
-    # Android: deviceorientationabsolute 의 alpha → (360-alpha)%360 = 자북 시계방향.
+    # Android: deviceorientationabsolute(절대방위) 우선. 단 일부 안드로이드 기기는 이
+    #      절대방위 이벤트를 아예 안 보내서(진단 패널에서 '절대방위 이벤트 안 옴'으로 확인),
+    #      그런 기기는 일반 deviceorientation 의 alpha 로 폴백한다 → (360-alpha)%360.
+    #      절대방위가 최근 3초 안에 왔으면 일반 이벤트는 무시(절대방위가 더 정확). 폴백이
+    #      쓰였는지는 payload 의 compass_src('abs'/'plain'/'ios')로 진단 가능.
     # 정확도: 자기 센서는 ±10~15° 떨림이 기본이라 원시 마지막 값 대신 최근 0.8초의
     # '원형 평균'(sin/cos 합산 후 atan2 — 359°↔1° 경계에서 180°로 튀지 않는 평균)을
     # 보낸다(~16Hz 스로틀). 자북→진북 편각 보정은 수신부(_COMPASS_DECL_DEG) 일괄 적용.
     compass_setup_js = (
-        "try{if(!window._walkCompass){window._walkCompass={h:null,buf:[]};"
-        "var _ce=('ondeviceorientationabsolute' in window)?'deviceorientationabsolute':'deviceorientation';"
-        "window.addEventListener(_ce,function(ev){"
-        "var h=null;"
+        "try{if(!window._walkCompass){window._walkCompass={h:null,buf:[],absT:0,src:null};"
+        # 절대방위(absolute)·일반(deviceorientation) 두 이벤트를 모두 구독하고, 한 핸들러가
+        # 소스 우선순위로 방위각을 고른다: iOS 나침반 > 절대방위 alpha > (절대방위가 3초↑
+        # 없을 때만) 일반 alpha. 예전엔 절대방위 이벤트 하나만 구독해, 그걸 안 보내는
+        # 안드로이드 기기에서 나침반이 통째로 죽었다.
+        "var _wc=function(ev,isAbs){"
+        "var C=window._walkCompass,now=Date.now(),h=null,src=null;"
+        "if(isAbs)C.absT=now;"
         "if(ev.webkitCompassHeading!=null){"
         "if(ev.webkitCompassAccuracy!=null&&ev.webkitCompassAccuracy<0)return;"
-        "h=ev.webkitCompassHeading%360;}"
-        "else if(ev.absolute&&ev.alpha!=null){h=(360-ev.alpha)%360;}"
+        "h=ev.webkitCompassHeading%360;src='ios';}"
+        "else if(ev.alpha!=null){"
+        "if(isAbs){h=(360-ev.alpha)%360;src='abs';}"
+        "else if(now-C.absT>3000){h=(360-ev.alpha)%360;src='plain';}"
+        "else return;}"          # 절대방위가 최근 살아있으면 일반 이벤트는 버린다
         "if(h==null)return;"
-        "var C=window._walkCompass,now=Date.now();"
         "if(C.buf.length&&(now-C.buf[C.buf.length-1].t)<60)return;"
         "C.buf.push({t:now,h:h});"
         "while(C.buf.length&&(now-C.buf[0].t)>800)C.buf.shift();"
         "var sx=0,sy=0;for(var i=0;i<C.buf.length;i++){"
         "var r=C.buf[i].h*Math.PI/180;sx+=Math.sin(r);sy+=Math.cos(r);}"
-        "C.h=(Math.atan2(sx,sy)*180/Math.PI+360)%360;"
-        "},true);}}catch(e){}"
+        "C.h=(Math.atan2(sx,sy)*180/Math.PI+360)%360;C.src=src;};"
+        "window.addEventListener('deviceorientationabsolute',function(e){_wc(e,true);},true);"
+        "window.addEventListener('deviceorientation',function(e){_wc(e,false);},true);"
+        "}}catch(e){}"
     )
     coords_js = (
         "coords:{accuracy:p.coords.accuracy,altitude:p.coords.altitude,"
         "altitudeAccuracy:p.coords.altitudeAccuracy,heading:p.coords.heading,"
         "latitude:p.coords.latitude,longitude:p.coords.longitude,speed:p.coords.speed},"
         "timestamp:p.timestamp,"
-        "compass:(window._walkCompass||{h:null}).h"
+        "compass:(window._walkCompass||{h:null}).h,"
+        "compass_src:(window._walkCompass||{}).src"
     )
     if multi:
         js = (
