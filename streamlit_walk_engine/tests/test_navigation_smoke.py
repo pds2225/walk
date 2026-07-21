@@ -36,19 +36,18 @@ def test_deviation_confirmation_defaults_are_faster():
 
     assert '"연속 감지 횟수", 1, 5, 3' in source           # 1초 샘플링 × 3회 ≈ 3초 확정
     assert "minimum_drift_duration_ms=2000" in source       # 지속시간 경로도 3번째 표본과 일치
-    # 안내 중 1초 폴링(사용자 지정) — 첫 fix·대략위치 승격 대기는 5초, 예약 유휴는 10초
-    assert '1000 if st.session_state["nav_running"]' in source
+    # 안내 중·'출발' 예약 중 1초 폴링 — 첫 fix·대략위치 승격 대기는 5초, 예약 유휴는 10초
+    assert '1000 if (st.session_state["nav_running"] or _pending_act)' in source
     assert "else 5_000 if _needs_idle_fix else 10_000" in source
 
 
 def test_dest_entry_pauses_periodic_reruns():
-    """목적지 입력 중 화면 리셋('두 번 입력'·'화면 뜨자마자 입력 시 리셋') 근본수정:
-    GPS 재폴링(약 1초)·autorefresh 가 만드는 주기적 rerun 이 st_searchbox 입력 도중
-    끼어들면 드롭다운·포커스가 끊겨 검색어가 사라진다. 입력 중(_dest_entry_active)에는
-    이 주기적 rerun 을 멈춘다 — 단 '위치가 이미 잡혔을 때만'(origin_present). 첫 위치
-    미취득이면 입력 중이어도 폴링을 유지해 위치를 취득하되(자동완성 0건 시 위치가 영영
-    안 잡히는 dead-end 방지), 입력 리셋은 첫 취득을 단일 측정(multi=False)으로 받아 완화한다.
-    폴링 판정 로직·회귀는 test_nav_session.TestGpsPollNeeded 가 고정한다."""
+    """목적지 입력 중 화면 리셋('두 번 입력'·'화면 뜨자마자 입력 시 리셋') 근본수정(A안):
+    입력 중(_dest_entry_active)에는 GPS 폴링·autorefresh 를 모두 멈춰, 첫 GPS fix 가
+    타이핑 중 도착해 화면을 재생성하며 검색어를 지우던 것을 원천 차단한다. 위치가 영영
+    안 잡히는 dead-end 는 '출발' 버튼이 막는다 — 위치가 없어도 버튼을 누를 수 있고, 누르면
+    활성화를 예약(nav_pending_activation)해 그동안만 폴링을 재개(pending_activation)해서
+    위치를 확보한 뒤 경로를 만든다. 폴링 판정 로직·회귀는 TestGpsPollNeeded 가 고정한다."""
     source = PAGE.read_text(encoding="utf-8")
 
     # 판정 헬퍼: 실시간 검색어가 있고 아직 후보 미선택일 때만 True
@@ -60,19 +59,22 @@ def test_dest_entry_pauses_periodic_reruns():
     assert 'if st.session_state.get("nav_running"):' in active_block
 
     # GPS 재폴링 게이트: 순수 함수 nav_session.gps_poll_needed 로 판정하며, 페이지는
-    # dest_entry_active(입력 중 여부)를 넘겨 배선한다. '위치 있을 때만 입력 중 폴링 중단·
-    # 첫 fix 는 막지 않음' 동작은 TestGpsPollNeeded 가 검증 — 여기선 배선만 확인.
+    # dest_entry_active(입력 중)와 pending_activation('출발' 예약)을 넘겨 배선한다.
     assert "nav_session.gps_poll_needed(" in source
     gate = source.index("nav_session.gps_poll_needed(")
     call = source[gate:gate + 700]
     assert "dest_entry_active=_dest_entry_active()" in call
+    assert "pending_activation=" in call
 
-    # 입력 중 첫 취득은 blocking 다중측정 대신 단일 측정(multi=False)으로 받아 입력 리셋 완화
-    assert "multi=(_first_fix and not _dest_entry_active())" in source
+    # dead-end 탈출 배선: 위치 없어도 '출발' 시 활성화를 예약하고, 위치 확보 후 실행한다.
+    assert "def _activate_or_defer(" in source
+    assert '"nav_pending_activation"' in source
+    assert "_activate_or_defer(dest_text, origin" in source  # 버튼이 이 경로를 쓴다
 
-    # autorefresh 게이트: 예약·첫fix 유휴 refresh 는 입력 중이면 등록하지 않는다
+    # autorefresh 게이트: 입력 중엔 멈추되, '출발' 예약(_pending_act) 중엔 위치 확보 위해 유지
     assert "(_booking_armed or _needs_idle_fix)" in source
     assert "and not _dest_entry_active()" in source
+    assert "or _pending_act" in source
 
 
 def test_maplibre_smooth_headingup_component():

@@ -73,25 +73,24 @@ def gps_poll_needed(
     origin_coarse: bool,
     booking_armed: bool,
     dest_entry_active: bool,
+    pending_activation: bool = False,
 ) -> bool:
     """이번 rerun 에서 GPS 재폴링(_get_geolocation_high_accuracy)을 돌려야 하는지 결정.
 
     폴링은 값이 도착할 때마다 rerun 을 유발하는데, 목적지 입력 도중 그 rerun 이 끼어들면
-    st_searchbox 입력이 리셋된다('화면 뜨자마자 입력 시 리셋' 버그). 그래서 입력 중
-    (dest_entry_active)에는 폴링을 멈춘다 — 단 **위치가 이미 잡혔을 때만**(origin_present).
+    st_searchbox 가 입력 중이던 글자를 잃는다('화면 뜨자마자 입력 시 리셋' 버그의 핵심 —
+    첫 GPS fix 가 타이핑 중 도착하면 화면 재생성으로 검색어가 사라진다).
 
-    첫 fix 미취득(origin 없음)일 때는 입력 중이어도 폴링을 멈추지 않는다. 안 그러면
-    자동완성 후보가 0건이어서 사용자가 후보를 못 고르는 경우(약신호·API키 없음 등)
-    dest_entry_active 가 계속 True 로 남아 폴링·autorefresh 가 둘 다 꺼지고, 위치가 영영
-    안 잡혀 출발 버튼도 계속 비활성인 dead-end 에 빠진다. 그래서 첫 위치 취득은 절대
-    막지 않는다. (입력 중 리셋 자체는 호출부에서 첫 fix 를 blocking 다중측정 대신 단일
-    측정 multi=False 로 받아 완화한다 — 이 함수는 '폴링 여부'만 판정.)
+    그래서 입력 중(dest_entry_active)에는 첫 fix 미취득이어도 폴링을 멈춰 리셋을 원천
+    차단한다(A안). 대신 위치가 영영 안 잡히는 dead-end 는 '출발' 버튼이 막는다 — 사용자가
+    출발을 누르면 pending_activation 이 켜지고, 그때부터는 입력 중이어도 폴링해 위치를
+    확보한 뒤 경로를 만든다(이 시점엔 이미 타이핑이 끝났으므로 리셋이 무의미하다).
 
     - dest_entry_active: 안내 중이 아니고 목적지 검색어가 남아 있으며 아직 후보 미선택.
-      (_dest_entry_active() 정의상 running 이면 이미 False 지만, 방어적으로 running 을 우선.)
+    - pending_activation: 사용자가 '걷기/대중교통/경로만보기'를 눌러 활성화를 예약한 상태.
     - 그 외에는 기존 조건 유지: 안내 중·첫 fix 미취득·대략위치(부트스트랩)·예약 대기면 폴링.
     """
-    if dest_entry_active and not running and origin_present:
+    if dest_entry_active and not running and not pending_activation:
         return False
     return running or (not origin_present) or origin_coarse or booking_armed
 
