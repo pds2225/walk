@@ -118,24 +118,23 @@ class TestGpsPollNeeded:
         kw.update(over)
         return nav_session.gps_poll_needed(**kw)
 
-    def test_regression_typing_before_first_fix_keeps_polling(self):
-        # ★dead-end 재발 방지★ 첫 fix 미취득(origin 없음) 상태에서 목적지 입력 중이어도
-        # 폴링을 유지해야 한다 — 멈추면 자동완성 0건(약신호·API키 없음)일 때 위치가 영영
-        # 안 잡히고 출발 버튼도 계속 비활성인 함정에 빠진다. 입력 리셋은 호출부가 첫 취득을
-        # 단일 측정(multi=False)으로 받아 완화하고, 이 함수는 폴링을 막지 않는다.
-        assert self._call(dest_entry_active=True, origin_present=False) is True
+    def test_typing_pauses_poll_before_first_fix(self):
+        # ★리셋 원천차단(A안)★ 입력 중이면 첫 fix 미취득이어도 폴링을 멈춘다 — 첫 GPS
+        # fix 가 타이핑 중 도착해 화면을 재생성하며 검색어를 지우던 것을 막는다.
+        assert self._call(dest_entry_active=True, origin_present=False) is False
 
-    def test_typing_with_fix_pauses_poll(self):
-        # 위치가 이미 잡힌 뒤 입력 중이면 폴링을 멈춘다(입력창 리셋 방지, dead-end 없음).
+    def test_typing_pauses_poll_with_fix(self):
         assert self._call(dest_entry_active=True, origin_present=True) is False
 
-    def test_typing_before_fix_polls_even_with_booking(self):
-        # 첫 fix 미취득이면 예약이 있어도 폴링 유지(위치 취득 우선).
-        assert self._call(dest_entry_active=True, origin_present=False, booking_armed=True) is True
+    def test_typing_pauses_even_with_booking(self):
+        # 입력 중이면 예약이 있어도(위치 유무 무관) 폴링을 멈춘다.
+        assert self._call(dest_entry_active=True, origin_present=False, booking_armed=True) is False
 
-    def test_typing_with_fix_pauses_even_with_booking(self):
-        # 위치 있고 입력 중이면 예약 폴링도 멈춘다(autorefresh 게이팅과 동일).
-        assert self._call(dest_entry_active=True, origin_present=True, booking_armed=True) is False
+    def test_pending_activation_resumes_polling_during_entry(self):
+        # ★dead-end 탈출★ '출발'을 눌러 활성화를 예약(pending_activation)하면, 입력 중이어도
+        # 폴링을 재개해 위치를 확보한다(이땐 타이핑이 끝났으므로 리셋이 무의미).
+        assert self._call(dest_entry_active=True, origin_present=False,
+                          pending_activation=True) is True
 
     def test_running_always_polls_even_if_flagged_dest_entry(self):
         # 안내 중엔 입력 상태가 성립하지 않지만, 방어적으로 running 이 우선한다.
