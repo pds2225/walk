@@ -29,6 +29,28 @@ def test_navigation_source_clears_journey_for_non_journey_flows():
     assert "transit_builder.fetch_transit_journey" in source
 
 
+def test_dest_reset_a_hardening():
+    """A안 잔여 결함 5종 보강(리뷰 반영) 배선 확인:
+    ① 첫 글자 잔여 리셋: IP-지오 강제 rerun 은 입력 중이면 안 하고, 첫 fix 는 입력 버퍼가
+       있으면 단일측정으로 받는다. ② 예약 목적지 고정(picked) + ③ 취소/자동취소/타임아웃
+       ④ 폴백 입력창 억제 ⑤ '경로만 보기' 예약 성공메시지 분기."""
+    source = PAGE.read_text(encoding="utf-8")
+    # ① 첫 글자 잔여 리셋 완화
+    assert "not _dest_entry_active()" in source                       # IP-지오 rerun 가드
+    assert "is None and not _dest_buffered" in source                 # 입력 버퍼 시 단일측정
+    # ② 예약에 목적지 고정
+    assert '"picked": st.session_state.get("nav_dest_picked")' in source
+    assert 'st.session_state["nav_dest_picked"] = pending_act.get("picked")' in source
+    # ③ 취소·자동취소·타임아웃
+    assert 'key="cancel_pending_activation"' in source
+    assert 'pending_act["tries"]' in source
+    assert "_cur_dest != (pending_act.get" in source                  # 목적지 편집 시 자동취소
+    # ④ 폴백 입력창도 억제(nav_dest_input 기반)
+    assert 'st.session_state.get("nav_dest_input") or ""' in source
+    # ⑤ 예약 성공메시지: start_now 분기
+    assert "if _start_now:" in source
+
+
 def test_deviation_confirmation_defaults_are_faster():
     """이탈 확정을 더 빨리 알리도록 기본 연속 2샘플·지속 2초로 설정한다.
     (deviated = 연속샘플 OR 지속시간 둘 중 먼저 충족되므로 둘 다 낮춰야 체감이 빨라진다.)"""
