@@ -3058,19 +3058,18 @@ def main() -> None:
         if _HAS_GEO:
             # nav 실행 중, 위치 미취득, 또는 대략 위치(부트스트랩)면 계속 폴링해
             # 더 정확한 fix로 자동 교체한다. (모바일은 첫 GPS fix로 곧 정밀 위치 확보)
-            need_gps_poll = (
-                st.session_state["nav_running"]
-                or st.session_state["nav_origin"] is None
-                or st.session_state.get("nav_origin_coarse", False)
-                # 예약 대기 중에도 폴링 — 정확한 fix 확보 후 폴링이 멈추면 출발반경
-                # 진입을 감지하지 못해 예약 자동활성화가 사실상 동작하지 않는다.
-                or any(b.get("enabled", True)
-                       for b in st.session_state.get("nav_route_bookings") or [])
+            # 폴링 여부는 순수 함수(nav_session.gps_poll_needed)로 판정 — 목적지 입력 중
+            # (dest_entry_active)에는 첫 fix 미취득이어도 폴링을 멈춰, blocking 다중측정 rerun
+            # 이 st_searchbox 입력을 리셋하는 문제를 막는다(autorefresh 게이팅과 동일 기준).
+            # 예약 대기 중에도(입력 중이 아니면) 폴링 — 출발반경 진입 감지·자동활성화 유지.
+            need_gps_poll = nav_session.gps_poll_needed(
+                running=st.session_state["nav_running"],
+                origin_present=st.session_state["nav_origin"] is not None,
+                origin_coarse=st.session_state.get("nav_origin_coarse", False),
+                booking_armed=any(b.get("enabled", True)
+                                  for b in st.session_state.get("nav_route_bookings") or []),
+                dest_entry_active=_dest_entry_active(),
             )
-            # 목적지 입력 중에는 재폴링(약 1초 주기 rerun)을 멈춰 searchbox 가 끊기지 않게 한다.
-            # 단 위치가 아직 없으면(첫 fix 미취득) 계속 폴링 — 첫 위치 취득은 막지 않는다.
-            if _dest_entry_active() and st.session_state["nav_origin"] is not None:
-                need_gps_poll = False
             if need_gps_poll:
                 # 최초 취득 시에만 다중 샘플로 best fix 선택(첫 fix 부정확 완화), 라이브는 단일.
                 geo = _get_geolocation_high_accuracy(multi=(st.session_state["nav_origin"] is None))

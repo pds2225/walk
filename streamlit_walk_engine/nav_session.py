@@ -66,6 +66,35 @@ def classify_saved_session(
     })
 
 
+def gps_poll_needed(
+    *,
+    running: bool,
+    origin_present: bool,
+    origin_coarse: bool,
+    booking_armed: bool,
+    dest_entry_active: bool,
+) -> bool:
+    """이번 rerun 에서 GPS 재폴링(_get_geolocation_high_accuracy)을 돌려야 하는지 결정.
+
+    폴링은 값이 도착할 때마다 rerun 을 유발하고, 첫 fix 미취득 상태(origin 없음)에선
+    2.5~6초 blocking 다중측정이라, 목적지 입력 도중 돌면 st_searchbox 입력이 리셋된다
+    ('안드로이드에서 화면 뜨자마자 목적지 입력 시 화면 리셋' 버그의 원인).
+
+    그래서 입력 중(dest_entry_active)에는 첫 fix 미취득이어도 폴링을 멈춘다 —
+    같은 화면의 autorefresh 게이팅(`... and not _dest_entry_active()`)과 동일 기준으로
+    맞춘 것이다(예전엔 GPS 폴링만 'origin 이 있을 때만' 멈춰 비대칭이라, 첫 fix 전
+    입력에서 리셋이 났다). 입력을 마치고 후보를 고르거나 검색어를 비우면 dest_entry_active
+    가 False 가 되어 폴링이 재개되므로 첫 위치 취득이 영구히 막히지는 않는다.
+
+    - dest_entry_active: 안내 중이 아니고 목적지 검색어가 남아 있으며 아직 후보 미선택.
+      (_dest_entry_active() 정의상 running 이면 이미 False 지만, 방어적으로 running 을 우선.)
+    - 그 외에는 기존 조건 유지: 안내 중·첫 fix 미취득·대략위치(부트스트랩)·예약 대기면 폴링.
+    """
+    if dest_entry_active and not running:
+        return False
+    return running or (not origin_present) or origin_coarse or booking_armed
+
+
 def resume_action(
     *,
     running: bool,
