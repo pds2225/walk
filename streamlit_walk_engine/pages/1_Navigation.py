@@ -2679,6 +2679,15 @@ def _find_and_activate(dest_text: str, origin: Optional[Coordinate], *, start_no
     return True
 
 
+def _searchbox_result_label(sb: object) -> str:
+    if not isinstance(sb, dict):
+        return ""
+    result = sb.get("result")
+    if isinstance(result, tuple) and len(result) >= 2:
+        return str(result[1]).strip()
+    return str(result or "").strip()
+
+
 def _activate_or_defer(dest_text: str, origin: Optional[Coordinate], *, start_now: bool) -> bool:
     """'출발' 처리 — 위치가 있으면 바로 경로 활성화, 없으면 위치 확보 후 실행하도록 예약.
 
@@ -2689,14 +2698,39 @@ def _activate_or_defer(dest_text: str, origin: Optional[Coordinate], *, start_no
     """
     if origin is not None:
         return _run_activation(dest_text, origin, start_now=start_now)
-    # 위치 미취득 — 활성화를 예약하고 위치 확보를 기다린다(입력 중 폴링 재개 트리거).
+    # 위치 미취득 — 활성화를 예약하고 위치 확보를 기다린다.
+    sb = st.session_state.get("nav_dest_sb")
     st.session_state["nav_pending_activation"] = {
         "dest_text": dest_text,
+        "dest_search": ((sb.get("search") or "").strip() if isinstance(sb, dict) else ""),
+        "dest_result": _searchbox_result_label(sb),
         "start_now": start_now,
         "transit": bool(st.session_state.get("nav_transit_enabled", True)),
     }
     st.rerun()
     return False  # 도달하지 않음(st.rerun)
+
+
+def _pending_activation_dest_changed(pending_act: dict) -> bool:
+    """대기 중 사용자가 목적지 입력을 바꿨는지 확인한다."""
+    pending_dest = (pending_act.get("dest_text") or "").strip()
+    current_dest = (st.session_state.get("nav_dest_input") or "").strip()
+    if current_dest != pending_dest:
+        return True
+
+    sb = st.session_state.get("nav_dest_sb")
+    if isinstance(sb, dict):
+        current_search = (sb.get("search") or "").strip()
+        pending_search = (pending_act.get("dest_search") or "").strip()
+        if current_search and pending_search and current_search != pending_search:
+            return True
+        current_result = _searchbox_result_label(sb)
+        pending_result = (pending_act.get("dest_result") or "").strip()
+        if current_result and pending_result and current_result != pending_result:
+            return True
+        if current_result and not pending_result and current_result != pending_dest:
+            return True
+    return False
 
 
 def _plan_summary_text() -> str:
@@ -2845,6 +2879,7 @@ def _render_action_buttons() -> None:
         # 대기 중인 자동 재개(폰 잠금·새로고침 복귀)와 저장된 안내 세션도 함께 지운다 —
         # 안 그러면 초기화 직후 resume 블록이 방금 지운 안내를 되살린다(고: bugbot High).
         st.session_state["nav_resume_pending"] = None
+        st.session_state["nav_pending_activation"] = None
         st.session_state["nav_resume_attempts"] = 0
         st.session_state["nav_active_saved_sig"] = None
         components.html(
@@ -2878,15 +2913,13 @@ def main() -> None:
     # 우연 루프만으로는 재측정이 멎을 수 있어, 완만한 5초 rerun 으로 정밀 fix 승격을 보장한다.
     _needs_idle_fix = (st.session_state["nav_origin"] is None
                        or st.session_state.get("nav_origin_coarse", False))
-    # '출발'을 눌렀으나 위치 미취득이라 활성화를 예약한 상태 — 위치를 빨리 확보하려면
-    # 입력 중이어도 주기적 rerun 을 유지해야 한다(입력은 이미 끝났으므로 리셋 무의미).
+    # '출발'을 눌렀으나 위치 미취득이라 활성화를 예약한 상태. 단 목적지 입력이 여전히
+    # 활성 상태면 주기적 rerun 이 검색창을 리셋하므로 입력 게이트를 계속 존중한다.
     _pending_act = bool(st.session_state.get("nav_pending_activation"))
     # 목적지 입력 중에는 주기적 rerun 을 멈춘다 — 입력 도중 rerun 이 searchbox 를 끊어
-    # 검색어가 리셋되고 '두 번 입력'하게 되는 문제 방지(_dest_entry_active). 안내 중·
-    # '출발' 예약 중(_pending_act)은 제외(위치 확보 우선).
+    # 검색어가 리셋되고 '두 번 입력'하게 되는 문제 방지(_dest_entry_active). 안내 중은 제외.
     if _HAS_REFRESH and (st.session_state["nav_running"]
-                         or _pending_act
-                         or ((_booking_armed or _needs_idle_fix)
+                         or ((_pending_act or _booking_armed or _needs_idle_fix)
                              and not _dest_entry_active())):
         # 예약이 있으면 유휴 중에도 완만히(10초) rerun 을 유지한다 — rerun 이 없으면 GPS
         # 재폴링→출발반경 진입 감지→예약 자동활성화가 영영 못 깨어난다(정지 화면).
@@ -2927,22 +2960,31 @@ def main() -> None:
 
     # '출발'을 눌렀으나 위치 미취득이었던 예약 처리(A안) — 입력 중엔 GPS 폴링을 멈춰
     # (입력창 리셋 방지) origin 이 없을 수 있어, 위치가 잡히는 즉시 여기서 경로를 만든다.
-    # (autorefresh + 폴링이 _pending_act 동안 유지돼 보통 1~3초 내 위치 확보 → 자동 출발.)
+    # 대기 중 목적지를 바꿨으면 예전 입력으로 자동 출발하지 않게 예약을 취소한다.
     pending_act = st.session_state.get("nav_pending_activation")
     if pending_act is not None:
-        act_origin: Optional[Coordinate] = st.session_state["nav_origin"]
-        if act_origin is not None:
+        if _pending_activation_dest_changed(pending_act):
             st.session_state["nav_pending_activation"] = None
-            st.session_state["nav_transit_enabled"] = bool(pending_act.get("transit", True))
-            _started = _run_activation(
-                pending_act.get("dest_text", ""), act_origin,
-                start_now=bool(pending_act.get("start_now", True)))
-            if _started:
-                st.toast("🚶 안내를 시작합니다" if st.session_state["nav_running"]
-                         else "여정을 준비했어요 — 구간 카드에서 진행하세요")
-                st.rerun()
         else:
-            st.info("📍 현재 위치 확인 중 — 잡히면 자동으로 출발합니다")
+            act_origin: Optional[Coordinate] = st.session_state["nav_origin"]
+            if act_origin is not None:
+                st.session_state["nav_pending_activation"] = None
+                st.session_state["nav_transit_enabled"] = bool(pending_act.get("transit", True))
+                start_now = bool(pending_act.get("start_now", True))
+                _started = _run_activation(
+                    pending_act.get("dest_text", ""), act_origin,
+                    start_now=start_now)
+                if _started:
+                    if start_now:
+                        st.toast("🚶 안내를 시작합니다" if st.session_state["nav_running"]
+                                 else "여정을 준비했어요 — 구간 카드에서 진행하세요")
+                        st.rerun()
+                    else:
+                        summary = _plan_summary_text()
+                        suffix = f" — {summary}" if summary else ""
+                        st.success(f"경로를 찾았어요{suffix}. ▶ 시작을 누르면 안내가 시작됩니다")
+            else:
+                st.info("📍 현재 위치 확인 중 — 잡히면 자동으로 출발합니다")
 
     # 폰 잠금·새로고침으로 세션이 초기화됐을 때 저장된 안내를 자동 재개.
     # origin(위치)이 잡히면 재계획 후 바로 안내를 시작한다(start_now=True). 아직 위치가
@@ -3129,7 +3171,7 @@ def main() -> None:
                 booking_armed=any(b.get("enabled", True)
                                   for b in st.session_state.get("nav_route_bookings") or []),
                 dest_entry_active=_dest_entry_active(),
-                # '출발' 예약(위치 미취득) 상태면 입력 중이어도 폴링해 위치를 확보한다.
+                # '출발' 예약(위치 미취득) 상태여도 입력 중이면 폴링을 멈춘다.
                 pending_activation=bool(st.session_state.get("nav_pending_activation")),
             )
             if need_gps_poll:

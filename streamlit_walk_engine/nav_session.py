@@ -82,15 +82,14 @@ def gps_poll_needed(
     첫 GPS fix 가 타이핑 중 도착하면 화면 재생성으로 검색어가 사라진다).
 
     그래서 입력 중(dest_entry_active)에는 첫 fix 미취득이어도 폴링을 멈춰 리셋을 원천
-    차단한다(A안). 대신 위치가 영영 안 잡히는 dead-end 는 '출발' 버튼이 막는다 — 사용자가
-    출발을 누르면 pending_activation 이 켜지고, 그때부터는 입력 중이어도 폴링해 위치를
-    확보한 뒤 경로를 만든다(이 시점엔 이미 타이핑이 끝났으므로 리셋이 무의미하다).
+    차단한다(A안). 사용자가 출발을 눌러 pending_activation 이 켜진 뒤에도, 검색창이
+    여전히 활성 상태면 입력 리셋 방지를 우선해 폴링을 재개하지 않는다.
 
     - dest_entry_active: 안내 중이 아니고 목적지 검색어가 남아 있으며 아직 후보 미선택.
     - pending_activation: 사용자가 '걷기/대중교통/경로만보기'를 눌러 활성화를 예약한 상태.
     - 그 외에는 기존 조건 유지: 안내 중·첫 fix 미취득·대략위치(부트스트랩)·예약 대기면 폴링.
     """
-    if dest_entry_active and not running and not pending_activation:
+    if dest_entry_active and not running:
         return False
     return running or (not origin_present) or origin_coarse or booking_armed
 

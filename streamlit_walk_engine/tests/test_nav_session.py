@@ -130,11 +130,10 @@ class TestGpsPollNeeded:
         # 입력 중이면 예약이 있어도(위치 유무 무관) 폴링을 멈춘다.
         assert self._call(dest_entry_active=True, origin_present=False, booking_armed=True) is False
 
-    def test_pending_activation_resumes_polling_during_entry(self):
-        # ★dead-end 탈출★ '출발'을 눌러 활성화를 예약(pending_activation)하면, 입력 중이어도
-        # 폴링을 재개해 위치를 확보한다(이땐 타이핑이 끝났으므로 리셋이 무의미).
+    def test_pending_activation_does_not_override_active_entry(self):
+        # '출발' 예약이 있어도 검색창이 아직 활성 상태면 입력 리셋 방지를 우선한다.
         assert self._call(dest_entry_active=True, origin_present=False,
-                          pending_activation=True) is True
+                          pending_activation=True) is False
 
     def test_running_always_polls_even_if_flagged_dest_entry(self):
         # 안내 중엔 입력 상태가 성립하지 않지만, 방어적으로 running 이 우선한다.

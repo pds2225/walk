@@ -37,6 +37,7 @@ def test_deviation_confirmation_defaults_are_faster():
     assert '"연속 감지 횟수", 1, 5, 3' in source           # 1초 샘플링 × 3회 ≈ 3초 확정
     assert "minimum_drift_duration_ms=2000" in source       # 지속시간 경로도 3번째 표본과 일치
     # 안내 중·'출발' 예약 중 1초 폴링 — 첫 fix·대략위치 승격 대기는 5초, 예약 유휴는 10초
+    # 단 입력 중에는 예약도 autorefresh 게이트를 넘지 못한다.
     assert '1000 if (st.session_state["nav_running"] or _pending_act)' in source
     assert "else 5_000 if _needs_idle_fix else 10_000" in source
 
@@ -46,8 +47,8 @@ def test_dest_entry_pauses_periodic_reruns():
     입력 중(_dest_entry_active)에는 GPS 폴링·autorefresh 를 모두 멈춰, 첫 GPS fix 가
     타이핑 중 도착해 화면을 재생성하며 검색어를 지우던 것을 원천 차단한다. 위치가 영영
     안 잡히는 dead-end 는 '출발' 버튼이 막는다 — 위치가 없어도 버튼을 누를 수 있고, 누르면
-    활성화를 예약(nav_pending_activation)해 그동안만 폴링을 재개(pending_activation)해서
-    위치를 확보한 뒤 경로를 만든다. 폴링 판정 로직·회귀는 TestGpsPollNeeded 가 고정한다."""
+    활성화를 예약(nav_pending_activation)한다. 예약 후에도 입력 중이면 폴링을 멈춘다.
+    폴링 판정 로직·회귀는 TestGpsPollNeeded 가 고정한다."""
     source = PAGE.read_text(encoding="utf-8")
 
     # 판정 헬퍼: 실시간 검색어가 있고 아직 후보 미선택일 때만 True
@@ -71,10 +72,9 @@ def test_dest_entry_pauses_periodic_reruns():
     assert '"nav_pending_activation"' in source
     assert "_activate_or_defer(dest_text, origin" in source  # 버튼이 이 경로를 쓴다
 
-    # autorefresh 게이트: 입력 중엔 멈추되, '출발' 예약(_pending_act) 중엔 위치 확보 위해 유지
-    assert "(_booking_armed or _needs_idle_fix)" in source
+    # autorefresh 게이트: 입력 중엔 '출발' 예약(_pending_act)도 멈춰 검색창 리셋을 막는다.
+    assert "(_pending_act or _booking_armed or _needs_idle_fix)" in source
     assert "and not _dest_entry_active()" in source
-    assert "or _pending_act" in source
 
 
 def test_maplibre_smooth_headingup_component():

@@ -133,6 +133,7 @@ def test_reset_clears_dest_banner():
     assert '"nav_dest_display"' in block  # [18]
     # 초기화는 대기 중인 자동 재개·저장된 안내 세션도 지운다(되살아나지 않게).
     assert '"nav_resume_pending"] = None' in block
+    assert '"nav_pending_activation"] = None' in block
     assert "removeItem('walk_navi_active_session')" in block or "_LS_KEY_ACTIVE" in block
 
 
