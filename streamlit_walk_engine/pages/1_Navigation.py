@@ -3072,7 +3072,11 @@ def main() -> None:
             )
             if need_gps_poll:
                 # 최초 취득 시에만 다중 샘플로 best fix 선택(첫 fix 부정확 완화), 라이브는 단일.
-                geo = _get_geolocation_high_accuracy(multi=(st.session_state["nav_origin"] is None))
+                # 단 목적지 입력 중(dest_entry_active)에는 첫 취득이어도 단일 측정을 쓴다 —
+                # 2.5~6초 blocking 다중측정 rerun 이 st_searchbox 입력을 리셋하기 때문.
+                _first_fix = st.session_state["nav_origin"] is None
+                geo = _get_geolocation_high_accuracy(
+                    multi=(_first_fix and not _dest_entry_active()))
                 # 나침반 방위각(payload 동승)을 세션에 최신화 — 정지 시 마커 화살표·
                 # '보는 방향 기준' 안내용. 미지원/미권한 기기는 None 유지(기능 저하 없음).
                 if isinstance(geo, dict) and geo.get("compass") is not None:
