@@ -2066,6 +2066,8 @@ def _dest_entry_active() -> bool:
 
     - searchbox 모드: 위젯 내부 검색어(nav_dest_sb['search'])가 남아 있고 아직 후보를
       고르지 않았을 때(result is None) True — 후보를 고른 뒤엔 재선택돼도 안전하므로 False.
+    - searchbox 미설치(폴백 text_input) 모드: 입력 텍스트(nav_dest_input)가 있고 아직
+      후보 미선택(nav_dest_picked is None)이면 True — 폴백 경로도 입력 중 rerun을 멈춘다.
     - 안내 진행 중(nav_running)에는 항상 False: 주행 중 GPS 폴링을 멈추면 안 된다.
     """
     if st.session_state.get("nav_running"):
@@ -2073,7 +2075,9 @@ def _dest_entry_active() -> bool:
     sb = st.session_state.get("nav_dest_sb")
     if isinstance(sb, dict):
         return bool((sb.get("search") or "").strip()) and sb.get("result") is None
-    return False
+    # 폴백(text_input) 경로: nav_dest_sb 위젯이 없다 → 입력 텍스트+후보미선택으로 판정.
+    return (bool((st.session_state.get("nav_dest_input") or "").strip())
+            and st.session_state.get("nav_dest_picked") is None)
 
 
 def _render_compass_enable() -> None:
@@ -2690,10 +2694,15 @@ def _activate_or_defer(dest_text: str, origin: Optional[Coordinate], *, start_no
     if origin is not None:
         return _run_activation(dest_text, origin, start_now=start_now)
     # 위치 미취득 — 활성화를 예약하고 위치 확보를 기다린다(입력 중 폴링 재개 트리거).
+    # ★예약 시점의 목적지(picked)를 함께 고정한다★ — 위치 확보를 기다리는 사이(1~3초)
+    # 사용자가 다른 목적지를 고르면 nav_dest_picked 가 바뀌는데, 활성화가 그 '현재' 값을
+    # 쓰면 엉뚱한 곳으로 간다. 예약대로 결정론적으로 활성화하도록 picked/dest_text 를 박아둔다.
     st.session_state["nav_pending_activation"] = {
         "dest_text": dest_text,
         "start_now": start_now,
         "transit": bool(st.session_state.get("nav_transit_enabled", True)),
+        "picked": st.session_state.get("nav_dest_picked"),
+        "tries": 0,
     }
     st.rerun()
     return False  # 도달하지 않음(st.rerun)
@@ -2930,19 +2939,46 @@ def main() -> None:
     # (autorefresh + 폴링이 _pending_act 동안 유지돼 보통 1~3초 내 위치 확보 → 자동 출발.)
     pending_act = st.session_state.get("nav_pending_activation")
     if pending_act is not None:
+        # 예약 뒤 사용자가 목적지를 바꿨으면(입력 텍스트가 예약과 달라짐) 예약을 자동 취소한다
+        # — 엉뚱한(옛) 목적지로 출발하는 것을 막는다.
+        _cur_dest = (st.session_state.get("nav_dest_input") or "").strip()
+        if _cur_dest and _cur_dest != (pending_act.get("dest_text") or "").strip():
+            st.session_state["nav_pending_activation"] = None
+            pending_act = None
+    if pending_act is not None:
         act_origin: Optional[Coordinate] = st.session_state["nav_origin"]
         if act_origin is not None:
             st.session_state["nav_pending_activation"] = None
             st.session_state["nav_transit_enabled"] = bool(pending_act.get("transit", True))
+            # 예약 시점에 고정한 목적지(picked)를 복원해 결정론적으로 활성화한다(그 사이
+            # 사용자가 다른 후보를 골랐어도 예약대로). picked=None 이면 dest_text 지오코딩 폴백.
+            st.session_state["nav_dest_picked"] = pending_act.get("picked")
+            _start_now = bool(pending_act.get("start_now", True))
             _started = _run_activation(
-                pending_act.get("dest_text", ""), act_origin,
-                start_now=bool(pending_act.get("start_now", True)))
+                pending_act.get("dest_text", ""), act_origin, start_now=_start_now)
             if _started:
-                st.toast("🚶 안내를 시작합니다" if st.session_state["nav_running"]
-                         else "여정을 준비했어요 — 구간 카드에서 진행하세요")
+                if _start_now:
+                    st.toast("🚶 안내를 시작합니다" if st.session_state["nav_running"]
+                             else "여정을 준비했어요 — 구간 카드에서 진행하세요")
+                else:
+                    _summary = _plan_summary_text()
+                    st.success(f"경로를 찾았어요{(' — ' + _summary) if _summary else ''}. "
+                               "▶ 시작을 누르면 안내가 시작됩니다")
                 st.rerun()
         else:
-            st.info("📍 현재 위치 확인 중 — 잡히면 자동으로 출발합니다")
+            # 위치 확보 대기 — GPS가 계속 실패(권한 거부/실내)해도 무한 대기에 갇히지 않게
+            # 시도 횟수를 세어 한도(≈15초) 초과 시 예약을 풀고 안내한다. 사용자가 즉시
+            # 그만두고 싶으면 취소 버튼으로 정상 입력 상태로 돌아간다.
+            pending_act["tries"] = int(pending_act.get("tries", 0)) + 1
+            if pending_act["tries"] > 15:
+                st.session_state["nav_pending_activation"] = None
+                st.error("현재 위치를 찾지 못했어요. 위치 권한·GPS를 확인하고 '출발'을 다시 눌러주세요.")
+            else:
+                st.session_state["nav_pending_activation"] = pending_act
+                st.info("📍 현재 위치 확인 중 — 잡히면 자동으로 출발합니다")
+                if st.button("취소", key="cancel_pending_activation", width="stretch"):
+                    st.session_state["nav_pending_activation"] = None
+                    st.rerun()
 
     # 폰 잠금·새로고침으로 세션이 초기화됐을 때 저장된 안내를 자동 재개.
     # origin(위치)이 잡히면 재계획 후 바로 안내를 시작한다(start_now=True). 아직 위치가
@@ -3134,10 +3170,13 @@ def main() -> None:
             )
             if need_gps_poll:
                 # 최초 취득 시에만 다중 샘플로 best fix 선택(첫 fix 부정확 완화), 라이브는 단일.
-                # (입력 중에는 애초에 폴링을 하지 않으므로 여기서 입력 리셋 걱정은 없다 —
-                #  gps_poll_needed 가 dest_entry_active 면 폴링을 멈춘다.)
+                # 단 목적지 입력이 시작된 뒤(nav_dest_input 존재)에는 첫 취득도 '단일'로 받는다 —
+                # 다중측정은 2.5~6초 blocking 후 rerun 하는데, 첫 글자 입력 순간(아직 억제
+                # 발동 전)과 겹치면 st_searchbox 입력이 리셋된다. 단일은 ~1초라 그 창을 최소화.
+                # (입력이 시작되지 않은 첫 렌더에는 잃을 입력이 없으므로 다중=정확도 우선.)
+                _dest_buffered = bool((st.session_state.get("nav_dest_input") or "").strip())
                 geo = _get_geolocation_high_accuracy(
-                    multi=(st.session_state["nav_origin"] is None))
+                    multi=(st.session_state["nav_origin"] is None and not _dest_buffered))
                 # 나침반 방위각(payload 동승)을 세션에 최신화 — 정지 시 마커 화살표·
                 # '보는 방향 기준' 안내용. 미지원/미권한 기기는 None 유지(기능 저하 없음).
                 if isinstance(geo, dict) and geo.get("compass") is not None:
@@ -3269,7 +3308,11 @@ def main() -> None:
                             st.session_state["nav_raw_gps"] = ip_geo
                             st.session_state["nav_origin_coarse"] = True
                             st.session_state["nav_origin_source"] = "ip"
-                            st.rerun()
+                            # 입력 중이면 rerun 하지 않는다 — 이 강제 rerun 이 st_searchbox
+                            # 입력을 리셋하기 때문. origin 은 이미 세팅됐고 다음 자연 rerun 에서
+                            # 반영된다(대략위치라 급하지 않다).
+                            if not _dest_entry_active():
+                                st.rerun()
                         except (TypeError, ValueError):
                             pass
                     if st.session_state["nav_origin"] is None:
