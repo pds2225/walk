@@ -1736,8 +1736,9 @@ _HEADING_DEBUG_HTML = """
  function onOri(slot,ev){
   slot.n++; slot.t=Date.now(); slot.abs=ev.absolute;
   slot.alpha=ev.alpha; slot.beta=ev.beta; slot.gamma=ev.gamma;
-  if(ev.webkitCompassHeading!=null)W.h=ev.webkitCompassHeading;
   if(ev.webkitCompassAccuracy!=null)W.acc=ev.webkitCompassAccuracy;
+  if(ev.webkitCompassAccuracy!=null&&ev.webkitCompassAccuracy<0)W.h=null;
+  else if(ev.webkitCompassHeading!=null)W.h=ev.webkitCompassHeading;
  }
  try{window.addEventListener('deviceorientationabsolute',function(e){onOri(A,e);},true);}catch(e){}
  try{window.addEventListener('deviceorientation',function(e){onOri(P,e);},true);}catch(e){}
@@ -1764,8 +1765,13 @@ _HEADING_DEBUG_HTML = """
   try{if(window.orientation!=null)return window.orientation;}catch(e){}
   return 0;
  }
- // 표시에 실제 쓰는 슬롯 — 절대방위(A)가 오면 그것, 아니면 일반(P).
- function active(){return (A.n>0)?A:P;}
+ // 표시에 실제 쓰는 슬롯 — 절대방위(A)를 우선하되 멈추면 최신 일반(P)으로 전환한다.
+ function stale(slot){return slot.n>0&&(Date.now()-slot.t)>=3000;}
+ function active(){
+  if(A.n===0)return P;
+  if(P.n===0)return A;
+  return (stale(A)&&P.t>A.t)?P:A;
+ }
 
  // 안드로이드에서 값이 실제로 갈리는 축은 '기울기'가 아니라 '이벤트 소스'다:
  //  · 앱 나침반(절대방위): 앱이 실제 쓰는 값. 이게 '—'면 앱 나침반이 죽은 것(핵심 원인).
@@ -1780,13 +1786,16 @@ _HEADING_DEBUG_HTML = """
    {d:norm(W.h==null?null:W.h+DECL), t:"iOS 나침반", note:""},
    {d:norm(G.h), t:"GPS 진행방향", note:(G.sp!=null&&G.sp>0.5)?"":"걸어야 값이 나옴"}
   ];
-  if(sa){arr.push({d:norm(t==null?null:t+sa+DECL), t:"기울기+화면회전 보정", note:"화면회전 "+sa+"°"});}
+  if(sa){
+   arr.push({d:norm(t==null?null:t+sa+DECL), t:"기울기+화면회전(+) 보정", note:"화면회전 "+sa+"°"});
+   arr.push({d:norm(t==null?null:t-sa+DECL), t:"기울기+화면회전(-) 보정", note:"화면회전 "+(-sa)+"°"});
+  }
   return arr;
  }
  function primary(){
-  var s=headOf(A); if(s!=null)return {d:s,src:"절대방위 나침반"};
+  var S=active(), s=(S===A)?headOf(A):null; if(s!=null)return {d:s,src:"절대방위 나침반"};
   s=norm(W.h==null?null:W.h+DECL); if(s!=null)return {d:s,src:"iOS 나침반"};
-  var S=active(),t=tilt(S.alpha,S.beta,S.gamma); if(t!=null)return {d:norm(t+DECL),src:"기울기 보정"};
+  var t=tilt(S.alpha,S.beta,S.gamma); if(t!=null)return {d:norm(t+DECL),src:"기울기 보정"};
   s=headOf(P); if(s!=null)return {d:s,src:"일반 센서(주의: 진북 아님)"};
   return {d:null,src:""};
  }
