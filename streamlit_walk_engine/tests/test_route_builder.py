@@ -438,6 +438,18 @@ class TestGeocodeSuggestions:
         assert "남동구 서판로 32" in labels
         assert len(out) == 2
 
+    def test_keeps_same_label_when_far_apart(self, monkeypatch):
+        # 라벨(화면 글자)이 '완전히 동일'해도 좌표가 멀면 다른 장소이므로 둘 다 남긴다
+        # (동명 지점이 라벨만 보고 하나로 합쳐져 검색에서 사라지던 문제 방지).
+        monkeypatch.setattr(route_builder, "_naver_headers", lambda: {"X": "y"})
+        payload = {"addresses": [  # 같은 라벨('남동구 서판로 30')이지만 ~30km 떨어짐
+            {"y": "37.4500", "x": "126.7200", "roadAddress": "인천광역시 남동구 서판로 30"},
+            {"y": "37.5000", "x": "127.0000", "roadAddress": "인천광역시 남동구 서판로 30"},
+        ]}
+        monkeypatch.setattr(route_builder.requests, "get", lambda *a, **k: _FakeResp(200, payload))
+        out = route_builder.geocode_suggestions("서판로30", limit=8)
+        assert len(out) == 2  # 멀리 떨어진 동명은 합치지 않고 둘 다 유지
+
     def test_network_error_returns_empty_gracefully(self, monkeypatch):
         monkeypatch.setattr(route_builder, "_naver_headers", lambda: None)
 
@@ -524,6 +536,57 @@ class _FakeSecrets:
 
     def get(self, key, default=None):
         return self._data.get(key, default)
+
+
+class TestNaverLocalSearch:
+    """네이버 지역검색(장소 DB) — 네이버 지도에 뜨는 상호·건물·POI 검색."""
+
+    def test_parse_extracts_wgs84_and_strips_html(self):
+        items = [{"title": "<b>경복궁</b>", "roadAddress": "서울 종로구 사직로 161",
+                  "address": "서울 종로구 세종로 1-1", "mapx": "1269779400", "mapy": "375759200"}]
+        out = route_builder._parse_naver_local_items(items, 5, "q")
+        assert len(out) == 1
+        coord, display = out[0]
+        assert abs(coord.latitude - 37.5759) < 1e-3 and abs(coord.longitude - 126.9779) < 1e-3
+        assert display == "서울 종로구 사직로 161 경복궁"  # <b> 제거 + 주소 뒤 상호
+
+    def test_parse_skips_out_of_range_coords(self):
+        # KATECH 등 다른 좌표계가 섞이면 /1e7 값이 한국 범위를 벗어난다 → 건너뛴다.
+        items = [{"title": "x", "roadAddress": "a", "mapx": "126897", "mapy": "37477"},
+                 {"title": "y", "address": "b", "mapx": "0", "mapy": "0"}]
+        assert route_builder._parse_naver_local_items(items, 5, "q") == []
+
+    def test_local_hits_no_key_returns_empty_without_network(self, monkeypatch):
+        monkeypatch.setattr(route_builder, "_naver_search_headers", lambda: None)
+
+        def _boom(*a, **k):
+            raise AssertionError("키 없으면 네트워크 호출 금지")
+        monkeypatch.setattr(route_builder.requests, "get", _boom)
+        assert route_builder._naver_local_hits("경복궁") == []
+
+    def test_local_hits_parses_response(self, monkeypatch):
+        monkeypatch.setattr(route_builder, "_naver_search_headers", lambda: {"X": "y"})
+        payload = {"items": [
+            {"title": "스타벅스 <b>강남</b>점", "roadAddress": "서울 강남구 테헤란로 101",
+             "mapx": "1270276000", "mapy": "374979000"},
+        ]}
+        monkeypatch.setattr(route_builder.requests, "get", lambda *a, **k: _FakeResp(200, payload))
+        out = route_builder._naver_local_hits("스타벅스", 5)
+        assert len(out) == 1
+        assert out[0][1] == "서울 강남구 테헤란로 101 스타벅스 강남점"
+
+    def test_suggestions_include_naver_local_places(self, monkeypatch):
+        # 지오코딩은 주소 전용이라 장소명이 비어도, 지역검색이 장소를 채워 넣는다.
+        monkeypatch.setattr(route_builder, "_naver_headers", lambda: None)
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: None)
+        monkeypatch.setattr(route_builder, "_naver_search_headers", lambda: {"X": "y"})
+        payload = {"items": [
+            {"title": "대륭포스트타워<b>8차</b>", "roadAddress": "서울 금천구 가산디지털1로 186",
+             "mapx": "1268873000", "mapy": "374766000"},
+        ]}
+        monkeypatch.setattr(route_builder.requests, "get", lambda *a, **k: _FakeResp(200, payload))
+        out = route_builder.geocode_suggestions("대륭포스트타워8차", limit=5)
+        assert any("대륭포스트타워8차" in d for _, d in out)
 
 
 class TestNaverHeaders:
@@ -1110,3 +1173,44 @@ class TestSuggestionsParallel:
         monkeypatch.setattr(route_builder, "_tmap_poi_results",
                             lambda q, limit=5, center=None: [poi_hit])
         assert poi_hit in route_builder.geocode_suggestions("아무거나", limit=5)
+
+
+# ── parse_coord_literal: 좌표 직접 입력 폴백(목적지 항상 해석) ────────────────
+from route_builder import parse_coord_literal  # noqa: E402
+
+
+class TestParseCoordLiteral:
+    def test_comma_separated(self):
+        res = parse_coord_literal("37.5665, 126.9780")
+        assert res is not None
+        coord, label = res
+        assert abs(coord.latitude - 37.5665) < 1e-9
+        assert abs(coord.longitude - 126.9780) < 1e-9
+        assert "37.5665" in label
+
+    def test_space_separated(self):
+        res = parse_coord_literal("37.5665 126.978")
+        assert res is not None and abs(res[0].longitude - 126.978) < 1e-9
+
+    def test_place_name_is_not_coord(self):
+        assert parse_coord_literal("경복궁") is None
+        assert parse_coord_literal("강남역 10번출구") is None
+
+    def test_empty_and_none(self):
+        assert parse_coord_literal("") is None
+        assert parse_coord_literal(None) is None
+
+    def test_out_of_korea_bounds_rejected(self):
+        # 위경도 뒤바뀐 입력(경도,위도)은 위도 범위 밖 → 좌표로 보지 않는다.
+        assert parse_coord_literal("126.9780, 37.5665") is None
+        # 해외 좌표(뉴욕)도 국내 경계 밖 → None.
+        assert parse_coord_literal("40.7128, -74.0060") is None
+
+    def test_geocode_address_uses_literal(self):
+        # 지오코딩 제공자 호출 없이도 좌표 입력은 즉시 해석된다.
+        res = route_builder.geocode_address("37.5, 127.0")
+        assert res is not None and abs(res[0].latitude - 37.5) < 1e-9
+
+    def test_geocode_suggestions_uses_literal(self):
+        out = route_builder.geocode_suggestions("37.5, 127.0")
+        assert len(out) == 1 and abs(out[0][0].longitude - 127.0) < 1e-9

@@ -61,11 +61,19 @@ _GEOCODE_COUNTRY = "kr"  # Nominatim countrycodes — 동명 해외 지명 오�
 
 _NAVER_GEOCODE = "https://maps.apigw.ntruss.com/map-geocode/v2/geocode"
 _NAVER_REVERSE = "https://maps.apigw.ntruss.com/map-reversegeocode/v2/gc"
+# 네이버 '지역(장소)검색' 오픈API — 상호·건물·POI 등 네이버 지도와 같은 장소 DB.
+# 지오코딩(주소 전용)이 못 찾는 장소명을 여기서 잡아 '네이버엔 나오는데 여긴 안 뜸'을 해소.
+_NAVER_LOCAL = "https://openapi.naver.com/v1/search/local.json"
 _TMAP_POI = "https://apis.openapi.sk.com/tmap/pois"  # 장소명(POI) 통합검색
 _TMAP_ADDR_GEO = "https://apis.openapi.sk.com/tmap/geo/fullAddrGeo"  # 주소→좌표(도로명·지번)
 _TMAP_REVERSE = "https://apis.openapi.sk.com/tmap/geo/reversegeocoding"  # 좌표→주소
 _ENV_SHARED = Path(r"D:\_secure\.env.shared")  # 마스터 .env — 키를 코드에 넣지 않음
 _naver_keys_cache: dict[str, str] | None | bool = False  # False=미로드, None=키 없음
+_naver_search_keys_cache: dict[str, str] | None | bool = False  # 지역검색 키(지오코딩과 별개)
+_HTML_TAG_RE = re.compile(r"<[^>]+>")  # 지역검색 title 의 <b> 하이라이트 태그 제거용
+# 같은 라벨 후보를 '중복'으로 합칠 좌표 근접 상한(m). 이보다 멀면 동명 '다른 장소'로 보고
+# 둘 다 남긴다 — 한 도로/건물의 여러 표현만 합쳐 검색 결과가 사라지지 않게 하는 경계.
+_DEDUP_NEAR_M = 60.0
 
 
 def _naver_headers() -> dict[str, str] | None:
@@ -101,6 +109,84 @@ def _naver_headers() -> dict[str, str] | None:
             if cid and sec else None
         )
     return _naver_keys_cache or None
+
+
+def _naver_search_headers() -> dict[str, str] | None:
+    """네이버 '지역검색' 오픈API 인증 헤더(지오코딩 키와 별개). 없으면 None → 소스 생략.
+
+    키 공급원: 환경변수 NAVER_SEARCH_CLIENT_ID/SECRET → Streamlit secrets → 마스터 .env.
+    지오코딩(NCP maps)과 다른 developers.naver.com '검색' 애플리케이션 키를 쓴다.
+    """
+    global _naver_search_keys_cache
+    if _naver_search_keys_cache is False:
+        cid = os.environ.get("NAVER_SEARCH_CLIENT_ID", "")
+        sec = os.environ.get("NAVER_SEARCH_CLIENT_SECRET", "")
+        if not (cid and sec):
+            try:
+                import streamlit as st
+                cid = cid or str(st.secrets.get("NAVER_SEARCH_CLIENT_ID", "") or "")
+                sec = sec or str(st.secrets.get("NAVER_SEARCH_CLIENT_SECRET", "") or "")
+            except Exception:
+                pass
+        if not (cid and sec) and _ENV_SHARED.is_file():
+            try:
+                for line in _ENV_SHARED.read_text(encoding="utf-8").splitlines():
+                    line = line.strip()
+                    if line.startswith("NAVER_SEARCH_CLIENT_ID="):
+                        cid = line.partition("=")[2].strip()
+                    elif line.startswith("NAVER_SEARCH_CLIENT_SECRET="):
+                        sec = line.partition("=")[2].strip()
+            except OSError:
+                pass
+        _naver_search_keys_cache = (
+            {"X-Naver-Client-Id": cid, "X-Naver-Client-Secret": sec}
+            if cid and sec else None
+        )
+    return _naver_search_keys_cache or None
+
+
+def _parse_naver_local_items(items: list, limit: int, query: str) -> list[tuple[Coordinate, str]]:
+    """네이버 지역검색 items[] → (Coordinate, 표시문자열) 목록(순수 함수, 파싱·검증).
+
+    mapx/mapy 는 WGS84 좌표 ×10^7 정수(경도=mapx/1e7, 위도=mapy/1e7). title 의 <b> 태그는
+    지운다. 좌표가 한국 범위를 벗어나면(좌표계 오인·이상치) 건너뛴다. 표시는 한국식
+    '주소 뒤 상호'(예: '서울 종로구 사직로 161 경복궁').
+    """
+    out: list[tuple[Coordinate, str]] = []
+    for item in items[:limit]:
+        try:
+            lon = float(item["mapx"]) / 1e7
+            lat = float(item["mapy"]) / 1e7
+        except (KeyError, ValueError, TypeError):
+            continue
+        if not (33.0 <= lat <= 39.5 and 124.0 <= lon <= 132.0):
+            continue  # 한국 범위 밖 = 좌표계 오인/이상치
+        name = _HTML_TAG_RE.sub("", item.get("title") or "").strip()
+        addr = (item.get("roadAddress") or item.get("address") or "").strip()
+        display = f"{addr} {name}".strip() if name and addr else (name or addr or query)
+        out.append((Coordinate(latitude=lat, longitude=lon), display))
+    return out
+
+
+def _naver_local_hits(query: str, limit: int = 5) -> list[tuple[Coordinate, str]]:
+    """네이버 지역검색(장소 DB) 후보 — 네이버 지도에 뜨는 상호·건물·POI 를 좌표로.
+
+    키 없음·오류·결과 없음이면 [](다른 소스로 통과). 예외는 호출부로 전파하지 않는다.
+    """
+    headers = _naver_search_headers()
+    if headers is None:
+        return []
+    try:
+        resp = requests.get(
+            _NAVER_LOCAL, params={"query": query, "display": max(1, min(limit, 5))},
+            headers=headers, timeout=_TIMEOUT,
+        )
+        if resp.status_code != 200:
+            return []
+        items = resp.json().get("items", []) or []
+    except (requests.RequestException, KeyError, ValueError):
+        return []
+    return _parse_naver_local_items(items, limit, query)
 
 
 # ── 지하철 출구 query 전처리 ─────────────────────────────────────────────────
@@ -327,19 +413,53 @@ def _tmap_addr_results(query: str, limit: int = 5) -> list[tuple[Coordinate, str
     return []
 
 
+# 좌표 직접 입력 매칭: "37.5665, 126.9780" / "37.5665 126.978" / "위도,경도".
+# 위경도 순만 허용(국내 통용). 대한민국 대략 경계로 범위 검증해 일반 숫자 텍스트를
+# 좌표로 오인하지 않는다(위도 33~39, 경도 124~132).
+_COORD_LITERAL_RE = re.compile(
+    r"^\s*(-?\d{1,3}(?:\.\d+)?)\s*[,\s]\s*(-?\d{1,3}(?:\.\d+)?)\s*$"
+)
+
+
+def parse_coord_literal(query: str) -> tuple[Coordinate, str] | None:
+    """검색어가 '위도, 경도' 좌표면 그 좌표로 바로 해석한다(지오코딩 불필요).
+
+    어떤 제공자도 결과를 못 줄 때도 좌표를 직접 넣어 목적지를 항상 찍을 수 있게 하는
+    최종 폴백. 대한민국 대략 경계 밖 값은 좌표로 보지 않고 None(주소·장소명으로 검색).
+    """
+    if not query:
+        return None
+    m = _COORD_LITERAL_RE.match(query)
+    if not m:
+        return None
+    try:
+        lat, lon = float(m.group(1)), float(m.group(2))
+    except (TypeError, ValueError):
+        return None
+    if not (33.0 <= lat <= 39.0 and 124.0 <= lon <= 132.0):
+        return None
+    return Coordinate(latitude=lat, longitude=lon), f"위치 {lat:.5f}, {lon:.5f}"
+
+
 def geocode_address(query: str) -> tuple[Coordinate, str] | None:
     """주소/장소명 → (Coordinate, 표시 주소).
 
-    Naver 지오코딩(주소 전용) → TMAP 주소 지오코딩(fullAddrGeo) →
-    TMAP 장소(POI) 검색 → Nominatim 변형 검색 순으로 폴백합니다
-    (키 없는 소스는 자동으로 건너뜀).
+    좌표 직접 입력('위도, 경도') → Naver 지오코딩(주소 전용) → TMAP 주소
+    지오코딩(fullAddrGeo) → TMAP 장소(POI) 검색 → Nominatim 변형 검색 순으로
+    폴백합니다 (키 없는 소스는 자동으로 건너뜀).
     """
+    literal = parse_coord_literal(query)
+    if literal is not None:
+        return literal
     naver = _naver_geocode(query)
     if naver is not None:
         return naver
     addr = _tmap_addr_results(query, limit=1)
     if addr:
         return addr[0]
+    local = _naver_local_hits(query, limit=1)  # 장소명(상호·건물) — 네이버 지도 장소 DB
+    if local:
+        return local[0]
     pois = _tmap_poi_results(query, limit=1)
     if pois:
         return pois[0]
@@ -413,24 +533,33 @@ def geocode_suggestions(query: str, limit: int = 5,
     q = (query or "").strip()
     if not q:
         return []
+    # 0) 좌표 직접 입력이면 그 좌표를 첫 후보로 — 제공자가 다 죽어도 목적지를 찍게.
+    literal = parse_coord_literal(q)
+    if literal is not None:
+        return [literal]
     out: list[tuple[Coordinate, str]] = []
     seen: set[tuple[float, float]] = set()
-    seen_labels: set[str] = set()
+    label_coords: dict[str, list[tuple[float, float]]] = {}
 
     def _add(lat: float, lon: float, display: str) -> None:
         key = (round(lat, 6), round(lon, 6))
         if key in seen:
             return
-        # 화면에 보이는 라벨이 이미 담긴 후보와 '글자까지 동일'하면 건너뛴다.
-        # (같은 도로·POI 가 좌표만 살짝 달라 여러 줄로 뜨던 '똑같아 보이는 주소' 제거 —
-        #  사용자가 무엇을 고를지 구분 못 하는 문제. 거리 표시는 UI 에서 붙으므로 여기선
-        #  거리 이전의 주소 라벨 기준으로 판단한다. 건물번호가 다르면 라벨이 달라 유지된다.)
+        # 화면 라벨이 같은 후보라도 '가까이(≤ _DEDUP_NEAR_M)' 있을 때만 중복으로 보고 건너뛴다.
+        # 같은 도로·POI 가 좌표만 살짝 달라 여러 줄로 뜨던 '똑같아 보이는 주소'는 없애되(구분
+        # 불가 해소), 이름은 같지만 '다른 동네'에 있는 장소(예: 여러 지역의 동명 지점)는 둘 다
+        # 남겨 검색 결과가 사라지지 않게 한다. 거리 표시는 UI 에서 붙어 구분된다.
         label = format_place_label(display)
-        if label and label in seen_labels:
-            return
-        seen.add(key)
         if label:
-            seen_labels.add(label)
+            near = label_coords.get(label)
+            if near and any(
+                distance_meters(Coordinate(latitude=lat, longitude=lon),
+                                Coordinate(latitude=plat, longitude=plon)) <= _DEDUP_NEAR_M
+                for plat, plon in near
+            ):
+                return
+            label_coords.setdefault(label, []).append((lat, lon))
+        seen.add(key)
         out.append((Coordinate(latitude=lat, longitude=lon), display))
 
     # 세 소스(주소=Naver, 주소=TMAP fullAddrGeo, 장소=TMAP POI)를 '동시에' 요청한다.
@@ -439,17 +568,28 @@ def geocode_suggestions(query: str, limit: int = 5,
     # 우선순위 그대로 병합한다 — 후보 구성·순서는 직렬 때와 동일.
     # (Naver 성공 시 fullAddrGeo 결과는 버려지는 투기 호출이지만 지연 0·쿼터 여유.
     #  키 없는 소스는 네트워크 없이 즉시 [] 반환이라 스레드 낭비도 없음.)
-    with ThreadPoolExecutor(max_workers=3) as pool:
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        f_local = pool.submit(_naver_local_hits, q, limit)
         f_naver = pool.submit(_naver_suggestion_hits, q, limit)
         f_addr = pool.submit(_tmap_addr_results, q, limit)
         f_poi = pool.submit(_tmap_poi_results, q, limit, center)
+        local_hits = _future_result(f_local)
         naver_hits = _future_result(f_naver)
         addr_hits = _future_result(f_addr)
         poi_hits = _future_result(f_poi)
 
-    # 1) 주소 후보 먼저: Naver → 키 없음·결과 없음이면 TMAP 주소 지오코딩(fullAddrGeo)
+    # 0) 네이버 지역검색(장소 DB) 먼저 — 네이버 지도에 뜨는 상호·건물·POI 를 최우선으로
+    #    보여준다('네이버엔 나오는데 여긴 안 뜸' 해소). 키 없으면 []라 아래 순서와 동일.
+    for coord, display in local_hits:
+        if len(out) >= limit:
+            break
+        _add(coord.latitude, coord.longitude, display)
+
+    # 1) 주소 후보: Naver 지오코딩 → 키 없음·결과 없음이면 TMAP 주소 지오코딩(fullAddrGeo)
     #    — 배포 환경에 Naver 키가 없으면 주소 검색이 통째로 죽던 문제의 수정(#67) 보존.
     for coord, display in (naver_hits or addr_hits):
+        if len(out) >= limit:
+            break
         _add(coord.latitude, coord.longitude, display)
 
     # 2) 남은 자리는 장소(POI) 후보로 보충 — '경복궁' 같은 장소명은 여기서 잡히고,

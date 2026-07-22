@@ -42,6 +42,31 @@ def build_tts_script(phrase: str) -> str:
         "if(window.speechSynthesis){"
         f"var u=new SpeechSynthesisUtterance({text});"
         "u.lang='ko-KR';"
+        # resume(): 크롬은 유휴 시 합성 큐를 'paused'로 두는 버그가 있어 speak() 가 조용히
+        # 무시된다 — 발화 직전 resume 으로 깨운다. cancel(): 직전 발화 잔여를 지워 겹침 방지.
+        "window.speechSynthesis.resume();"
+        "window.speechSynthesis.cancel();"
+        "window.speechSynthesis.speak(u);"
+        "}"
+        "}catch(e){}"
+    )
+
+
+def build_tts_prime_script() -> str:
+    """사용자 조작(안내 시작) 시 브라우저 TTS를 '미리 깨우는' JS 스니펫.
+
+    모바일 브라우저는 사용자 제스처 없이 speak()를 무시할 수 있다. 시작 버튼을 누른
+    직후 무음(volume=0) 발화를 한 번 재생해 음성 합성을 '해금'하면, 이후 비동기
+    rerun(이탈 알림)의 발화가 막히지 않는다. getVoices()로 한국어 음성 목록도 예열한다.
+    미지원/차단 브라우저는 try/catch로 조용히 무시한다.
+    """
+    return (
+        "try{"
+        "if(window.speechSynthesis){"
+        "window.speechSynthesis.getVoices();"
+        "window.speechSynthesis.resume();"
+        "var u=new SpeechSynthesisUtterance(' ');"
+        "u.lang='ko-KR';u.volume=0;"
         "window.speechSynthesis.cancel();"
         "window.speechSynthesis.speak(u);"
         "}"

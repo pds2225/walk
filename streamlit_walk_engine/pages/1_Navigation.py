@@ -46,9 +46,14 @@ from engine import (
 )
 import gps_filter
 import mapbox_matcher
+import nav_session
 import snap_router
 import transit_builder
-from alert_voice import build_tts_script, tts_phrase
+from alert_voice import build_tts_prime_script, build_tts_script, tts_phrase
+from walk_diag import (
+    DIAG_CAP, GITHUB_LOG_BRANCH, append_capped, diag_findings, diag_json,
+    diag_record, diag_summary, github_upload_payload,
+)
 from route_builder import (
     fetch_walking_route_with_engine, format_korean_address, geocode_address,
     geocode_suggestions, label_with_distance, reverse_geocode, route_engine_label,
@@ -160,35 +165,48 @@ def _get_geolocation_high_accuracy(component_key: str = "walk_hi_acc_geo", multi
     # 서 있어도 사용자가 '보는 방향'을 알 수 있게 하는 유일한 소스다.
     # iOS: webkitCompassHeading(자북 시계방향, 권한 탭 1회 필요 — _render_compass_enable).
     #      webkitCompassAccuracy<0 은 '보정 안 된 나침반'(8자 흔들기 전) — 배제.
-    # Android: deviceorientationabsolute 의 alpha → (360-alpha)%360 = 자북 시계방향.
+    # Android: deviceorientationabsolute(절대방위) 우선. 단 일부 안드로이드 기기는 이
+    #      절대방위 이벤트를 아예 안 보내서(진단 패널에서 '절대방위 이벤트 안 옴'으로 확인),
+    #      그런 기기는 일반 deviceorientation 의 alpha 로 폴백한다 → (360-alpha)%360.
+    #      절대방위가 최근 3초 안에 왔으면 일반 이벤트는 무시(절대방위가 더 정확). 폴백이
+    #      쓰였는지는 payload 의 compass_src('abs'/'plain'/'ios')로 진단 가능.
     # 정확도: 자기 센서는 ±10~15° 떨림이 기본이라 원시 마지막 값 대신 최근 0.8초의
     # '원형 평균'(sin/cos 합산 후 atan2 — 359°↔1° 경계에서 180°로 튀지 않는 평균)을
     # 보낸다(~16Hz 스로틀). 자북→진북 편각 보정은 수신부(_COMPASS_DECL_DEG) 일괄 적용.
     compass_setup_js = (
-        "try{if(!window._walkCompass){window._walkCompass={h:null,buf:[]};"
-        "var _ce=('ondeviceorientationabsolute' in window)?'deviceorientationabsolute':'deviceorientation';"
-        "window.addEventListener(_ce,function(ev){"
-        "var h=null;"
+        "try{if(!window._walkCompass){window._walkCompass={h:null,buf:[],absT:0,src:null};"
+        # 절대방위(absolute)·일반(deviceorientation) 두 이벤트를 모두 구독하고, 한 핸들러가
+        # 소스 우선순위로 방위각을 고른다: iOS 나침반 > 절대방위 alpha > (절대방위가 3초↑
+        # 없을 때만) 일반 alpha. 예전엔 절대방위 이벤트 하나만 구독해, 그걸 안 보내는
+        # 안드로이드 기기에서 나침반이 통째로 죽었다.
+        "var _wc=function(ev,isAbs){"
+        "var C=window._walkCompass,now=Date.now(),h=null,src=null;"
+        "if(isAbs)C.absT=now;"
         "if(ev.webkitCompassHeading!=null){"
         "if(ev.webkitCompassAccuracy!=null&&ev.webkitCompassAccuracy<0)return;"
-        "h=ev.webkitCompassHeading%360;}"
-        "else if(ev.absolute&&ev.alpha!=null){h=(360-ev.alpha)%360;}"
+        "h=ev.webkitCompassHeading%360;src='ios';}"
+        "else if(ev.alpha!=null){"
+        "if(isAbs){h=(360-ev.alpha)%360;src='abs';}"
+        "else if(now-C.absT>3000){h=(360-ev.alpha)%360;src='plain';}"
+        "else return;}"          # 절대방위가 최근 살아있으면 일반 이벤트는 버린다
         "if(h==null)return;"
-        "var C=window._walkCompass,now=Date.now();"
         "if(C.buf.length&&(now-C.buf[C.buf.length-1].t)<60)return;"
         "C.buf.push({t:now,h:h});"
         "while(C.buf.length&&(now-C.buf[0].t)>800)C.buf.shift();"
         "var sx=0,sy=0;for(var i=0;i<C.buf.length;i++){"
         "var r=C.buf[i].h*Math.PI/180;sx+=Math.sin(r);sy+=Math.cos(r);}"
-        "C.h=(Math.atan2(sx,sy)*180/Math.PI+360)%360;"
-        "},true);}}catch(e){}"
+        "C.h=(Math.atan2(sx,sy)*180/Math.PI+360)%360;C.src=src;};"
+        "window.addEventListener('deviceorientationabsolute',function(e){_wc(e,true);},true);"
+        "window.addEventListener('deviceorientation',function(e){_wc(e,false);},true);"
+        "}}catch(e){}"
     )
     coords_js = (
         "coords:{accuracy:p.coords.accuracy,altitude:p.coords.altitude,"
         "altitudeAccuracy:p.coords.altitudeAccuracy,heading:p.coords.heading,"
         "latitude:p.coords.latitude,longitude:p.coords.longitude,speed:p.coords.speed},"
         "timestamp:p.timestamp,"
-        "compass:(window._walkCompass||{h:null}).h"
+        "compass:(window._walkCompass||{h:null}).h,"
+        "compass_src:(window._walkCompass||{}).src"
     )
     if multi:
         js = (
@@ -333,6 +351,10 @@ def _init() -> None:
         "nav_last_weak_toast_ts_ms": None,
         "nav_alert_enabled": True,
         "nav_tts_enabled": True,
+        "nav_tts_primed": False,         # 안내 시작(제스처) 시 브라우저 TTS 해금 1회 실행 여부
+        "nav_diag_enabled": True,        # 도보 진단 로그 수집 on/off(기본 on — 문제 진단용)
+        "nav_diag_log": [],              # 진단 레코드 누적(GPS·판정·재탐색·음성) — LS 로 영속
+        "nav_diag_last_upload": None,    # 마지막 GitHub 자동 업로드 결과(상태 표시용)
         "nav_turn_announced_id": None,   # 회전 예고 음성을 낸 회전점 id(회전점당 1회)
         "nav_origin_address": None,
         "nav_origin_address_coord": None,
@@ -360,6 +382,14 @@ def _init() -> None:
         "nav_journey": None,
         "nav_active_leg_index": 0,
         "nav_transit_enabled": True,
+        # 안내 세션 영속화(폰 잠금·새로고침 복귀)
+        "nav_active_saved_sig": None,      # LS 저장 스로틀용 직렬화 서명
+        "nav_active_restore_tried": False, # 저장 세션 복원 시도 완료(1회)
+        "nav_resume_pending": None,        # origin 확보 후 자동 재개할 목적지
+        "nav_resume_attempts": 0,          # 자동 재개 경로 계획 실패 재시도 횟수
+        # 진행 방향 보정(원형 평균 스무딩)
+        "nav_heading_buf": [],             # 최근 표본 heading 버퍼
+        "nav_smoothed_heading": None,      # 스무딩된 진행 방향(지도 화살표·헤딩업)
     }.items():
         if k not in st.session_state:
             st.session_state[k] = v
@@ -383,6 +413,9 @@ def _reset() -> None:
     # 표시 스무딩 체인·게이팅 accuracy도 새 안내 기준으로 재시드(다음 fix에서 재구성).
     st.session_state["nav_display_origin"] = None
     st.session_state["nav_gating_acc"] = None
+    # 진행 방향 스무딩 버퍼도 초기화(이전 안내의 방향이 새 안내에 새지 않게).
+    st.session_state["nav_heading_buf"] = []
+    st.session_state["nav_smoothed_heading"] = None
 
 
 def _activate_route(
@@ -511,12 +544,8 @@ def _commit_pending_reroute() -> None:
     # 이탈 음성 뒤 재탐색 성공이 화면 토스트뿐이면 폰을 안 보는 보행자는 새 경로를
     # 찾았는지 알 수 없다 → 성공도 음성으로. 회전 방향은 id 리셋 덕에 이어서 예고된다.
     if st.session_state["nav_tts_enabled"]:
-        components.html(
-            "<script>(function(){"
-            + build_tts_script("경로를 다시 찾았습니다. 새 경로로 안내합니다.")
-            + "})();</script>",
-            height=0,
-        )
+        # 렌더 끝 _flush_audio 에서 재생 — 도착(우선순위 100)이 같은 rerun 이면 도착이 이긴다.
+        _speak("경로를 다시 찾았습니다. 새 경로로 안내합니다.", _AUDIO_PRIO_REROUTE)
 
 
 def _clear_journey_state() -> None:
@@ -704,6 +733,83 @@ _LS_KEY           = "walk_navi_history"
 _LS_KEY_BOOKINGS  = "walk_navi_booking_history"
 _LS_KEY_FAVORITES = "walk_navi_favorites"
 _LS_KEY_LASTFIX   = "walk_navi_last_fix"
+_LS_KEY_DIAG      = "walk_navi_diag_log"   # 도보 진단 로그(새로고침·세션 넘어 누적)
+_LS_KEY_ACTIVE    = "walk_navi_active_session"   # 안내 중이던 목적지(폰 잠금·새로고침 복귀용)
+
+# 저장된 안내를 자동 재개할 최대 나이(ms) — 이보다 오래된 세션은 되살리지 않는다
+# (어제 하던 길이 오늘 앱을 열자마자 다시 켜지는 당황스러움 방지). 6시간.
+_ACTIVE_SESSION_MAX_AGE_MS = 6 * 60 * 60 * 1000
+
+# 자동 재개 경로 계획이 네트워크 등으로 실패할 때 재시도 상한 — 넘으면 포기해
+# 매 유휴 rerun 마다 fetch 가 폭주하는 것을 막는다(사용자가 직접 다시 검색 가능).
+_RESUME_MAX_ATTEMPTS = 3
+
+# 저장 세션 ts 를 갱신할 주기(ms) — 스로틀 서명에 이 시간 버킷을 넣어, 목적지가
+# 안 바뀌는 장시간 안내에도 주기적으로 재기록돼 ts 가 신선하게 유지된다(안 그러면
+# 진행 중인 안내가 _ACTIVE_SESSION_MAX_AGE_MS 뒤 만료로 버려진다). 30분.
+_ACTIVE_SESSION_TS_REFRESH_MS = 30 * 60 * 1000
+
+
+def _diag(event: str, **fields) -> None:
+    """도보 진단 로그에 이벤트 1건을 쌓는다(수집 off면 무시). 실패해도 안내를 막지 않는다.
+
+    시각은 서버 time.time()(밀리초) — 레코드 간 상대 시간 분석용. GPS fix timestamp 는
+    필드로 따로 남긴다. session_state 에 누적돼 rerun 을 넘어 살아남고, 중지·도착 때
+    localStorage 로 영속화해 새로고침·다음 세션에도 이어 쌓인다.
+    """
+    try:
+        if not st.session_state.get("nav_diag_enabled", True):
+            return
+        append_capped(st.session_state["nav_diag_log"],
+                      diag_record(int(time.time() * 1000), event, **fields))
+    except Exception:
+        pass
+
+
+_GH_API = "https://api.github.com"
+_GH_REPO_DEFAULT = "pds2225/walk"  # secrets WALK_DIAG_REPO 로 덮어쓸 수 있음
+
+
+def _diag_gh_config() -> tuple[Optional[str], str]:
+    """진단 로그 자동 업로드용 (토큰, repo). 토큰은 Streamlit secrets 에서만 읽는다
+    (코드·저장소에 절대 넣지 않음). 없으면 (None, repo) → 업로드는 조용히 생략."""
+    token = None
+    repo = _GH_REPO_DEFAULT
+    try:
+        token = str(st.secrets.get("WALK_DIAG_GH_TOKEN", "") or "").strip() or None
+        repo = str(st.secrets.get("WALK_DIAG_REPO", "") or "").strip() or _GH_REPO_DEFAULT
+    except Exception:
+        pass
+    return token, repo
+
+
+def _upload_diag_to_github(log: list) -> None:
+    """진단 로그를 GitHub walk-diag-logs 브랜치에 '백그라운드로' 자동 업로드(토큰 있을 때만).
+
+    네트워크 PUT(최대 8초)을 Streamlit 스크립트 스레드에서 동기로 돌리면, 토큰이 설정된
+    경우 GitHub 응답이 느릴 때 도착 안내·⏹중지 반응이 그만큼 지연된다. 그래서 업로드는
+    데몬 스레드로 던지고(fire-and-forget) 즉시 반환한다. 워커 스레드는 st.session_state 를
+    만지지 않는다(고아 스레드 쓰기 금지 원칙 — 상태 표시는 메인 스레드에서 낙관적으로 기록).
+    토큰 없음·빈 로그는 조용히 생략.
+    """
+    token, repo = _diag_gh_config()
+    if not token or not log:
+        return
+    path, body = github_upload_payload(_session_id(), int(time.time() * 1000),
+                                       list(log), GITHUB_LOG_BRANCH)
+    url = f"{_GH_API}/repos/{repo}/contents/{path}"
+    headers = {"Authorization": f"Bearer {token}",
+               "Accept": "application/vnd.github+json",
+               "X-GitHub-Api-Version": "2022-11-28"}
+    st.session_state["nav_diag_last_upload"] = f"⬆️ 업로드 요청됨: {path}"
+
+    def _work() -> None:
+        try:
+            requests.put(url, headers=headers, json=body, timeout=8)
+        except Exception:
+            pass
+
+    threading.Thread(target=_work, daemon=True).start()
 
 # 마지막 위치 캐시를 새로 저장할 최소 이동거리(m) — 매 폴링마다 쓰지 않도록 스로틀.
 _LASTFIX_SAVE_MOVE_M = 100.0
@@ -738,6 +844,7 @@ def _load_history_from_ls() -> None:
     _load_list_from_ls(_LS_KEY,           "nav_search_history",  10)
     _load_list_from_ls(_LS_KEY_BOOKINGS,  "nav_booking_history", 20)
     _load_list_from_ls(_LS_KEY_FAVORITES, "nav_favorites",       50)
+    _load_list_from_ls(_LS_KEY_DIAG,      "nav_diag_log",        DIAG_CAP)
 
 
 def _save_last_fix(lat: float, lon: float, accuracy: Optional[float], ts: Optional[int]) -> None:
@@ -788,6 +895,154 @@ def _restore_last_fix() -> None:
     }
     st.session_state["nav_origin_coarse"] = True
     st.session_state["nav_origin_source"] = "cache"
+
+
+# ── 화면 꺼짐 방지(Screen Wake Lock) ─────────────────────────────────────────
+
+def _apply_wake_lock(active: bool) -> None:
+    """안내 중(active)이면 화면이 자동으로 꺼지지 않게 Screen Wake Lock 을 잡는다.
+
+    폰 잠금·앱 전환으로 페이지가 hidden 되면 브라우저가 lock 을 자동 해제하므로,
+    다시 보일 때(visibilitychange) 재획득해야 한다 — 그 리스너를 상위 window 에 한 번만
+    건다(원하는 상태는 g.__walkWakeWant 로 갱신). 미지원 브라우저(iOS 구버전 등)에서는
+    조용히 무시된다(try/catch). active=False 면 잡고 있던 lock 을 해제한다.
+    Streamlit 컴포넌트 iframe 은 같은 오리진이라 상위 문서/네비게이터 접근이 가능하며,
+    실패 시 iframe 로컬 컨텍스트로 폴백한다.
+    """
+    flag = "true" if active else "false"
+    components.html(
+        """
+        <script>
+        (function() {
+          var g, doc, nav;
+          try { g = window.parent; doc = g.document; nav = g.navigator;
+                if (!doc || !nav) throw 0; }
+          catch (e) { g = window; doc = document; nav = navigator; }
+          g.__walkWakeWant = %s;
+          async function acquire() {
+            try {
+              if (!g.__walkWakeWant) return;
+              if (!nav.wakeLock) return;
+              if (doc.visibilityState !== 'visible') return;
+              if (g.__walkWakeLock) return;
+              g.__walkWakeLock = await nav.wakeLock.request('screen');
+              g.__walkWakeLock.addEventListener('release', function() {
+                g.__walkWakeLock = null;
+              });
+            } catch (e) { g.__walkWakeLock = null; }
+          }
+          async function release() {
+            try {
+              if (g.__walkWakeLock) {
+                var l = g.__walkWakeLock; g.__walkWakeLock = null; await l.release();
+              }
+            } catch (e) {}
+          }
+          if (!g.__walkWakeBound) {
+            g.__walkWakeBound = true;
+            doc.addEventListener('visibilitychange', function() {
+              if (doc.visibilityState === 'visible' && g.__walkWakeWant) acquire();
+            });
+          }
+          if (g.__walkWakeWant) { acquire(); } else { release(); }
+        })();
+        </script>
+        """ % flag,
+        height=0,
+    )
+
+
+# ── 안내 세션 영속화(폰 잠금·새로고침 복귀 시 이어가기) ───────────────────────
+
+def _save_active_session() -> None:
+    """안내 중인 목적지를 localStorage 에 저장한다 — 폰 잠금·새로고침으로 Streamlit
+    세션이 초기화돼도 다음 진입에서 자동으로 같은 안내를 이어가기 위함.
+
+    안내 중이 아니면 저장 항목을 지운다(중지·초기화·도착 시 자동 정리). 직렬화 값이
+    바뀐 경우에만 스크립트를 주입해(스로틀) 매 rerun 마다 쓰지 않는다.
+    """
+    running = bool(st.session_state.get("nav_running"))
+    journey = st.session_state.get("nav_journey")
+    dest: Optional[Coordinate] = st.session_state.get("nav_dest")
+    # 자동 재개는 '단독 도보 안내'만 지원한다(running·경로만 있는 상태). 대중교통 여정은
+    # 저장 목적지 하나로 구간(leg) 진행·승하차 상태를 충실히 복원할 수 없다 — 중간 정류장이
+    # 저장되거나(leg.end), 복귀 시 leg 0 부터 재시작하거나, ⏹ 중지 후에도 여정이 남아
+    # 되살아나는 등 엣지가 많아, 여정 중에는 저장하지 않는다(사용자가 다시 계획).
+    save_dest: Optional[Coordinate] = None
+    save_label = ""
+    if running and journey is None and dest is not None:
+        save_dest = dest
+        save_label = (st.session_state.get("nav_dest_display")
+                      or st.session_state.get("nav_dest_input") or "")
+
+    if save_dest is not None:
+        now_ms = int(time.time() * 1000)
+        obj = {
+            "lat": save_dest.latitude,
+            "lon": save_dest.longitude,
+            "label": save_label,
+            # 단독 도보 안내만 저장하므로 재개도 도보 재계획으로 고정한다(여정 복원 안 함).
+            "transit": False,
+            "ts": now_ms,
+        }
+        # ts 는 스로틀 비교에서 제외하되, 시간 버킷을 서명에 넣어 목적지가 안 바뀌어도
+        # 주기적으로(_ACTIVE_SESSION_TS_REFRESH_MS) 재기록돼 ts 가 갱신되게 한다 —
+        # 장시간 안내가 만료로 잘못 버려지는 것을 막는다.
+        sig = json.dumps({
+            "lat": obj["lat"], "lon": obj["lon"], "label": obj["label"],
+            "transit": obj["transit"], "b": now_ms // _ACTIVE_SESSION_TS_REFRESH_MS,
+        }, ensure_ascii=False)
+        if st.session_state.get("nav_active_saved_sig") == sig:
+            return
+        st.session_state["nav_active_saved_sig"] = sig
+        js_payload = json.dumps(json.dumps(obj, ensure_ascii=False))
+        components.html(
+            f"<script>try{{localStorage.setItem('{_LS_KEY_ACTIVE}',{js_payload})}}catch(e){{}}</script>",
+            height=0,
+        )
+    else:
+        if st.session_state.get("nav_active_saved_sig") is None:
+            return  # 이미 지워진 상태 — 스크립트 재주입 불필요
+        st.session_state["nav_active_saved_sig"] = None
+        components.html(
+            f"<script>try{{localStorage.removeItem('{_LS_KEY_ACTIVE}')}}catch(e){{}}</script>",
+            height=0,
+        )
+
+
+def _restore_active_session() -> None:
+    """재진입 시 저장된 안내 목적지를 읽어 자동 재개를 예약한다(nav_resume_pending).
+
+    이미 안내/경로가 있으면 복원하지 않는다. 실제 경로 재계획은 origin 이 잡힌 뒤
+    main 의 재개 핸들러가 _activate_route/_activate_journey 로 수행한다. 세션당 1회만
+    시도(nav_active_restore_tried). 6시간 넘은 세션은 되살리지 않고 저장 항목만 정리한다.
+    streamlit-js-eval 첫 렌더는 None(대기·키없음 공통) — 값이 오면 rerun 으로 갱신.
+    """
+    if not _HAS_GEO or _js_eval is None:
+        return
+    if st.session_state.get("nav_active_restore_tried"):
+        return
+    if (st.session_state.get("nav_running")
+            or st.session_state.get("nav_route") is not None
+            or st.session_state.get("nav_journey") is not None):
+        st.session_state["nav_active_restore_tried"] = True
+        return
+    raw = _js_eval(js_expressions=f"localStorage.getItem('{_LS_KEY_ACTIVE}')",
+                   key="ls_active_session")
+    if raw is None:
+        return  # 대기(다음 rerun 에서 값 도착) 또는 키 없음 — 어느 쪽이든 무해
+    st.session_state["nav_active_restore_tried"] = True
+    saved = nav_session.classify_saved_session(
+        raw, int(time.time() * 1000), _ACTIVE_SESSION_MAX_AGE_MS)
+    if saved.status in ("bad", "expired"):
+        # 손상·만료된 값은 localStorage 에서 제거한다 — 남겨 두면 이후 세션마다 같은
+        # 실패로 자동 재개가 계속 막힌다(고: bugbot Medium — 손상 JSON / 만료 세션).
+        components.html(
+            f"<script>try{{localStorage.removeItem('{_LS_KEY_ACTIVE}')}}catch(e){{}}</script>",
+            height=0,
+        )
+        return
+    st.session_state["nav_resume_pending"] = saved.data
 
 
 # ── 알림 ─────────────────────────────────────────────────────────────────────
@@ -943,27 +1198,177 @@ def _alert_tone_wav(state: str) -> bytes:
     return buf.getvalue()
 
 
+# 오디오 자동재생은 rerun 당 '1개'만 낸다 — 모바일은 업데이트당 autoplay 오디오를 하나만
+# 허용할 수 있어, 한 rerun 에 알림음·이탈음성·회전예고·재탐색성공·도착이 겹치면 나머지가
+# 조용히 잘린다. 그래서 각 이벤트는 '즉시 재생' 대신 (우선순위, 문구, 알림음state)를 큐에
+# 넣고(_queue_audio), 렌더 끝에서 '가장 중요한 것 1개'만 재생한다(_flush_audio). 순서(누가
+# 먼저 실행됐나)가 아니라 우선순위로 뽑으므로 '재탐색 음성이 도착 음성을 밀어내는' 문제가
+# 없다. 페이지 스크립트는 매 rerun 재실행되므로 이 모듈 전역은 자동 리셋된다.
+_AUDIO_PRIORITY = {"arrived": 100, "deviated": 80, "passed_turn": 80, "drifting": 60}
+_AUDIO_PRIO_REROUTE = 70   # 재탐색 성공(이탈~도착 사이) — 이탈보다 낮고 도착보다 낮게
+_AUDIO_PRIO_TURN = 40      # 회전 예고 — 상태 경고보다 낮음
+_pending_audio: Optional[tuple] = None  # (priority, phrase|None, beep_state|None)
+
+
+def _queue_audio(priority: int, phrase: Optional[str] = None,
+                 beep_state: Optional[str] = None) -> None:
+    """이 rerun 에 재생할 오디오 후보를 큐에 넣는다 — 더 높은 우선순위만 남긴다."""
+    global _pending_audio
+    if _pending_audio is None or priority > _pending_audio[0]:
+        _pending_audio = (priority, phrase, beep_state)
+
+
+@st.cache_data(ttl=86400, show_spinner=False)
+def _tts_mp3_cached(phrase: str) -> bytes:
+    """gTTS 합성(성공 결과만 캐시). 실패 시 예외를 던진다 — st.cache_data 는 예외를
+    캐시하지 않으므로 다음 rerun 에 재시도된다(None 을 하루 캐시해 이후 계속 무음이 되던
+    문제 방지). 고정 문구라 성공 1회 뒤로는 캐시 히트."""
+    from gtts import gTTS
+    buf = io.BytesIO()
+    gTTS(text=phrase, lang="ko").write_to_fp(buf)
+    data = buf.getvalue()
+    if not data:
+        raise ValueError("gTTS empty output")
+    return data
+
+
+def _tts_mp3(phrase: str) -> Optional[bytes]:
+    """한국어 문구 → MP3(gTTS). 미설치·네트워크 실패는 None(캐시 안 됨 → 다음에 재시도).
+
+    브라우저 speechSynthesis 는 모바일 iframe 에서 조용히 막히는데, 서버에서 오디오로
+    합성해 st.audio(최상위 문서·autoplay)로 재생하면 알림음처럼 확실히 들린다.
+    """
+    if not phrase:
+        return None
+    try:
+        return _tts_mp3_cached(phrase)
+    except Exception:
+        return None
+
+
+def _flush_audio() -> None:
+    """렌더 끝에서 이번 rerun 최우선 오디오 1개를 재생한다.
+
+    음성 문구가 있으면 gTTS MP3 우선(st.audio, 모바일 확실), 실패 시 알림음(있으면)+
+    speechSynthesis 폴백. 문구 없이 알림음만이면 알림음 재생. st.audio 자동재생은 최대 1회.
+    """
+    global _pending_audio
+    if _pending_audio is None:
+        return
+    _priority, phrase, beep_state = _pending_audio
+    _pending_audio = None  # 소비 후 비움 — 한 rerun 에 두 번 호출돼도(틱 뒤 + main 끝) 1회만 재생
+    mp3 = _tts_mp3(phrase) if phrase else None
+    if mp3:
+        st.audio(mp3, format="audio/mp3", autoplay=True)
+        return
+    if beep_state is not None:
+        st.audio(_alert_tone_wav(beep_state), format="audio/wav", autoplay=True)
+    if phrase:  # gTTS 실패/미설치 — 브라우저 TTS 폴백(iframe, st.audio 자동재생과 무관)
+        components.html(
+            f"<script>(function(){{{build_tts_script(phrase)}}})();</script>", height=0,
+        )
+
+
+def _speak(phrase: str, priority: int = _AUDIO_PRIO_TURN) -> None:
+    """음성 문구를 오디오 큐에 넣는다(즉시 재생 아님 — 렌더 끝 _flush_audio 에서 1개만).
+
+    priority 로 다른 안내(이탈·도착·재탐색)와 겨룬다 — 기본값은 회전 예고 수준.
+    """
+    if phrase:
+        _queue_audio(priority, phrase, beep_state=None)
+
+
 def _trigger_alert(state: str, tts: bool = True) -> None:
     cfg = _ALERT.get(state)
     if cfg is None:
         return
-    st.toast(cfg["toast"])
-    # 소리: 최상위 문서에서 자동재생(위 _alert_tone_wav 설명 참조). 플레이어 바가 잠깐
-    # 보이는 것은 의도 — 무슨 알림이 울렸는지 시각 단서도 된다(다음 rerun에 사라짐).
-    st.audio(_alert_tone_wav(state), format="audio/wav", autoplay=True)
-    # 진동·음성은 iframe 스크립트 유지(진동은 Android 한정, 음성은 브라우저 TTS).
-    voice_script = ""
-    if tts:
-        phrase = tts_phrase(state)
-        if phrase:
-            voice_script = build_tts_script(phrase)
+    st.toast(cfg["toast"])  # 토스트는 즉시(오디오와 무관)
+    # 진동(Android 한정)은 즉시 iframe 스크립트로. 오디오는 큐에 넣어 렌더 끝에서 1개만.
     components.html(
         f"<script>(function(){{"
         f"try{{if(navigator.vibrate)navigator.vibrate({cfg['vibrate']});}}catch(e){{}}"
-        f"{voice_script}"
         f"}})();</script>",
         height=0,
     )
+    phrase = tts_phrase(state) if tts else None
+    _queue_audio(_AUDIO_PRIORITY.get(state, 70), phrase, beep_state=state)
+
+
+def _prime_tts_once() -> None:
+    """안내 시작(사용자 제스처) 직후 브라우저 TTS를 1회 해금한다.
+
+    모바일 브라우저는 사용자 조작 없이 speak()를 무시하므로, 비동기 rerun 에서 울리는
+    이탈 음성이 조용히 막힌다. 시작 버튼→rerun 으로 도달하는 이 첫 렌더(제스처 활성창
+    안)에서 무음 발화를 한 번 재생해 이후 발화를 허용시킨다. 세션당 1회(nav_tts_primed).
+    음성 OFF면 아무것도 하지 않는다.
+    """
+    if not st.session_state.get("nav_tts_enabled"):
+        return
+    if st.session_state.get("nav_tts_primed"):
+        return
+    st.session_state["nav_tts_primed"] = True
+    components.html(
+        f"<script>(function(){{{build_tts_prime_script()}}})();</script>", height=0,
+    )
+
+
+def _render_diag_panel() -> None:
+    """도보 진단 로그 패널 — 수집 토글·요약 통계·JSON 내려받기/복사·지우기.
+
+    걷는 동안 쌓인 GPS·이탈판정·재탐색·음성 이벤트를 요약해 보여주고 JSON 으로
+    내려받거나(모바일은 복사) 지운다. 이 로그를 공유하면 실제 데이터로 이탈 오판정·
+    GPS 튐·재탐색 폭주·음성 누락을 진단할 수 있다. expander 중첩 금지라 최상위에서 호출.
+    """
+    with st.expander("🧪 도보 진단 로그 (문제 진단용)", expanded=False):
+        st.session_state["nav_diag_enabled"] = st.checkbox(
+            "진단 로그 수집", value=st.session_state.get("nav_diag_enabled", True),
+            help="걷는 동안 위치·정확도·이탈 판정·재탐색·음성 이벤트를 기록합니다.")
+        log = st.session_state.get("nav_diag_log") or []
+        if not log:
+            st.caption("아직 기록이 없어요 — ▶ 시작으로 걸으면 자동으로 쌓입니다.")
+            return
+        summ = diag_summary(log)
+        ev = summ.get("events", {})
+        c1, c2, c3 = st.columns(3)
+        c1.metric("레코드", summ.get("records", 0))
+        c2.metric("기록 시간", f"{summ.get('span_s', 0)}초")
+        c3.metric("재탐색", f"{ev.get('reroute', 0)}회")
+        c4, c5, c6 = st.columns(3)
+        c4.metric("이탈 알림", f"{ev.get('alert', 0)}회")
+        c5.metric("정확도 p50", f"{summ.get('acc_p50', '-')}m")
+        c6.metric("정확도 p90", f"{summ.get('acc_p90', '-')}m")
+        states = summ.get("states", {})
+        if states:
+            st.caption("판정 분포: " + ", ".join(f"{k} {v}" for k, v in states.items()))
+        # 자동 진단 — 원시 로그를 사람이 읽는 힌트로(GPS 정확도·재탐색·이탈·음성 미작동 의심).
+        st.markdown("**자동 진단**")
+        for finding in diag_findings(summ):
+            st.write(finding)
+        payload = diag_json(log)
+        st.download_button("⬇️ 진단 로그 내려받기 (JSON)", payload,
+                           file_name="walk_diag.json", mime="application/json",
+                           width="stretch")
+        if st.checkbox("📋 복사용 JSON 보기(모바일)", value=False):
+            st.code(payload, language="json")
+
+        # ── 자동 업로드(파일 안 줘도 됨): 토큰 설정 시 중지·도착에 저장소로 자동 전송 ──
+        token, repo = _diag_gh_config()
+        if token:
+            st.caption(f"🔄 자동 업로드 켜짐 — 중지·도착 시 `{repo}` 의 `{GITHUB_LOG_BRANCH}` "
+                       f"브랜치로 전송됩니다.")
+            if st.button("⬆️ 지금 업로드", width="stretch"):
+                _upload_diag_to_github(log)
+                st.rerun()
+        else:
+            st.caption("🔒 자동 업로드 꺼짐 — Streamlit Secrets 에 `WALK_DIAG_GH_TOKEN` "
+                       "(저장소 contents 쓰기 권한)을 넣으면 걷기 종료 시 로그가 자동 업로드됩니다.")
+        if st.session_state.get("nav_diag_last_upload"):
+            st.caption(st.session_state["nav_diag_last_upload"])
+
+        if st.button("🗑️ 로그 지우기", width="stretch"):
+            st.session_state["nav_diag_log"] = []
+            _save_list_to_ls(_LS_KEY_DIAG, [])
+            st.rerun()
 
 
 # 다음 회전 예고 음성 '기본' 거리(m). 실제 엔진+GPS 노이즈(σ6m)+1초 폴링 시뮬(720회 보행) 실측:
@@ -1004,10 +1409,7 @@ def _maybe_announce_turn(result, tts_enabled: bool,
     st.session_state["nav_turn_announced_id"] = turn_id
     st.toast(f"{_DIR_ARROW.get(direction, '↑')} 잠시 후 {label} — {dist:.0f}m 앞")
     if tts_enabled:
-        components.html(
-            f"<script>(function(){{{build_tts_script(f'잠시 후 {label}입니다.')}}})();</script>",
-            height=0,
-        )
+        _speak(f"잠시 후 {label}입니다.")  # gTTS MP3 우선(모바일 확실) → speechSynthesis 폴백
 
 
 # ── 도착 판정 ─────────────────────────────────────────────────────────────────
@@ -1061,6 +1463,9 @@ def _maybe_finish_arrival(origin: Coordinate) -> bool:
     detail = " · ".join(parts)
     st.session_state["nav_arrival_summary"] = "🏁 도착 완료" + (f" — {detail}" if detail else "")
     st.session_state["nav_running"] = False
+    _diag("arrive", detail=detail or None)
+    _save_list_to_ls(_LS_KEY_DIAG, st.session_state["nav_diag_log"])  # 도착 시 진단로그 영속화
+    _upload_diag_to_github(st.session_state["nav_diag_log"])          # 토큰 있으면 자동 업로드
     st.session_state["nav_active_booking_id"] = None  # 같은 예약 경로 재발동 허용
     if journey is not None and transit_builder.is_last_leg(
             journey, st.session_state.get("nav_active_leg_index", 0)):
@@ -1181,7 +1586,10 @@ def _build_map(
         cur_lon = display_coord.longitude if display_coord is not None else last_s.longitude
         # 진행 방향(GPS 헤딩)을 8방향 화살표로 마커 가운데에 얹는다 — 지도만 봐도
         # 내가 어느 쪽으로 걷는 중인지 보이게(실기기 요청). 헤딩이 없으면 점만.
-        hdg = last_s.heading_degrees
+        # 보정: 매 표본 튀는 raw 헤딩 대신 원형 평균으로 스무딩한 방향을 우선 사용한다.
+        hdg = st.session_state.get("nav_smoothed_heading")
+        if hdg is None:
+            hdg = last_s.heading_degrees
         if hdg is None:
             # 정지 상태(GPS 헤딩 없음)엔 나침반 방위각으로 폴백 — 서 있어도 지도에서
             # 내가 '보는 방향'이 보인다(나침반 미지원/미권한이면 기존처럼 점만).
@@ -1238,12 +1646,16 @@ def _hex_rgb(hex_color: str, alpha: Optional[int] = None) -> list[int]:
 
 
 def _heading_up_bearing(samples: list[PositionSample]) -> float:
-    """헤딩업 지도 방위 — GPS 헤딩(이동 중) → 나침반(정지) → 직전 방위(순간 결측 유지) → 0.
+    """헤딩업 지도 방위 — 보정 헤딩(이동 중) → 나침반(정지) → 직전 방위(순간 결측 유지) → 0.
 
     직전 방위(nav_map_bearing)를 세션에 남겨, 헤딩·나침반이 잠깐 끊겨도 지도가
     북쪽으로 스냅백하지 않는다. pydeck·MapLibre 지도 공용.
+    보정: 매 표본 튀는 raw 헤딩 대신 원형 평균으로 스무딩한 진행 방향을 우선 사용해
+    헤딩업 회전이 떨리지 않게 한다.
     """
-    hdg = samples[-1].heading_degrees if samples else None
+    hdg = st.session_state.get("nav_smoothed_heading")
+    if hdg is None:
+        hdg = samples[-1].heading_degrees if samples else None
     if hdg is None:
         hdg = st.session_state.get("nav_compass_deg")
     if hdg is None:
@@ -1633,7 +2045,9 @@ def _suggest_destinations(query: str, lat3: Optional[float] = None,
     5개만 받아 그중에서 정렬하던 한계(근처 지점이 후보에 아예 못 듦) 제거."""
     center = (Coordinate(latitude=lat3, longitude=lon3)
               if lat3 is not None and lon3 is not None else None)
-    return geocode_suggestions(query, 5, center=center)
+    # 후보 8개(기존 5개) — 소스별로 더 많이 받아 '상위 5개 밖'이라 목적지가 아예 안 뜨던
+    # 경우를 줄인다. 드롭다운은 스크롤되므로 개수를 늘려도 화면 부담이 적다.
+    return geocode_suggestions(query, 8, center=center)
 
 
 def _origin_round3() -> tuple[Optional[float], Optional[float]]:
@@ -1690,6 +2104,229 @@ def _render_compass_enable() -> None:
         )
 
 
+# 방향 진단 패널의 iframe 본문. ★리런마다 '완전히 동일한 문자열'이어야 한다★ —
+# 안내 중엔 앱이 약 1초 주기로 rerun 하는데, srcdoc 문자열이 바뀌면 브라우저가 iframe
+# 문서를 통째로 재로드해 센서 카운터·'값 고정'·GPS watch 가 매초 리셋된다(정상 나침반을
+# '0건'으로 오진). 그래서 변하는 값(앱 나침반값·지도 heading)은 절대 여기 넣지 않고
+# iframe 밖 네이티브 Streamlit 로 렌더한다. 유일한 치환 __DECL__ 은 모듈 상수(-8.5)라
+# 리런 간 항상 같아 문자열이 고정된다.
+_HEADING_DEBUG_HTML = """
+<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:13px">
+ <div id="st" style="padding:6px 8px;border-radius:6px;background:#fff3cd;margin-bottom:8px"></div>
+ <div style="text-align:center;padding:8px;border-radius:8px;background:#eef2ff;margin-bottom:8px">
+  <div style="font-size:12px;color:#555">📱 지금 센서가 읽는 '내가 보는 방향'</div>
+  <div id="big" style="font-size:30px;font-weight:700;line-height:1.2">—</div>
+  <div id="bigsrc" style="font-size:11px;color:#777"></div>
+ </div>
+ <div style="display:flex;gap:6px;margin-bottom:8px">
+  <button id="fz" style="flex:1;font-size:14px;padding:9px 6px;border-radius:8px;
+    border:1px solid #bbb;background:#f7f7f7;cursor:pointer">⏸ 값 고정</button>
+  <button id="cp" style="flex:1;font-size:14px;padding:9px 6px;border-radius:8px;
+    border:1px solid #bbb;background:#f7f7f7;cursor:pointer">📋 값 복사</button>
+ </div>
+ <div style="font-weight:600;margin:10px 0 4px">계산 방식별 방향 — 어느 게 맞나요?</div>
+ <div id="cand"></div>
+ <div id="hint" style="font-size:12px;color:#8a6d00;margin-top:4px"></div>
+ <details style="margin-top:10px">
+  <summary style="cursor:pointer;color:#555">원시 센서값 보기</summary>
+  <div id="raw" style="font-family:ui-monospace,Menlo,Consolas,monospace;
+    font-size:12px;line-height:1.7;padding:6px 2px;color:#333;word-break:break-all"></div>
+ </details>
+</div>
+<script>
+(function(){
+ var DECL=__DECL__;
+ var DIRS=["북","북동","동","남동","남","남서","서","북서"];
+ var A={n:0,alpha:null,beta:null,gamma:null,abs:null,t:0};   // deviceorientationabsolute
+ var P={n:0,alpha:null,beta:null,gamma:null,abs:null,t:0};   // deviceorientation(일반)
+ var W={h:null,acc:null};                                    // iOS webkitCompass
+ var G={h:null,sp:null,acc:null,n:0};                        // GPS
+ var frozen=false, frozenSnap=null;
+
+ function norm(d){return d==null?null:((d%360)+360)%360;}
+ function lab(d){return d==null?"—":DIRS[Math.floor((norm(d)+22.5)/45)%8];}
+ function fx(v,k){return v==null?"—":(+v).toFixed(k==null?1:k);}
+
+ function onOri(slot,ev){
+  slot.n++; slot.t=Date.now(); slot.abs=ev.absolute;
+  slot.alpha=ev.alpha; slot.beta=ev.beta; slot.gamma=ev.gamma;
+  if(ev.webkitCompassHeading!=null)W.h=ev.webkitCompassHeading;
+  if(ev.webkitCompassAccuracy!=null)W.acc=ev.webkitCompassAccuracy;
+ }
+ try{window.addEventListener('deviceorientationabsolute',function(e){onOri(A,e);},true);}catch(e){}
+ try{window.addEventListener('deviceorientation',function(e){onOri(P,e);},true);}catch(e){}
+ try{navigator.geolocation.watchPosition(function(p){
+   G.n++; G.h=p.coords.heading; G.sp=p.coords.speed; G.acc=p.coords.accuracy;
+  },function(){},{enableHighAccuracy:true,maximumAge:0,timeout:15000});}catch(e){}
+
+ // alpha(자북 기준 시계방향의 반대) → 방위각. 앱 본체가 쓰는 식과 동일: (360-alpha)+편각.
+ function headOf(slot){return slot.alpha==null?null:norm((360-slot.alpha)+DECL);}
+
+ // 기울기 보정 방위 — 폰 뒷면(카메라)이 향하는 쪽을 수평면에 투영. 폰을 세워 들고 보는
+ // 자세에서 '보는 방향'과 일치한다. 수평으로 눕히면 투영 길이가 0이라 방위 미정의 →
+ // 거짓 '북'(0°)을 내보내면 오진을 부르므로 null 로 돌려 '—'가 뜨게 한다(node 검증에서 발견).
+ function tilt(al,be,ga){
+  if(al==null||be==null||ga==null)return null;
+  var y=ga*Math.PI/180,z=al*Math.PI/180,x=be*Math.PI/180;
+  var cY=Math.cos(y),cZ=Math.cos(z),sX=Math.sin(x),sY=Math.sin(y),sZ=Math.sin(z);
+  var Vx=-cZ*sY-sZ*sX*cY, Vy=-sZ*sY+cZ*sX*cY;
+  if(Math.sqrt(Vx*Vx+Vy*Vy)<0.08)return null;
+  return norm(Math.atan2(Vx,Vy)*180/Math.PI);
+ }
+ function scr(){
+  try{if(screen.orientation&&screen.orientation.angle!=null)return screen.orientation.angle;}catch(e){}
+  try{if(window.orientation!=null)return window.orientation;}catch(e){}
+  return 0;
+ }
+ // 표시에 실제 쓰는 슬롯 — 절대방위(A)가 오면 그것, 아니면 일반(P).
+ function active(){return (A.n>0)?A:P;}
+
+ // 안드로이드에서 값이 실제로 갈리는 축은 '기울기'가 아니라 '이벤트 소스'다:
+ //  · 앱 나침반(절대방위): 앱이 실제 쓰는 값. 이게 '—'면 앱 나침반이 죽은 것(핵심 원인).
+ //  · 일반 방향센서: 절대방위가 아니라 기기 임의 기준 → 진북과 어긋나면 방향이 틀림.
+ // 화면회전 보정은 세로(각도 0)에선 무의미해 가로일 때만 후보로 추가한다.
+ function cands(){
+  var S=active(), sa=scr(), t=tilt(S.alpha,S.beta,S.gamma);
+  var arr=[
+   {d:headOf(A), t:"앱 나침반(절대방위)", note:A.n===0?"이벤트 0건 — 앱 나침반 작동 안 함":""},
+   {d:headOf(P), t:"일반 방향센서",       note:""},
+   {d:norm(t==null?null:t+DECL), t:"기울기 보정(세워들 때)", note:t==null?"폰을 세워 드세요":""},
+   {d:norm(W.h==null?null:W.h+DECL), t:"iOS 나침반", note:""},
+   {d:norm(G.h), t:"GPS 진행방향", note:(G.sp!=null&&G.sp>0.5)?"":"걸어야 값이 나옴"}
+  ];
+  if(sa){arr.push({d:norm(t==null?null:t+sa+DECL), t:"기울기+화면회전 보정", note:"화면회전 "+sa+"°"});}
+  return arr;
+ }
+ function primary(){
+  var s=headOf(A); if(s!=null)return {d:s,src:"절대방위 나침반"};
+  s=norm(W.h==null?null:W.h+DECL); if(s!=null)return {d:s,src:"iOS 나침반"};
+  var S=active(),t=tilt(S.alpha,S.beta,S.gamma); if(t!=null)return {d:norm(t+DECL),src:"기울기 보정"};
+  s=headOf(P); if(s!=null)return {d:s,src:"일반 센서(주의: 진북 아님)"};
+  return {d:null,src:""};
+ }
+ function snapshot(){
+  var S=active(), L=[];
+  L.push("[walk 방향진단]");
+  L.push("이벤트 absolute="+A.n+"건 / plain="+P.n+"건 / absolute플래그="+S.abs);
+  L.push("alpha="+fx(S.alpha)+" beta="+fx(S.beta)+" gamma="+fx(S.gamma)+" 화면회전="+scr());
+  L.push("webkitCompass="+fx(W.h)+" (정확도 "+fx(W.acc)+")");
+  L.push("GPS heading="+fx(G.h)+" speed="+fx(G.sp,2)+" acc="+fx(G.acc)+" fix="+G.n);
+  cands().forEach(function(c){L.push("· "+c.t+" = "+fx(c.d)+"° "+lab(c.d)+(c.note?" ("+c.note+")":""));});
+  L.push("(화면 위 '앱이 쓰는 값' 두 줄도 함께 알려주세요)");
+  return L.join("\\n");
+ }
+ function rowHTML(c,big){
+  var on=c.d!=null;
+  return '<div style="display:flex;align-items:center;gap:8px;padding:7px 8px;margin-bottom:4px;'
+   +'border-radius:8px;background:'+(on?"#f1f5f9":"#fafafa")+';opacity:'+(on?1:0.5)+'">'
+   +'<span style="flex:1;color:#444">'+c.t
+   +(c.note?'<br><span style="font-size:11px;color:#b45309">'+c.note+'</span>':'')+'</span>'
+   +'<b style="font-size:'+(big?19:18)+'px;min-width:48px;text-align:right">'+lab(c.d)+'</b>'
+   +'<span style="width:46px;text-align:right;color:#666">'+fx(c.d,0)+'°</span></div>';
+ }
+ function draw(){
+  if(frozen)return;
+  var S=active();
+  var ok=(A.n+P.n)>0, live=(Date.now()-S.t)<3000;   // 표시 슬롯 기준 신선도
+  var e=document.getElementById("st");
+  if(!ok){e.style.background="#f8d7da";
+   e.innerHTML="⚠ 방향 센서 값이 <b>0건</b> — 나침반이 안 잡힙니다. iPhone은 위 '나침반 켜기'를 먼저 누르세요.";}
+  else{e.style.background=live?"#d1e7dd":"#fff3cd";
+   e.innerHTML=(live?"✅ 센서 수신 중":"⏳ 값이 잠시 멈춤")+" · 절대방위 "+A.n+"건 / 일반 "+P.n+"건"
+    +(A.n===0?"<br><b>⚠ 절대방위 이벤트가 안 옵니다 — 이게 방향 오류의 원인일 수 있습니다</b>":"");}
+  var pr=primary();
+  document.getElementById("big").textContent=(pr.d==null)?"—":(lab(pr.d)+"  "+fx(pr.d,0)+"°");
+  document.getElementById("bigsrc").textContent=pr.src?("출처: "+pr.src):"";
+  var cs=cands(), h="";
+  for(var i=0;i<cs.length;i++)h+=rowHTML(cs[i],i===0);
+  document.getElementById("cand").innerHTML=h;
+  // 값이 서로 같아 구별 불가한 경우 안내(세로+무회전에서 흔함).
+  var vals=cs.filter(function(c){return c.d!=null;}).map(function(c){return Math.round(c.d);});
+  var uniq={}; vals.forEach(function(v){uniq[v]=1;});
+  document.getElementById("hint").textContent=
+   (vals.length>=2&&Object.keys(uniq).length===1)
+    ? "여러 방식이 같은 값이라 지금 자세로는 구별이 안 됩니다 — 폰을 세워 들고 다시 보세요."
+    : "";
+  document.getElementById("raw").innerHTML=snapshot().replace(/\\n/g,"<br>");
+ }
+ document.getElementById("fz").onclick=function(){
+  frozen=!frozen;
+  frozenSnap=frozen?snapshot():null;   // 고정 순간의 값을 캡처 — 복사 시 이걸 쓴다
+  this.textContent=frozen?"▶ 다시 측정":"⏸ 값 고정";
+  this.style.background=frozen?"#ffe08a":"#f7f7f7";};
+ document.getElementById("cp").onclick=function(){
+  var t=(frozen&&frozenSnap!=null)?frozenSnap:snapshot(), b=this;
+  var done=function(){b.textContent="✓ 복사됨";setTimeout(function(){b.textContent="📋 값 복사";},1500);};
+  try{navigator.clipboard.writeText(t).then(done,function(){window.prompt("복사하세요",t);});}
+  catch(e){window.prompt("복사하세요",t);}};
+ setInterval(draw,250); draw();
+})();
+</script>
+"""
+
+
+def _deg8_label(v) -> str:
+    """방위각(도) → 8방위 한글. None/비숫자는 '—'."""
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return "—"
+    if f != f:  # NaN
+        return "—"
+    dirs = ("북", "북동", "동", "남동", "남", "남서", "서", "북서")
+    return dirs[int((f % 360 + 22.5) // 45) % 8]
+
+
+def _render_heading_debug() -> None:
+    """방향(헤딩) 실측 진단 패널 — 폰에서 '내가 보는 방향'이 왜 틀리는지 눈으로 확인.
+
+    방위각 계산은 기기·브라우저마다 축/부호 규약이 갈려서 코드만 보고 한 방식을 고르면
+    또 틀어진다. 그래서 계산 방식별 방향을 동시에 띄워, 사용자가 실제 길에서 '어느 게
+    맞는지'만 고르면 원인이 확정되게 했다. 안드로이드에서 값이 실제로 갈리는 축은 기울기가
+    아니라 '이벤트 소스'(절대방위 alpha vs 일반 alpha)라, 그 둘을 나란히 비교하게 했다.
+
+    구조상 두 부분으로 나뉜다:
+    - iframe 밖(네이티브 Streamlit): 앱이 실제 쓰는 값(지도 heading·나침반 카드값).
+      이 값은 GPS 폴링 주기(rerun)로만 바뀌므로 iframe 에 넣으면 srcdoc 이 매초 달라져
+      iframe 이 통째로 재로드된다 → 반드시 밖에서 렌더한다.
+    - iframe 안: 센서를 250ms 로 직접 구독해 실시간 방위 후보를 그린다. srcdoc 은 상수
+      __DECL__ 만 치환하므로 리런 간 동일 → iframe 이 재로드되지 않아 센서·'값 고정'이 유지된다.
+    """
+    if not _HAS_GEO:
+        return
+
+    app_val = st.session_state.get("nav_compass_deg")
+    # 지도·화살표를 실제로 돌리는 값(마지막 샘플의 heading) — 나침반과 다를 수 있고,
+    # 그 '다름'(지도가 나침반을 무시하는지) 자체가 이 진단의 핵심이라 별도로 보여준다.
+    samples = st.session_state.get("nav_samples") or []
+    map_val = getattr(samples[-1], "heading_degrees", None) if samples else None
+
+    def _fmt(v) -> str:
+        try:
+            f = float(v)
+            return "없음" if f != f else f"{f:.0f}°"
+        except (TypeError, ValueError):
+            return "없음"
+
+    with st.expander("🧭 방향이 틀릴 때 — 방향값 진단(폰에서 확인)", expanded=False):
+        st.caption(
+            "실제 길에 서서 **정면으로 보고 있는 방향**과, 아래 큰 글씨(‘지금 센서가 읽는 방향’) 및 "
+            "계산 방식별 값 중 **어느 게 맞는지** 알려주세요. 그 한 가지로 원인이 확정됩니다."
+        )
+        # ── 앱이 실제 쓰는 값(iframe 밖, 네이티브) ── srcdoc 오염을 막기 위해 여기서 렌더.
+        st.markdown(
+            f"**앱이 쓰는 값**  ·  지도·화살표 **{_deg8_label(map_val)}** ({_fmt(map_val)})  "
+            f"·  나침반 카드 **{_deg8_label(app_val)}** ({_fmt(app_val)})"
+        )
+        st.caption("↑ 이 두 값은 GPS 주기로만 갱신돼 조금 느립니다. 서 있는데 이 값이 "
+                   "실제 방향과 다르면 그 자체가 원인 신호예요. 값 복사 시 이 두 줄도 함께 알려주세요.")
+        components.html(
+            _HEADING_DEBUG_HTML.replace("__DECL__", repr(float(_COMPASS_DECL_DEG))),
+            height=720,
+            scrolling=True,
+        )
+
+
 def _search_places(query: str) -> list:
     """st_searchbox 콜백 — 입력 즉시 자동완성 후보를 (라벨, 값) 목록으로 반환.
 
@@ -1738,6 +2375,14 @@ def _render_dest_inputs() -> None:
             # 세션에 남아 있을 때 경로 찾기의 geocode 폴백(geocode_address)이 사용해야
             # 하기 때문이다. 출발지처럼 ""로 비우면 그 폴백 경로가 깨진다.
             st.session_state["nav_dest_picked"] = None
+            # 자동완성 후보가 비어도(네트워크·API 키 문제 등) 목적지를 놓치지 않도록,
+            # 입력 중인 검색어를 nav_dest_input 에 남긴다 → '걷기/대중교통' 버튼이 활성화되고
+            # 클릭 시 geocode_address(좌표 직접 입력 포함) 폴백이 목적지를 해석한다.
+            sb = st.session_state.get("nav_dest_sb")
+            if isinstance(sb, dict):
+                typed = (sb.get("search") or "").strip()
+                if typed:
+                    st.session_state["nav_dest_input"] = typed
         # (1) 즐겨찾기·히스토리가 nav_dest_input만 설정했을 때(picked=None) 사용자 인지 안내
         if st.session_state.get("nav_dest_input") and not st.session_state.get("nav_dest_picked"):
             st.caption(f"📌 선택된 목적지: {st.session_state['nav_dest_input']}")
@@ -2148,6 +2793,10 @@ def _render_action_buttons() -> None:
         if st.session_state["nav_running"]:
             if st.button("⏹ 중지", width="stretch", type="primary"):
                 st.session_state["nav_running"] = False
+                st.session_state["nav_tts_primed"] = False  # 다음 시작 제스처에서 다시 해금
+                _diag("stop")
+                _save_list_to_ls(_LS_KEY_DIAG, st.session_state["nav_diag_log"])  # 중지 시 영속화
+                _upload_diag_to_github(st.session_state["nav_diag_log"])  # 토큰 있으면 자동 업로드
                 st.rerun()
         else:
             if st.button("▶ 시작", disabled=(origin is None), width="stretch", type="primary"):
@@ -2170,6 +2819,15 @@ def _render_action_buttons() -> None:
         _clear_journey_state()
         st.session_state["nav_running"] = False
         st.session_state["nav_arrival_summary"] = None
+        # 대기 중인 자동 재개(폰 잠금·새로고침 복귀)와 저장된 안내 세션도 함께 지운다 —
+        # 안 그러면 초기화 직후 resume 블록이 방금 지운 안내를 되살린다(고: bugbot High).
+        st.session_state["nav_resume_pending"] = None
+        st.session_state["nav_resume_attempts"] = 0
+        st.session_state["nav_active_saved_sig"] = None
+        components.html(
+            f"<script>try{{localStorage.removeItem('{_LS_KEY_ACTIVE}')}}catch(e){{}}</script>",
+            height=0,
+        )
         # nav_active_booking_id 는 여기서 지우지 않는다 — 출발 반경 안에 서 있는 채로
         # 지우면 _try_activate_booking 이 5초 뒤 예약을 다시 자동 시작해 초기화가
         # 무력화된다. 대신 그 함수가 '출발 반경을 벗어나면' 재무장한다.
@@ -2189,6 +2847,7 @@ def main() -> None:
     _init()
     _load_history_from_ls()
     _restore_last_fix()  # 재방문 시 마지막 위치를 즉시 대략위치로 부트스트랩(실측/IP가 곧 대체)
+    _restore_active_session()  # 폰 잠금·새로고침으로 세션이 끊겼으면 하던 안내를 자동 재개 예약
 
     _booking_armed = any(b.get("enabled", True)
                          for b in st.session_state.get("nav_route_bookings") or [])
@@ -2237,6 +2896,69 @@ def main() -> None:
                     st.success(f"'{pending_hist['query']}' 경로를 찾았어요")
                 except Exception as e:
                     st.error(f"경로 찾기 실패: {e}")
+
+    # 폰 잠금·새로고침으로 세션이 초기화됐을 때 저장된 안내를 자동 재개.
+    # origin(위치)이 잡히면 재계획 후 바로 안내를 시작한다(start_now=True). 아직 위치가
+    # 없으면 pending 을 유지해(유휴 autorefresh 가 rerun 을 만듦) 다음 rerun 에서 재시도.
+    resume = st.session_state.get("nav_resume_pending")
+    if resume is not None:
+        resume_origin: Optional[Coordinate] = st.session_state["nav_origin"]
+        # 사용자가 경로 확정 전이라도 새 목적지를 입력/선택 중이면(검색어·후보·입력창)
+        # 저장 트립이 그 검색을 덮어쓰지 않게 취소한다.
+        user_choosing_dest = (
+            st.session_state.get("nav_dest_picked") is not None
+            or bool((st.session_state.get("nav_dest_input") or "").strip())
+            or _dest_entry_active()
+        )
+        # pending 이 걸린 뒤 사용자가 그새 새 목적지를 잡았으면 취소, 위치가 잡혔으면 재개,
+        # 아직이면 대기(pending 유지) — 판정은 순수 함수로 분리(nav_session.resume_action).
+        action = nav_session.resume_action(
+            running=bool(st.session_state.get("nav_running")),
+            has_route=st.session_state.get("nav_route") is not None,
+            has_journey=st.session_state.get("nav_journey") is not None,
+            origin_present=resume_origin is not None,
+            user_choosing_dest=user_choosing_dest,
+        )
+        if action == "cancel":
+            # 저장 세션이 사용자의 새 선택을 덮어쓰지 않게 복원을 취소하고, 저장 항목도
+            # 지운다 — 안 그러면 다음 새로고침에 declined 트립이 다시 예약된다. 활성 도보
+            # 안내가 있으면 같은 run 의 _save_active_session 이 곧바로 다시 저장한다.
+            st.session_state["nav_resume_pending"] = None
+            st.session_state["nav_active_saved_sig"] = None
+            components.html(
+                f"<script>try{{localStorage.removeItem('{_LS_KEY_ACTIVE}')}}catch(e){{}}</script>",
+                height=0,
+            )
+        elif action == "go":
+            with st.spinner("이전 안내를 이어가는 중…"):
+                try:
+                    r_dest = Coordinate(latitude=resume["lat"], longitude=resume["lon"])
+                    r_label = resume.get("label") or ""
+                    st.session_state["nav_transit_enabled"] = bool(resume.get("transit", True))
+                    if st.session_state["nav_transit_enabled"]:
+                        journey = transit_builder.fetch_transit_journey(resume_origin, r_dest)
+                        _activate_journey(journey, start_now=True)
+                        if r_label:
+                            st.session_state["nav_dest_display"] = r_label
+                        if journey.source.startswith("도보 강등"):
+                            st.session_state["nav_downgrade_notice"] = journey.source
+                    else:
+                        new_route = _fetch_route(resume_origin, r_dest)
+                        _clear_journey_state()
+                        _activate_route(resume_origin, r_dest, r_label, new_route, start_now=True)
+                    if r_label:
+                        st.session_state["nav_dest_input"] = r_label
+                    # 성공했을 때만 pending 을 소비한다 — 아래 except 는 남겨 둔다.
+                    st.session_state["nav_resume_pending"] = None
+                    st.session_state["nav_resume_attempts"] = 0
+                    st.toast("🔁 이전 안내를 이어갑니다")
+                except Exception:
+                    # 재개 실패(네트워크 등): pending 을 지우지 않고 몇 번 재시도한다.
+                    # 상한을 넘으면 포기(무한 fetch 방지) — 사용자가 직접 다시 검색 가능.
+                    tries = st.session_state.get("nav_resume_attempts", 0) + 1
+                    st.session_state["nav_resume_attempts"] = tries
+                    if tries >= _RESUME_MAX_ATTEMPTS:
+                        st.session_state["nav_resume_pending"] = None
 
     st.markdown("## 🚶 도보 내비게이션")
     st.caption("가고 싶은 곳을 입력하면 걷는 길을 안내하고, 길을 벗어나면 바로 알려줍니다.")
@@ -2344,25 +3066,30 @@ def main() -> None:
             st.divider()
             st.markdown("**현재 위치**")
             _render_compass_enable()  # iOS 나침반 권한(탭 1회) — 값 들어오면 자동 숨김
+        # 방향 진단 패널 — 안내 중에도 보이게 running 분기 밖에 둔다(실제 길 위에서 확인).
+        _render_heading_debug()
         if _HAS_GEO:
             # nav 실행 중, 위치 미취득, 또는 대략 위치(부트스트랩)면 계속 폴링해
             # 더 정확한 fix로 자동 교체한다. (모바일은 첫 GPS fix로 곧 정밀 위치 확보)
-            need_gps_poll = (
-                st.session_state["nav_running"]
-                or st.session_state["nav_origin"] is None
-                or st.session_state.get("nav_origin_coarse", False)
-                # 예약 대기 중에도 폴링 — 정확한 fix 확보 후 폴링이 멈추면 출발반경
-                # 진입을 감지하지 못해 예약 자동활성화가 사실상 동작하지 않는다.
-                or any(b.get("enabled", True)
-                       for b in st.session_state.get("nav_route_bookings") or [])
+            # 폴링 여부는 순수 함수(nav_session.gps_poll_needed)로 판정 — 목적지 입력 중
+            # (dest_entry_active)에는 첫 fix 미취득이어도 폴링을 멈춰, blocking 다중측정 rerun
+            # 이 st_searchbox 입력을 리셋하는 문제를 막는다(autorefresh 게이팅과 동일 기준).
+            # 예약 대기 중에도(입력 중이 아니면) 폴링 — 출발반경 진입 감지·자동활성화 유지.
+            need_gps_poll = nav_session.gps_poll_needed(
+                running=st.session_state["nav_running"],
+                origin_present=st.session_state["nav_origin"] is not None,
+                origin_coarse=st.session_state.get("nav_origin_coarse", False),
+                booking_armed=any(b.get("enabled", True)
+                                  for b in st.session_state.get("nav_route_bookings") or []),
+                dest_entry_active=_dest_entry_active(),
             )
-            # 목적지 입력 중에는 재폴링(약 1초 주기 rerun)을 멈춰 searchbox 가 끊기지 않게 한다.
-            # 단 위치가 아직 없으면(첫 fix 미취득) 계속 폴링 — 첫 위치 취득은 막지 않는다.
-            if _dest_entry_active() and st.session_state["nav_origin"] is not None:
-                need_gps_poll = False
             if need_gps_poll:
                 # 최초 취득 시에만 다중 샘플로 best fix 선택(첫 fix 부정확 완화), 라이브는 단일.
-                geo = _get_geolocation_high_accuracy(multi=(st.session_state["nav_origin"] is None))
+                # 단 목적지 입력 중(dest_entry_active)에는 첫 취득이어도 단일 측정을 쓴다 —
+                # 2.5~6초 blocking 다중측정 rerun 이 st_searchbox 입력을 리셋하기 때문.
+                _first_fix = st.session_state["nav_origin"] is None
+                geo = _get_geolocation_high_accuracy(
+                    multi=(_first_fix and not _dest_entry_active()))
                 # 나침반 방위각(payload 동승)을 세션에 최신화 — 정지 시 마커 화살표·
                 # '보는 방향 기준' 안내용. 미지원/미권한 기기는 None 유지(기능 저하 없음).
                 if isinstance(geo, dict) and geo.get("compass") is not None:
@@ -2697,8 +3424,31 @@ def main() -> None:
             st.session_state["nav_samples"].append(sample)
             st.session_state["nav_prev_coord"]   = origin
             st.session_state["nav_prev_ts_ms"]   = sample.timestamp_ms
+            _acc_now = (st.session_state["nav_raw_gps"] or {}).get("coords", {}).get("accuracy")
+            # 진행 방향 보정: 실제 이동으로 얻은 heading 만 버퍼에 쌓아 원형 평균으로
+            # 스무딩한다(저속·지터로 매 표본 튀는 화살표·헤딩업 지도 안정화). prev_coord 가
+            # 있고(파생/GPS 헤딩이 실제 이동에서 나옴) 표본 게이트(>1m 이동)를 통과한 경우만
+            # 넣어, 정지 시 0.0 북향 폴백이 버퍼를 오염시키지 않게 한다.
+            if prev_coord is not None:
+                buf = st.session_state["nav_heading_buf"]
+                buf.append(sample.heading_degrees)
+                del buf[:-gps_filter.HEADING_SMOOTH_WINDOW]
+                st.session_state["nav_smoothed_heading"] = gps_filter.smooth_heading(buf)
             if st.session_state["nav_start_ts_ms"] is None:
                 st.session_state["nav_start_ts_ms"] = sample.timestamp_ms  # 이번 안내(레그) 시작
+                _diag("start", lat=round(sample.latitude, 6), lon=round(sample.longitude, 6),
+                      dest=st.session_state.get("nav_dest_display"),
+                      pts=len(st.session_state["nav_route"].polyline)
+                      if st.session_state.get("nav_route") is not None else None)
+            # 매 판정 tick 기록 — 위치·정확도·이탈상태·경로이탈거리·연속카운트·표류시간·헤딩차.
+            _m = result.metrics
+            _diag("tick", lat=round(sample.latitude, 6), lon=round(sample.longitude, 6),
+                  acc=round(_acc_now, 1) if isinstance(_acc_now, (int, float)) else None,
+                  fix_ms=sample.timestamp_ms, st=result.state,
+                  dist=round(_m.distance_from_route_meters, 1),
+                  brk=_m.consecutive_threshold_breaches, drift_ms=_m.drift_duration_ms,
+                  hdiff=round(_m.heading_difference_degrees, 0),
+                  spd=round(sample.speed_meters_per_second, 1))
             if (st.session_state.get("nav_journey") is not None
                     and st.session_state.get("nav_journey_start_ts_ms") is None):
                 # 다구간 여정 '전체' 시작 — 레그 전환 _reset 에 지워지지 않아
@@ -2722,8 +3472,12 @@ def main() -> None:
             )
             if decision.fire_full:
                 _trigger_alert(result.state, st.session_state["nav_tts_enabled"])
+                _diag("alert", st=result.state, tts=bool(st.session_state["nav_tts_enabled"]),
+                      lvl=lvl)
             if decision.fire_weak_toast:
                 st.toast("⚠️ 경로 이탈 가능 — 위치 정확도 낮음, 확인 필요")
+                _diag("weak_toast", st=result.state, acc=round(acc, 1)
+                      if isinstance(acc, (int, float)) else None)
             st.session_state["nav_last_alerted_state"] = decision.new_last_alerted
             st.session_state["nav_last_weak_toast_ts_ms"] = decision.new_last_weak_ts_ms
 
@@ -2756,10 +3510,26 @@ def main() -> None:
                     # 쿨다운을 fetch '이전'에 기록: 예전엔 fetch 뒤 커밋이 rerun 중단으로
                     # 유실되면 쿨다운도 안 남아 매 표본(~1.4초) fetch 폭주가 됐다(E2E 22회).
                     st.session_state["nav_last_reroute_ts_ms"] = now_ms
+                    _diag("reroute", st=result.state,
+                          dist=round(result.metrics.distance_from_route_meters, 1),
+                          n=st.session_state.get("nav_reroute_count", 0) + 1)
                     # 동기 _fetch_route 금지: 1초 autorefresh 가 fetch 대기 중 이 실행을
                     # 중단시키면 이후 모든 세션 쓰기가 유실된다 → 백그라운드 fetch 후
                     # 다음 rerun 시작부(_commit_pending_reroute)에서 커밋.
                     _start_reroute_fetch(_session_id(), origin, dest_coord)
+
+    # 오디오 재생은 여기서 한다 — 이 지점까지 모든 소리 이벤트(시작부 재탐색 성공,
+    # 도착, tick 의 이탈 알림·회전 예고)가 큐에 들어왔고, 아래 UI(⏹중지·진단 패널 버튼)의
+    # st.rerun() 은 이 뒤에 나므로 '큐만 채우고 flush 전에 rerun 돼 소리가 유실'되는 것을 막는다.
+    _flush_audio()
+
+    # ── 화면 꺼짐 방지 + 안내 세션 저장 ────────────────────────────────────────
+    # 여기까지 오면 이번 rerun 의 nav_running 이 확정(도착 판정 반영). 안내 중이면
+    # 화면 꺼짐을 막고(Wake Lock) 목적지를 저장해, 폰을 잠갔다 켜도 안내가 이어진다.
+    # 아래 지도 렌더에는 early return 이 있어 이 두 호출을 그 앞에 둔다(매 rerun 실행 보장).
+    _running_now = bool(st.session_state["nav_running"])
+    _apply_wake_lock(_running_now)
+    _save_active_session()
 
     # ── 지도 + 판정 패널 ──────────────────────────────────────────────────────
     route = st.session_state["nav_route"]
@@ -2831,6 +3601,9 @@ def main() -> None:
 
     arrived = (not st.session_state["nav_running"]) and bool(st.session_state.get("nav_arrival_summary"))
     if st.session_state["nav_running"]:
+        # 시작 제스처→rerun 으로 도달한 첫 렌더(활성창 안)에서 TTS 해금 — 이탈 음성이
+        # 비동기 rerun 에서 조용히 막히지 않게 한다(모바일 자동재생 정책 대응).
+        _prime_tts_once()
         if st.session_state["nav_results"]:
             # 판정(상태·다음 회전·핵심 지표)을 지도 위 가장 큰 요소로.
             _render_metrics(st.session_state["nav_results"])
@@ -2846,6 +3619,13 @@ def main() -> None:
         _render_map()
         st.markdown("#### 도착 — 안내 종료" if arrived else "#### 현재 판정")
         _render_metrics(st.session_state["nav_results"])
+
+    # 도보 진단 로그 — 걷기 후 데이터로 문제(이탈 오판정·GPS 튐·재탐색·음성)를 진단·공유.
+    _render_diag_panel()
+
+    # 이번 rerun 최우선 오디오 1개 재생 — 알림음·이탈/도착/재탐색/회전 음성이 겹쳐도
+    # 우선순위대로 하나만 낸다(모바일 1-autoplay 제한 준수). 렌더 맨 끝에서 1회.
+    _flush_audio()
 
 
 import requests  # noqa: E402 — exception types used in _add_single_booking

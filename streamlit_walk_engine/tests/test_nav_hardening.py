@@ -116,9 +116,10 @@ def test_journey_lifecycle_hardening():
 def test_booking_activation_hardening():
     # [5] 예약 있으면 유휴에도 autorefresh + GPS 폴링
     assert "_booking_armed" in SRC
-    poll = SRC[SRC.index("need_gps_poll = ("):]
+    poll = SRC[SRC.index("need_gps_poll = nav_session.gps_poll_needed("):]
     poll = poll[:poll.index("if need_gps_poll")]
-    assert "nav_route_bookings" in poll
+    # 예약 대기(booking_armed)는 여전히 폴링 조건으로 배선돼 있어야 한다.
+    assert "nav_route_bookings" in poll and "booking_armed=" in poll
     # [11] 활성화 성공 시 rerun (except 가 RerunException 을 삼키지 않게 플래그 방식)
     b = SRC[SRC.index("def _try_activate_booking"):]
     b = b[:b.index("# ── 사이드바")]
@@ -128,5 +129,83 @@ def test_booking_activation_hardening():
 # ── 초기화: 목적지 배너 잔존 방지 ─────────────────────────────────────────────
 def test_reset_clears_dest_banner():
     reset_at = SRC.index('if st.button("↺ 초기화"')
-    block = SRC[reset_at:reset_at + 700]
+    block = SRC[reset_at:reset_at + 1100]
     assert '"nav_dest_display"' in block  # [18]
+    # 초기화는 대기 중인 자동 재개·저장된 안내 세션도 지운다(되살아나지 않게).
+    assert '"nav_resume_pending"] = None' in block
+    assert "removeItem('walk_navi_active_session')" in block or "_LS_KEY_ACTIVE" in block
+
+
+# ── 폰 잠금·새로고침 복귀: 화면 꺼짐 방지 + 안내 세션 자동 재개 ────────────────
+def test_wake_lock_wired():
+    wl = SRC[SRC.index("def _apply_wake_lock"):]
+    wl = wl[:wl.index("def _save_active_session")]
+    # 스크린 웨이크락 요청 + hidden 복귀 재획득(visibilitychange) + 미지원 예외 무시
+    assert "wakeLock.request('screen')" in wl
+    assert "visibilitychange" in wl
+    assert "catch (e)" in wl
+    # 안내 중일 때만 잡고, 진행/도착 확정 뒤 한 번 호출된다(early return 앞).
+    assert "_apply_wake_lock(_running_now)" in SRC
+
+
+def test_active_session_persist_and_restore_wired():
+    save = SRC[SRC.index("def _save_active_session"):]
+    save = save[:save.index("def _restore_active_session")]
+    # 안내 중이면 목적지 저장, 아니면 삭제(중지·초기화·도착 자동 정리)
+    assert "_LS_KEY_ACTIVE" in save
+    assert "removeItem" in save and "setItem" in save
+    # 매 rerun 재주입 방지 스로틀(직렬화 서명 비교)
+    assert "nav_active_saved_sig" in save
+    # 자동 재개는 '단독 도보 안내'만 저장한다 — 여정 중에는 저장하지 않는다
+    # (중간 정류장 저장·leg 0 재시작·중지 후 잔존 등 엣지 회피).
+    assert "journey is None" in save
+    # 장시간 안내에도 ts 가 갱신되게 서명에 시간 버킷 포함(만료 오판 방지)
+    assert "_ACTIVE_SESSION_TS_REFRESH_MS" in save
+
+    restore = SRC[SRC.index("def _restore_active_session"):]
+    restore = restore[:restore.index("# ── 알림")]
+    # 이미 안내/경로 있으면 복원 안 함 + 세션당 1회 + 오래된 세션 만료
+    assert "nav_active_restore_tried" in restore
+    assert "_ACTIVE_SESSION_MAX_AGE_MS" in restore
+    assert "nav_resume_pending" in restore
+
+    # main: 부트스트랩 호출 + origin 확보 후 자동 재개(start_now=True)
+    assert "_restore_active_session()" in SRC
+    assert "_save_active_session()" in SRC
+    resume = SRC[SRC.index('resume = st.session_state.get("nav_resume_pending")'):]
+    resume = resume[:resume.index('st.markdown("## 🚶 도보 내비게이션")')]
+    assert "_activate_route(resume_origin" in resume
+    assert "_activate_journey(journey, start_now=True)" in resume
+    # 사용자가 그새 새 목적지를 잡았으면 복원을 취소(저장 세션이 새 선택을 덮지 않게).
+    assert 'st.session_state.get("nav_route") is not None' in resume
+    assert 'st.session_state.get("nav_journey") is not None' in resume
+    # 경로 확정 전 '입력/선택 중'도 취소 신호로 넘긴다(진행 중 검색 보호).
+    assert "user_choosing_dest" in resume
+    # 취소 시 저장 세션도 지운다(declined 트립이 새로고침에 되살아나지 않게).
+    cancel = resume[resume.index('if action == "cancel":'):]
+    cancel = cancel[:cancel.index('elif action == "go":')]
+    assert "removeItem" in cancel and "nav_resume_pending" in cancel
+    # 성공했을 때만 pending 소비 + 실패는 상한까지 재시도(무한 fetch·영구 유실 방지).
+    assert "_RESUME_MAX_ATTEMPTS" in resume
+    assert "nav_resume_attempts" in resume
+
+
+# ── 걷는 방향 보정: 원형 평균 스무딩을 지도 화살표·헤딩업에 적용 ───────────────
+def test_heading_smoothing_wired():
+    # 이동 표본의 heading 만 버퍼에 쌓아 smooth_heading 으로 보정값 갱신
+    assert "nav_heading_buf" in SRC
+    assert "gps_filter.smooth_heading(buf)" in SRC
+    assert "gps_filter.HEADING_SMOOTH_WINDOW" in SRC
+    # 지도 화살표·헤딩업 방위 모두 보정값을 우선 사용
+    hb = SRC[SRC.index("def _heading_up_bearing"):]
+    hb = hb[:hb.index("def _build_map_deck")]
+    assert 'st.session_state.get("nav_smoothed_heading")' in hb
+
+
+# ── 목적지 안 나오는 일 없게: 자동완성 비어도 입력 텍스트 유지 ────────────────
+def test_dest_typed_text_kept_when_no_suggestion():
+    di = SRC[SRC.index("def _render_dest_inputs"):]
+    di = di[:di.index("st.text_input(")]
+    # searchbox 후보 미선택 시 입력 검색어를 nav_dest_input 에 남겨 버튼 활성/폴백 가능
+    assert 'sb.get("search")' in di
+    assert 'st.session_state["nav_dest_input"] = typed' in di
