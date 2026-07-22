@@ -42,10 +42,13 @@ def test_deviation_confirmation_defaults_are_faster():
 
 
 def test_dest_entry_pauses_periodic_reruns():
-    """목적지 입력 중 화면 리셋('두 번 입력') 근본수정:
+    """목적지 입력 중 화면 리셋('두 번 입력'·'화면 뜨자마자 입력 시 리셋') 근본수정:
     GPS 재폴링(약 1초)·autorefresh 가 만드는 주기적 rerun 이 st_searchbox 입력 도중
     끼어들면 드롭다운·포커스가 끊겨 검색어가 사라진다. 입력 중(_dest_entry_active)에는
-    이 주기적 rerun 을 멈춘다 — 단 첫 위치 미취득(origin None)일 때는 폴링을 유지한다."""
+    이 주기적 rerun 을 멈춘다 — 단 '위치가 이미 잡혔을 때만'(origin_present). 첫 위치
+    미취득이면 입력 중이어도 폴링을 유지해 위치를 취득하되(자동완성 0건 시 위치가 영영
+    안 잡히는 dead-end 방지), 입력 리셋은 첫 취득을 단일 측정(multi=False)으로 받아 완화한다.
+    폴링 판정 로직·회귀는 test_nav_session.TestGpsPollNeeded 가 고정한다."""
     source = PAGE.read_text(encoding="utf-8")
 
     # 판정 헬퍼: 실시간 검색어가 있고 아직 후보 미선택일 때만 True
@@ -56,11 +59,16 @@ def test_dest_entry_pauses_periodic_reruns():
     # nav_running 중에는 폴링을 멈추면 안 된다(주행 안전) → 항상 False
     assert 'if st.session_state.get("nav_running"):' in active_block
 
-    # GPS 재폴링 게이트: 입력 중 + 위치 있음이면 폴링 중단(첫 fix 는 막지 않음)
-    assert ('if _dest_entry_active() and st.session_state["nav_origin"] is not None:'
-            in source)
-    poll_gate = source.index("if _dest_entry_active() and st.session_state")
-    assert "need_gps_poll = False" in source[poll_gate:poll_gate + 200]
+    # GPS 재폴링 게이트: 순수 함수 nav_session.gps_poll_needed 로 판정하며, 페이지는
+    # dest_entry_active(입력 중 여부)를 넘겨 배선한다. '위치 있을 때만 입력 중 폴링 중단·
+    # 첫 fix 는 막지 않음' 동작은 TestGpsPollNeeded 가 검증 — 여기선 배선만 확인.
+    assert "nav_session.gps_poll_needed(" in source
+    gate = source.index("nav_session.gps_poll_needed(")
+    call = source[gate:gate + 700]
+    assert "dest_entry_active=_dest_entry_active()" in call
+
+    # 입력 중 첫 취득은 blocking 다중측정 대신 단일 측정(multi=False)으로 받아 입력 리셋 완화
+    assert "multi=(_first_fix and not _dest_entry_active())" in source
 
     # autorefresh 게이트: 예약·첫fix 유휴 refresh 는 입력 중이면 등록하지 않는다
     assert "(_booking_armed or _needs_idle_fix)" in source

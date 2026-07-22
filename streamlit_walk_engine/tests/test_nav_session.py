@@ -108,3 +108,49 @@ class TestResumeAction:
         assert nav_session.resume_action(
             running=False, has_route=False, has_journey=False,
             origin_present=True, user_choosing_dest=False) == "go"
+
+
+# ── gps_poll_needed ──────────────────────────────────────────────────────────
+class TestGpsPollNeeded:
+    def _call(self, **over):
+        kw = dict(running=False, origin_present=True, origin_coarse=False,
+                  booking_armed=False, dest_entry_active=False)
+        kw.update(over)
+        return nav_session.gps_poll_needed(**kw)
+
+    def test_regression_typing_before_first_fix_keeps_polling(self):
+        # ★dead-end 재발 방지★ 첫 fix 미취득(origin 없음) 상태에서 목적지 입력 중이어도
+        # 폴링을 유지해야 한다 — 멈추면 자동완성 0건(약신호·API키 없음)일 때 위치가 영영
+        # 안 잡히고 출발 버튼도 계속 비활성인 함정에 빠진다. 입력 리셋은 호출부가 첫 취득을
+        # 단일 측정(multi=False)으로 받아 완화하고, 이 함수는 폴링을 막지 않는다.
+        assert self._call(dest_entry_active=True, origin_present=False) is True
+
+    def test_typing_with_fix_pauses_poll(self):
+        # 위치가 이미 잡힌 뒤 입력 중이면 폴링을 멈춘다(입력창 리셋 방지, dead-end 없음).
+        assert self._call(dest_entry_active=True, origin_present=True) is False
+
+    def test_typing_before_fix_polls_even_with_booking(self):
+        # 첫 fix 미취득이면 예약이 있어도 폴링 유지(위치 취득 우선).
+        assert self._call(dest_entry_active=True, origin_present=False, booking_armed=True) is True
+
+    def test_typing_with_fix_pauses_even_with_booking(self):
+        # 위치 있고 입력 중이면 예약 폴링도 멈춘다(autorefresh 게이팅과 동일).
+        assert self._call(dest_entry_active=True, origin_present=True, booking_armed=True) is False
+
+    def test_running_always_polls_even_if_flagged_dest_entry(self):
+        # 안내 중엔 입력 상태가 성립하지 않지만, 방어적으로 running 이 우선한다.
+        assert self._call(running=True, dest_entry_active=True, origin_present=True) is True
+
+    def test_no_fix_polls_when_not_typing(self):
+        # 입력 중이 아니면 첫 fix 취득을 위해 폴링한다(첫 위치 확보 보장).
+        assert self._call(origin_present=False, dest_entry_active=False) is True
+
+    def test_coarse_origin_polls_when_not_typing(self):
+        assert self._call(origin_present=True, origin_coarse=True) is True
+
+    def test_booking_armed_polls_when_not_typing(self):
+        assert self._call(origin_present=True, booking_armed=True) is True
+
+    def test_idle_with_good_fix_does_not_poll(self):
+        # 정밀 fix 확보·입력/예약/안내 없음 → 폴링 멈춤(불필요한 rerun 방지).
+        assert self._call(origin_present=True) is False

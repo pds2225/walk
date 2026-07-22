@@ -116,9 +116,10 @@ def test_journey_lifecycle_hardening():
 def test_booking_activation_hardening():
     # [5] 예약 있으면 유휴에도 autorefresh + GPS 폴링
     assert "_booking_armed" in SRC
-    poll = SRC[SRC.index("need_gps_poll = ("):]
+    poll = SRC[SRC.index("need_gps_poll = nav_session.gps_poll_needed("):]
     poll = poll[:poll.index("if need_gps_poll")]
-    assert "nav_route_bookings" in poll
+    # 예약 대기(booking_armed)는 여전히 폴링 조건으로 배선돼 있어야 한다.
+    assert "nav_route_bookings" in poll and "booking_armed=" in poll
     # [11] 활성화 성공 시 rerun (except 가 RerunException 을 삼키지 않게 플래그 방식)
     b = SRC[SRC.index("def _try_activate_booking"):]
     b = b[:b.index("# ── 사이드바")]
