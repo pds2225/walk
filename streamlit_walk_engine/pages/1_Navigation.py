@@ -368,6 +368,7 @@ def _init() -> None:
         "nav_reroute_count": 0,
         "nav_search_history": [],
         "nav_pending_hist": None,
+        "nav_pending_activation": None,   # '출발' 눌렀으나 위치 미취득 → 위치 확보 후 활성화 예약
         "nav_booking_history": [],
         "nav_favorites": [],
         "nav_route_bookings": [],
@@ -2077,6 +2078,8 @@ def _dest_entry_active() -> bool:
 
     - searchbox 모드: 위젯 내부 검색어(nav_dest_sb['search'])가 남아 있고 아직 후보를
       고르지 않았을 때(result is None) True — 후보를 고른 뒤엔 재선택돼도 안전하므로 False.
+    - searchbox 미설치(폴백 text_input) 모드: 입력 텍스트(nav_dest_input)가 있고 아직
+      후보 미선택(nav_dest_picked is None)이면 True — 폴백 경로도 입력 중 rerun을 멈춘다.
     - 안내 진행 중(nav_running)에는 항상 False: 주행 중 GPS 폴링을 멈추면 안 된다.
     """
     if st.session_state.get("nav_running"):
@@ -2084,7 +2087,9 @@ def _dest_entry_active() -> bool:
     sb = st.session_state.get("nav_dest_sb")
     if isinstance(sb, dict):
         return bool((sb.get("search") or "").strip()) and sb.get("result") is None
-    return False
+    # 폴백(text_input) 경로: nav_dest_sb 위젯이 없다 → 입력 텍스트+후보미선택으로 판정.
+    return (bool((st.session_state.get("nav_dest_input") or "").strip())
+            and st.session_state.get("nav_dest_picked") is None)
 
 
 def _render_compass_enable() -> None:
@@ -2690,6 +2695,31 @@ def _find_and_activate(dest_text: str, origin: Optional[Coordinate], *, start_no
     return True
 
 
+def _activate_or_defer(dest_text: str, origin: Optional[Coordinate], *, start_now: bool) -> bool:
+    """'출발' 처리 — 위치가 있으면 바로 경로 활성화, 없으면 위치 확보 후 실행하도록 예약.
+
+    입력 중에는 GPS 폴링을 멈춰(입력창 리셋 방지, A안) origin 이 아직 없을 수 있다. 그때
+    '걷기/대중교통'을 누르면 여기서 활성화를 예약(nav_pending_activation)하고 rerun 한다 —
+    이후 폴링이 위치를 확보하면 메인 루프가 예약을 집어 경로를 만든다. 위치가 이미 있으면
+    기존과 동일하게 즉시 활성화한다(동작 동등성 유지). 반환 True 면 즉시 안내가 시작된 것.
+    """
+    if origin is not None:
+        return _run_activation(dest_text, origin, start_now=start_now)
+    # 위치 미취득 — 활성화를 예약하고 위치 확보를 기다린다(입력 중 폴링 재개 트리거).
+    # ★예약 시점의 목적지(picked)를 함께 고정한다★ — 위치 확보를 기다리는 사이(1~3초)
+    # 사용자가 다른 목적지를 고르면 nav_dest_picked 가 바뀌는데, 활성화가 그 '현재' 값을
+    # 쓰면 엉뚱한 곳으로 간다. 예약대로 결정론적으로 활성화하도록 picked/dest_text 를 박아둔다.
+    st.session_state["nav_pending_activation"] = {
+        "dest_text": dest_text,
+        "start_now": start_now,
+        "transit": bool(st.session_state.get("nav_transit_enabled", True)),
+        "picked": st.session_state.get("nav_dest_picked"),
+        "tries": 0,
+    }
+    st.rerun()
+    return False  # 도달하지 않음(st.rerun)
+
+
 def _plan_summary_text() -> str:
     """활성 계획 요약 — 여정이면 전체 합계, 아니면 도보 경로 요약(없으면 빈 문자열)."""
     journey_now = st.session_state.get("nav_journey")
@@ -2734,15 +2764,17 @@ def _render_action_buttons() -> None:
     running = bool(st.session_state["nav_running"])
     has_plan = (st.session_state["nav_route"] is not None
                 or st.session_state.get("nav_journey") is not None)
-    ready = bool(dest_text) and origin is not None
+    # 위치가 없어도 목적지만 있으면 누를 수 있게 한다(A안) — 누르면 위치를 확보한 뒤
+    # 경로를 만든다. 입력 중엔 GPS 폴링을 멈춰(입력창 리셋 방지) origin 이 없을 수 있기 때문.
+    ready = bool(dest_text)
     started = False  # st.rerun()은 try 밖에서 호출 — 예외 처리에 삼켜지지 않게.
 
     # 안내 중에는 탐색 버튼을 숨겨 화면을 비우고 오탭(주행 중 재검색)을 막는다.
     if not running:
-        if origin is None:
-            st.caption("📍 현재 위치 확인 중 — 잡히면 출발 버튼이 활성화됩니다")
-        elif not dest_text:
+        if not dest_text:
             st.caption("먼저 목적지를 입력하세요")
+        elif origin is None:
+            st.caption("📍 위치 확인 중 — '걷기/대중교통'을 누르면 위치를 잡고 바로 출발해요")
 
         # 단계 병합: '경로 찾기 → 시작' 두 번 누르던 것을 한 번으로.
         # 대중교통 포함 여부는 별도 토글 대신 출발 버튼 2개로 그 자리에서 고른다
@@ -2753,17 +2785,17 @@ def _render_action_buttons() -> None:
             if st.button("🚶 걷기", disabled=not ready, width="stretch",
                          type="primary" if not has_plan else "secondary"):
                 st.session_state["nav_transit_enabled"] = False
-                started = _run_activation(dest_text, origin, start_now=True)
+                started = _activate_or_defer(dest_text, origin, start_now=True)
         with transit_col:
             if st.button("🚇 대중교통+걷기", disabled=not ready, width="stretch",
                          type="primary" if not has_plan else "secondary"):
                 st.session_state["nav_transit_enabled"] = True
-                started = _run_activation(dest_text, origin, start_now=True)
+                started = _activate_or_defer(dest_text, origin, start_now=True)
 
         # 출발 전에 경로만 확인하고 싶을 때 (계획이 아직 없을 때만 노출 — 있으면 ▶ 시작 사용).
         if (not has_plan) and st.button("🔍 경로만 보기", disabled=not ready,
                                         width="stretch"):
-            if _run_activation(dest_text, origin, start_now=False):
+            if _activate_or_defer(dest_text, origin, start_now=False):
                 summary = _plan_summary_text()
                 suffix = f" — {summary}" if summary else ""
                 st.success(f"경로를 찾았어요{suffix}. ▶ 시작을 누르면 안내가 시작됩니다")
@@ -2867,15 +2899,20 @@ def main() -> None:
     # 우연 루프만으로는 재측정이 멎을 수 있어, 완만한 5초 rerun 으로 정밀 fix 승격을 보장한다.
     _needs_idle_fix = (st.session_state["nav_origin"] is None
                        or st.session_state.get("nav_origin_coarse", False))
+    # '출발'을 눌렀으나 위치 미취득이라 활성화를 예약한 상태 — 위치를 빨리 확보하려면
+    # 입력 중이어도 주기적 rerun 을 유지해야 한다(입력은 이미 끝났으므로 리셋 무의미).
+    _pending_act = bool(st.session_state.get("nav_pending_activation"))
     # 목적지 입력 중에는 주기적 rerun 을 멈춘다 — 입력 도중 rerun 이 searchbox 를 끊어
-    # 검색어가 리셋되고 '두 번 입력'하게 되는 문제 방지(_dest_entry_active). 안내 중은 제외.
+    # 검색어가 리셋되고 '두 번 입력'하게 되는 문제 방지(_dest_entry_active). 안내 중·
+    # '출발' 예약 중(_pending_act)은 제외(위치 확보 우선).
     if _HAS_REFRESH and (st.session_state["nav_running"]
+                         or _pending_act
                          or ((_booking_armed or _needs_idle_fix)
                              and not _dest_entry_active())):
         # 예약이 있으면 유휴 중에도 완만히(10초) rerun 을 유지한다 — rerun 이 없으면 GPS
         # 재폴링→출발반경 진입 감지→예약 자동활성화가 영영 못 깨어난다(정지 화면).
-        # 안내 중 1초 폴링(사용자 지정): 1초마다 재서 연속 3회 감지 ≈ 3초 내 이탈 확정.
-        _iv = (1000 if st.session_state["nav_running"]
+        # 안내 중·'출발' 예약 중 1초 폴링: 위치를 빨리 확보/이탈을 빨리 감지.
+        _iv = (1000 if (st.session_state["nav_running"] or _pending_act)
                else 5_000 if _needs_idle_fix else 10_000)
         st_autorefresh(interval=_iv, key="nav_refresh")
 
@@ -2908,6 +2945,52 @@ def main() -> None:
                     st.success(f"'{pending_hist['query']}' 경로를 찾았어요")
                 except Exception as e:
                     st.error(f"경로 찾기 실패: {e}")
+
+    # '출발'을 눌렀으나 위치 미취득이었던 예약 처리(A안) — 입력 중엔 GPS 폴링을 멈춰
+    # (입력창 리셋 방지) origin 이 없을 수 있어, 위치가 잡히는 즉시 여기서 경로를 만든다.
+    # (autorefresh + 폴링이 _pending_act 동안 유지돼 보통 1~3초 내 위치 확보 → 자동 출발.)
+    pending_act = st.session_state.get("nav_pending_activation")
+    if pending_act is not None:
+        # 예약 뒤 사용자가 목적지를 바꿨으면(입력 텍스트가 예약과 달라짐) 예약을 자동 취소한다
+        # — 엉뚱한(옛) 목적지로 출발하는 것을 막는다.
+        _cur_dest = (st.session_state.get("nav_dest_input") or "").strip()
+        if _cur_dest and _cur_dest != (pending_act.get("dest_text") or "").strip():
+            st.session_state["nav_pending_activation"] = None
+            pending_act = None
+    if pending_act is not None:
+        act_origin: Optional[Coordinate] = st.session_state["nav_origin"]
+        if act_origin is not None:
+            st.session_state["nav_pending_activation"] = None
+            st.session_state["nav_transit_enabled"] = bool(pending_act.get("transit", True))
+            # 예약 시점에 고정한 목적지(picked)를 복원해 결정론적으로 활성화한다(그 사이
+            # 사용자가 다른 후보를 골랐어도 예약대로). picked=None 이면 dest_text 지오코딩 폴백.
+            st.session_state["nav_dest_picked"] = pending_act.get("picked")
+            _start_now = bool(pending_act.get("start_now", True))
+            _started = _run_activation(
+                pending_act.get("dest_text", ""), act_origin, start_now=_start_now)
+            if _started:
+                if _start_now:
+                    st.toast("🚶 안내를 시작합니다" if st.session_state["nav_running"]
+                             else "여정을 준비했어요 — 구간 카드에서 진행하세요")
+                else:
+                    _summary = _plan_summary_text()
+                    st.success(f"경로를 찾았어요{(' — ' + _summary) if _summary else ''}. "
+                               "▶ 시작을 누르면 안내가 시작됩니다")
+                st.rerun()
+        else:
+            # 위치 확보 대기 — GPS가 계속 실패(권한 거부/실내)해도 무한 대기에 갇히지 않게
+            # 시도 횟수를 세어 한도(≈15초) 초과 시 예약을 풀고 안내한다. 사용자가 즉시
+            # 그만두고 싶으면 취소 버튼으로 정상 입력 상태로 돌아간다.
+            pending_act["tries"] = int(pending_act.get("tries", 0)) + 1
+            if pending_act["tries"] > 15:
+                st.session_state["nav_pending_activation"] = None
+                st.error("현재 위치를 찾지 못했어요. 위치 권한·GPS를 확인하고 '출발'을 다시 눌러주세요.")
+            else:
+                st.session_state["nav_pending_activation"] = pending_act
+                st.info("📍 현재 위치 확인 중 — 잡히면 자동으로 출발합니다")
+                if st.button("취소", key="cancel_pending_activation", width="stretch"):
+                    st.session_state["nav_pending_activation"] = None
+                    st.rerun()
 
     # 폰 잠금·새로고침으로 세션이 초기화됐을 때 저장된 안내를 자동 재개.
     # origin(위치)이 잡히면 재계획 후 바로 안내를 시작한다(start_now=True). 아직 위치가
@@ -3094,14 +3177,18 @@ def main() -> None:
                 booking_armed=any(b.get("enabled", True)
                                   for b in st.session_state.get("nav_route_bookings") or []),
                 dest_entry_active=_dest_entry_active(),
+                # '출발' 예약(위치 미취득) 상태면 입력 중이어도 폴링해 위치를 확보한다.
+                pending_activation=bool(st.session_state.get("nav_pending_activation")),
             )
             if need_gps_poll:
                 # 최초 취득 시에만 다중 샘플로 best fix 선택(첫 fix 부정확 완화), 라이브는 단일.
-                # 단 목적지 입력 중(dest_entry_active)에는 첫 취득이어도 단일 측정을 쓴다 —
-                # 2.5~6초 blocking 다중측정 rerun 이 st_searchbox 입력을 리셋하기 때문.
-                _first_fix = st.session_state["nav_origin"] is None
+                # 단 목적지 입력이 시작된 뒤(nav_dest_input 존재)에는 첫 취득도 '단일'로 받는다 —
+                # 다중측정은 2.5~6초 blocking 후 rerun 하는데, 첫 글자 입력 순간(아직 억제
+                # 발동 전)과 겹치면 st_searchbox 입력이 리셋된다. 단일은 ~1초라 그 창을 최소화.
+                # (입력이 시작되지 않은 첫 렌더에는 잃을 입력이 없으므로 다중=정확도 우선.)
+                _dest_buffered = bool((st.session_state.get("nav_dest_input") or "").strip())
                 geo = _get_geolocation_high_accuracy(
-                    multi=(_first_fix and not _dest_entry_active()))
+                    multi=(st.session_state["nav_origin"] is None and not _dest_buffered))
                 # 나침반 방위각(payload 동승)을 세션에 최신화 — 정지 시 마커 화살표·
                 # '보는 방향 기준' 안내용. 미지원/미권한 기기는 None 유지(기능 저하 없음).
                 if isinstance(geo, dict) and geo.get("compass") is not None:
@@ -3233,7 +3320,11 @@ def main() -> None:
                             st.session_state["nav_raw_gps"] = ip_geo
                             st.session_state["nav_origin_coarse"] = True
                             st.session_state["nav_origin_source"] = "ip"
-                            st.rerun()
+                            # 입력 중이면 rerun 하지 않는다 — 이 강제 rerun 이 st_searchbox
+                            # 입력을 리셋하기 때문. origin 은 이미 세팅됐고 다음 자연 rerun 에서
+                            # 반영된다(대략위치라 급하지 않다).
+                            if not _dest_entry_active():
+                                st.rerun()
                         except (TypeError, ValueError):
                             pass
                     if st.session_state["nav_origin"] is None:
