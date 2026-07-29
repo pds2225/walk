@@ -157,9 +157,10 @@ streamlit_task_organizer/
 
 `1_Navigation.py`는 여전히 큰 파일입니다. GPS·세션·알림·지도·진단·개인정보 로직은
 별도 모듈로 분리되어 있지만, Streamlit 위젯과 저장소 부수효과는 아직 일부 남아 있습니다.
-로컬 브랜치 `codex/landmark-mvp-pr80`에서는 Draft PR #80의 두 커밋을 최신 `main` 위로
-재배치한 뒤 이번 변경을 적용했습니다. 미해결 충돌은 없으며 전체 회귀 검증을 통과했습니다.
-원격 PR #80 자체는 변경하지 않았습니다.
+Draft PR #80의 두 패치는 최신 `main`에 재배치해 통합했으며 patch-id 일치를 확인한 뒤
+중복 Draft를 종료했습니다. 이후 원격 과거 브랜치 감사에서 발견한 알림 상태 동기화,
+방향 진단 폴백, 실패한 세션 재개 데이터 정리도 PR #83으로 반영했습니다.
+미해결 충돌은 없으며 전체 회귀 검증을 통과했습니다.
 
 ## 설치
 
@@ -200,7 +201,7 @@ http://localhost:8501
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest streamlit_walk_engine\tests -q
-# 468 passed
+# 470 passed
 
 .\.venv\Scripts\python.exe -m pytest streamlit_task_organizer\tests -q
 # 20 passed
@@ -282,8 +283,7 @@ npm run lint
 - 오래 분기된 원격 백업 브랜치의 보존·삭제 결정
 - 과거 로그 브랜치에 위치 데이터가 남아 있는지 별도 감사
 - `main` 브랜치 보호·ruleset 설정
-- `main`에 동일 변경이 반영된 뒤 남은 Draft PR #80의 종료·정리
 - 이번 직접 반영분에 대한 사후 코드 리뷰
 
-2026-07-29 기준으로 위 구현 변경과 로컬에서 통합한 PR #80 변경은 전체 검증 후
-`main`에 직접 반영했습니다. 원격 백업 브랜치 삭제와 ruleset 변경은 수행하지 않았습니다.
+2026-07-29 기준으로 위 구현 변경, PR #80의 동등 패치, PR #83의 보완 수정은 전체 검증 후
+`main`에 반영했습니다. 원격 백업 브랜치 삭제와 ruleset 변경은 수행하지 않았습니다.
