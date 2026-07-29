@@ -1,21 +1,28 @@
-"""도보 진단 로그 — 실제 보행 데이터로 문제를 진단하기 위한 순수 함수 모듈.
+"""도보 진단 로그 — 동의한 세션의 비식별 데이터로 문제를 진단하는 순수 함수 모듈.
 
-걷는 동안 GPS 좌표·정확도·이탈 판정·재탐색·음성 이벤트를 시간순 레코드로 쌓아,
+걷는 동안 GPS 정확도·이탈 판정·재탐색·음성 이벤트를 시간순 레코드로 쌓아,
 이탈 오판정·GPS 튐·재탐색 폭주·음성 누락 같은 문제를 데이터로 짚을 수 있게 한다.
 페이지 모듈(1_Navigation.py)은 하단 ``main()`` 즉시 실행으로 import-테스트가 불가하므로
 로직을 여기로 분리한다. 시각(``t_ms``)은 호출부에서 주입해 테스트 결정성을 지킨다.
+
+원본 좌표와 목적지 문자열은 기본적으로 기록하지 않는다. 사용자가 대략 위치 포함에
+별도 동의한 경우에도 좌표는 소수점 셋째 자리(약 100m 격자)로 낮춰 기록한다.
 """
 
 from __future__ import annotations
 
-import base64
 import json
 from typing import Any
 
 DIAG_CAP = 3000  # 레코드 상한 — 초과 시 오래된 것부터 버림(1초 폴링 ≈ 50분 분량)
+DEFAULT_DIAG_RETENTION_HOURS = 24
+MAX_DIAG_RETENTION_HOURS = 168
+COARSE_COORD_DECIMALS = 3
 
-GITHUB_LOG_BRANCH = "walk-diag-logs"  # 로그 전용 브랜치(main 미변경 → 앱 재배포 안 됨)
-GITHUB_LOG_DIR = "logs"
+_COORDINATE_KEYS = frozenset({"lat", "lon", "latitude", "longitude"})
+_ROUTE_IDENTITY_KEYS = frozenset({
+    "address", "dest", "destination", "origin", "query", "route", "route_name",
+})
 
 
 def diag_record(t_ms: int, event: str, **fields: Any) -> dict:
@@ -30,6 +37,53 @@ def diag_record(t_ms: int, event: str, **fields: Any) -> dict:
     return rec
 
 
+def private_diag_record(
+    t_ms: int,
+    event: str,
+    *,
+    include_coarse_location: bool = False,
+    **fields: Any,
+) -> dict:
+    """개인 경로를 식별할 수 있는 필드를 제거한 진단 레코드를 만든다.
+
+    목적지·주소·검색어 같은 경로 식별 문자열은 항상 제외한다. 좌표는 기본 제외하며
+    별도 동의 시에도 약 100m 격자로 양자화한다. 숫자가 아닌 좌표는 버린다.
+    """
+    safe: dict[str, Any] = {}
+    for key, value in fields.items():
+        normalized_key = str(key).lower()
+        if normalized_key in _ROUTE_IDENTITY_KEYS:
+            continue
+        if normalized_key in _COORDINATE_KEYS:
+            if include_coarse_location and isinstance(value, (int, float)):
+                safe[key] = round(float(value), COARSE_COORD_DECIMALS)
+            continue
+        safe[key] = value
+    return diag_record(t_ms, event, **safe)
+
+
+def normalized_retention_hours(value: Any) -> int:
+    """보존기간을 1~168시간 정수로 제한한다."""
+    try:
+        hours = int(value)
+    except (TypeError, ValueError):
+        return DEFAULT_DIAG_RETENTION_HOURS
+    return max(1, min(MAX_DIAG_RETENTION_HOURS, hours))
+
+
+def prune_expired(log: list, now_ms: int, retention_hours: Any) -> list:
+    """보존기간을 지난 레코드와 시각이 손상된 레코드를 제거해 새 목록으로 반환한다."""
+    cutoff_ms = int(now_ms) - normalized_retention_hours(retention_hours) * 60 * 60 * 1000
+    kept: list = []
+    for record in log:
+        if not isinstance(record, dict):
+            continue
+        timestamp = record.get("t")
+        if isinstance(timestamp, (int, float)) and cutoff_ms <= int(timestamp) <= int(now_ms):
+            kept.append(record)
+    return kept
+
+
 def append_capped(log: list, record: dict, cap: int = DIAG_CAP) -> list:
     """레코드를 로그에 추가하고, 상한을 넘으면 앞(오래된)에서 잘라낸다. 로그를 그대로 반환."""
     log.append(record)
@@ -41,25 +95,6 @@ def append_capped(log: list, record: dict, cap: int = DIAG_CAP) -> list:
 def diag_json(log: list) -> str:
     """로그를 옮기기 쉬운 JSON 문자열로 직렬화(한글 보존)."""
     return json.dumps(log, ensure_ascii=False)
-
-
-def github_upload_payload(session_id: str, t_ms: int, log: list,
-                          branch: str = GITHUB_LOG_BRANCH) -> tuple[str, dict]:
-    """GitHub Contents API(PUT /repos/{owner}/{repo}/contents/{path}) 요청 payload 생성(순수).
-
-    반환: ``(path, body)`` — body 는 ``{"message", "content"(base64), "branch"}``.
-    session_id 는 파일명에 안전한 문자만 남긴다(경로 주입·특수문자 방지). 새 파일이므로
-    기존 sha 는 필요 없다(경로가 매번 t_ms 로 유일).
-    """
-    safe_sid = "".join(c for c in str(session_id) if c.isalnum() or c in "-_")[:32] or "sess"
-    path = f"{GITHUB_LOG_DIR}/{safe_sid}-{int(t_ms)}.json"
-    content_b64 = base64.b64encode(diag_json(log).encode("utf-8")).decode("ascii")
-    body = {
-        "message": f"walk diag: {safe_sid} @ {int(t_ms)} ({len(log)} recs)",
-        "content": content_b64,
-        "branch": branch,
-    }
-    return path, body
 
 
 def _percentile(sorted_vals: list[float], pct: float) -> float:

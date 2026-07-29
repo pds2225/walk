@@ -153,7 +153,9 @@ def test_active_session_persist_and_restore_wired():
     save = save[:save.index("def _restore_active_session")]
     # 안내 중이면 목적지 저장, 아니면 삭제(중지·초기화·도착 자동 정리)
     assert "_LS_KEY_ACTIVE" in save
-    assert "removeItem" in save and "setItem" in save
+    assert "nav_privacy.storage_set_script" in save and "_remove_ls" in save
+    # 위치 저장은 명시적 opt-in일 때만 허용한다.
+    assert "nav_location_storage_enabled" in save
     # 매 rerun 재주입 방지 스로틀(직렬화 서명 비교)
     assert "nav_active_saved_sig" in save
     # 자동 재개는 '단독 도보 안내'만 저장한다 — 여정 중에는 저장하지 않는다

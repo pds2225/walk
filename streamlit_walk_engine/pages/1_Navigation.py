@@ -45,14 +45,17 @@ from engine import (
     distance_meters,
 )
 import gps_filter
+import landmark_store
+import landmarks
 import mapbox_matcher
+import nav_privacy
 import nav_session
 import snap_router
 import transit_builder
 from alert_voice import build_tts_prime_script, build_tts_script, tts_phrase
 from walk_diag import (
-    DIAG_CAP, GITHUB_LOG_BRANCH, append_capped, diag_findings, diag_json,
-    diag_record, diag_summary, github_upload_payload,
+    DEFAULT_DIAG_RETENTION_HOURS, DIAG_CAP, append_capped, diag_findings,
+    diag_json, diag_summary, private_diag_record, prune_expired,
 )
 from route_builder import (
     fetch_walking_route_with_engine, format_korean_address, geocode_address,
@@ -352,9 +355,16 @@ def _init() -> None:
         "nav_alert_enabled": True,
         "nav_tts_enabled": True,
         "nav_tts_primed": False,         # 안내 시작(제스처) 시 브라우저 TTS 해금 1회 실행 여부
-        "nav_diag_enabled": True,        # 도보 진단 로그 수집 on/off(기본 on — 문제 진단용)
-        "nav_diag_log": [],              # 진단 레코드 누적(GPS·판정·재탐색·음성) — LS 로 영속
-        "nav_diag_last_upload": None,    # 마지막 GitHub 자동 업로드 결과(상태 표시용)
+        # 개인정보 기본값은 모두 opt-in. 동의 전에는 진단·좌표 브라우저 저장을 하지 않는다.
+        "nav_location_storage_enabled": False,
+        "nav_diag_consent": False,
+        "nav_diag_enabled": False,
+        "nav_diag_persist": False,
+        "nav_diag_include_coarse_location": False,
+        "nav_diag_retention_hours": DEFAULT_DIAG_RETENTION_HOURS,
+        "nav_diag_log": [],
+        "nav_privacy_loaded": False,
+        "nav_privacy_saved_sig": None,
         "nav_turn_announced_id": None,   # 회전 예고 음성을 낸 회전점 id(회전점당 1회)
         "nav_origin_address": None,
         "nav_origin_address_coord": None,
@@ -377,6 +387,8 @@ def _init() -> None:
         "nav_dest_input": "",
         "nav_route_engine": None,
         "nav_route_info": None,
+        "nav_landmark_guidance": {},
+        "nav_landmark_data_error": None,
         "nav_arrival_summary": None,
         "nav_start_ts_ms": None,
         "nav_recent_fixes": [],
@@ -419,6 +431,23 @@ def _reset() -> None:
     st.session_state["nav_smoothed_heading"] = None
 
 
+def _refresh_landmark_guidance(route: Optional[RouteModel]) -> None:
+    """현재 경로의 승인 랜드마크를 읽어 회전점별 최적 안내를 계산한다."""
+    if route is None or not route.turn_points:
+        st.session_state["nav_landmark_guidance"] = {}
+        st.session_state["nav_landmark_data_error"] = None
+        return
+    try:
+        available = landmark_store.LandmarkRepository().load()
+        guidance = landmarks.select_landmark_guidance(route, available)
+    except (OSError, ValueError) as exc:
+        st.session_state["nav_landmark_guidance"] = {}
+        st.session_state["nav_landmark_data_error"] = str(exc)
+        return
+    st.session_state["nav_landmark_guidance"] = guidance
+    st.session_state["nav_landmark_data_error"] = None
+
+
 def _activate_route(
     origin: Coordinate,
     dest: Coordinate,
@@ -434,6 +463,7 @@ def _activate_route(
         "nav_engine": RouteDeviationEngine(route, st.session_state["nav_config"]),
     })
     _reset()
+    _refresh_landmark_guidance(route)
     if start_now:
         st.session_state.update({
             "nav_running": True,
@@ -537,6 +567,7 @@ def _commit_pending_reroute() -> None:
         # 새 경로의 회전점 id 가 옛 id 와 겹쳐도 예고가 막히지 않게 리셋
         "nav_turn_announced_id":   None,
     })
+    _refresh_landmark_guidance(new_route)
     if st.session_state.get("nav_journey") is not None:
         # 여정 누적 집계 — nav_reroute_count 는 레그 전환 시 리셋되므로 별도.
         st.session_state["nav_journey_reroute_total"] = \
@@ -574,6 +605,7 @@ def _activate_leg(journey: transit_builder.Journey, active_index: int, *, start_
         "nav_engine": None,
     })
     _reset()
+    _refresh_landmark_guidance(None)
 
 
 def _activate_journey(journey: transit_builder.Journey, *, start_now: bool) -> None:
@@ -730,12 +762,13 @@ def _exit_label(query: str, display_name: str) -> str:
 
 # ── localStorage 영속화 ───────────────────────────────────────────────────────
 
-_LS_KEY           = "walk_navi_history"
-_LS_KEY_BOOKINGS  = "walk_navi_booking_history"
-_LS_KEY_FAVORITES = "walk_navi_favorites"
-_LS_KEY_LASTFIX   = "walk_navi_last_fix"
-_LS_KEY_DIAG      = "walk_navi_diag_log"   # 도보 진단 로그(새로고침·세션 넘어 누적)
-_LS_KEY_ACTIVE    = "walk_navi_active_session"   # 안내 중이던 목적지(폰 잠금·새로고침 복귀용)
+_LS_KEY           = nav_privacy.LS_KEY_HISTORY
+_LS_KEY_BOOKINGS  = nav_privacy.LS_KEY_BOOKINGS
+_LS_KEY_FAVORITES = nav_privacy.LS_KEY_FAVORITES
+_LS_KEY_LASTFIX   = nav_privacy.LS_KEY_LASTFIX
+_LS_KEY_DIAG      = nav_privacy.LS_KEY_DIAG
+_LS_KEY_ACTIVE    = nav_privacy.LS_KEY_ACTIVE
+_LS_KEY_PRIVACY   = nav_privacy.LS_KEY_PRIVACY
 
 # 저장된 안내를 자동 재개할 최대 나이(ms) — 이보다 오래된 세션은 되살리지 않는다
 # (어제 하던 길이 오늘 앱을 열자마자 다시 켜지는 당황스러움 방지). 6시간.
@@ -752,65 +785,38 @@ _ACTIVE_SESSION_TS_REFRESH_MS = 30 * 60 * 1000
 
 
 def _diag(event: str, **fields) -> None:
-    """도보 진단 로그에 이벤트 1건을 쌓는다(수집 off면 무시). 실패해도 안내를 막지 않는다.
+    """동의한 진단 로그에 비식별 이벤트 1건을 쌓는다. 실패해도 안내를 막지 않는다.
 
-    시각은 서버 time.time()(밀리초) — 레코드 간 상대 시간 분석용. GPS fix timestamp 는
-    필드로 따로 남긴다. session_state 에 누적돼 rerun 을 넘어 살아남고, 중지·도착 때
-    localStorage 로 영속화해 새로고침·다음 세션에도 이어 쌓인다.
+    목적지·주소는 항상 제거한다. 좌표는 기본 제외하며, 사용자가 별도로 선택한 경우에도
+    약 100m 단위로 낮춘다. 보존기간을 넘긴 기록은 추가 시점마다 제거한다.
     """
     try:
-        if not st.session_state.get("nav_diag_enabled", True):
+        if not (
+            st.session_state.get("nav_diag_consent", False)
+            and st.session_state.get("nav_diag_enabled", False)
+        ):
             return
-        append_capped(st.session_state["nav_diag_log"],
-                      diag_record(int(time.time() * 1000), event, **fields))
+        now_ms = int(time.time() * 1000)
+        log = prune_expired(
+            st.session_state.get("nav_diag_log") or [],
+            now_ms,
+            st.session_state.get("nav_diag_retention_hours"),
+        )
+        append_capped(
+            log,
+            private_diag_record(
+                now_ms,
+                event,
+                include_coarse_location=bool(
+                    st.session_state.get("nav_diag_include_coarse_location", False)
+                ),
+                **fields,
+            ),
+        )
+        st.session_state["nav_diag_log"] = log
     except Exception:
         pass
 
-
-_GH_API = "https://api.github.com"
-_GH_REPO_DEFAULT = "pds2225/walk"  # secrets WALK_DIAG_REPO 로 덮어쓸 수 있음
-
-
-def _diag_gh_config() -> tuple[Optional[str], str]:
-    """진단 로그 자동 업로드용 (토큰, repo). 토큰은 Streamlit secrets 에서만 읽는다
-    (코드·저장소에 절대 넣지 않음). 없으면 (None, repo) → 업로드는 조용히 생략."""
-    token = None
-    repo = _GH_REPO_DEFAULT
-    try:
-        token = str(st.secrets.get("WALK_DIAG_GH_TOKEN", "") or "").strip() or None
-        repo = str(st.secrets.get("WALK_DIAG_REPO", "") or "").strip() or _GH_REPO_DEFAULT
-    except Exception:
-        pass
-    return token, repo
-
-
-def _upload_diag_to_github(log: list) -> None:
-    """진단 로그를 GitHub walk-diag-logs 브랜치에 '백그라운드로' 자동 업로드(토큰 있을 때만).
-
-    네트워크 PUT(최대 8초)을 Streamlit 스크립트 스레드에서 동기로 돌리면, 토큰이 설정된
-    경우 GitHub 응답이 느릴 때 도착 안내·⏹중지 반응이 그만큼 지연된다. 그래서 업로드는
-    데몬 스레드로 던지고(fire-and-forget) 즉시 반환한다. 워커 스레드는 st.session_state 를
-    만지지 않는다(고아 스레드 쓰기 금지 원칙 — 상태 표시는 메인 스레드에서 낙관적으로 기록).
-    토큰 없음·빈 로그는 조용히 생략.
-    """
-    token, repo = _diag_gh_config()
-    if not token or not log:
-        return
-    path, body = github_upload_payload(_session_id(), int(time.time() * 1000),
-                                       list(log), GITHUB_LOG_BRANCH)
-    url = f"{_GH_API}/repos/{repo}/contents/{path}"
-    headers = {"Authorization": f"Bearer {token}",
-               "Accept": "application/vnd.github+json",
-               "X-GitHub-Api-Version": "2022-11-28"}
-    st.session_state["nav_diag_last_upload"] = f"⬆️ 업로드 요청됨: {path}"
-
-    def _work() -> None:
-        try:
-            requests.put(url, headers=headers, json=body, timeout=8)
-        except Exception:
-            pass
-
-    threading.Thread(target=_work, daemon=True).start()
 
 # 마지막 위치 캐시를 새로 저장할 최소 이동거리(m) — 매 폴링마다 쓰지 않도록 스로틀.
 _LASTFIX_SAVE_MOVE_M = 100.0
@@ -818,11 +824,11 @@ _LASTFIX_SAVE_MOVE_M = 100.0
 
 def _save_list_to_ls(key: str, items: list) -> None:
     payload = json.dumps(items, ensure_ascii=False)
-    js_payload = json.dumps(payload)
-    components.html(
-        f"<script>try{{localStorage.setItem('{key}',{js_payload})}}catch(e){{}}</script>",
-        height=0,
-    )
+    components.html(nav_privacy.storage_set_script(key, payload), height=0)
+
+
+def _remove_ls(*keys: str) -> None:
+    components.html(nav_privacy.storage_remove_script(keys), height=0)
 
 
 def _load_list_from_ls(key: str, state_key: str, limit: int) -> None:
@@ -845,19 +851,136 @@ def _load_history_from_ls() -> None:
     _load_list_from_ls(_LS_KEY,           "nav_search_history",  10)
     _load_list_from_ls(_LS_KEY_BOOKINGS,  "nav_booking_history", 20)
     _load_list_from_ls(_LS_KEY_FAVORITES, "nav_favorites",       50)
-    _load_list_from_ls(_LS_KEY_DIAG,      "nav_diag_log",        DIAG_CAP)
+    if (
+        st.session_state.get("nav_diag_consent", False)
+        and st.session_state.get("nav_diag_persist", False)
+    ):
+        _load_list_from_ls(_LS_KEY_DIAG, "nav_diag_log", DIAG_CAP)
+
+
+def _privacy_settings_from_state() -> nav_privacy.PrivacySettings:
+    return nav_privacy.PrivacySettings.from_mapping({
+        "location_storage": st.session_state.get("nav_location_storage_enabled", False),
+        "diag_consent": st.session_state.get("nav_diag_consent", False),
+        "diag_enabled": st.session_state.get("nav_diag_enabled", False),
+        "diag_persist": st.session_state.get("nav_diag_persist", False),
+        "diag_include_coarse_location": st.session_state.get(
+            "nav_diag_include_coarse_location", False
+        ),
+        "diag_retention_hours": st.session_state.get(
+            "nav_diag_retention_hours", DEFAULT_DIAG_RETENTION_HOURS
+        ),
+    })
+
+
+def _apply_privacy_settings(settings: nav_privacy.PrivacySettings) -> None:
+    st.session_state.update({
+        "nav_location_storage_enabled": settings.location_storage,
+        "nav_diag_consent": settings.diag_consent,
+        "nav_diag_enabled": settings.diag_enabled,
+        "nav_diag_persist": settings.diag_persist,
+        "nav_diag_include_coarse_location": settings.diag_include_coarse_location,
+        "nav_diag_retention_hours": settings.diag_retention_hours,
+    })
+
+
+def _load_privacy_settings_from_ls() -> None:
+    """비민감 동의 설정을 먼저 읽어 좌표 저장·복원 여부를 결정한다."""
+    if st.session_state.get("nav_privacy_loaded"):
+        return
+    if not _HAS_GEO or _js_eval is None:
+        st.session_state["nav_privacy_loaded"] = True
+        return
+    raw = _js_eval(
+        js_expressions=f"localStorage.getItem('{_LS_KEY_PRIVACY}') || ''",
+        key="ls_privacy_settings",
+    )
+    if raw is None:
+        return
+    settings = nav_privacy.PrivacySettings.from_json(raw) if raw else nav_privacy.PrivacySettings()
+    _apply_privacy_settings(settings)
+    st.session_state["nav_privacy_loaded"] = True
+    st.session_state["nav_privacy_saved_sig"] = settings.to_json()
+    # 이전 버전이 동의 없이 남긴 좌표·진단 데이터는 새 정책상 허용되지 않으면 즉시 제거.
+    remove_keys: list[str] = []
+    if not settings.location_storage:
+        remove_keys.extend((_LS_KEY_LASTFIX, _LS_KEY_ACTIVE))
+    if not (settings.diag_consent and settings.diag_persist):
+        remove_keys.append(_LS_KEY_DIAG)
+    if remove_keys:
+        _remove_ls(*remove_keys)
+
+
+def _save_privacy_settings() -> None:
+    settings = _privacy_settings_from_state()
+    payload = settings.to_json()
+    if st.session_state.get("nav_privacy_saved_sig") == payload:
+        return
+    st.session_state["nav_privacy_saved_sig"] = payload
+    components.html(nav_privacy.storage_set_script(_LS_KEY_PRIVACY, payload), height=0)
+    if not settings.location_storage:
+        _remove_ls(_LS_KEY_LASTFIX, _LS_KEY_ACTIVE)
+        st.session_state["nav_lastfix_saved_coord"] = None
+        st.session_state["nav_active_saved_sig"] = None
+    if not (settings.diag_consent and settings.diag_persist):
+        _remove_ls(_LS_KEY_DIAG)
+
+
+def _save_diag_if_allowed() -> None:
+    settings = _privacy_settings_from_state()
+    now_ms = int(time.time() * 1000)
+    log = prune_expired(
+        st.session_state.get("nav_diag_log") or [],
+        now_ms,
+        settings.diag_retention_hours,
+    )
+    st.session_state["nav_diag_log"] = log
+    if settings.diag_consent and settings.diag_enabled and settings.diag_persist:
+        _save_list_to_ls(_LS_KEY_DIAG, log)
+    else:
+        _remove_ls(_LS_KEY_DIAG)
+
+
+def _delete_personal_data() -> None:
+    """현재 세션과 이 브라우저에 저장된 walk 개인 데이터를 모두 삭제한다."""
+    st.session_state.update({
+        "nav_search_history": [],
+        "nav_booking_history": [],
+        "nav_favorites": [],
+        "nav_diag_log": [],
+        "nav_location_storage_enabled": False,
+        "nav_diag_consent": False,
+        "nav_diag_enabled": False,
+        "nav_diag_persist": False,
+        "nav_diag_include_coarse_location": False,
+        "nav_lastfix_saved_coord": None,
+        "nav_active_saved_sig": None,
+        "nav_privacy_saved_sig": None,
+    })
+    # 이미 렌더된 위젯 키가 남아 있으면 다음 rerun에서 위 false 값을 다시 덮어쓴다.
+    for widget_key in (
+        "privacy_location_storage_widget",
+        "privacy_diag_consent_widget",
+        "privacy_diag_enabled_widget",
+        "privacy_diag_coarse_widget",
+        "privacy_diag_persist_widget",
+        "privacy_diag_retention_widget",
+    ):
+        st.session_state.pop(widget_key, None)
+    components.html(nav_privacy.personal_storage_remove_script(), height=0)
 
 
 def _save_last_fix(lat: float, lon: float, accuracy: Optional[float], ts: Optional[int]) -> None:
-    """마지막으로 확인된 위치를 localStorage에 저장한다(재방문 즉시 부트스트랩용).
+    """동의한 경우에만 마지막 위치를 localStorage에 저장한다.
 
     _LASTFIX_SAVE_MOVE_M 이상 이동했을 때만 호출돼(호출부 스로틀) 매 폴링마다 스크립트가
     주입되지 않는다. 실측 GPS fix(source=='gps')만 저장한다 — IP/캐시 대략위치는 저장 금지.
     """
+    if not st.session_state.get("nav_location_storage_enabled", False):
+        return
     obj = {"lat": lat, "lon": lon, "accuracy": accuracy, "ts": ts}
-    js_payload = json.dumps(json.dumps(obj))
     components.html(
-        f"<script>try{{localStorage.setItem('{_LS_KEY_LASTFIX}',{js_payload})}}catch(e){{}}</script>",
+        nav_privacy.storage_set_script(_LS_KEY_LASTFIX, json.dumps(obj)),
         height=0,
     )
 
@@ -870,6 +993,11 @@ def _restore_last_fix() -> None:
     캐시는 과거 위치라 부정확할 수 있으므로 coarse=True로 두고 안내 문구를 구분한다.
     streamlit-js-eval 첫 렌더는 None(대기·키없음 공통) — 값이 오면 컴포넌트 rerun으로 갱신.
     """
+    if not st.session_state.get("nav_privacy_loaded"):
+        return
+    if not st.session_state.get("nav_location_storage_enabled", False):
+        st.session_state["nav_lastfix_tried"] = True
+        return
     if not _HAS_GEO or _js_eval is None:
         return
     if st.session_state.get("nav_lastfix_tried"):
@@ -962,6 +1090,11 @@ def _save_active_session() -> None:
     안내 중이 아니면 저장 항목을 지운다(중지·초기화·도착 시 자동 정리). 직렬화 값이
     바뀐 경우에만 스크립트를 주입해(스로틀) 매 rerun 마다 쓰지 않는다.
     """
+    if not st.session_state.get("nav_location_storage_enabled", False):
+        if st.session_state.get("nav_active_saved_sig") is not None:
+            st.session_state["nav_active_saved_sig"] = None
+            _remove_ls(_LS_KEY_ACTIVE)
+        return
     running = bool(st.session_state.get("nav_running"))
     journey = st.session_state.get("nav_journey")
     dest: Optional[Coordinate] = st.session_state.get("nav_dest")
@@ -996,19 +1129,17 @@ def _save_active_session() -> None:
         if st.session_state.get("nav_active_saved_sig") == sig:
             return
         st.session_state["nav_active_saved_sig"] = sig
-        js_payload = json.dumps(json.dumps(obj, ensure_ascii=False))
         components.html(
-            f"<script>try{{localStorage.setItem('{_LS_KEY_ACTIVE}',{js_payload})}}catch(e){{}}</script>",
+            nav_privacy.storage_set_script(
+                _LS_KEY_ACTIVE, json.dumps(obj, ensure_ascii=False)
+            ),
             height=0,
         )
     else:
         if st.session_state.get("nav_active_saved_sig") is None:
             return  # 이미 지워진 상태 — 스크립트 재주입 불필요
         st.session_state["nav_active_saved_sig"] = None
-        components.html(
-            f"<script>try{{localStorage.removeItem('{_LS_KEY_ACTIVE}')}}catch(e){{}}</script>",
-            height=0,
-        )
+        _remove_ls(_LS_KEY_ACTIVE)
 
 
 def _restore_active_session() -> None:
@@ -1019,6 +1150,11 @@ def _restore_active_session() -> None:
     시도(nav_active_restore_tried). 6시간 넘은 세션은 되살리지 않고 저장 항목만 정리한다.
     streamlit-js-eval 첫 렌더는 None(대기·키없음 공통) — 값이 오면 rerun 으로 갱신.
     """
+    if not st.session_state.get("nav_privacy_loaded"):
+        return
+    if not st.session_state.get("nav_location_storage_enabled", False):
+        st.session_state["nav_active_restore_tried"] = True
+        return
     if not _HAS_GEO or _js_eval is None:
         return
     if st.session_state.get("nav_active_restore_tried"):
@@ -1038,10 +1174,7 @@ def _restore_active_session() -> None:
     if saved.status in ("bad", "expired"):
         # 손상·만료된 값은 localStorage 에서 제거한다 — 남겨 두면 이후 세션마다 같은
         # 실패로 자동 재개가 계속 막힌다(고: bugbot Medium — 손상 JSON / 만료 세션).
-        components.html(
-            f"<script>try{{localStorage.removeItem('{_LS_KEY_ACTIVE}')}}catch(e){{}}</script>",
-            height=0,
-        )
+        _remove_ls(_LS_KEY_ACTIVE)
         return
     st.session_state["nav_resume_pending"] = saved.data
 
@@ -1313,20 +1446,88 @@ def _prime_tts_once() -> None:
     )
 
 
-def _render_diag_panel() -> None:
-    """도보 진단 로그 패널 — 수집 토글·요약 통계·JSON 내려받기/복사·지우기.
+def _render_privacy_panel() -> None:
+    """좌표 저장과 진단 수집을 명시적 opt-in으로 제어하고 삭제 수단을 제공한다."""
+    with st.expander("🔒 개인정보와 브라우저 저장", expanded=False):
+        st.caption(
+            "기본값은 위치·진단 데이터 비저장입니다. GitHub 자동 업로드 기능은 제거되었습니다."
+        )
+        location_storage = st.checkbox(
+            "안내 복구용 위치를 이 브라우저에 저장",
+            value=bool(st.session_state.get("nav_location_storage_enabled", False)),
+            help="마지막 위치와 진행 중 목적지를 저장합니다. 서버나 GitHub로 전송하지 않습니다.",
+            key="privacy_location_storage_widget",
+        )
+        consent = st.checkbox(
+            "문제 진단을 위한 비식별 로그 수집에 동의",
+            value=bool(st.session_state.get("nav_diag_consent", False)),
+            help="동의를 철회하면 새 진단 기록을 즉시 중단합니다.",
+            key="privacy_diag_consent_widget",
+        )
+        enabled = st.checkbox(
+            "진단 로그 수집",
+            value=(consent and bool(st.session_state.get("nav_diag_enabled", False))),
+            disabled=not consent,
+            help="GPS 정확도·이탈 판정·재탐색·음성 이벤트를 기록합니다.",
+            key="privacy_diag_enabled_widget",
+        )
+        coarse = st.checkbox(
+            "대략 위치 포함 (약 100m 격자)",
+            value=(enabled and bool(
+                st.session_state.get("nav_diag_include_coarse_location", False)
+            )),
+            disabled=not enabled,
+            help="원본 좌표는 기록하지 않습니다. 목적지·주소·검색어는 이 설정과 무관하게 제외됩니다.",
+            key="privacy_diag_coarse_widget",
+        )
+        persist = st.checkbox(
+            "진단 로그를 이 브라우저에 보관",
+            value=(enabled and bool(st.session_state.get("nav_diag_persist", False))),
+            disabled=not enabled,
+            help="끄면 현재 Streamlit 세션 메모리에만 남고 세션 종료 시 사라집니다.",
+            key="privacy_diag_persist_widget",
+        )
+        retention_options = [1, 6, 24, 72, 168]
+        current_retention = int(st.session_state.get(
+            "nav_diag_retention_hours", DEFAULT_DIAG_RETENTION_HOURS
+        ))
+        retention = st.selectbox(
+            "진단 로그 보존기간",
+            retention_options,
+            index=min(
+                range(len(retention_options)),
+                key=lambda idx: abs(retention_options[idx] - current_retention),
+            ),
+            format_func=lambda hours: f"{hours}시간",
+            disabled=not enabled,
+            key="privacy_diag_retention_widget",
+        )
+        st.session_state.update({
+            "nav_location_storage_enabled": bool(location_storage),
+            "nav_diag_consent": bool(consent),
+            "nav_diag_enabled": bool(consent and enabled),
+            "nav_diag_include_coarse_location": bool(consent and enabled and coarse),
+            "nav_diag_persist": bool(consent and enabled and persist),
+            "nav_diag_retention_hours": int(retention),
+        })
+        _save_privacy_settings()
 
-    걷는 동안 쌓인 GPS·이탈판정·재탐색·음성 이벤트를 요약해 보여주고 JSON 으로
-    내려받거나(모바일은 복사) 지운다. 이 로그를 공유하면 실제 데이터로 이탈 오판정·
-    GPS 튐·재탐색 폭주·음성 누락을 진단할 수 있다. expander 중첩 금지라 최상위에서 호출.
-    """
+        if st.button("🗑️ 이 브라우저의 walk 개인 데이터 모두 삭제", width="stretch"):
+            _delete_personal_data()
+            st.rerun()
+
+
+def _render_diag_panel() -> None:
+    """동의 후 수집된 비식별 진단 로그의 요약·내려받기·삭제 패널."""
     with st.expander("🧪 도보 진단 로그 (문제 진단용)", expanded=False):
-        st.session_state["nav_diag_enabled"] = st.checkbox(
-            "진단 로그 수집", value=st.session_state.get("nav_diag_enabled", True),
-            help="걷는 동안 위치·정확도·이탈 판정·재탐색·음성 이벤트를 기록합니다.")
+        if not (
+            st.session_state.get("nav_diag_consent", False)
+            and st.session_state.get("nav_diag_enabled", False)
+        ):
+            st.caption("진단 수집 OFF — 위 개인정보 설정에서 동의해야 기록됩니다.")
         log = st.session_state.get("nav_diag_log") or []
         if not log:
-            st.caption("아직 기록이 없어요 — ▶ 시작으로 걸으면 자동으로 쌓입니다.")
+            st.caption("저장된 진단 기록이 없습니다.")
             return
         summ = diag_summary(log)
         ev = summ.get("events", {})
@@ -1341,34 +1542,22 @@ def _render_diag_panel() -> None:
         states = summ.get("states", {})
         if states:
             st.caption("판정 분포: " + ", ".join(f"{k} {v}" for k, v in states.items()))
-        # 자동 진단 — 원시 로그를 사람이 읽는 힌트로(GPS 정확도·재탐색·이탈·음성 미작동 의심).
         st.markdown("**자동 진단**")
         for finding in diag_findings(summ):
             st.write(finding)
         payload = diag_json(log)
-        st.download_button("⬇️ 진단 로그 내려받기 (JSON)", payload,
-                           file_name="walk_diag.json", mime="application/json",
-                           width="stretch")
+        st.download_button(
+            "⬇️ 비식별 진단 로그 내려받기 (JSON)",
+            payload,
+            file_name="walk_diag.json",
+            mime="application/json",
+            width="stretch",
+        )
         if st.checkbox("📋 복사용 JSON 보기(모바일)", value=False):
             st.code(payload, language="json")
-
-        # ── 자동 업로드(파일 안 줘도 됨): 토큰 설정 시 중지·도착에 저장소로 자동 전송 ──
-        token, repo = _diag_gh_config()
-        if token:
-            st.caption(f"🔄 자동 업로드 켜짐 — 중지·도착 시 `{repo}` 의 `{GITHUB_LOG_BRANCH}` "
-                       f"브랜치로 전송됩니다.")
-            if st.button("⬆️ 지금 업로드", width="stretch"):
-                _upload_diag_to_github(log)
-                st.rerun()
-        else:
-            st.caption("🔒 자동 업로드 꺼짐 — Streamlit Secrets 에 `WALK_DIAG_GH_TOKEN` "
-                       "(저장소 contents 쓰기 권한)을 넣으면 걷기 종료 시 로그가 자동 업로드됩니다.")
-        if st.session_state.get("nav_diag_last_upload"):
-            st.caption(st.session_state["nav_diag_last_upload"])
-
-        if st.button("🗑️ 로그 지우기", width="stretch"):
+        if st.button("🗑️ 진단 로그 지우기", width="stretch"):
             st.session_state["nav_diag_log"] = []
-            _save_list_to_ls(_LS_KEY_DIAG, [])
+            _remove_ls(_LS_KEY_DIAG)
             st.rerun()
 
 
@@ -1408,9 +1597,13 @@ def _maybe_announce_turn(result, tts_enabled: bool,
     if not label:
         return  # 직진·방향 불명은 예고 생략
     st.session_state["nav_turn_announced_id"] = turn_id
-    st.toast(f"{_DIR_ARROW.get(direction, '↑')} 잠시 후 {label} — {dist:.0f}m 앞")
+    guidance = (st.session_state.get("nav_landmark_guidance") or {}).get(turn_id)
+    instruction = guidance.instruction if guidance is not None else f"잠시 후 {label}입니다."
+    st.toast(
+        f"{_DIR_ARROW.get(direction, '↑')} {dist:.0f}m 앞 · {instruction}"
+    )
     if tts_enabled:
-        _speak(f"잠시 후 {label}입니다.")  # gTTS MP3 우선(모바일 확실) → speechSynthesis 폴백
+        _speak(instruction)  # gTTS MP3 우선(모바일 확실) → speechSynthesis 폴백
 
 
 # ── 도착 판정 ─────────────────────────────────────────────────────────────────
@@ -1465,8 +1658,7 @@ def _maybe_finish_arrival(origin: Coordinate) -> bool:
     st.session_state["nav_arrival_summary"] = "🏁 도착 완료" + (f" — {detail}" if detail else "")
     st.session_state["nav_running"] = False
     _diag("arrive", detail=detail or None)
-    _save_list_to_ls(_LS_KEY_DIAG, st.session_state["nav_diag_log"])  # 도착 시 진단로그 영속화
-    _upload_diag_to_github(st.session_state["nav_diag_log"])          # 토큰 있으면 자동 업로드
+    _save_diag_if_allowed()
     st.session_state["nav_active_booking_id"] = None  # 같은 예약 경로 재발동 허용
     if journey is not None and transit_builder.is_last_leg(
             journey, st.session_state.get("nav_active_leg_index", 0)):
@@ -1920,6 +2112,58 @@ def _render_metrics(results: list[EngineResult]) -> None:
         st.metric("샘플 수",   len(results))
         if st.session_state.get("nav_reroute_count", 0) > 0:
             st.metric("재탐색 횟수", f"{st.session_state['nav_reroute_count']}회")
+
+
+def _render_landmark_guidance() -> None:
+    """다음 회전의 검수된 랜드마크·사진·출입구 안내를 표시한다."""
+    route: Optional[RouteModel] = st.session_state.get("nav_route")
+    if route is None or not route.turn_points:
+        return
+    error = st.session_state.get("nav_landmark_data_error")
+    if error:
+        with st.expander("📍 랜드마크 데이터 오류", expanded=False):
+            st.error(error)
+        return
+    guidance_by_turn = st.session_state.get("nav_landmark_guidance") or {}
+    results = st.session_state.get("nav_results") or []
+    turn_id = (
+        results[-1].metrics.nearest_turn_point_id
+        if results else route.turn_points[0].id
+    )
+    guidance = guidance_by_turn.get(turn_id)
+    if guidance is None:
+        with st.expander("📍 랜드마크 안내", expanded=False):
+            st.caption(
+                f"검수 승인된 기준점 {len(guidance_by_turn)}/{len(route.turn_points)}개 · "
+                "다음 회전에는 아직 사용할 수 있는 랜드마크가 없습니다."
+            )
+            st.caption("‘랜드마크 현장 관리’ 화면에서 사진·방향·검수 상태를 등록하세요.")
+        return
+
+    landmark = guidance.candidate.landmark
+    st.markdown("#### 📍 눈에 보이는 기준점")
+    st.info(guidance.instruction)
+    if landmark.photo_url:
+        photo_source: str | Path = landmark.photo_url
+        if not landmark.photo_url.startswith(("http://", "https://")):
+            photo_source = Path(__file__).parent.parent / landmark.photo_url
+        if isinstance(photo_source, str) or photo_source.is_file():
+            st.image(
+                str(photo_source),
+                caption=landmark.photo_alt or landmark.name,
+                width="stretch",
+            )
+    if landmark.entrance_description:
+        st.caption(f"🚪 출입구: {landmark.entrance_description}")
+    if landmark.accessibility_tags:
+        st.caption("♿ 접근성: " + ", ".join(landmark.accessibility_tags))
+    with st.expander("선정 근거", expanded=False):
+        st.write(f"점수: {guidance.candidate.total_score:.3f}")
+        for reason in guidance.candidate.score_reasons:
+            st.write(f"- {reason}")
+        st.caption(
+            f"출처: {landmark.source or '-'} · 검증일: {landmark.verified_at or '-'}"
+        )
 
 
 # ── 예약 추가 헬퍼 ────────────────────────────────────────────────────────────
@@ -2839,8 +3083,7 @@ def _render_action_buttons() -> None:
                 st.session_state["nav_running"] = False
                 st.session_state["nav_tts_primed"] = False  # 다음 시작 제스처에서 다시 해금
                 _diag("stop")
-                _save_list_to_ls(_LS_KEY_DIAG, st.session_state["nav_diag_log"])  # 중지 시 영속화
-                _upload_diag_to_github(st.session_state["nav_diag_log"])  # 토큰 있으면 자동 업로드
+                _save_diag_if_allowed()
                 st.rerun()
         else:
             if st.button("▶ 시작", disabled=(origin is None), width="stretch", type="primary"):
@@ -2889,9 +3132,12 @@ def main() -> None:
         st.stop()
 
     _init()
-    _load_history_from_ls()
-    _restore_last_fix()  # 재방문 시 마지막 위치를 즉시 대략위치로 부트스트랩(실측/IP가 곧 대체)
-    _restore_active_session()  # 폰 잠금·새로고침으로 세션이 끊겼으면 하던 안내를 자동 재개 예약
+    _load_privacy_settings_from_ls()
+    if st.session_state.get("nav_privacy_loaded"):
+        _load_history_from_ls()
+        # 명시적 브라우저 저장 동의가 있을 때만 위치·진행 중 안내를 복원한다.
+        _restore_last_fix()
+        _restore_active_session()
 
     _booking_armed = any(b.get("enabled", True)
                          for b in st.session_state.get("nav_route_bookings") or [])
@@ -3656,6 +3902,9 @@ def main() -> None:
     if journey is not None:
         _render_journey(journey, st.session_state.get("nav_active_leg_index", 0))
 
+    # 경로가 없어도 동의 철회·브라우저 데이터 삭제에 항상 접근할 수 있어야 한다.
+    _render_privacy_panel()
+
     if route is None or dest is None:
         if journey is None:
             st.info("목적지를 입력하고 '경로 찾기'를 누르세요. 지도는 현재 위치 기준으로 표시됩니다.")
@@ -3665,6 +3914,7 @@ def main() -> None:
         st.plotly_chart(
             _build_placeholder_map(st.session_state.get("nav_display_origin") or origin),
             width="stretch")
+        _render_diag_panel()
         return
 
     if (not st.session_state["nav_running"]) and st.session_state.get("nav_arrival_summary"):
@@ -3727,6 +3977,7 @@ def main() -> None:
         else:
             # 시작 직후~첫 GPS 샘플 전: '눌렸나?' 혼란 방지용 생존 신호.
             st.info("🧭 안내 중 — 위치를 받는 중입니다. 곧 첫 판정이 표시됩니다")
+        _render_landmark_guidance()
         _render_map()
         # 컨트롤(목적지 바꾸기·중지/초기화)은 지도 아래로 — '가는 길'이 먼저 보이게.
         with st.expander("📍 목적지 바꾸기", expanded=False):
@@ -3736,8 +3987,9 @@ def main() -> None:
         _render_map()
         st.markdown("#### 도착 — 안내 종료" if arrived else "#### 현재 판정")
         _render_metrics(st.session_state["nav_results"])
+        _render_landmark_guidance()
 
-    # 도보 진단 로그 — 걷기 후 데이터로 문제(이탈 오판정·GPS 튐·재탐색·음성)를 진단·공유.
+    # 도보 진단 로그 — 동의한 비식별 데이터로 문제를 진단하고 사용자가 직접 내려받는다.
     _render_diag_panel()
 
     # 이번 rerun 최우선 오디오 1개 재생 — 알림음·이탈/도착/재탐색/회전 음성이 겹쳐도

@@ -7,6 +7,18 @@
 __pycache__/
 *.pyc
 .pytest_cache/
+.venv/
 
 # Node
 node_modules/
+
+# 로컬 AI/런타임 상태 — 공개 저장소에 추적하지 않음
+.claude/settings.local.json
+.claude/.closeout_tick
+.claude/.resume_tick
+*.log
+
+# 현장 검수 전 로컬 랜드마크와 업로드 사진
+streamlit_walk_engine/data/landmarks.local.json
+streamlit_walk_engine/data/landmarks.local.history.jsonl
+streamlit_walk_engine/data/landmark_photos/

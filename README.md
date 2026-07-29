@@ -1,278 +1,289 @@
 # Walk
 
-`walk`는 보행 내비게이션에서 사용자가 정해진 경로를 잘 따라가고 있는지 판단하는 프로젝트입니다.
+`walk`는 GPS·진행 방향·경로 이탈 판정에 더해, 사용자가 실제로 볼 수 있는
+랜드마크를 따라 걷도록 안내하는 보행 내비게이션 프로토타입입니다.
 
-쉽게 말하면, 사용자의 현재 위치 샘플을 하나씩 받아서 다음 상태를 판정합니다.
+현재 제품 전략은 React 전환보다 다음 순서를 우선합니다.
 
-- 정상 경로 위에 있음
-- 경로에서 조금 벗어나기 시작함
-- 확실히 경로를 이탈함
-- 회전해야 할 지점을 지나침
+1. 위치·진단 데이터의 개인정보 보호
+2. 현장 랜드마크 데이터 확보
+3. 랜드마크 선정 엔진과 안내 방식 검증
+4. 검증된 기능의 PWA·백엔드 이전
 
-현재 저장소에는 TypeScript 기반 경로 이탈 판정 엔진과 Streamlit 기반 로컬 화면이 함께 들어 있습니다.
+## 현재 구현 상태
 
-## 현재 진행 상태
+2026-07-29 로컬 작업 기준입니다.
 
-### 완료된 작업
+| 영역 | 상태 | 현재 결과 |
+|---|---|---|
+| GPS·방향·경로 이탈 판정 | 구현 | GPS 오차, 진행 방향, 4단계 이탈 판정 |
+| 자동 재탐색·도착 판정 | 구현 | 이탈 후 재경로 탐색, 도착·다구간 처리 |
+| 지도·경로·장소 검색 | 구현 | MapLibre·TMAP·Valhalla·Naver·Nominatim |
+| 음성·진동 안내 | 구현 | 브라우저 TTS·gTTS·알림 테스트 |
+| 개인정보 기본 정책 | 구현 | 진단 기본 OFF, 명시적 동의, 보존기간, 삭제 |
+| 원본 좌표 보호 | 구현 | 진단 좌표 기본 제외, 선택 시 약 100m 격자로 축소 |
+| GitHub 진단 업로드 | 제거 | 중지·도착 시 자동 업로드 코드 제거 |
+| 랜드마크 모델 | 구현 | 좌표·출입구·사진·방향·가시성·접근성·출처·검수일 |
+| 랜드마크 선정 엔진 | 구현 | 회전점·경로 거리, 방향, 가시성, 영속성, 식별성 점수화 |
+| 랜드마크 안내 | 구현 | 사진 카드·출입구·음성 안내문 템플릿 |
+| 랜드마크 관리 화면 | 로컬 MVP | 등록·수정·사진 교체·승인·폐점/공사·수정 이력 |
+| 실제 현장 데이터 | 미구현 | 검수 전 데모 3건만 포함, 승인 데이터 0건 |
+| React PWA·FastAPI | 미구현 | 랜드마크 현장 검증 이후 진행 |
+| 다국어·배리어프리 경로 | 미구현 | 데이터와 평가 기준부터 구축 필요 |
+| 현장 실증 KPI | 미구현 | 실제 보행자·경로 실험 필요 |
 
-- 보행 경로 이탈 판정 엔진 구현
-- 경로 선, 회전 지점, 현재 위치 샘플 모델 구현
-- 경로까지 거리 계산
-- 진행 방향 차이 계산
-- 회전 지점 통과 여부 판정
-- GPS 정확도 기반 알림 필터 추가
-- Streamlit 로컬 데모 화면 구성
-- Navigation 페이지에서 경로, 현재 위치, 거리, 예상 시간, 회전 안내 표시
-- 자동 테스트 구성
-- `main` 브랜치를 `origin/main` 최신 상태로 동기화
+## 이번 랜드마크 MVP
 
-### 검증 완료
+### 데이터 모델
 
-아래 검증은 `D:\walk` 기준으로 통과했습니다.
+랜드마크는 다음 정보를 가집니다.
 
-```powershell
-cd D:\walk
-python -m pytest "D:\walk\streamlit_walk_engine\tests" -q
-python -m pytest "D:\walk\streamlit_task_organizer\tests" -q
-npm run test:run
-npm run typecheck
-```
+- ID, 명칭, 분류, 위도·경도
+- 출입구 설명과 사진·대체 설명
+- 보이는 접근 방향
+- 가시성·영속성·식별 용이성 점수
+- 접근성 태그
+- 데이터 출처와 검증일
+- `draft`, `approved`, `temporarily_unavailable`, `closed` 상태
+- 폐점·공사·현장 메모와 수정 시각
 
-검증 결과:
+실제 안내에는 `approved` 상태만 사용합니다. 저장소에 포함된
+`streamlit_walk_engine/data/landmarks.demo.json`은 구조 확인용 `draft`
+데이터이며, 실제 장소 안내에 사용하면 안 됩니다.
 
-- `streamlit_walk_engine` 테스트: 124개 통과
-- `streamlit_task_organizer` 테스트: 20개 통과
-- TypeScript/Vitest 테스트: 81개 통과
-- TypeScript 타입 검사: 통과
-
-### 진행 중인 브랜치
-
-`worktree-visual-verdict-nav-ui` 브랜치는 아직 `main`에 병합되지 않았습니다.
-
-이 브랜치의 기능:
-
-- 경로를 만들기 전에도 Navigation 화면에 기본 지도를 표시
-- 현재 위치가 있으면 현재 위치 중심으로 지도 표시
-- 현재 위치가 없으면 서울시청 기준 기본 지도 표시
-
-수정 파일:
+운영 데이터 기본 위치:
 
 ```text
-streamlit_walk_engine/pages/1_Navigation.py
+streamlit_walk_engine/data/landmarks.local.json
 ```
 
-현재 판단:
+이 파일과 현장 사진·승인 이력은 로컬 런타임 데이터이므로 Git에서 제외됩니다.
+다른 위치를 사용하려면 `WALK_LANDMARK_DATA` 환경변수를 설정합니다.
 
-- 기능 자체는 유용한 화면 개선입니다.
-- 이미 브랜치 커밋은 존재합니다.
-- 다만 `main`에는 아직 들어가지 않았으므로, 나중에 PR 또는 병합 여부를 따로 결정해야 합니다.
+### 선정 방식
+
+편의점을 무조건 우선하지 않습니다. 회전 지점마다 다음 항목을 함께 계산합니다.
+
+- 회전 지점과의 거리
+- 경로 선과의 거리
+- 사용자의 접근 방향과 가시 방향 일치도
+- 현장 가시성
+- 건물·역 출구 등 기준점의 영속성
+- 다른 장소와 구별하기 쉬운 정도
+- 좌·우회전의 중요도
+- 사진과 출입구 정보 보유 여부
+
+승인되지 않았거나 폐점·공사로 사용할 수 없는 기준점, 경로에서 너무 먼 기준점은
+후보에서 제외합니다.
+
+안내 예시:
+
+```text
+CU편의점을 지나 오른쪽으로 도세요.
+서울시청 정문 앞에서 왼쪽으로 도세요.
+```
+
+LLM은 필요하지 않습니다. 기본 선정과 안내 문장은 규칙·지리 계산으로 동작합니다.
+
+### 현장 관리 화면
+
+Streamlit 실행 후 사이드바의 `Landmark Admin` 페이지를 엽니다.
+
+지원 기능:
+
+- 랜드마크 신규 등록·수정
+- 좌표와 접근 방향 수정
+- 사진 등록·교체
+- 출입구·접근성 정보 입력
+- 초안·승인·일시 사용불가·폐점 상태 관리
+- 작업자·상태 변경 이력 확인
+
+현재 관리 화면은 인증 없는 로컬 검증 도구입니다. 인터넷에 공개 배포하면 안 됩니다.
+
+## 개인정보 동작
+
+기본값:
+
+- 진단 로그 수집 OFF
+- 마지막 위치·진행 중 목적지의 브라우저 저장 OFF
+- 대략 위치 포함 OFF
+- 진단 로그 브라우저 보관 OFF
+- GitHub·외부 저장소 자동 업로드 없음
+
+사용자가 진단 수집에 동의한 뒤 별도로 수집을 켜야 기록됩니다.
+
+- 목적지·주소·검색어는 진단 기록에서 항상 제거합니다.
+- 위도·경도는 기본적으로 기록하지 않습니다.
+- 사용자가 대략 위치 포함을 선택해도 소수점 셋째 자리, 약 100m 격자로 축소합니다.
+- 보존기간은 1·6·24·72·168시간 중 선택할 수 있습니다.
+- “이 브라우저의 walk 개인 데이터 모두 삭제”로 검색·예약·즐겨찾기·위치·진단·동의
+  데이터를 한 번에 제거할 수 있습니다.
+
+위치정보 서비스 출시 전에는 실제 수집 범위·동의 철회·파기·위탁·제3자 제공 여부를
+전문가와 다시 검토해야 합니다. 이 README는 법률 자문이 아닙니다.
+
+- [위치정보법상 이용자 권리](https://www.law.go.kr/LSW/lsLawLinkInfo.do?chrClsCd=010202&lsJoLnkSeq=900340191)
+- [개인정보 보호법 관련 규정](https://www.law.go.kr/LSW/lsLinkProc.do?chrClsCd=010202&datClsCd=010102&gubun=admRul&joNo=002100000%5E003700004&lsId=2073298&lsNm=%EA%B0%9C%EC%9D%B8%EC%A0%95%EB%B3%B4%EB%B3%B4%ED%98%B8%EB%B2%95&mode=10)
 
 ## 프로젝트 구조
 
 ```text
 packages/route-engine/
-  src/
-    config/
-    domain/
-    engine/
-    geometry/
-    simulator/
-    types/
+  src/                         TypeScript 경로 이탈 엔진
   tests/
+    fixtures/golden_trace.json
+    goldenTrace.test.ts        Python과 공유하는 좌표 로그
 
 streamlit_walk_engine/
   app.py
-  engine.py
-  gps_filter.py
+  engine.py                    Python 경로 이탈 엔진
+  gps_filter.py                GPS 필터·경고 판단
+  nav_session.py               세션 재개 판정
+  nav_privacy.py               동의·브라우저 저장 정책
+  walk_diag.py                 비식별 진단·보존기간
+  landmarks.py                 랜드마크 모델·선정·안내
+  landmark_store.py            JSON 저장·승인 이력
   route_builder.py
-  scenarios.py
   pages/
+    1_Navigation.py
+    2_Landmark_Admin.py
+  data/
+    landmarks.demo.json
   tests/
 
 streamlit_task_organizer/
   tests/
 ```
 
-주요 진입점:
+`1_Navigation.py`는 여전히 큰 파일입니다. GPS·세션·알림·지도·진단·개인정보 로직은
+별도 모듈로 분리되어 있지만, Streamlit 위젯과 저장소 부수효과는 아직 일부 남아 있습니다.
+로컬 브랜치 `codex/landmark-mvp-pr80`에서는 Draft PR #80의 두 커밋을 최신 `main` 위로
+재배치한 뒤 이번 변경을 적용했습니다. 미해결 충돌은 없으며 전체 회귀 검증을 통과했습니다.
+원격 PR #80 자체는 변경하지 않았습니다.
 
-- TypeScript 엔진: `packages/route-engine/src/index.ts`
-- Streamlit 데모: `streamlit_walk_engine/app.py`
-- Navigation 화면: `streamlit_walk_engine/pages/1_Navigation.py`
+## 설치
 
-## 설치 방법
-
-Windows PowerShell 기준입니다.
-
-```powershell
-cd D:\walk
-npm install
-```
-
-Python 데모 실행에 필요한 패키지도 설치합니다.
+Windows PowerShell:
 
 ```powershell
-cd D:\walk
-npm run web:install
+git clone https://github.com/pds2225/walk.git
+cd walk
+
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install pytest -r requirements.txt
+npm ci
 ```
 
-## 실행 방법
+선택 API 키는 `.streamlit/secrets.toml` 또는 환경변수로 주입합니다. `.env`,
+`.env.*`, 실제 키·토큰은 커밋하지 않습니다.
 
-### 전체 테스트 실행
+## 실행
 
 ```powershell
-cd D:\walk
-npm run test:run
+.\.venv\Scripts\python.exe -m streamlit run streamlit_walk_engine\app.py
 ```
 
-### 타입 검사
-
-```powershell
-cd D:\walk
-npm run typecheck
-```
-
-### 린트 검사
-
-```powershell
-cd D:\walk
-npm run lint
-```
-
-### 시뮬레이터 실행
-
-```powershell
-cd D:\walk
-npm run simulate
-```
-
-### Streamlit 로컬 화면 실행
-
-```powershell
-cd D:\walk
-npm run web:demo
-```
-
-실행 후 브라우저에서 아래 주소를 엽니다.
+기본 주소:
 
 ```text
 http://localhost:8501
 ```
 
-## 엔진 상태 값
+페이지:
 
-- `on_route`: 경로를 정상적으로 따라가는 상태
-- `drifting`: 경로에서 조금 벗어나기 시작한 상태
-- `deviated`: 경로 이탈이 확실한 상태
-- `passed_turn`: 회전해야 할 지점을 지나친 상태
+- `Navigation`: 기존 내비게이션과 개인정보·랜드마크 안내
+- `Landmark Admin`: 현장 데이터 등록·검수
 
-## 추천 행동 값
+## 검증
 
-- `none`: 별도 알림 없음
-- `monitor`: 조금 더 지켜봄
-- `warn_user`: 사용자에게 경고
-- `reroute_candidate`: 재경로 탐색 후보
-
-## 기본 기준값
-
-엔진에서 사용하는 기본 보행 기준입니다.
-
-- 경로 이탈 주의 거리: `10 m`
-- 경로 이탈 확정 거리: `15 m`
-- 강한 이탈 거리: `25 m`
-- 진행 방향 차이 기준: `45 deg`
-- 회전 지점 통과 거리: `8 m`
-- 회전 접근 거리: `12 m`
-- 이탈 확정 최소 샘플 수: `3`
-- 이탈 확정 최소 지속 시간: `4000 ms`
-
-## TypeScript 사용 예시
-
-```ts
-import { RouteDeviationEngine } from "./packages/route-engine/src/index.js";
-
-const engine = new RouteDeviationEngine({
-  polyline: [
-    { latitude: 37.5665, longitude: 126.9780 },
-    { latitude: 37.5665, longitude: 126.9790 },
-  ],
-  turnPoints: [],
-});
-
-const result = engine.processSample({
-  latitude: 37.5665,
-  longitude: 126.9785,
-  headingDegrees: 90,
-  speedMetersPerSecond: 1.4,
-  timestampMs: Date.now(),
-});
-
-console.log(result.state);
-console.log(result.metrics.distanceFromRouteMeters);
-```
-
-## 테스트 범위
-
-현재 테스트는 다음을 확인합니다.
-
-- 거리 계산
-- 진행 방향 각도 계산
-- 가장 가까운 경로 구간 찾기
-- 회전 지점 탐색
-- 정상 보행 시나리오
-- 약한 이탈 시나리오
-- 강한 이탈 시나리오
-- 회전 지점 통과 시나리오
-- GPS 노이즈 회복
-- 상태 카운터 초기화
-- 설정값 변경
-- Streamlit 보조 기능
-
-## 시뮬레이터 시나리오
-
-시뮬레이터에는 다음 흐름이 들어 있습니다.
-
-- 정상 보행
-- 약한 경로 이탈
-- 강한 경로 이탈
-- 회전 지점 통과
-
-각 샘플은 다음 값을 출력합니다.
-
-- 엔진 상태
-- 추천 행동
-- 점수
-- 경로까지 거리
-- 진행 방향 차이
-- 회전 지점 관련 거리
-
-## 문제가 생겼을 때
-
-`npm run web:demo`가 실패하면 아래 순서로 확인합니다.
+2026-07-29 실행 결과:
 
 ```powershell
-cd D:\walk
-npm run web:install
-python --version
-python streamlit_walk_engine/run_demo.py
+.\.venv\Scripts\python.exe -m pytest streamlit_walk_engine\tests -q
+# 468 passed
+
+.\.venv\Scripts\python.exe -m pytest streamlit_task_organizer\tests -q
+# 20 passed
+
+npm test
+# 28 passed
+
+npm run typecheck
+# passed
+
+npm run lint
+# passed
 ```
 
-Streamlit이 실행 중인데 `localhost:8501`이 열리지 않으면, 자동화 터미널이 아니라 일반 PowerShell 창에서 같은 명령어를 다시 실행합니다.
+추가 확인:
 
-## Git 정리 메모
+- Python 파일 문법 검사 통과
+- Streamlit 서버 기동 확인
+- Navigation 페이지 렌더 확인
+- 개인정보 동의 → 진단 옵션 활성화 → 전체 삭제 흐름 확인
+- 삭제 후 개인정보 옵션 기본 OFF 복귀 확인
+- Landmark Admin 페이지 렌더와 입력 폼 확인
+- Streamlit 서버 예외 없음
 
-현재 `main` 브랜치는 `origin/main`과 동기화되어 있습니다.
+`golden_trace.json`의 동일 좌표 샘플을 Python과 TypeScript 엔진에 투입해 상태와 권장
+행동이 일치하는지 검사합니다.
 
-커밋에 넣지 말아야 할 로컬 파일 예시:
+## 실제 현장 MVP에 필요한 다음 작업
 
-- `.env`, `.env.*`
-- `.omc/`
-- `.claude/settings.local.json`
-- `*.log`
-- 개인 작업용 복사본 폴더
+권장 범위는 서울 한 지역입니다.
 
-README처럼 문서만 수정할 때도 커밋 전에는 아래 명령으로 포함 파일을 확인합니다.
+1. 랜드마크 100~300개를 직접 조사
+2. 사진·출입구·보이는 접근 방향·접근성 등록
+3. 2인 이상 현장 검수 후 `approved` 처리
+4. 실제 보행 경로 30~50개 구성
+5. 기존 Streamlit에서 선정 점수와 안내 문구 조정
+6. 인식률·잘못된 회전·복귀시간·완주율 측정
+7. 기준을 통과한 뒤 PWA로 이전
 
-```powershell
-cd D:\walk
-git status --short
-```
+데모 좌표나 자동 수집 데이터만으로 현장 검증을 대체하지 않습니다.
+
+## 미구현 또는 부분 구현
+
+### 아직 구현하지 않음
+
+- 실제 검수된 랜드마크 100~300개
+- 실제 사진과 출입구 데이터셋
+- 30~50개 현장 경로와 사용자 실험
+- 랜드마크 인식률·잘못된 회전·복귀시간·완주율 KPI
+- React PWA
+- FastAPI
+- PostgreSQL/PostGIS
+- 사진 객체 저장소와 썸네일 파이프라인
+- 관리자 인증·권한·감사 로그 서버
+- 다국어 i18n
+- 계단·경사·공사 회피 경로
+- 사진에서 간판·출입구를 추출하는 AI 보조 기능
+
+### 부분 구현
+
+- 랜드마크 안내는 승인된 로컬 JSON 데이터가 있어야 활성화됩니다.
+- 접근성은 태그 모델만 있고 실제 회피 경로 계산에는 사용하지 않습니다.
+- 사진은 로컬 파일 또는 URL을 표시하지만 EXIF 자동 제거·객체 저장소 업로드는 없습니다.
+- 관리 화면은 로컬 MVP이며 동시 편집·인증·권한 분리가 없습니다.
+- `Navigation.py`의 순수 로직 분리는 진행됐지만 UI 부수효과 분리는 완료되지 않았습니다.
+- 브라우저 테스트는 로컬 렌더·설정 흐름까지이며 실제 모바일 GPS 현장 테스트는 아닙니다.
+
+## 저장소 운영 상태와 남은 작업
+
+이번 로컬 변경:
+
+- `scripts/git_auto_backup.ps1`을 커밋·push를 전혀 하지 않는 fail-closed 상태로 격리
+- `.claude/settings.local.json`, `.closeout_tick`, `.resume_tick` 추적 제거
+- `.gitignore`에 가상환경·로그·로컬 설정·현장 데이터를 추가
+
+아직 원격에서 하지 않은 작업:
+
+- 자동 백업을 실행하는 Windows 작업 스케줄러·외부 프로세스 중지 확인
+- 오래 분기된 원격 백업 브랜치의 보존·삭제 결정
+- 과거 로그 브랜치에 위치 데이터가 남아 있는지 별도 감사
+- `main` 브랜치 보호·ruleset 설정
+- `main`에 동일 변경이 반영된 뒤 남은 Draft PR #80의 종료·정리
+- 이번 직접 반영분에 대한 사후 코드 리뷰
+
+2026-07-29 기준으로 위 구현 변경과 로컬에서 통합한 PR #80 변경은 전체 검증 후
+`main`에 직접 반영했습니다. 원격 백업 브랜치 삭제와 ruleset 변경은 수행하지 않았습니다.
