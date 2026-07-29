@@ -29,9 +29,17 @@
 
 ### 4. 실행/검증 기준
 
+최초 1회 테스트 환경을 구성한다.
+
 ```powershell
-cd D:\walk
-python -m pytest streamlit_walk_engine\tests -q
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+```
+
+```powershell
+$repoRoot = git rev-parse --show-toplevel
+Set-Location $repoRoot
+.\.venv\Scripts\python.exe -m pytest streamlit_walk_engine\tests -q
 ```
 
 - 로컬 실행 확인이 필요한 경우 localhost와 같은 공유기 접속 가능 여부를 구분해서 보고한다.
@@ -43,6 +51,8 @@ python -m pytest streamlit_walk_engine\tests -q
 - 사용자가 요청하지 않으면 push하지 않는다.
 - 커밋 전에는 `git status --short`로 포함 파일을 확인한다.
 - 런타임 데이터, 캐시, 로그, `.env`, 개인 설정 파일은 커밋하지 않는다.
+- 변경 상태를 반복 확인할 때는 읽기 전용 `scripts/maintenance/git-change-monitor.ps1`을 사용한다.
+- 자동 `stash`/`pull`/`add`/`commit`/`push` 백업 스크립트를 만들거나 실행하지 않는다.
 
 ### 6. 보고 형식
 
@@ -50,7 +60,7 @@ python -m pytest streamlit_walk_engine\tests -q
 상태: 정상 실행 확인됨 / 수정만 완료 / 미검증 / 실행 막힘
 
 수정 파일:
-- D:\path\file.py: 수정 이유
+- <저장소 경로>\path\file.py: 수정 이유
 
 검증:
 - 실행 명령어:
