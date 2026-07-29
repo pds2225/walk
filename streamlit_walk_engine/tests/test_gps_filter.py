@@ -4,7 +4,7 @@ Unit tests for gps_filter.py — accuracy 기반 3단계 알림 게이팅 순수
 커버 범위:
   accuracy_quality  → 경계값 (≤15 good / ≤35 fair / 초과 poor / None unknown)
   alert_level       → full/weak/mute 분기 + drifting 사각지대(의도적 mute) + 커스텀 게이트
-  decide_alert      → 상태 전이 게이트, mute 미갱신(회복-재발화), weak 쿨다운, alert_enabled OFF 보존
+  decide_alert      → 상태 전이 게이트, mute 동기화/미갱신, weak 쿨다운, alert_enabled OFF 보존
   is_arrival        → 도착 반경/accuracy 경계, poor accuracy 억제, 커스텀 반경
   in_reroute_warmup → 시작 직후 재경로 금지 구간 (샘플 수/경과 시간 동시 조건)
 """
@@ -167,6 +167,22 @@ class TestDecideAlertMute:
         )
         assert decision.fire_full is True
         assert decision.new_last_alerted == "deviated"
+
+    def test_muted_recovery_from_confirmed_deviation_syncs_state(self):
+        for state in ("on_route", "drifting"):
+            for last_alerted in ("deviated", "passed_turn"):
+                decision = decide_alert(
+                    state=state,
+                    last_alerted=last_alerted,
+                    level="mute",
+                    now_ms=T,
+                    last_weak_ts_ms=12345,
+                    alert_enabled=True,
+                )
+                assert decision.fire_full is False
+                assert decision.fire_weak_toast is False
+                assert decision.new_last_alerted == state
+                assert decision.new_last_weak_ts_ms == 12345
 
 
 class TestDecideAlertWeakCooldown:

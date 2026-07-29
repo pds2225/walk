@@ -173,6 +173,19 @@ def test_compass_heading_collected_and_used():
     assert "def _render_compass_enable()" in source
 
 
+def test_heading_debug_falls_back_from_stale_or_uncalibrated_sensor():
+    """방향 진단 패널도 앱 본체와 같은 센서 생존·정확도 규칙을 따른다."""
+    source = PAGE.read_text(encoding="utf-8")
+    debug = source[source.index('_HEADING_DEBUG_HTML = """'):]
+    debug = debug[:debug.index("def _render_heading_debug()")]
+
+    assert "webkitCompassAccuracy<0)W.h=null" in debug
+    assert "function stale(slot)" in debug
+    assert "stale(A)&&P.t>A.t" in debug
+    assert "기울기+화면회전(+) 보정" in debug
+    assert "기울기+화면회전(-) 보정" in debug
+
+
 def test_searchbox_debounce_wired():
     """검색창 debounce 배선(2026-07-17 '도착지 검색 느림') — 키 입력마다 검색 API
     콜백이 돌던 것을 입력 멈춤 후 1회로 축소. 미지원 구버전엔 미전달(TypeError 방지)."""
