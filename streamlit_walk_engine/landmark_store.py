@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
-from landmarks import Landmark
+from landmarks import Landmark, is_non_field_source, landmark_completeness
 
 _DATA_DIR = Path(__file__).resolve().parent / "data"
 _DEMO_PATH = _DATA_DIR / "landmarks.demo.json"
@@ -111,7 +111,23 @@ class LandmarkRepository:
             Path(temporary_name).unlink(missing_ok=True)
             raise
 
-    def upsert(self, landmark: Landmark, *, actor: str = "local_admin") -> Landmark:
+    def list_approved(self) -> list[Landmark]:
+        return [item for item in self.load() if item.status == "approved"]
+
+    def completeness_report(self) -> list[dict[str, Any]]:
+        return [
+            {"id": item.id, "name": item.name, "status": item.status, **landmark_completeness(item)}
+            for item in self.load()
+        ]
+
+    def upsert(
+        self,
+        landmark: Landmark,
+        *,
+        actor: str = "local_admin",
+        allow_non_field_approval: bool = False,
+        allow_incomplete_approval: bool = False,
+    ) -> Landmark:
         now = utc_now_iso()
         normalized = replace(
             landmark,
@@ -121,6 +137,17 @@ class LandmarkRepository:
             if landmark.status == "approved"
             else landmark.verified_at,
         )
+        if normalized.status == "approved":
+            completeness = landmark_completeness(normalized)
+            if is_non_field_source(normalized.source) and not allow_non_field_approval:
+                raise ValueError(
+                    "데모·합성 출처 랜드마크는 명시적 허용 없이 approved 로 저장할 수 없습니다."
+                )
+            if not completeness["complete"] and not allow_incomplete_approval:
+                missing = ", ".join(completeness["missing"])
+                raise ValueError(
+                    f"승인 전 필수 항목이 비어 있습니다: {missing}"
+                )
         landmarks = self.load()
         previous = next((item for item in landmarks if item.id == normalized.id), None)
         updated = [

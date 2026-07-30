@@ -62,6 +62,30 @@ class TestPrivateDiagRecord:
         assert "lat" not in rec
         assert rec["acc"] == 10
 
+    def test_nested_coordinates_and_route_identity_are_scrubbed(self):
+        rec = private_diag_record(
+            1000,
+            "tick",
+            payload={
+                "lat": 37.566543,
+                "lon": 126.978123,
+                "dest": "집",
+                "acc": 8,
+                "nested": [{"latitude": 37.1, "query": "카페"}],
+            },
+        )
+        assert rec["payload"] == {"acc": 8, "nested": [{}]}
+
+    def test_nested_coarse_opt_in_quantizes_coordinates(self):
+        rec = private_diag_record(
+            1000,
+            "tick",
+            include_coarse_location=True,
+            payload={"lat": 37.566543, "dest": "집"},
+        )
+        assert rec["payload"] == {"lat": round(37.566543, COARSE_COORD_DECIMALS)}
+        assert "dest" not in rec["payload"]
+
 
 class TestRetention:
     def test_prunes_expired_future_and_malformed_records(self):

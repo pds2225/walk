@@ -321,3 +321,40 @@ def landmark_relative_position(origin: Coordinate, landmark: Landmark) -> str:
     bearing = bearing_degrees(origin, landmark.coordinate)
     labels = ("북쪽", "북동쪽", "동쪽", "남동쪽", "남쪽", "남서쪽", "서쪽", "북서쪽")
     return labels[int((bearing + 22.5) // 45) % 8]
+
+
+_NON_FIELD_SOURCE_MARKERS = (
+    "demo_seed",
+    "synthetic_demo",
+    "synthetic_test",
+    "synthetic_fixture",
+)
+
+
+def is_non_field_source(source: str) -> bool:
+    """데모·합성 출처인지 판별한다. 현장 승인 데이터로 취급하면 안 된다."""
+    normalized = str(source or "").strip().lower().replace("-", "_")
+    return any(marker in normalized for marker in _NON_FIELD_SOURCE_MARKERS)
+
+
+def landmark_completeness(landmark: Landmark) -> dict[str, Any]:
+    """현장 승인 전에 채워야 할 필수 항목을 점검한다."""
+    missing: list[str] = []
+    if not landmark.entrance_description:
+        missing.append("entrance_description")
+    if not landmark.visible_from_degrees:
+        missing.append("visible_from_degrees")
+    if not landmark.photo_url:
+        missing.append("photo_url")
+    elif not landmark.photo_alt:
+        missing.append("photo_alt")
+    if not landmark.source:
+        missing.append("source")
+    non_field = is_non_field_source(landmark.source)
+    ready = not missing and not non_field
+    return {
+        "complete": not missing,
+        "ready_for_approval": ready,
+        "missing": tuple(missing),
+        "non_field_source": non_field,
+    }

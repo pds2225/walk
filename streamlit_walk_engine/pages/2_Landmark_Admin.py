@@ -15,10 +15,12 @@ from landmark_store import (  # noqa: E402
     default_photo_dir,
     normalize_landmark_id,
 )
+from landmark_photo import strip_image_location_metadata  # noqa: E402
 from landmarks import (  # noqa: E402
     LANDMARK_CATEGORIES,
     LANDMARK_STATUSES,
     Landmark,
+    landmark_completeness,
 )
 
 _MAX_PHOTO_BYTES = 5 * 1024 * 1024
@@ -55,6 +57,9 @@ def _save_photo(uploaded, landmark_id: str) -> str:
     expected_mime, _ = mimetypes.guess_type(f"photo{suffix}")
     if uploaded.type and expected_mime and not uploaded.type.startswith("image/"):
         raise ValueError("이미지 파일 형식이 아닙니다.")
+    cleaned, stripped = strip_image_location_metadata(data, suffix)
+    if stripped:
+        data = cleaned
     directory = default_photo_dir()
     directory.mkdir(parents=True, exist_ok=True)
     filename = f"{normalize_landmark_id(landmark_id)}{suffix}"
@@ -102,11 +107,20 @@ def main() -> None:
         st.stop()
 
     approved_count = sum(item.status == "approved" for item in landmarks)
-    c1, c2, c3 = st.columns(3)
+    incomplete = [
+        item for item in landmarks
+        if item.status != "approved" and not landmark_completeness(item)["complete"]
+    ]
+    c1, c2, c3, c4 = st.columns(4)
     c1.metric("전체", len(landmarks))
     c2.metric("승인", approved_count)
     c3.metric("검수 필요", len(landmarks) - approved_count)
+    c4.metric("필수항목 미완", len(incomplete))
     st.caption(f"운영 데이터: `{repository.path}`")
+    st.info(
+        "현장 승인 순서: draft 등록 → 사진·출입구·가시방향 채움 → 이중 검수 → approved. "
+        "데모/합성 출처는 기본으로 승인할 수 없습니다."
+    )
 
     if landmarks:
         st.dataframe(
@@ -134,6 +148,12 @@ def main() -> None:
         else f"{by_id[value].name} ({value})",
     )
     current = _empty_values() if selected_id == "__new__" else by_id[selected_id].to_dict()
+    if selected_id != "__new__":
+        report = landmark_completeness(by_id[selected_id])
+        if report["complete"]:
+            st.success("승인 필수 항목이 채워져 있습니다.")
+        else:
+            st.warning("미완 항목: " + ", ".join(report["missing"]))
 
     with st.form("landmark_editor", clear_on_submit=False):
         left, right = st.columns(2)
@@ -188,10 +208,16 @@ def main() -> None:
                 "폐점·공사·현장 메모", value=current["condition_notes"]
             )
             actor = st.text_input("작업자", value="local_admin")
+            allow_incomplete = st.checkbox(
+                "필수항목 미완이어도 approved 저장 허용", value=False
+            )
+            allow_non_field = st.checkbox(
+                "데모·합성 출처 approved 저장 허용(테스트 전용)", value=False
+            )
 
         photo = st.file_uploader(
             "사진 등록·교체", type=["jpg", "jpeg", "png", "webp"],
-            help="최대 5MB. 원본 위치정보(EXIF)는 업로드 전에 제거하는 것을 권장합니다.",
+            help="최대 5MB. JPG/PNG는 업로드 시 EXIF 위치 메타데이터를 자동 제거합니다.",
         )
         photo_url = st.text_input(
             "사진 URL 또는 로컬 상대경로", value=current["photo_url"]
@@ -227,6 +253,8 @@ def main() -> None:
                     "condition_notes": condition_notes,
                 }),
                 actor=actor,
+                allow_incomplete_approval=allow_incomplete,
+                allow_non_field_approval=allow_non_field,
             )
         except (OSError, ValueError) as exc:
             st.error(f"저장하지 못했습니다: {exc}")
