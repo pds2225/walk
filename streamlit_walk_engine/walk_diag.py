@@ -37,6 +37,35 @@ def diag_record(t_ms: int, event: str, **fields: Any) -> dict:
     return rec
 
 
+def _scrub_private_value(value: Any, *, include_coarse_location: bool) -> Any:
+    """중첩 dict·list 안의 좌표·경로 식별 필드도 같은 규칙으로 정리한다."""
+    if isinstance(value, dict):
+        scrubbed: dict[str, Any] = {}
+        for key, nested in value.items():
+            normalized_key = str(key).lower()
+            if normalized_key in _ROUTE_IDENTITY_KEYS:
+                continue
+            if normalized_key in _COORDINATE_KEYS:
+                if include_coarse_location and isinstance(nested, (int, float)):
+                    scrubbed[key] = round(float(nested), COARSE_COORD_DECIMALS)
+                continue
+            scrubbed[key] = _scrub_private_value(
+                nested, include_coarse_location=include_coarse_location
+            )
+        return scrubbed
+    if isinstance(value, list):
+        return [
+            _scrub_private_value(item, include_coarse_location=include_coarse_location)
+            for item in value
+        ]
+    if isinstance(value, tuple):
+        return tuple(
+            _scrub_private_value(item, include_coarse_location=include_coarse_location)
+            for item in value
+        )
+    return value
+
+
 def private_diag_record(
     t_ms: int,
     event: str,
@@ -48,6 +77,7 @@ def private_diag_record(
 
     목적지·주소·검색어 같은 경로 식별 문자열은 항상 제외한다. 좌표는 기본 제외하며
     별도 동의 시에도 약 100m 격자로 양자화한다. 숫자가 아닌 좌표는 버린다.
+    중첩 구조 안의 동일 키도 같은 규칙으로 처리한다.
     """
     safe: dict[str, Any] = {}
     for key, value in fields.items():
@@ -58,7 +88,9 @@ def private_diag_record(
             if include_coarse_location and isinstance(value, (int, float)):
                 safe[key] = round(float(value), COARSE_COORD_DECIMALS)
             continue
-        safe[key] = value
+        safe[key] = _scrub_private_value(
+            value, include_coarse_location=include_coarse_location
+        )
     return diag_record(t_ms, event, **safe)
 
 
