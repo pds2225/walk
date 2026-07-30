@@ -371,6 +371,63 @@ class TestTmapAppKey:
         assert route_builder._tmap_app_key() is None
 
 
+class _FakeStaticMapResp:
+    def __init__(self, status=200, content=b"", content_type="image/png;charset=UTF-8"):
+        self.status_code = status
+        self.content = content
+        self.headers = {"Content-Type": content_type}
+
+
+class TestStaticMap:
+    _O = Coordinate(latitude=37.56629, longitude=126.97797)
+    _D = Coordinate(latitude=37.56575, longitude=126.97515)
+
+    def test_zoom_levels_by_distance(self):
+        for distance, zoom in ((100, 17), (300, 16), (700, 15), (1500, 14), (3000, 13), (6000, 12)):
+            assert route_builder._static_map_zoom(distance) == zoom
+
+    def test_returns_png_bytes(self, monkeypatch):
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: "test-key")
+        monkeypatch.setattr(
+            route_builder.requests, "get",
+            lambda *a, **kw: _FakeStaticMapResp(content=b"PNGDATA"),
+        )
+        assert route_builder.fetch_static_map_png(self._O, self._D) == b"PNGDATA"
+
+    def test_without_key_returns_none(self, monkeypatch):
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: None)
+        assert route_builder.fetch_static_map_png(self._O, self._D) is None
+
+    def test_error_status_returns_none(self, monkeypatch):
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: "test-key")
+        monkeypatch.setattr(
+            route_builder.requests, "get",
+            lambda *a, **kw: _FakeStaticMapResp(status=429, content_type="application/json"),
+        )
+        assert route_builder.fetch_static_map_png(self._O, self._D) is None
+
+    def test_non_image_body_returns_none(self, monkeypatch):
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: "test-key")
+        monkeypatch.setattr(
+            route_builder.requests, "get",
+            lambda *a, **kw: _FakeStaticMapResp(content_type="application/json"),
+        )
+        assert route_builder.fetch_static_map_png(self._O, self._D) is None
+
+    def test_dimensions_clamped_to_tmap_limit(self, monkeypatch):
+        captured = {}
+
+        def _capture(url, params=None, **kw):
+            captured.update(params)
+            return _FakeStaticMapResp(content=b"PNGDATA")
+
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: "test-key")
+        monkeypatch.setattr(route_builder.requests, "get", _capture)
+        route_builder.fetch_static_map_png(self._O, self._D, width=2048, height=1024)
+        assert captured["width"] == 512
+        assert captured["height"] == 512
+
+
 class _FakeResp:
     def __init__(self, status_code, payload):
         self.status_code = status_code

@@ -58,9 +58,9 @@ from walk_diag import (
     diag_json, diag_summary, private_diag_record, prune_expired,
 )
 from route_builder import (
-    fetch_walking_route_with_engine, format_korean_address, geocode_address,
-    geocode_suggestions, label_with_distance, reverse_geocode, route_engine_label,
-    sort_suggestions_by_distance,
+    fetch_static_map_png, fetch_walking_route_with_engine, format_korean_address,
+    geocode_address, geocode_suggestions, label_with_distance, reverse_geocode,
+    route_engine_label, sort_suggestions_by_distance,
 )
 
 try:
@@ -387,6 +387,7 @@ def _init() -> None:
         "nav_dest_input": "",
         "nav_route_engine": None,
         "nav_route_info": None,
+        "nav_static_map": None,
         "nav_landmark_guidance": {},
         "nav_landmark_data_error": None,
         "nav_arrival_summary": None,
@@ -482,6 +483,13 @@ def _fetch_route(origin: Coordinate, dest: Coordinate) -> RouteModel:
     route, engine_label, route_info = fetch_walking_route_with_engine(origin, dest)
     st.session_state["nav_route_engine"] = engine_label
     st.session_state["nav_route_info"] = route_info
+
+    # Static Map은 목적지가 바뀔 때만 1회 호출(rerun마다 호출 시도 방지).
+    dest_key = f"{dest.latitude:.6f},{dest.longitude:.6f}"
+    cached = st.session_state.get("nav_static_map")
+    if not cached or cached.get("key") != dest_key:
+        png = fetch_static_map_png(origin, dest)
+        st.session_state["nav_static_map"] = {"key": dest_key, "png": png} if png else None
     return route
 
 
@@ -3083,6 +3091,13 @@ def _render_action_buttons() -> None:
             summary = _route_summary_text()
             if summary:
                 st.caption(f"🚶 {summary}")
+        static_map = st.session_state.get("nav_static_map")
+        if static_map and static_map.get("png"):
+            st.image(
+                static_map["png"],
+                caption="TMAP 지도 미리보기 — 📍 목적지",
+                width="stretch",
+            )
 
     # 시작/중지 (경로가 있을 때만) — 전폭으로 한 손 탭 쉽게. 보행 중 '중지'는 크게 강조.
     route: Optional[RouteModel] = st.session_state["nav_route"]
@@ -3110,7 +3125,8 @@ def _render_action_buttons() -> None:
     # 초기화는 보조 동작 — 시작/중지 아래 전폭으로 분리(오탭 방지).
     if st.button("↺ 초기화", width="stretch"):
         for k in ("nav_route", "nav_dest", "nav_dest_display", "nav_engine", "nav_results",
-                  "nav_samples", "nav_prev_coord", "nav_prev_ts_ms", "nav_route_info"):
+                  "nav_samples", "nav_prev_coord", "nav_prev_ts_ms", "nav_route_info",
+                  "nav_static_map"):
             st.session_state[k] = [] if "results" in k or "samples" in k else None
         _clear_journey_state()
         st.session_state["nav_running"] = False

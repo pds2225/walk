@@ -67,6 +67,7 @@ _NAVER_LOCAL = "https://openapi.naver.com/v1/search/local.json"
 _TMAP_POI = "https://apis.openapi.sk.com/tmap/pois"  # 장소명(POI) 통합검색
 _TMAP_ADDR_GEO = "https://apis.openapi.sk.com/tmap/geo/fullAddrGeo"  # 주소→좌표(도로명·지번)
 _TMAP_REVERSE = "https://apis.openapi.sk.com/tmap/geo/reversegeocoding"  # 좌표→주소
+_TMAP_STATIC_MAP = "https://apis.openapi.sk.com/tmap/staticMap"
 _ENV_SHARED = Path(r"D:\_secure\.env.shared")  # 마스터 .env — 키를 코드에 넣지 않음
 _naver_keys_cache: dict[str, str] | None | bool = False  # False=미로드, None=키 없음
 _naver_search_keys_cache: dict[str, str] | None | bool = False  # 지역검색 키(지오코딩과 별개)
@@ -1123,3 +1124,67 @@ def route_engine_label() -> str:
     if _tmap_app_key():
         return _LABEL_TMAP
     return f"{_LABEL_VALHALLA} — TMAP 앱키 미설정"
+
+
+# ── TMAP Static Map (경로 미리보기 이미지) ─────────────────────────────────────
+
+def _static_map_zoom(distance_m: float) -> int:
+    """출발-목적지 직선거리에 맞는 줌 레벨 — 두 지점이 화면에 함께 들어오게."""
+    if distance_m < 300:
+        return 17
+    if distance_m < 700:
+        return 16
+    if distance_m < 1500:
+        return 15
+    if distance_m < 3000:
+        return 14
+    if distance_m < 6000:
+        return 13
+    return 12
+
+
+# TMAP StaticMap 유효 최대 크기 — 초과 요청은 서버가 512px로 잘라 반환할 수 있어
+# 호출부에서 명시적으로 클램프한다(600→12×320, 2048→12×512).
+_STATIC_MAP_MAX_PX = 512
+
+
+def fetch_static_map_png(
+    origin: Coordinate,
+    dest: Coordinate,
+    *,
+    width: int = 512,
+    height: int = 320,
+) -> bytes | None:
+    """목적지 미리보기용 TMAP Static Map PNG.
+
+    서버측(requests) 호출이라 앱키가 브라우저에 노출되지 않습니다.
+    출발-목적지 중점을 중심으로 하고 목적지에 마커를 찍습니다.
+    키 없음/호출 실패 시 None — 호출부는 이미지 영역을 생략하면 됩니다.
+    """
+    app_key = _tmap_app_key()
+    if not app_key:
+        return None
+    try:
+        resp = requests.get(
+            _TMAP_STATIC_MAP,
+            params={
+                "version": "1",
+                "longitude": f"{(origin.longitude + dest.longitude) / 2:.8f}",
+                "latitude": f"{(origin.latitude + dest.latitude) / 2:.8f}",
+                "coordType": "WGS84GEO",
+                "zoom": _static_map_zoom(distance_meters(origin, dest)),
+                "format": "PNG",
+                "width": min(width, _STATIC_MAP_MAX_PX),
+                "height": min(height, _STATIC_MAP_MAX_PX),
+                "markers": f"{dest.longitude:.8f},{dest.latitude:.8f}",
+            },
+            headers={"appKey": app_key},
+            timeout=_TIMEOUT,
+        )
+        if resp.status_code != 200:
+            return None
+        if not resp.headers.get("Content-Type", "").startswith("image/"):
+            return None
+        return resp.content
+    except requests.RequestException:
+        return None
