@@ -39,6 +39,8 @@ class PrivacySettings:
     diag_persist: bool = False
     diag_include_coarse_location: bool = False
     diag_retention_hours: int = DEFAULT_DIAG_RETENTION_HOURS
+    consent_ack: bool = False
+    """동의 화면에서 사용자가 [동의]/[동의하지 않음]을 눌러 선택을 마쳤는지."""
 
     @classmethod
     def from_mapping(cls, value: Any) -> "PrivacySettings":
@@ -57,6 +59,7 @@ class PrivacySettings:
             diag_retention_hours=normalized_retention_hours(
                 value.get("diag_retention_hours", DEFAULT_DIAG_RETENTION_HOURS)
             ),
+            consent_ack=bool(value.get("consent_ack", False)),
         )
 
     @classmethod
@@ -71,6 +74,29 @@ class PrivacySettings:
 
     def to_json(self) -> str:
         return json.dumps(self.to_dict(), ensure_ascii=False, separators=(",", ":"))
+
+
+def auto_checked_settings() -> PrivacySettings:
+    """동의 화면에 미리 체크된 상태로 보여줄 값.
+
+    저장되는 기본값(PrivacySettings())은 여전히 전부 OFF다. 이 값은 아직 아무것도
+    저장하지 않은 상태에서 화면에만 채워 두는 제안값이고, 사용자가 [동의]를 눌러야
+    실제 설정으로 반영된다. 체크를 풀고 눌러도 되고, [동의하지 않음]이면 전부 OFF다.
+    """
+    return PrivacySettings(
+        location_storage=True,
+        diag_consent=True,
+        diag_enabled=True,
+        diag_persist=True,
+        diag_include_coarse_location=True,
+        diag_retention_hours=DEFAULT_DIAG_RETENTION_HOURS,
+        consent_ack=False,
+    )
+
+
+def declined_settings() -> PrivacySettings:
+    """[동의하지 않음] 결과 — 수집·저장은 전부 OFF, 선택만 기록한다."""
+    return PrivacySettings(consent_ack=True)
 
 
 def storage_set_script(key: str, value: str) -> str:

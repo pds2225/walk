@@ -356,6 +356,8 @@ def _init() -> None:
         "nav_tts_enabled": True,
         "nav_tts_primed": False,         # 안내 시작(제스처) 시 브라우저 TTS 해금 1회 실행 여부
         # 개인정보 기본값은 모두 opt-in. 동의 전에는 진단·좌표 브라우저 저장을 하지 않는다.
+        # 동의 화면은 항목을 미리 체크해 보여주지만, [동의]를 누르기 전까지 여기 값은 False.
+        "nav_privacy_consent_ack": False,
         "nav_location_storage_enabled": False,
         "nav_diag_consent": False,
         "nav_diag_enabled": False,
@@ -878,6 +880,7 @@ def _privacy_settings_from_state() -> nav_privacy.PrivacySettings:
         "diag_retention_hours": st.session_state.get(
             "nav_diag_retention_hours", DEFAULT_DIAG_RETENTION_HOURS
         ),
+        "consent_ack": st.session_state.get("nav_privacy_consent_ack", False),
     })
 
 
@@ -889,6 +892,7 @@ def _apply_privacy_settings(settings: nav_privacy.PrivacySettings) -> None:
         "nav_diag_persist": settings.diag_persist,
         "nav_diag_include_coarse_location": settings.diag_include_coarse_location,
         "nav_diag_retention_hours": settings.diag_retention_hours,
+        "nav_privacy_consent_ack": settings.consent_ack,
     })
 
 
@@ -906,6 +910,11 @@ def _load_privacy_settings_from_ls() -> None:
     if raw is None:
         return
     settings = nav_privacy.PrivacySettings.from_json(raw) if raw else nav_privacy.PrivacySettings()
+    if not settings.consent_ack and (settings.location_storage or settings.diag_consent):
+        # consent_ack 이전 버전에서 이미 항목을 켠 사용자 → 선택을 마친 것으로 보고 재질문하지 않는다.
+        settings = nav_privacy.PrivacySettings.from_mapping(
+            {**settings.to_dict(), "consent_ack": True}
+        )
     _apply_privacy_settings(settings)
     st.session_state["nav_privacy_loaded"] = True
     st.session_state["nav_privacy_saved_sig"] = settings.to_json()
@@ -964,9 +973,14 @@ def _delete_personal_data() -> None:
         "nav_lastfix_saved_coord": None,
         "nav_active_saved_sig": None,
         "nav_privacy_saved_sig": None,
+        # 전체 삭제는 동의 철회이기도 하다 → 다음 렌더에서 동의 화면을 다시 보여준다.
+        "nav_privacy_consent_ack": False,
     })
     # 이미 렌더된 위젯 키가 남아 있으면 다음 rerun에서 위 false 값을 다시 덮어쓴다.
     for widget_key in (
+        "privacy_consent_location_widget",
+        "privacy_consent_diag_widget",
+        "privacy_consent_coarse_widget",
         "privacy_location_storage_widget",
         "privacy_diag_consent_widget",
         "privacy_diag_enabled_widget",
@@ -1454,8 +1468,81 @@ def _prime_tts_once() -> None:
     )
 
 
+def _render_privacy_consent_gate() -> None:
+    """항목을 미리 체크해 보여주고, [동의] 한 번으로 설정이 끝나는 첫 동의 화면.
+
+    체크 상태는 화면에만 있고, 버튼을 누르기 전까지 세션·localStorage 어디에도 저장하지
+    않는다. 원하지 않는 항목은 체크를 풀 수 있고, [동의하지 않음]이면 전부 OFF로 기록한다.
+    """
+    suggested = nav_privacy.auto_checked_settings()
+    # 저장된 선택을 아직 못 읽었으면 버튼만 잠근다. 지금 누른 동의를 뒤늦게 도착한
+    # 이전 설정이 덮어쓰지 않게 하되, 화면 자체는 숨기지 않는다(삭제 버튼 접근 보장).
+    pending_load = not st.session_state.get("nav_privacy_loaded")
+    with st.expander("🔒 개인정보 수집·이용 동의", expanded=True):
+        st.caption(
+            "아래 항목은 미리 체크돼 있습니다. 그대로 두고 [동의] 버튼만 누르면 됩니다. "
+            "원하지 않는 항목은 체크를 풀고 눌러도 되고, 나중에 이 패널에서 언제든 바꾸거나 "
+            "전체 삭제할 수 있습니다. 서버나 GitHub로 전송하지 않고 이 브라우저에만 저장합니다."
+        )
+        location_storage = st.checkbox(
+            "안내 복구용 위치를 이 브라우저에 저장",
+            value=suggested.location_storage,
+            help="마지막 위치와 진행 중 목적지를 저장해 재방문 시 안내를 이어갑니다.",
+            key="privacy_consent_location_widget",
+        )
+        diag = st.checkbox(
+            "문제 진단을 위한 비식별 로그 수집·보관에 동의",
+            value=suggested.diag_consent,
+            help="GPS 정확도·이탈 판정·재탐색·음성 이벤트를 기록합니다. "
+                 "목적지·주소·검색어는 항상 제외됩니다.",
+            key="privacy_consent_diag_widget",
+        )
+        coarse = st.checkbox(
+            "진단 로그에 대략 위치 포함 (약 100m 격자)",
+            value=suggested.diag_include_coarse_location,
+            disabled=not diag,
+            help="원본 좌표는 기록하지 않습니다.",
+            key="privacy_consent_coarse_widget",
+        )
+        st.caption(f"진단 로그 보존기간 기본값 {DEFAULT_DIAG_RETENTION_HOURS}시간 — 동의 후 변경할 수 있습니다.")
+        if pending_load:
+            st.caption("이전에 저장한 설정을 불러오는 중입니다. 잠시 후 버튼이 활성화됩니다.")
+
+        agree_col, decline_col = st.columns(2)
+        if agree_col.button(
+            "✅ 동의", type="primary", width="stretch", disabled=pending_load
+        ):
+            _apply_privacy_settings(nav_privacy.PrivacySettings.from_mapping({
+                "location_storage": bool(location_storage),
+                "diag_consent": bool(diag),
+                "diag_enabled": bool(diag),
+                "diag_persist": bool(diag),
+                "diag_include_coarse_location": bool(diag and coarse),
+                "diag_retention_hours": DEFAULT_DIAG_RETENTION_HOURS,
+                "consent_ack": True,
+            }))
+            _save_privacy_settings()
+            st.rerun()
+        if decline_col.button("동의하지 않음", width="stretch", disabled=pending_load):
+            _apply_privacy_settings(nav_privacy.declined_settings())
+            _save_privacy_settings()
+            st.rerun()
+
+        # 동의 전에도 이전 버전이 남긴 데이터를 지울 수 있어야 한다(기존 패널과 동일 보장).
+        if st.button(
+            "🗑️ 이 브라우저의 walk 개인 데이터 모두 삭제",
+            width="stretch",
+            key="privacy_consent_delete_button",
+        ):
+            _delete_personal_data()
+            st.rerun()
+
+
 def _render_privacy_panel() -> None:
     """좌표 저장과 진단 수집을 명시적 opt-in으로 제어하고 삭제 수단을 제공한다."""
+    if not st.session_state.get("nav_privacy_consent_ack", False):
+        _render_privacy_consent_gate()
+        return
     with st.expander("🔒 개인정보와 브라우저 저장", expanded=False):
         st.caption(
             "기본값은 위치·진단 데이터 비저장입니다. GitHub 자동 업로드 기능은 제거되었습니다."
