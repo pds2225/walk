@@ -21,10 +21,10 @@ python -m pytest streamlit_walk_engine\tests -q
 - [x] 세션 마무리(2026-08-01): 위키·회고·이 RESUME 갱신
 
 ## 3. 남은 작업 ⬜ (다음 세션에서 이어서)
-- [ ] **[최우선] 산책 기록 MVP(사진 제외)** — `VISION_SOCIAL.md` §3. 도착 시 궤적+소요시간+한줄메모 → localStorage → 목록·상세 재생. 격리 worktree+브랜치, `1_Navigation.py` 최소 변경. 주의: `nav_samples` 500한도 → 기록용 다운샘플 사본 필요.
-- [ ] **폰 실기기 확인** — 주소검색(지번·도로명)·나침반 떨림/방향·검색 속도·기존 UX 목록(`REQUESTS_LEDGER.md` §7)
-- [ ] (권장) Streamlit Cloud Secrets에 NAVER 맵 키 변수명 설정 — 주소검색 품질
-- [ ] 관찰: 대중교통 중간 환승 구간 도착지명 없을 때 "도착" 오표기 — 빈칸 vs 다음구간명 결정
+- [ ] **실행: 환승 "도착" 수정 (결정 2-1)** — `REQUESTS_LEDGER.md` §결정잠금 TASK B. 다음 구간 start명·마지막만 도착. 격리 worktree.
+- [ ] **사람: 클라우드 Naver 키 (결정 1-1)** — Secrets에 키 변수만. 코드 변경 없음.
+- [ ] **[제품] 산책 기록 MVP(사진 제외)** — `VISION_SOCIAL.md` §3. 격리 worktree+브랜치, `1_Navigation.py` 최소 변경.
+- [ ] **폰 실기기 확인** — `REQUESTS_LEDGER.md` §7
 
 ## 4. 핵심 결정·제약 (되돌리지 말 것)
 - 프로젝트명 `walk` 유지. `1_Navigation.py` 최소 변경. `.env*`·workflows 무단 수정 금지. 커밋/푸시 요청 있을 때만.

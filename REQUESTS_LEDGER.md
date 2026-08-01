@@ -4,7 +4,54 @@
 > 완료분(커밋)뿐 아니라 **보류·거절·계획만 된 요청까지** 포함(2차 보강). 중복은 하나로 합침.
 > 출처: git 커밋 169건 · RESUME.md 이력 · SESSION_RECAP.md · .omc/wiki 17p · .omc/plans(설계·open-questions) · PROMPT/PLAN/DONE.
 > 상태: ✅완료(병합·배포) · 🟡부분/관찰 · ⏳보류(결정·승인 대기) · ❌미착수 · ⛔블록(의미충돌)
-> 최종 갱신: 2026-07-16
+> 최종 갱신: 2026-08-01
+
+---
+
+## 이번에 시킨 것 (2026-08-01 세션)
+
+| 요청 | 상태 | 지금 상태 |
+|---|---|---|
+| 이어서 (이전 작업 복원) | 🟡 | RESUME 요약·다음 후보 제시. 제품 착수 선택 아직 |
+| 요구사항체크 (이번 세션 시킨 것 됐나) | ✅ | 체크리스트 채팅 출력 완료 |
+| 요청사항체크 (원장 점검) | ✅ | 본 원장 갱신·현황 보고 |
+| 출발지 POI 주소·환승 "도착" 정책 결정 | ✅ | **확정 1-1 / 2-1** → 아래 §결정잠금·실행지시서. 코드 실행은 별도 착수 |
+
+---
+
+## 결정잠금 · AI 실행지시서 (2026-08-01)
+
+> 사용자 확정: **1-1**, **2-1**. 아래 블록만 보고 실행하면 된다.
+
+### TASK A — 출발지 주소 (결정 1-1: 현행 유지 + 클라우드 키)
+
+- **목표:** 출발지 "현재 위치"가 주소로 보이고, POI는 있으면 보너스(강제 아님).
+- **코드:** 추가 변경 **금지**. 이미 `format_korean_address` + Naver→TMAP→Nominatim + 우편번호 정리 동작.
+- **사람 작업(필수):** Streamlit Cloud Secrets에 Naver 맵 키 변수만 설정  
+  - 이름: `NAVER_MAPS_CLIENT_ID`, `NAVER_MAPS_CLIENT_SECRET` (또는 앱이 읽는 동일 계열 이름)  
+  - **값 출력·커밋 금지**
+- **완료 조건:** 클라우드에서 현재 위치 잡았을 때 `📍` 뒤에 좌표 대신 주소. POI 유무는 best-effort.
+- **건드리지 말 것:** `engine.py`, provider 우선순위 reorder, 별도 POI 검색(PR#8 충돌).
+
+### TASK B — 환승 구간 "도착" 오표기 (결정 2-1: 다음 구간 시작명)
+
+- **목표:** 중간 구간에 가짜 `"도착"`이 안 뜨고, 가능하면 다음 구간 출발지명으로 채운다. 진짜 마지막만 `"도착"`.
+- **작업 위치:** 격리 worktree + 새 브랜치 (`D:\walk` main 직접 수정 금지).
+- **수정 파일:** `streamlit_walk_engine/transit_builder.py` (+ 테스트 `tests/test_transit_builder.py`)
+- **규칙:**
+  1. 파싱 시 `endName` 없을 때 중간 구간 fallback을 `"도착"`으로 두지 말 것(빈 문자열).
+  2. 전 구간 파싱 후: 마지막이 아닌데 `end_label`이 `""` 또는 `"도착"`이면 → `legs[i+1].start_label`로 채움(있을 때만).
+  3. 마지막 구간만 `end_label` 비었을 때 `"도착"`.
+  4. `TransitInfo.alight_station`도 같은 `end_label`과 맞출 것.
+  5. `1_Navigation.py`·`engine.py` 변경 금지.
+- **검증:**
+  ```powershell
+  cd <worktree>
+  python -m pytest streamlit_walk_engine\tests\test_transit_builder.py -q
+  python -m pytest streamlit_walk_engine\tests -q
+  ```
+- **완료 조건:** 중간 레그 `end_label != "도착"`(다음 start 있을 때); 마지막만 `"도착"`; 기존 transit 테스트 green.
+- **커밋/푸시:** 사용자 요청 있을 때만.
 
 ---
 
@@ -65,7 +112,7 @@
 | 도로명+번호 붙여쓴 검색·동주소(지번) 검색 | ✅ | PR#59,#60 |
 | 지번 주소 유실 수정(합정동 355-1) | ✅ | PR#65 |
 | 출발지 현재위치 **우편번호 제거** | ✅ | PR#25 |
-| **출발지 현재위치를 POI 포함 주소로 표시**(Nominatim display_name 스타일) | 🟡 | plan walk-origin-address-display, open-questions: 클라우드 Naver키 유무·POI best-effort 미확정 |
+| **출발지 현재위치를 POI 포함 주소로 표시**(Nominatim display_name 스타일) | 🟡 | **결정 1-1 잠금**(2026-08-01): 현행 정규화 유지·POI best-effort·클라우드 Naver 키 설정은 사람 작업. 코드 추가변경 없음 |
 | **PR#8 계열**(도착 판정 강화·TMAP POI·Static Map) | ⛔ | route_builder/Navigation 안전기능 의미충돌, 자동병합 금지 |
 
 ## 3. 대중교통 여정
@@ -76,7 +123,7 @@
 | ODSAY 키 문서화·폴백 지연 조회 | ✅ | PR#34,#41 |
 | TMAP 좌표 문자열 전송 | ✅ | PR#35 |
 | ODsay 폴백 좌표 보간 수렴 | ✅ | PR#41 |
-| 중간 환승 구간 도착지명 없을 때 "도착" 오표기 | ⏳ | 관찰만(PR#65) — 빈칸 vs 다음구간명 정책 결정 필요 |
+| 중간 환승 구간 도착지명 없을 때 "도착" 오표기 | ❌ | **결정 2-1 잠금**(2026-08-01): 다음 구간 start_label로 채움·마지막만 "도착". 실행지시서 TASK B — **코드 미착수** |
 | 후속: GPS없는 하차알림·역ETA·환승 출구안내 | ❌ | plan '단계 경계' 후속(범위 밖) |
 
 ## 4. 음성·알림
