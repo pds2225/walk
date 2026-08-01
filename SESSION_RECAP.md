@@ -1,3 +1,29 @@
+## 🧾 세션 회고 — 2026-08-01 19:20
+**주제:** auto_write 포터블 허브(HWPX만) + 마켓게이트 입주 신청 초안
+
+### ✅ 한 일
+- 전에는 PC·한글에 묶이거나 DOCX로 빠질 수 있었음 → 이제 `auto_write_hub` 한 명령으로 어디서든 HWPX 채움·진단, DOCX 산출은 기본 차단.
+- 전에는 제출 파일명을 손으로 맞춤 → 이제 `전문상담위원_참여신청서_{성명}.hwpx`로 `제출/`에 자동 복사.
+- 전에는 여성 1인 창조기업 입주 신청 초안이 없었음 → 마켓게이트·박다솜 기준 신청서 초안을 적어 둠(빈 양식은 아직 없음).
+
+### 🧭 정한 것
+- 본선은 HWPX만. 승인 없는 DOCX 우회 금지.
+- COM 변환은 Windows+한글2022만 선택. 전북교육청 변환기는 쓰지 않음.
+
+### 📂 손댄 파일
+- `app/auto_write_hub.py` — 통합 허브
+- `app/auto_write/services/runtime_env.py` · `output_naming.py` · `hancom_com_guard.py`
+- `app/self_diagnose.py` · `cross_form_hwp_pipeline.py` — HWPX 라우팅·자동 파일명
+- `app/tests/test_portable_hub.py` — 계약 테스트
+- `.claude/skills/cross-form-submission/SKILL.md` — 사용법 반영
+- `.omc/wiki/` · `.omc/skills/auto-write-portable-hub.md` — 지식·스킬 저장
+
+### ⏭️ 다음 할 일
+- 여성 1인 창조기업 입주 **빈 양식 경로** 확보 후 마켓게이트로 채움
+- (별도 트랙) 이지비건 자료 폴더 경로 대기 · M3 DOCX INSERT 인계 유지
+
+---
+
 ## 🧾 세션 회고 — 2026-07-16 (2차)
 **주제:** 부드러운 헤딩업 업그레이드 — MapLibre 양방향 컴포넌트(PR#64)
 
