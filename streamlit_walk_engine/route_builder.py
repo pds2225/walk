@@ -26,7 +26,14 @@ from urllib.parse import quote
 import requests
 
 sys.path.insert(0, str(Path(__file__).parent))
-from engine import Coordinate, RouteModel, TurnPoint, distance_meters
+from engine import (
+    Coordinate,
+    RouteModel,
+    TurnPoint,
+    angular_difference,
+    bearing_degrees,
+    distance_meters,
+)
 
 
 @dataclass(frozen=True)
@@ -919,6 +926,55 @@ def _tmap_app_key() -> str | None:
         return None
 
 
+# ── 회전 지점 정리 (경로 엔진 공통) ──────────────────────────────────────────
+
+# 실제 진행 방향이 이만큼(도)은 꺾여야 '회전'으로 안내한다. 경로 API는 완만한 커브나
+# 횡단보도 진입까지 좌/우회전으로 표시해, 그대로 두면 직진길에 불필요한 회전 안내가
+# 쌓이고 회전 접근·회전 지나침 판정까지 헛돈다.
+MIN_TURN_HEADING_CHANGE_DEGREES = 30.0
+
+# 방향을 잴 때 앞뒤로 확보할 거리(m). 인접 좌표 1개만 쓰면 촘촘한 polyline 에서
+# 1~2m 짜리 선분의 방위가 튀어 실제 꺾임을 제대로 재지 못한다.
+_TURN_HEADING_SPAN_METERS = 15.0
+
+
+def _heading_change_degrees(polyline: list[Coordinate], index: int) -> float | None:
+    """polyline[index] 에서 실제로 몇 도 꺾이는지. 앞뒤 구간이 없으면 None."""
+    if index <= 0 or index >= len(polyline) - 1:
+        return None
+
+    before = 0
+    span = 0.0
+    for i in range(index, 0, -1):
+        span += distance_meters(polyline[i - 1], polyline[i])
+        before = i - 1
+        if span >= _TURN_HEADING_SPAN_METERS:
+            break
+
+    after = len(polyline) - 1
+    span = 0.0
+    for i in range(index, len(polyline) - 1):
+        span += distance_meters(polyline[i], polyline[i + 1])
+        after = i + 1
+        if span >= _TURN_HEADING_SPAN_METERS:
+            break
+
+    if polyline[before] == polyline[index] or polyline[index] == polyline[after]:
+        return None
+    return angular_difference(
+        bearing_degrees(polyline[before], polyline[index]),
+        bearing_degrees(polyline[index], polyline[after]),
+    )
+
+
+def is_significant_turn(polyline: list[Coordinate], index: int) -> bool:
+    """안내할 가치가 있는 회전인지 — 완만한 커브는 회전으로 보지 않는다."""
+    change = _heading_change_degrees(polyline, index)
+    if change is None:
+        return False
+    return change >= MIN_TURN_HEADING_CHANGE_DEGREES
+
+
 # ── 경로 탐색 (TMAP pedestrian) ──────────────────────────────────────────────
 
 _TMAP_TURN_LEFT  = {12, 16, 17}  # 좌회전 / 8시 방향 좌회전 / 10시 방향 좌회전
@@ -969,6 +1025,8 @@ def _route_from_tmap_features(features: list[dict]) -> tuple[RouteModel, RouteIn
     for idx, direction, description in raw_turns:
         if idx in seen or idx <= 0 or idx >= len(coords) - 1:
             continue
+        if not is_significant_turn(coords, idx):
+            continue  # 완만한 커브 — 회전으로 안내하지 않는다
         seen.add(idx)
         tid += 1
         turn_id = f"turn-{tid}"
@@ -1063,6 +1121,8 @@ def _fetch_walking_route_valhalla(origin: Coordinate, dest: Coordinate) -> tuple
         idx = maneuver.get("begin_shape_index", 0)
         if idx in seen or idx <= 0 or idx >= len(polyline) - 1:
             continue
+        if not is_significant_turn(polyline, idx):
+            continue  # slight_left/right 등 완만한 커브 — 회전으로 안내하지 않는다
         seen.add(idx)
         direction = "right" if mtype in _TURN_RIGHT else "left"
         tid += 1

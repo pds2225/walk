@@ -152,9 +152,11 @@ class TestFormatKoreanAddress:
 
 # 실제 TMAP 응답 구조: Point(SP) → LineString → Point(GP) → LineString → ... → Point(EP)
 # 구간 경계 좌표는 직전 LineString 끝 = Point = 다음 LineString 시작으로 3회 중복 등장
+# A→B→C 서쪽, C→D 남쪽, D→E 다시 서쪽 — C·D 는 실제로 약 90° 꺾이는 회전 지점이다
+# (회전 지점 필터가 완만한 커브를 걸러내므로 픽스처도 실제 꺾임을 가져야 한다).
 A, B, C, D, E, F = (
     (126.9780, 37.5662), (126.9776, 37.5662), (126.9774, 37.5662),
-    (126.9774, 37.5655), (126.9775, 37.5652), (126.9752, 37.5652),
+    (126.9774, 37.5655), (126.9770, 37.5655), (126.9752, 37.5652),
 )
 
 
@@ -220,6 +222,18 @@ class TestRouteFromTmapFeatures:
             _point(12, *A),           # polyline 비어 있음 → index -1 → 제외
             _line(A, B, C),
             _point(13, *C),           # 마지막 좌표 → 제외
+        ])
+        assert route.turn_points == ()
+
+    def test_gentle_curve_is_not_reported_as_a_turn(self):
+        # 방향이 거의 그대로인(약 10°) 완만한 커브 — API 가 좌회전으로 줘도 안내하지 않는다.
+        straight = (126.9780, 37.5662)
+        bend = (126.9774, 37.5662)
+        ahead = (126.9768, 37.5661)
+        route, _ = _route_from_tmap_features([
+            _line(straight, bend),
+            _point(12, *bend),
+            _line(bend, ahead),
         ])
         assert route.turn_points == ()
 

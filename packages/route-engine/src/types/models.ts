@@ -50,6 +50,11 @@ export interface EngineConfig {
   readonly turnApproachDistanceThresholdMeters: number;
   readonly minimumConsecutiveSamplesForDeviation: number;
   readonly minimumDriftDurationMs: number;
+  /**
+   * 이 속도 미만에서는 진행 방향을 신뢰하지 않는다. 제자리에서 서성이거나 직진길에서
+   * 왔다갔다 할 때 heading 이 뒤집혀 이탈로 오판되는 것을 막는다.
+   */
+  readonly headingConflictMinimumSpeedMps: number;
 }
 
 export interface EngineMetrics {

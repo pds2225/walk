@@ -7,11 +7,32 @@ from streamlit.testing.v1 import AppTest
 PAGE = Path(__file__).resolve().parents[1] / "pages" / "1_Navigation.py"
 
 
+def _run_past_consent(app: AppTest) -> AppTest:
+    """첫 화면인 개인정보 동의를 [동의] 한 번으로 통과시키고 본 화면을 반환한다."""
+    app.run(timeout=30)
+    agree = [b for b in app.button if b.label == "✅ 동의"]
+    if agree:
+        agree[0].click().run(timeout=30)
+    return app
+
+
+def test_first_screen_is_prechecked_one_button_consent():
+    """첫 화면은 동의만 — 항목이 미리 체크돼 있고 버튼은 동의/거부 2개뿐이다.
+    목적지 입력·경로 화면과 섞이면 스크롤에 밀려 닫히므로 단독 렌더가 계약이다."""
+    app = AppTest.from_file(str(PAGE))
+    app.run(timeout=30)
+
+    assert not app.exception
+    assert [b.label for b in app.button] == ["✅ 동의", "동의하지 않고 시작"]
+    assert app.checkbox                                  # 수집 항목 체크박스가 있고
+    assert all(c.value for c in app.checkbox)            # 전부 미리 체크돼 있다
+
+
 def test_navigation_page_renders_with_transit_toggle():
     app = AppTest.from_file(str(PAGE))
     # 페이지 렌더가 환경(네트워크·컴포넌트)에 따라 3~12초로 출렁여 timeout=10은
     # 간헐적으로 터진다. 행(hang) 감지 목적은 유지하되 여유를 둔다.
-    app.run(timeout=30)
+    _run_past_consent(app)
 
     assert not app.exception
     # '대중교통 포함' 토글은 출발 버튼 2개(걷기/대중교통+걷기)로 대체됐다.
