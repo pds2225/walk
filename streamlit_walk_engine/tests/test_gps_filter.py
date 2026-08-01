@@ -117,6 +117,16 @@ class TestAlertLevel:
     def test_poor_accuracy_passed_turn_is_weak(self):
         assert alert_level(40, "passed_turn") == "weak"
 
+    # (f) 제자리 흔들림·왕복 중에는 미확정 상태를 알리지 않는다(정확도와 무관)
+    def test_wandering_mutes_unconfirmed_states(self):
+        for state in ("on_route", "drifting"):
+            assert alert_level(5, state, wandering=True) == "mute"
+
+    # (g) 왕복 중이어도 확정 이탈은 그대로 알린다 — 진짜 이탈을 놓치면 안 된다
+    def test_wandering_does_not_mute_confirmed_deviation(self):
+        assert alert_level(5, "deviated", wandering=True) == "full"
+        assert alert_level(40, "passed_turn", wandering=True) == "weak"
+
     # (e2) 나쁜 정확도 + drifting → mute (heading 사각지대 — 의도된 설계 결정 고정)
     def test_poor_accuracy_drifting_is_mute(self):
         assert alert_level(40, "drifting") == "mute"

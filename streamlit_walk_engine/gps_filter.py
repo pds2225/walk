@@ -132,15 +132,23 @@ def alert_level(
     accuracy_m: Optional[float],
     engine_state: DeviationState,
     accuracy_gate_m: float = ALERT_ACCURACY_GATE_M,
+    *,
+    wandering: bool = False,
 ) -> AlertLevel:
     """accuracy와 엔진 상태로 알림 강도(full/weak/mute)를 결정한다.
 
+    - wandering(제자리 흔들림·왕복) + 미확정(on_route/drifting) → "mute".
+      직진길에서 왔다갔다 하면 on_route↔drifting 이 반복 전이돼 '벗어나기 시작' 경고가
+      계속 울린다. 방향성이 낮은 구간에서는 미확정 상태를 알리지 않는다. 확정 이탈
+      (deviated/passed_turn)은 이 억제를 적용하지 않는다(진짜 이탈을 놓치면 안 됨).
     - accuracy 미보고(None, 수동 입력 등) → "full" (기존 동작 보존).
     - accuracy ≤ gate(양호) → "full".
     - accuracy > gate(나쁨) + 확정 이탈(deviated/passed_turn) → "weak".
     - accuracy > gate(나쁨) + on_route/drifting → "mute".
       (drifting을 mute로 두는 것은 의도된 결정 — 모듈 docstring 참조.)
     """
+    if wandering and engine_state not in _CONFIRMED_DEVIATION_STATES:
+        return "mute"
     if accuracy_m is None:
         return "full"
     if accuracy_m <= accuracy_gate_m:

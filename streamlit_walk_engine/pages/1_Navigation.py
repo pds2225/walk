@@ -1271,6 +1271,19 @@ def _build_snap_window(results, samples):
     return window, net_move, acc
 
 
+def _wandering_now(results, samples) -> bool:
+    """최근 표본이 '제자리 흔들림·왕복'(방향성 낮음)인지 — 읽기 전용 판정.
+
+    재탐색 억제(_reroute_suppressed)와 같은 snap_router 판정을 쓰되, 알림 게이팅에는
+    부수효과(Mapbox 호출·세션 갱신) 없이 STATIONARY 여부만 본다.
+    """
+    if len(results) < snap_router.MIN_WINDOW or len(samples) < snap_router.MIN_WINDOW:
+        return False
+    window, net_move, acc = _build_snap_window(results, samples)
+    state = snap_router.classify(window, latest_accuracy_m=acc, net_move_m=net_move)
+    return state == snap_router.STATIONARY
+
+
 # ON_ROUTE_LIKELY(지터 vs 평행도로 구분불가) 억제의 시간 상한 — 지터 편향은 수십 초 안에
 # 끝나지만 평행도로 실이탈은 지속된다. 큰 횡거리 억제가 이만큼 이어지면 한 번 재탐색을
 # 허용해 '실이탈 영구 놓침'을 막는다(도로망 없이 가능한 최선의 구분).
@@ -3939,7 +3952,11 @@ def main() -> None:
                 st.session_state["nav_samples"] = st.session_state["nav_samples"][-_MAX_SAMPLES:]
 
             acc = (st.session_state["nav_raw_gps"] or {}).get("coords", {}).get("accuracy")
-            lvl = gps_filter.alert_level(acc, result.state)
+            lvl = gps_filter.alert_level(
+                acc, result.state,
+                wandering=_wandering_now(st.session_state["nav_results"],
+                                         st.session_state["nav_samples"]),
+            )
             now_ms = int(time.time() * 1000)
             decision = gps_filter.decide_alert(
                 result.state,
