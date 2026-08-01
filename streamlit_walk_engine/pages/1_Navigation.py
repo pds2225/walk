@@ -1249,7 +1249,9 @@ _SNAP_WINDOW = 6  # 진행도 판정에 쓰는 최근 표본 개수
 
 def _build_snap_window(results, samples):
     """최근 표본으로 snap_router 입력 윈도 + 순변위(윈도 첫↔끝 직선거리) + 최신 GPS 정확도를 만든다."""
-    pairs = list(zip(results, samples))[-_SNAP_WINDOW:]
+    # 최근 _SNAP_WINDOW 개만 쓰므로 먼저 자른다 — 누적 표본(최대 _MAX_SAMPLES)을 통째로
+    # zip 하면 매 틱 수백 개 튜플을 만들고 버린다(두 리스트는 항상 같은 길이로 append·절단).
+    pairs = list(zip(results[-_SNAP_WINDOW:], samples[-_SNAP_WINDOW:]))
     window = []
     first_pos = last_pos = None
     prev = None
@@ -1271,17 +1273,26 @@ def _build_snap_window(results, samples):
     return window, net_move, acc
 
 
+def _snap_classify(results, samples):
+    """최근 표본의 snap_router 판정 — (판정, 윈도, 최신 accuracy).
+
+    표본이 모자라 판정할 수 없으면 (None, None, None). 알림 게이팅과 재탐색 억제가
+    같은 판정을 쓰도록 이 한 곳에서만 윈도를 만들고 classify 한다.
+    """
+    if len(results) < snap_router.MIN_WINDOW or len(samples) < snap_router.MIN_WINDOW:
+        return None, None, None
+    window, net_move, acc = _build_snap_window(results, samples)
+    state = snap_router.classify(window, latest_accuracy_m=acc, net_move_m=net_move)
+    return state, window, acc
+
+
 def _wandering_now(results, samples) -> bool:
     """최근 표본이 '제자리 흔들림·왕복'(방향성 낮음)인지 — 읽기 전용 판정.
 
     재탐색 억제(_reroute_suppressed)와 같은 snap_router 판정을 쓰되, 알림 게이팅에는
     부수효과(Mapbox 호출·세션 갱신) 없이 STATIONARY 여부만 본다.
     """
-    if len(results) < snap_router.MIN_WINDOW or len(samples) < snap_router.MIN_WINDOW:
-        return False
-    window, net_move, acc = _build_snap_window(results, samples)
-    state = snap_router.classify(window, latest_accuracy_m=acc, net_move_m=net_move)
-    return state == snap_router.STATIONARY
+    return _snap_classify(results, samples)[0] == snap_router.STATIONARY
 
 
 # ON_ROUTE_LIKELY(지터 vs 평행도로 구분불가) 억제의 시간 상한 — 지터 편향은 수십 초 안에
@@ -1301,10 +1312,9 @@ def _reroute_suppressed(results, samples, now_ms: int, deviation_state: str = "d
       무료 기본값으로 폴백: 저정확도(>FAIR) 이탈은 알림 파이프라인과 동일하게 보류하고,
       ON_ROUTE_LIKELY 는 거부하되 큰 횡거리 억제가 _SNAP_SUPPRESS_MAX_MS 이상 지속되면 허용.
     """
-    if len(results) < snap_router.MIN_WINDOW or len(samples) < snap_router.MIN_WINDOW:
+    state, window, acc = _snap_classify(results, samples)
+    if state is None:
         return False
-    window, net_move, acc = _build_snap_window(results, samples)
-    state = snap_router.classify(window, latest_accuracy_m=acc, net_move_m=net_move)
     if state == snap_router.STATIONARY:
         st.session_state["nav_snap_suppress_since_ms"] = None
         return True
@@ -3952,11 +3962,16 @@ def main() -> None:
                 st.session_state["nav_samples"] = st.session_state["nav_samples"][-_MAX_SAMPLES:]
 
             acc = (st.session_state["nav_raw_gps"] or {}).get("coords", {}).get("accuracy")
-            lvl = gps_filter.alert_level(
-                acc, result.state,
-                wandering=_wandering_now(st.session_state["nav_results"],
-                                         st.session_state["nav_samples"]),
+            # 알림이 꺼져 있거나 확정 이탈이면 이 판정은 쓰이지 않는다(alert_level 이
+            # 확정 이탈에는 억제를 적용하지 않음) → 그때는 snap 판정을 돌리지 않는다.
+            # 확정 이탈 틱의 snap 판정은 아래 재탐색 억제가 따로 계산한다(중복 제거).
+            wandering = (
+                st.session_state["nav_alert_enabled"]
+                and result.state not in gps_filter.CONFIRMED_DEVIATION_STATES
+                and _wandering_now(st.session_state["nav_results"],
+                                   st.session_state["nav_samples"])
             )
+            lvl = gps_filter.alert_level(acc, result.state, wandering=wandering)
             now_ms = int(time.time() * 1000)
             decision = gps_filter.decide_alert(
                 result.state,

@@ -234,12 +234,23 @@ def test_wandering_mutes_drift_alert():
     source = PAGE.read_text(encoding="utf-8")
 
     assert "def _wandering_now(" in source
-    assert "wandering=_wandering_now(" in source          # alert_level 에 실제 배선
+    assert "wandering = (" in source                      # alert_level 에 실제 배선
+    assert "and _wandering_now(" in source
     helper = source[source.index("def _wandering_now("):]
-    helper = helper[:helper.index("# ON_ROUTE_LIKELY")]
+    helper = helper[:helper.index("def _reroute_suppressed(")]
     assert "snap_router.STATIONARY" in helper
     assert "st.session_state[" not in helper              # 읽기 전용(쓰기 금지)
     assert "_mapbox_confirms_deviation" not in helper     # 알림 경로에서 유료 호출 금지
+
+    # 확정 이탈·알림 OFF 틱에서는 판정 자체를 돌리지 않는다(핫패스 + 재탐색 억제와 중복 제거).
+    gate = source[source.index("wandering = ("):]
+    gate = gate[:gate.index("lvl = gps_filter.alert_level(")]
+    assert 'st.session_state["nav_alert_enabled"]' in gate
+    assert "not in gps_filter.CONFIRMED_DEVIATION_STATES" in gate
+
+    # 윈도 생성·classify 는 한 곳(_snap_classify)에서만 — 알림·재탐색이 같은 판정을 쓴다.
+    assert source.count("snap_router.classify(") == 1
+    assert source.count("= _build_snap_window(") == 1     # 정의 제외, 호출은 1곳
 
 
 def test_reroute_cooldown_is_three_seconds():
