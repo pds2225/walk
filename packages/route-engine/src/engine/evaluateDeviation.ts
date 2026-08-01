@@ -198,8 +198,11 @@ export function evaluateDeviationStep(input: {
   const strongDistanceBreach =
     nearestSegment.distanceMeters >=
     input.config.strongDeviationDistanceThresholdMeters;
+  // 저속(제자리·서성임)에서는 heading 이 GPS 노이즈라 방향 충돌로 보지 않는다.
   const headingConflict =
-    headingDifferenceDegrees >= input.config.headingDifferenceThresholdDegrees;
+    headingDifferenceDegrees >= input.config.headingDifferenceThresholdDegrees &&
+    input.sample.speedMetersPerSecond >=
+      input.config.headingConflictMinimumSpeedMps;
   const thresholdBreach =
     driftDistanceBreach ||
     (headingConflict &&
@@ -273,10 +276,12 @@ export function evaluateDeviationStep(input: {
     input.config.minimumConsecutiveSamplesForDeviation;
   const sustainedDriftDuration =
     driftDurationMs >= input.config.minimumDriftDurationMs;
+  // 이탈 확정은 '실제로 경로에서 멀어진 거리'로만 결정한다. 방향만 어긋난 경우
+  // (직진길에서 뒤돌아보거나 왔다갔다)는 거리 기준을 넘지 않으면 drifting 까지만 간다.
   const deviated =
     !passedTurn &&
     (persistentThresholdBreach || sustainedDriftDuration) &&
-    (deviationDistanceBreach || strongDistanceBreach || (driftDistanceBreach && headingConflict));
+    (deviationDistanceBreach || strongDistanceBreach);
   const drifting = !passedTurn && !deviated && thresholdBreach;
 
   let state: DeviationState = "on_route";

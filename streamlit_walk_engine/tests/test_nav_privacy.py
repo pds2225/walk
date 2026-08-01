@@ -12,6 +12,8 @@ from nav_privacy import (
     LS_KEY_LASTFIX,
     PERSONAL_STORAGE_KEYS,
     PrivacySettings,
+    auto_checked_settings,
+    declined_settings,
     personal_storage_remove_script,
     storage_remove_script,
     storage_set_script,
@@ -25,6 +27,38 @@ def test_privacy_defaults_are_opt_in():
     assert settings.diag_enabled is False
     assert settings.diag_persist is False
     assert settings.diag_include_coarse_location is False
+    assert settings.consent_ack is False
+
+
+def test_auto_checked_settings_are_prechecked_but_not_yet_acknowledged():
+    """동의 화면 제안값은 전부 체크 — 다만 [동의]를 누르기 전이라 선택은 미기록."""
+    suggested = auto_checked_settings()
+    assert suggested.location_storage is True
+    assert suggested.diag_consent is True
+    assert suggested.diag_enabled is True
+    assert suggested.diag_persist is True
+    assert suggested.diag_include_coarse_location is True
+    assert suggested.consent_ack is False
+
+
+def test_declined_settings_record_the_choice_with_everything_off():
+    declined = declined_settings()
+    assert declined.consent_ack is True
+    assert declined.location_storage is False
+    assert declined.diag_consent is False
+    assert declined.diag_enabled is False
+    assert declined.diag_persist is False
+    assert declined.diag_include_coarse_location is False
+
+
+def test_consent_ack_survives_json_roundtrip():
+    agreed = PrivacySettings.from_mapping({
+        **auto_checked_settings().to_dict(),
+        "consent_ack": True,
+    })
+    restored = PrivacySettings.from_json(agreed.to_json())
+    assert restored == agreed
+    assert restored.consent_ack is True
 
 
 def test_diag_flags_cannot_bypass_consent_or_enabled_state():

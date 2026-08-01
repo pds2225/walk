@@ -51,6 +51,9 @@ class EngineConfig:
     turn_approach_distance_threshold_meters: float = 12.0
     minimum_consecutive_samples_for_deviation: int = 3
     minimum_drift_duration_ms: int = 4000
+    # 이 속도 미만에서는 진행 방향을 신뢰하지 않는다. 제자리에서 서성이거나 직진길에서
+    # 왔다갔다 할 때 heading 이 180°로 뒤집혀 이탈로 오판되는 것을 막는다.
+    heading_conflict_minimum_speed_mps: float = 0.7
 
 
 @dataclass
@@ -503,7 +506,11 @@ def evaluate_deviation_step(
     drift_breach = nearest_segment.distance_meters >= config.route_drift_distance_threshold_meters
     deviation_breach = nearest_segment.distance_meters >= config.route_deviation_distance_threshold_meters
     strong_breach = nearest_segment.distance_meters >= config.strong_deviation_distance_threshold_meters
-    heading_conflict = heading_diff >= config.heading_difference_threshold_degrees
+    # 저속(제자리·서성임)에서는 heading 이 GPS 노이즈라 방향 충돌로 보지 않는다.
+    heading_conflict = (
+        heading_diff >= config.heading_difference_threshold_degrees
+        and sample.speed_meters_per_second >= config.heading_conflict_minimum_speed_mps
+    )
     threshold_breach = drift_breach or (
         heading_conflict
         and nearest_segment.distance_meters >= config.route_drift_distance_threshold_meters * 0.6
@@ -566,14 +573,12 @@ def evaluate_deviation_step(
         consecutive >= config.minimum_consecutive_samples_for_deviation
     )
     sustained_drift_duration = drift_duration_ms >= config.minimum_drift_duration_ms
+    # 이탈 확정은 '실제로 경로에서 멀어진 거리'로만 결정한다. 방향만 어긋난 경우
+    # (직진길에서 뒤돌아보거나 왔다갔다)는 거리 기준을 넘지 않으면 drifting 까지만 간다.
     deviated = (
         not passed_turn
         and (persistent_threshold_breach or sustained_drift_duration)
-        and (
-            deviation_breach
-            or strong_breach
-            or (drift_breach and heading_conflict)
-        )
+        and (deviation_breach or strong_breach)
     )
     drifting = not passed_turn and not deviated and threshold_breach
 

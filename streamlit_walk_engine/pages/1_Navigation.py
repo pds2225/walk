@@ -356,6 +356,8 @@ def _init() -> None:
         "nav_tts_enabled": True,
         "nav_tts_primed": False,         # 안내 시작(제스처) 시 브라우저 TTS 해금 1회 실행 여부
         # 개인정보 기본값은 모두 opt-in. 동의 전에는 진단·좌표 브라우저 저장을 하지 않는다.
+        # 동의 화면은 항목을 미리 체크해 보여주지만, [동의]를 누르기 전까지 여기 값은 False.
+        "nav_privacy_consent_ack": False,
         "nav_location_storage_enabled": False,
         "nav_diag_consent": False,
         "nav_diag_enabled": False,
@@ -878,6 +880,7 @@ def _privacy_settings_from_state() -> nav_privacy.PrivacySettings:
         "diag_retention_hours": st.session_state.get(
             "nav_diag_retention_hours", DEFAULT_DIAG_RETENTION_HOURS
         ),
+        "consent_ack": st.session_state.get("nav_privacy_consent_ack", False),
     })
 
 
@@ -889,6 +892,7 @@ def _apply_privacy_settings(settings: nav_privacy.PrivacySettings) -> None:
         "nav_diag_persist": settings.diag_persist,
         "nav_diag_include_coarse_location": settings.diag_include_coarse_location,
         "nav_diag_retention_hours": settings.diag_retention_hours,
+        "nav_privacy_consent_ack": settings.consent_ack,
     })
 
 
@@ -906,6 +910,11 @@ def _load_privacy_settings_from_ls() -> None:
     if raw is None:
         return
     settings = nav_privacy.PrivacySettings.from_json(raw) if raw else nav_privacy.PrivacySettings()
+    if not settings.consent_ack and (settings.location_storage or settings.diag_consent):
+        # consent_ack 이전 버전에서 이미 항목을 켠 사용자 → 선택을 마친 것으로 보고 재질문하지 않는다.
+        settings = nav_privacy.PrivacySettings.from_mapping(
+            {**settings.to_dict(), "consent_ack": True}
+        )
     _apply_privacy_settings(settings)
     st.session_state["nav_privacy_loaded"] = True
     st.session_state["nav_privacy_saved_sig"] = settings.to_json()
@@ -964,9 +973,14 @@ def _delete_personal_data() -> None:
         "nav_lastfix_saved_coord": None,
         "nav_active_saved_sig": None,
         "nav_privacy_saved_sig": None,
+        # 전체 삭제는 동의 철회이기도 하다 → 다음 렌더에서 동의 화면을 다시 보여준다.
+        "nav_privacy_consent_ack": False,
     })
     # 이미 렌더된 위젯 키가 남아 있으면 다음 rerun에서 위 false 값을 다시 덮어쓴다.
     for widget_key in (
+        "privacy_consent_location_widget",
+        "privacy_consent_diag_widget",
+        "privacy_consent_coarse_widget",
         "privacy_location_storage_widget",
         "privacy_diag_consent_widget",
         "privacy_diag_enabled_widget",
@@ -1454,8 +1468,72 @@ def _prime_tts_once() -> None:
     )
 
 
+def _decide_privacy(settings: nav_privacy.PrivacySettings) -> None:
+    """동의 화면의 선택을 확정한다.
+
+    nav_privacy_loaded 를 함께 세워, 아직 도착하지 않은 localStorage 읽기 결과가
+    방금 누른 선택을 덮어쓰지 못하게 한다(_load_privacy_settings_from_ls 조기 반환).
+    """
+    st.session_state["nav_privacy_loaded"] = True
+    _apply_privacy_settings(settings)
+    _save_privacy_settings()
+    st.rerun()
+
+
+def _render_privacy_consent_gate() -> None:
+    """항목이 미리 체크된 채로 뜨고, [동의] 한 번이면 끝나는 첫 화면.
+
+    main() 맨 위에서 단독으로 렌더하고 나머지 화면은 그리지 않는다(접히거나 다른 화면에
+    밀려 사라지지 않게). 체크 상태는 화면에만 있고, 버튼을 누르기 전에는 세션·
+    localStorage 어디에도 저장하지 않는다.
+    """
+    suggested = nav_privacy.auto_checked_settings()
+    st.subheader("🔒 개인정보 수집·이용 동의")
+    st.caption(
+        "아래 항목은 미리 체크돼 있습니다. **[동의]** 버튼만 누르면 바로 시작합니다. "
+        "원하지 않는 항목은 체크를 풀고 눌러도 되고, 동의 후에도 언제든 끄거나 전체 삭제할 수 "
+        "있습니다. 서버나 GitHub로 보내지 않고 이 브라우저에만 저장합니다."
+    )
+    location_storage = st.checkbox(
+        "안내 복구용 위치를 이 브라우저에 저장",
+        value=suggested.location_storage,
+        help="마지막 위치와 진행 중 목적지를 저장해 재방문 시 안내를 이어갑니다.",
+        key="privacy_consent_location_widget",
+    )
+    diag = st.checkbox(
+        "문제 진단을 위한 비식별 로그 수집·보관에 동의",
+        value=suggested.diag_consent,
+        help="GPS 정확도·이탈 판정·재탐색·음성 이벤트를 기록합니다. "
+             "목적지·주소·검색어는 항상 제외됩니다.",
+        key="privacy_consent_diag_widget",
+    )
+    coarse = st.checkbox(
+        "진단 로그에 대략 위치 포함 (약 100m 격자)",
+        value=suggested.diag_include_coarse_location,
+        disabled=not diag,
+        help="원본 좌표는 기록하지 않습니다.",
+        key="privacy_consent_coarse_widget",
+    )
+    st.caption(f"진단 로그 보존기간 기본값 {DEFAULT_DIAG_RETENTION_HOURS}시간 — 동의 후 변경할 수 있습니다.")
+
+    if st.button("✅ 동의", type="primary", width="stretch"):
+        _decide_privacy(nav_privacy.PrivacySettings.from_mapping({
+            "location_storage": bool(location_storage),
+            "diag_consent": bool(diag),
+            "diag_enabled": bool(diag),
+            "diag_persist": bool(diag),
+            "diag_include_coarse_location": bool(diag and coarse),
+            "diag_retention_hours": DEFAULT_DIAG_RETENTION_HOURS,
+            "consent_ack": True,
+        }))
+    if st.button("동의하지 않고 시작", width="stretch"):
+        _decide_privacy(nav_privacy.declined_settings())
+
+
 def _render_privacy_panel() -> None:
     """좌표 저장과 진단 수집을 명시적 opt-in으로 제어하고 삭제 수단을 제공한다."""
+    if not st.session_state.get("nav_privacy_consent_ack", False):
+        return  # 동의 화면은 main() 맨 위에서 단독으로 렌더한다
     with st.expander("🔒 개인정보와 브라우저 저장", expanded=False):
         st.caption(
             "기본값은 위치·진단 데이터 비저장입니다. GitHub 자동 업로드 기능은 제거되었습니다."
@@ -3158,6 +3236,10 @@ def main() -> None:
 
     _init()
     _load_privacy_settings_from_ls()
+    # 개인정보 선택 전에는 동의 화면만 그린다 — 목적지 입력·경로 화면에 밀려 닫히지 않게.
+    if not st.session_state.get("nav_privacy_consent_ack", False):
+        _render_privacy_consent_gate()
+        st.stop()
     if st.session_state.get("nav_privacy_loaded"):
         _load_history_from_ls()
         # 명시적 브라우저 저장 동의가 있을 때만 위치·진행 중 안내를 복원한다.
@@ -3727,28 +3809,31 @@ def main() -> None:
             tts_on = st.toggle(
                 "음성 안내", value=st.session_state["nav_tts_enabled"],
                 help="이탈 상태를 한국어 음성(TTS)으로 안내 (브라우저 음성 합성)")
-            # 걷기 전에 폰에서 소리·진동이 실제로 나는지 확인하는 버튼. 이 탭 자체가
-            # 브라우저에 '사용자 상호작용'을 만들어 이후 자동재생 허용에도 도움이 된다.
-            if st.button("🔔 소리·진동 테스트", width="stretch"):
-                st.audio(_alert_tone_wav("deviated"), format="audio/wav", autoplay=True)
-                components.html(
-                    "<script>try{if(navigator.vibrate)navigator.vibrate([200,100,300]);}"
-                    "catch(e){}</script>", height=0)
-                st.toast("🔔 알림 테스트 — 삐삐 소리가 나면 정상입니다")
-            # 음성(TTS)이 폰에서 실제로 나는지 걷기 전에 확인 — '음성 안내 재확인'용.
-            # gTTS MP3(최상위 문서 autoplay) 우선, 실패 시 브라우저 speechSynthesis 폴백.
-            # 버튼 클릭 자체가 사용자 제스처라 이후 자동재생 허용에도 도움이 된다.
-            if st.button("🔊 음성 테스트 (목소리 확인)", width="stretch"):
-                _phrase = "음성 안내 테스트입니다. 경로를 이탈하면 이렇게 알려드립니다."
-                _mp3 = _tts_mp3(_phrase)
-                if _mp3:
-                    st.audio(_mp3, format="audio/mp3", autoplay=True)
-                    st.toast("🔊 음성 테스트 — 목소리가 들리면 정상입니다")
-                else:
+            # 테스트 버튼은 걷기 전에 한 번만 쓰는 보조 동작 — 접어 두어 본 화면에는
+            # 핵심 동선(걷기·대중교통·시작/중지·초기화) 버튼만 남긴다.
+            with st.expander("🔔 소리·음성 테스트 (걷기 전 확인)", expanded=False):
+                # 걷기 전에 폰에서 소리·진동이 실제로 나는지 확인하는 버튼. 이 탭 자체가
+                # 브라우저에 '사용자 상호작용'을 만들어 이후 자동재생 허용에도 도움이 된다.
+                if st.button("🔔 소리·진동 테스트", width="stretch"):
+                    st.audio(_alert_tone_wav("deviated"), format="audio/wav", autoplay=True)
                     components.html(
-                        f"<script>(function(){{{build_tts_script(_phrase)}}})();</script>",
-                        height=0)
-                    st.toast("🔊 음성 테스트 — 브라우저 음성으로 시도(안 들리면 기기 제약)")
+                        "<script>try{if(navigator.vibrate)navigator.vibrate([200,100,300]);}"
+                        "catch(e){}</script>", height=0)
+                    st.toast("🔔 알림 테스트 — 삐삐 소리가 나면 정상입니다")
+                # 음성(TTS)이 폰에서 실제로 나는지 걷기 전에 확인 — '음성 안내 재확인'용.
+                # gTTS MP3(최상위 문서 autoplay) 우선, 실패 시 브라우저 speechSynthesis 폴백.
+                # 버튼 클릭 자체가 사용자 제스처라 이후 자동재생 허용에도 도움이 된다.
+                if st.button("🔊 음성 테스트 (목소리 확인)", width="stretch"):
+                    _phrase = "음성 안내 테스트입니다. 경로를 이탈하면 이렇게 알려드립니다."
+                    _mp3 = _tts_mp3(_phrase)
+                    if _mp3:
+                        st.audio(_mp3, format="audio/mp3", autoplay=True)
+                        st.toast("🔊 음성 테스트 — 목소리가 들리면 정상입니다")
+                    else:
+                        components.html(
+                            f"<script>(function(){{{build_tts_script(_phrase)}}})();</script>",
+                            height=0)
+                        st.toast("🔊 음성 테스트 — 브라우저 음성으로 시도(안 들리면 기기 제약)")
             with st.expander("🔧 고급 설정 (이탈 감지 민감도)", expanded=False):
                 st.caption("GPS가 얼마나 벗어나야 경고할지 — 보통은 기본값 그대로 두세요")
                 drift_t = st.slider(
