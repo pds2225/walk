@@ -37,8 +37,9 @@ def test_navigation_page_renders_with_transit_toggle():
     assert not app.exception
     # '대중교통 포함' 토글은 출발 버튼 2개(걷기/대중교통+걷기)로 대체됐다.
     labels = [b.label for b in app.button]
-    assert any("🚶 걷기" in lb for lb in labels)
-    assert any("대중교통+걷기" in lb for lb in labels)
+    # 아이콘 없이 글씨만 — 첫 화면의 주인공 버튼 2개(실기기 요청).
+    assert "걷기" in labels
+    assert "대중교통+걷기" in labels
 
 
 def test_navigation_source_clears_journey_for_non_journey_flows():
@@ -377,7 +378,7 @@ def test_booking_rearms_only_after_leaving_start_radius():
     assert "outside = distance_meters(origin, start)" in block
     assert 'if outside:\n                st.session_state["nav_active_booking_id"] = None' in block
     # 초기화 핸들러는 id 를 지우지 않아야 한다(루프 방지).
-    reset_at = source.index('if st.button("↺ 초기화"')
+    reset_at = source.index('st.button("↺ 초기화"')
     reset_block = source[reset_at:reset_at + 700]
     assert 'st.session_state["nav_active_booking_id"] = None' not in reset_block
 

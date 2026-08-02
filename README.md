@@ -252,7 +252,7 @@ http://localhost:8501
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest streamlit_walk_engine\tests -q
-# 544 passed
+# 545 passed
 
 .\.venv\Scripts\python.exe -m pytest streamlit_task_organizer\tests -q
 # 20 passed
@@ -275,7 +275,9 @@ npm run lint
 - 첫 화면이 동의 단독 화면이고 항목이 미리 체크되어 있는지 확인
 - 동의 화면 미리 체크 → [동의] 한 번 → 진단 옵션 활성화 → 전체 삭제 흐름 확인
 - 삭제 후 개인정보 옵션 기본 OFF 복귀와 동의 화면 재노출 확인
-- 보조 패널이 ⚙️ 설정 / ⭐ 자주 가는 길 / 🔒 개인정보·진단 세 묶음으로만 접히는지 확인
+- 첫 화면이 목적지 입력 + 즐겨찾기 칩 + 걷기/대중교통+걷기 만인지 확인
+- 나머지 기능이 ⋯ 더보기 한 묶음으로 접히는지 확인
+- 기기 다크모드에서도 배경이 흰색으로 고정되는지 확인
 - Landmark Admin 페이지 렌더와 입력 폼 확인
 - Streamlit 서버 예외 없음
 
