@@ -152,6 +152,8 @@ Streamlit 실행 후 사이드바의 `Landmark Admin` 페이지를 엽니다.
   이어질 때). 방향만 뒤집힌 경우는 “주의(drifting)”까지만 가고 재탐색하지 않습니다.
 - 초속 0.7m 미만에서는 진행 방향을 신뢰하지 않습니다. 제자리 GPS 노이즈로 방향이
   180° 뒤집혀도 방향 충돌로 세지 않습니다.
+- 한 번 벗어나면 복귀 판정은 더 안쪽 기준을 씁니다(들어갈 때 10m, 나올 때 8m).
+  임계선 위를 걸을 때 한 표본의 GPS 지터로 판정이 매번 뒤집히지 않습니다.
 
 경고음도 같은 기준으로 걸러집니다.
 
@@ -240,7 +242,7 @@ http://localhost:8501
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest streamlit_walk_engine\tests -q
-# 528 passed
+# 532 passed
 
 .\.venv\Scripts\python.exe -m pytest streamlit_task_organizer\tests -q
 # 20 passed
