@@ -1560,135 +1560,149 @@ def _render_privacy_consent_gate() -> None:
 
 
 def _render_privacy_panel() -> None:
-    """좌표 저장과 진단 수집을 명시적 opt-in으로 제어하고 삭제 수단을 제공한다."""
+    """좌표 저장과 진단 수집을 명시적 opt-in으로 제어하고 삭제 수단을 제공한다.
+
+    묶음 expander(_render_side_panels) 안에 렌더한다 — Streamlit 은 중첩 불가.
+    """
     if not st.session_state.get("nav_privacy_consent_ack", False):
         return  # 동의 화면은 main() 맨 위에서 단독으로 렌더한다
-    with st.expander("🔒 개인정보와 브라우저 저장", expanded=False):
-        st.caption(
-            "기본값은 위치·진단 데이터 비저장입니다. GitHub 자동 업로드 기능은 제거되었습니다."
-        )
-        location_storage = st.checkbox(
-            "안내 복구용 위치를 이 브라우저에 저장",
-            value=bool(st.session_state.get("nav_location_storage_enabled", False)),
-            help="마지막 위치와 진행 중 목적지를 저장합니다. 서버나 GitHub로 전송하지 않습니다.",
-            key="privacy_location_storage_widget",
-        )
-        consent = st.checkbox(
-            "문제 진단을 위한 비식별 로그 수집에 동의",
-            value=bool(st.session_state.get("nav_diag_consent", False)),
-            help="동의를 철회하면 새 진단 기록을 즉시 중단합니다.",
-            key="privacy_diag_consent_widget",
-        )
-        enabled = st.checkbox(
-            "진단 로그 수집",
-            value=(consent and bool(st.session_state.get("nav_diag_enabled", False))),
-            disabled=not consent,
-            help="GPS 정확도·이탈 판정·재탐색·음성 이벤트를 기록합니다.",
-            key="privacy_diag_enabled_widget",
-        )
-        coarse = st.checkbox(
-            "대략 위치 포함 (약 100m 격자)",
-            value=(enabled and bool(
-                st.session_state.get("nav_diag_include_coarse_location", False)
-            )),
-            disabled=not enabled,
-            help="원본 좌표는 기록하지 않습니다. 목적지·주소·검색어는 이 설정과 무관하게 제외됩니다.",
-            key="privacy_diag_coarse_widget",
-        )
-        persist = st.checkbox(
-            "진단 로그를 이 브라우저에 보관",
-            value=(enabled and bool(st.session_state.get("nav_diag_persist", False))),
-            disabled=not enabled,
-            help="끄면 현재 Streamlit 세션 메모리에만 남고 세션 종료 시 사라집니다.",
-            key="privacy_diag_persist_widget",
-        )
-        retention_options = [1, 6, 24, 72, 168]
-        current_retention = int(st.session_state.get(
-            "nav_diag_retention_hours", DEFAULT_DIAG_RETENTION_HOURS
-        ))
-        retention = st.selectbox(
-            "진단 로그 보존기간",
-            retention_options,
-            index=min(
-                range(len(retention_options)),
-                key=lambda idx: abs(retention_options[idx] - current_retention),
-            ),
-            format_func=lambda hours: f"{hours}시간",
-            disabled=not enabled,
-            key="privacy_diag_retention_widget",
-        )
-        st.session_state.update({
-            "nav_location_storage_enabled": bool(location_storage),
-            "nav_diag_consent": bool(consent),
-            "nav_diag_enabled": bool(consent and enabled),
-            "nav_diag_include_coarse_location": bool(consent and enabled and coarse),
-            "nav_diag_persist": bool(consent and enabled and persist),
-            "nav_diag_retention_hours": int(retention),
-        })
-        _save_privacy_settings()
+    st.markdown("**🔒 개인정보와 브라우저 저장**")
+    st.caption(
+        "기본값은 위치·진단 데이터 비저장입니다. GitHub 자동 업로드 기능은 제거되었습니다."
+    )
+    location_storage = st.checkbox(
+        "안내 복구용 위치를 이 브라우저에 저장",
+        value=bool(st.session_state.get("nav_location_storage_enabled", False)),
+        help="마지막 위치와 진행 중 목적지를 저장합니다. 서버나 GitHub로 전송하지 않습니다.",
+        key="privacy_location_storage_widget",
+    )
+    consent = st.checkbox(
+        "문제 진단을 위한 비식별 로그 수집에 동의",
+        value=bool(st.session_state.get("nav_diag_consent", False)),
+        help="동의를 철회하면 새 진단 기록을 즉시 중단합니다.",
+        key="privacy_diag_consent_widget",
+    )
+    enabled = st.checkbox(
+        "진단 로그 수집",
+        value=(consent and bool(st.session_state.get("nav_diag_enabled", False))),
+        disabled=not consent,
+        help="GPS 정확도·이탈 판정·재탐색·음성 이벤트를 기록합니다.",
+        key="privacy_diag_enabled_widget",
+    )
+    coarse = st.checkbox(
+        "대략 위치 포함 (약 100m 격자)",
+        value=(enabled and bool(
+            st.session_state.get("nav_diag_include_coarse_location", False)
+        )),
+        disabled=not enabled,
+        help="원본 좌표는 기록하지 않습니다. 목적지·주소·검색어는 이 설정과 무관하게 제외됩니다.",
+        key="privacy_diag_coarse_widget",
+    )
+    persist = st.checkbox(
+        "진단 로그를 이 브라우저에 보관",
+        value=(enabled and bool(st.session_state.get("nav_diag_persist", False))),
+        disabled=not enabled,
+        help="끄면 현재 Streamlit 세션 메모리에만 남고 세션 종료 시 사라집니다.",
+        key="privacy_diag_persist_widget",
+    )
+    retention_options = [1, 6, 24, 72, 168]
+    current_retention = int(st.session_state.get(
+        "nav_diag_retention_hours", DEFAULT_DIAG_RETENTION_HOURS
+    ))
+    retention = st.selectbox(
+        "진단 로그 보존기간",
+        retention_options,
+        index=min(
+            range(len(retention_options)),
+            key=lambda idx: abs(retention_options[idx] - current_retention),
+        ),
+        format_func=lambda hours: f"{hours}시간",
+        disabled=not enabled,
+        key="privacy_diag_retention_widget",
+    )
+    st.session_state.update({
+        "nav_location_storage_enabled": bool(location_storage),
+        "nav_diag_consent": bool(consent),
+        "nav_diag_enabled": bool(consent and enabled),
+        "nav_diag_include_coarse_location": bool(consent and enabled and coarse),
+        "nav_diag_persist": bool(consent and enabled and persist),
+        "nav_diag_retention_hours": int(retention),
+    })
+    _save_privacy_settings()
 
-        if st.button("🗑️ 이 브라우저의 walk 개인 데이터 모두 삭제", width="stretch"):
-            _delete_personal_data()
-            st.rerun()
+    if st.button("🗑️ 이 브라우저의 walk 개인 데이터 모두 삭제", width="stretch"):
+        _delete_personal_data()
+        st.rerun()
 
 
 def _render_diag_panel() -> None:
-    """동의 후 수집된 비식별 진단 로그의 요약·내려받기·삭제 패널."""
-    with st.expander("🧪 도보 진단 로그 (문제 진단용)", expanded=False):
-        if not (
-            st.session_state.get("nav_diag_consent", False)
-            and st.session_state.get("nav_diag_enabled", False)
-        ):
-            st.caption("진단 수집 OFF — 위 개인정보 설정에서 동의해야 기록됩니다.")
-        log = st.session_state.get("nav_diag_log") or []
-        if not log:
-            st.caption("저장된 진단 기록이 없습니다.")
-            return
-        summ = diag_summary(log)
-        ev = summ.get("events", {})
-        c1, c2, c3 = st.columns(3)
-        c1.metric("레코드", summ.get("records", 0))
-        c2.metric("기록 시간", f"{summ.get('span_s', 0)}초")
-        c3.metric("재탐색", f"{ev.get('reroute', 0)}회")
-        c4, c5, c6 = st.columns(3)
-        c4.metric("이탈 알림", f"{ev.get('alert', 0)}회")
-        c5.metric("정확도 p50", f"{summ.get('acc_p50', '-')}m")
-        c6.metric("정확도 p90", f"{summ.get('acc_p90', '-')}m")
-        states = summ.get("states", {})
-        if states:
-            st.caption("판정 분포: " + ", ".join(f"{k} {v}" for k, v in states.items()))
-        st.markdown("**자동 진단**")
-        for finding in diag_findings(summ):
-            st.write(finding)
-        # 원본 로그(최대 3000레코드)는 붙여넣기엔 너무 크다. 임계값 조정에 필요한
-        # 분포·횟수만 한 화면으로 압축해, 내려받기 없이 복사→붙여넣기로 넘길 수 있게 한다.
-        cfg = st.session_state["nav_config"]
-        report = diag_report(summ, {
-            "drift_m": cfg.route_drift_distance_threshold_meters,
-            "dev_m": cfg.route_deviation_distance_threshold_meters,
-            "consec": cfg.minimum_consecutive_samples_for_deviation,
-            "hold_ms": cfg.minimum_drift_duration_ms,
-            "hyst": cfg.drift_exit_hysteresis_ratio,
-            "drift_cooldown_ms": gps_filter.DRIFT_REPEAT_COOLDOWN_MS,
-        })
-        st.markdown("**요약 복사(분석용)**")
-        st.caption("이 블록만 복사해 보내면 임계값을 조정할 수 있습니다. 좌표는 들어가지 않습니다.")
-        st.code(report, language="text")
+    """동의 후 수집된 비식별 진단 로그의 요약·복사·내려받기·삭제 패널."""
+    st.markdown("**🧪 도보 진단 로그 (문제 진단용)**")
+    if not (
+        st.session_state.get("nav_diag_consent", False)
+        and st.session_state.get("nav_diag_enabled", False)
+    ):
+        st.caption("진단 수집 OFF — 위 개인정보 설정에서 동의해야 기록됩니다.")
+    log = st.session_state.get("nav_diag_log") or []
+    if not log:
+        st.caption("저장된 진단 기록이 없습니다.")
+        return
+    summ = diag_summary(log)
+    ev = summ.get("events", {})
+    c1, c2, c3 = st.columns(3)
+    c1.metric("레코드", summ.get("records", 0))
+    c2.metric("기록 시간", f"{summ.get('span_s', 0)}초")
+    c3.metric("재탐색", f"{ev.get('reroute', 0)}회")
+    c4, c5, c6 = st.columns(3)
+    c4.metric("이탈 알림", f"{ev.get('alert', 0)}회")
+    c5.metric("정확도 p50", f"{summ.get('acc_p50', '-')}m")
+    c6.metric("정확도 p90", f"{summ.get('acc_p90', '-')}m")
+    states = summ.get("states", {})
+    if states:
+        st.caption("판정 분포: " + ", ".join(f"{k} {v}" for k, v in states.items()))
+    st.markdown("**자동 진단**")
+    for finding in diag_findings(summ):
+        st.write(finding)
+    # 원본 로그(최대 3000레코드)는 붙여넣기엔 너무 크다. 임계값 조정에 필요한
+    # 분포·횟수만 한 화면으로 압축해, 내려받기 없이 복사→붙여넣기로 넘길 수 있게 한다.
+    cfg = st.session_state["nav_config"]
+    report = diag_report(summ, {
+        "drift_m": cfg.route_drift_distance_threshold_meters,
+        "dev_m": cfg.route_deviation_distance_threshold_meters,
+        "consec": cfg.minimum_consecutive_samples_for_deviation,
+        "hold_ms": cfg.minimum_drift_duration_ms,
+        "hyst": cfg.drift_exit_hysteresis_ratio,
+        "drift_cooldown_ms": gps_filter.DRIFT_REPEAT_COOLDOWN_MS,
+    })
+    st.markdown("**요약 복사(분석용)**")
+    st.caption("이 블록만 복사해 보내면 임계값을 조정할 수 있습니다. 좌표는 들어가지 않습니다.")
+    st.code(report, language="text")
 
-        payload = diag_json(log)
-        st.download_button(
-            "⬇️ 비식별 진단 로그 내려받기 (JSON)",
-            payload,
-            file_name="walk_diag.json",
-            mime="application/json",
-            width="stretch",
-        )
-        if st.checkbox("📋 복사용 JSON 보기(모바일)", value=False):
-            st.code(payload, language="json")
-        if st.button("🗑️ 진단 로그 지우기", width="stretch"):
-            st.session_state["nav_diag_log"] = []
-            _remove_ls(_LS_KEY_DIAG)
-            st.rerun()
+    payload = diag_json(log)
+    st.download_button(
+        "⬇️ 비식별 진단 로그 내려받기 (JSON)",
+        payload,
+        file_name="walk_diag.json",
+        mime="application/json",
+        width="stretch",
+    )
+    if st.checkbox("📋 복사용 JSON 보기(모바일)", value=False):
+        st.code(payload, language="json")
+    if st.button("🗑️ 진단 로그 지우기", width="stretch"):
+        st.session_state["nav_diag_log"] = []
+        _remove_ls(_LS_KEY_DIAG)
+        st.rerun()
+
+
+def _render_side_panels() -> None:
+    """개인정보·진단을 한 묶음으로 접어 본 화면 줄 수를 줄인다.
+
+    경로가 없어도(안내 전) 항상 접근 가능해야 하므로 두 분기 모두에서 호출한다.
+    """
+    with st.expander("🔒 개인정보·진단 로그", expanded=False):
+        _render_privacy_panel()
+        st.divider()
+        _render_diag_panel()
 
 
 # 다음 회전 예고 음성 '기본' 거리(m). 실제 엔진+GPS 노이즈(σ6m)+1초 폴링 시뮬(720회 보행) 실측:
@@ -2708,23 +2722,23 @@ def _render_heading_debug() -> None:
         except (TypeError, ValueError):
             return "없음"
 
-    with st.expander("🧭 방향이 틀릴 때 — 방향값 진단(폰에서 확인)", expanded=False):
-        st.caption(
-            "실제 길에 서서 **정면으로 보고 있는 방향**과, 아래 큰 글씨(‘지금 센서가 읽는 방향’) 및 "
-            "계산 방식별 값 중 **어느 게 맞는지** 알려주세요. 그 한 가지로 원인이 확정됩니다."
-        )
-        # ── 앱이 실제 쓰는 값(iframe 밖, 네이티브) ── srcdoc 오염을 막기 위해 여기서 렌더.
-        st.markdown(
-            f"**앱이 쓰는 값**  ·  지도·화살표 **{_deg8_label(map_val)}** ({_fmt(map_val)})  "
-            f"·  나침반 카드 **{_deg8_label(app_val)}** ({_fmt(app_val)})"
-        )
-        st.caption("↑ 이 두 값은 GPS 주기로만 갱신돼 조금 느립니다. 서 있는데 이 값이 "
-                   "실제 방향과 다르면 그 자체가 원인 신호예요. 값 복사 시 이 두 줄도 함께 알려주세요.")
-        components.html(
-            _HEADING_DEBUG_HTML.replace("__DECL__", repr(float(_COMPASS_DECL_DEG))),
-            height=720,
-            scrolling=True,
-        )
+    st.markdown("**🧭 방향이 틀릴 때 — 방향값 진단(폰에서 확인)**")
+    st.caption(
+        "실제 길에 서서 **정면으로 보고 있는 방향**과, 아래 큰 글씨(‘지금 센서가 읽는 방향’) 및 "
+        "계산 방식별 값 중 **어느 게 맞는지** 알려주세요. 그 한 가지로 원인이 확정됩니다."
+    )
+    # ── 앱이 실제 쓰는 값(iframe 밖, 네이티브) ── srcdoc 오염을 막기 위해 여기서 렌더.
+    st.markdown(
+        f"**앱이 쓰는 값**  ·  지도·화살표 **{_deg8_label(map_val)}** ({_fmt(map_val)})  "
+        f"·  나침반 카드 **{_deg8_label(app_val)}** ({_fmt(app_val)})"
+    )
+    st.caption("↑ 이 두 값은 GPS 주기로만 갱신돼 조금 느립니다. 서 있는데 이 값이 "
+               "실제 방향과 다르면 그 자체가 원인 신호예요. 값 복사 시 이 두 줄도 함께 알려주세요.")
+    components.html(
+        _HEADING_DEBUG_HTML.replace("__DECL__", repr(float(_COMPASS_DECL_DEG))),
+        height=720,
+        scrolling=True,
+    )
 
 
 def _search_places(query: str) -> list:
@@ -2931,82 +2945,82 @@ def _sidebar_destination(favorites: list, running: bool = False) -> None:
 
 
 def _sidebar_favorites(favorites: list) -> None:
-    """즐겨찾기 추가·삭제 관리 패널."""
-    with st.expander("즐겨찾기 관리", expanded=False):
-        fav_name = st.text_input("명칭", placeholder="예) 회사, 집, 학교", key="fav_name_in")
-        fav_addr = st.text_input("주소", placeholder="예) 서울역 1번출구",  key="fav_addr_in")
-        if st.button("즐겨찾기 추가", disabled=(not fav_name or not fav_addr), width="stretch"):
-            new_fav = {
-                "id":      _make_id("fav"),
-                "name":    fav_name.strip(),
-                "address": fav_addr.strip(),
-            }
-            updated = [
-                f for f in favorites
-                if f.get("name") != new_fav["name"] and f.get("address") != new_fav["address"]
-            ]
-            updated.insert(0, new_fav)
-            st.session_state["nav_favorites"] = updated[:50]
-            _save_list_to_ls(_LS_KEY_FAVORITES, updated[:50])
-            st.success("즐겨찾기를 추가했습니다.")
-            st.rerun()
+    """즐겨찾기 추가·삭제 관리 — 묶음 expander 안에 렌더한다(중첩 불가)."""
+    st.markdown("**⭐ 즐겨찾기 관리**")
+    fav_name = st.text_input("명칭", placeholder="예) 회사, 집, 학교", key="fav_name_in")
+    fav_addr = st.text_input("주소", placeholder="예) 서울역 1번출구",  key="fav_addr_in")
+    if st.button("즐겨찾기 추가", disabled=(not fav_name or not fav_addr), width="stretch"):
+        new_fav = {
+            "id":      _make_id("fav"),
+            "name":    fav_name.strip(),
+            "address": fav_addr.strip(),
+        }
+        updated = [
+            f for f in favorites
+            if f.get("name") != new_fav["name"] and f.get("address") != new_fav["address"]
+        ]
+        updated.insert(0, new_fav)
+        st.session_state["nav_favorites"] = updated[:50]
+        _save_list_to_ls(_LS_KEY_FAVORITES, updated[:50])
+        st.success("즐겨찾기를 추가했습니다.")
+        st.rerun()
 
-        for fav in favorites[:10]:
-            col_n, col_d = st.columns([3, 1])
-            with col_n:
-                st.caption(f"{fav['name']} · {fav['address']}")
-            with col_d:
-                if st.button("삭제", key=f"fav_del_{fav['id']}"):
-                    st.session_state["nav_favorites"] = [f for f in favorites if f["id"] != fav["id"]]
-                    _save_list_to_ls(_LS_KEY_FAVORITES, st.session_state["nav_favorites"])
-                    st.rerun()
+    for fav in favorites[:10]:
+        col_n, col_d = st.columns([3, 1])
+        with col_n:
+            st.caption(f"{fav['name']} · {fav['address']}")
+        with col_d:
+            if st.button("삭제", key=f"fav_del_{fav['id']}"):
+                st.session_state["nav_favorites"] = [f for f in favorites if f["id"] != fav["id"]]
+                _save_list_to_ls(_LS_KEY_FAVORITES, st.session_state["nav_favorites"])
+                st.rerun()
 
 
 def _sidebar_bookings(favorites: list, origin: Optional[Coordinate]) -> None:
-    """예약 경로 추가·관리 패널 + 자동 활성화 트리거."""
-    with st.expander("🗓️ 예약 경로 (자주 가는 길 저장)", expanded=False):
+    """예약 경로 추가·관리 + 자동 활성화 트리거 — 묶음 expander 안에 렌더한다."""
+    st.markdown("**🗓️ 예약 경로**")
 
-        # 즐겨찾기 → 예약 입력칸 자동 채움
-        if favorites:
-            fav_opts = ["선택 안 함"] + [f"{f['name']} · {f['address']}" for f in favorites]
-            sel = st.selectbox("즐겨찾기 주소 불러오기", fav_opts, key="bk_fav_sel")
-            if sel != "선택 안 함":
-                sel_addr = favorites[fav_opts.index(sel) - 1]["address"]
-                col_s, col_d = st.columns(2)
-                with col_s:
-                    if st.button("출발지에 입력", key="fav_to_bk_start", width="stretch"):
-                        st.session_state["booking_start_input"] = sel_addr
-                        st.rerun()
-                with col_d:
-                    if st.button("목적지에 입력", key="fav_to_bk_dest", width="stretch"):
-                        st.session_state["booking_dest_input"] = sel_addr
-                        st.rerun()
-
-        # 예약 히스토리 버튼 → 입력칸 자동 채움
-        booking_history = st.session_state["nav_booking_history"]
-        if booking_history:
-            st.caption("예약 히스토리")
-            for i, item in enumerate(booking_history[:5]):
-                if st.button(f"🕘 {item['label']}", key=f"bkhist_{i}", width="stretch"):
-                    st.session_state["booking_start_input"] = item["start_query"]
-                    st.session_state["booking_dest_input"]  = item["dest_query"]
+    # 즐겨찾기 → 예약 입력칸 자동 채움
+    if favorites:
+        fav_opts = ["선택 안 함"] + [f"{f['name']} · {f['address']}" for f in favorites]
+        sel = st.selectbox("즐겨찾기 주소 불러오기", fav_opts, key="bk_fav_sel")
+        if sel != "선택 안 함":
+            sel_addr = favorites[fav_opts.index(sel) - 1]["address"]
+            col_s, col_d = st.columns(2)
+            with col_s:
+                if st.button("출발지에 입력", key="fav_to_bk_start", width="stretch"):
+                    st.session_state["booking_start_input"] = sel_addr
+                    st.rerun()
+            with col_d:
+                if st.button("목적지에 입력", key="fav_to_bk_dest", width="stretch"):
+                    st.session_state["booking_dest_input"] = sel_addr
                     st.rerun()
 
-        booking_start  = st.text_input("예약 출발지", placeholder="예) 서울역 1번출구", key="booking_start_input")
-        booking_dest   = st.text_input("예약 목적지", placeholder="예) 경복궁",         key="booking_dest_input")
-        booking_radius = st.slider("출발지 도착 판정 반경 (m)", 30, 300, 80, step=10)
+    # 예약 히스토리 버튼 → 입력칸 자동 채움
+    booking_history = st.session_state["nav_booking_history"]
+    if booking_history:
+        st.caption("예약 히스토리")
+        for i, item in enumerate(booking_history[:5]):
+            if st.button(f"🕘 {item['label']}", key=f"bkhist_{i}", width="stretch"):
+                st.session_state["booking_start_input"] = item["start_query"]
+                st.session_state["booking_dest_input"]  = item["dest_query"]
+                st.rerun()
 
-        if st.button("예약 추가", disabled=(not booking_start or not booking_dest), width="stretch"):
-            _add_single_booking(booking_start, booking_dest, booking_radius)
+    booking_start  = st.text_input("예약 출발지", placeholder="예) 서울역 1번출구", key="booking_start_input")
+    booking_dest   = st.text_input("예약 목적지", placeholder="예) 경복궁",         key="booking_dest_input")
+    booking_radius = st.slider("출발지 도착 판정 반경 (m)", 30, 300, 80, step=10)
 
-        bulk_text = st.text_area(
-            "여러 개 한 번에 추가",
-            placeholder="예)\n서울역 1번출구 -> 경복궁\n강남역 10번출구 -> 코엑스",
-            key="booking_bulk_input",
-            height=90,
-        )
-        if st.button("일괄 예약 추가", disabled=not bulk_text.strip(), width="stretch"):
-            _add_bulk_bookings(bulk_text, booking_radius)
+    if st.button("예약 추가", disabled=(not booking_start or not booking_dest), width="stretch"):
+        _add_single_booking(booking_start, booking_dest, booking_radius)
+
+    bulk_text = st.text_area(
+        "여러 개 한 번에 추가",
+        placeholder="예)\n서울역 1번출구 -> 경복궁\n강남역 10번출구 -> 코엑스",
+        key="booking_bulk_input",
+        height=90,
+    )
+    if st.button("일괄 예약 추가", disabled=not bulk_text.strip(), width="stretch"):
+        _add_bulk_bookings(bulk_text, booking_radius)
 
     # 활성 예약 목록
     bookings = st.session_state["nav_route_bookings"]
@@ -3564,8 +3578,6 @@ def main() -> None:
             st.divider()
             st.markdown("**현재 위치**")
             _render_compass_enable()  # iOS 나침반 권한(탭 1회) — 값 들어오면 자동 숨김
-        # 방향 진단 패널 — 안내 중에도 보이게 running 분기 밖에 둔다(실제 길 위에서 확인).
-        _render_heading_debug()
         if _HAS_GEO:
             # nav 실행 중, 위치 미취득, 또는 대략 위치(부트스트랩)면 계속 폴링해
             # 더 정확한 fix로 자동 교체한다. (모바일은 첫 GPS fix로 곧 정밀 위치 확보)
@@ -3841,9 +3853,10 @@ def main() -> None:
         # 위젯 자체는 항상 렌더하고, 헤더/구분선만 내비 중 숨겨 화면을 단순화한다.
         if not running:
             st.divider()
-            st.markdown("**⚙️ 알림 설정**")
-        # 자주 쓰는 토글은 본문에, 민감도 슬라이더는 '고급 설정'으로 접어 화면을 단순화.
-        with st.container():
+        # 설정은 걷기 전에 한 번 만지는 항목이라 하나로 접는다 — 본 화면에는 핵심 동선
+        # (목적지·걷기/대중교통·시작/중지·초기화)만 남긴다. 슬라이더·토글은 접혀 있어도
+        # 매 rerun 실행되므로 nav_config 재기록은 그대로 보장된다.
+        with st.expander("⚙️ 설정 (알림·음성·민감도)", expanded=False):
             reroute_on = st.toggle(
                 "길 벗어나면 자동 재탐색", value=st.session_state["nav_reroute_enabled"],
                 help="경로 이탈·회전 미이행 감지 시 현재 위치 기준으로 재탐색 (3초 쿨다운)")
@@ -3853,46 +3866,47 @@ def main() -> None:
             tts_on = st.toggle(
                 "음성 안내", value=st.session_state["nav_tts_enabled"],
                 help="이탈 상태를 한국어 음성(TTS)으로 안내 (브라우저 음성 합성)")
-            # 테스트 버튼은 걷기 전에 한 번만 쓰는 보조 동작 — 접어 두어 본 화면에는
-            # 핵심 동선(걷기·대중교통·시작/중지·초기화) 버튼만 남긴다.
-            with st.expander("🔔 소리·음성 테스트 (걷기 전 확인)", expanded=False):
-                # 걷기 전에 폰에서 소리·진동이 실제로 나는지 확인하는 버튼. 이 탭 자체가
-                # 브라우저에 '사용자 상호작용'을 만들어 이후 자동재생 허용에도 도움이 된다.
-                if st.button("🔔 소리·진동 테스트", width="stretch"):
-                    st.audio(_alert_tone_wav("deviated"), format="audio/wav", autoplay=True)
+            st.markdown("**🔔 소리·음성 테스트 (걷기 전 확인)**")
+            # 걷기 전에 폰에서 소리·진동이 실제로 나는지 확인하는 버튼. 이 탭 자체가
+            # 브라우저에 '사용자 상호작용'을 만들어 이후 자동재생 허용에도 도움이 된다.
+            if st.button("🔔 소리·진동 테스트", width="stretch"):
+                st.audio(_alert_tone_wav("deviated"), format="audio/wav", autoplay=True)
+                components.html(
+                    "<script>try{if(navigator.vibrate)navigator.vibrate([200,100,300]);}"
+                    "catch(e){}</script>", height=0)
+                st.toast("🔔 알림 테스트 — 삐삐 소리가 나면 정상입니다")
+            # 음성(TTS)이 폰에서 실제로 나는지 걷기 전에 확인 — '음성 안내 재확인'용.
+            # gTTS MP3(최상위 문서 autoplay) 우선, 실패 시 브라우저 speechSynthesis 폴백.
+            # 버튼 클릭 자체가 사용자 제스처라 이후 자동재생 허용에도 도움이 된다.
+            if st.button("🔊 음성 테스트 (목소리 확인)", width="stretch"):
+                _phrase = "음성 안내 테스트입니다. 경로를 이탈하면 이렇게 알려드립니다."
+                _mp3 = _tts_mp3(_phrase)
+                if _mp3:
+                    st.audio(_mp3, format="audio/mp3", autoplay=True)
+                    st.toast("🔊 음성 테스트 — 목소리가 들리면 정상입니다")
+                else:
                     components.html(
-                        "<script>try{if(navigator.vibrate)navigator.vibrate([200,100,300]);}"
-                        "catch(e){}</script>", height=0)
-                    st.toast("🔔 알림 테스트 — 삐삐 소리가 나면 정상입니다")
-                # 음성(TTS)이 폰에서 실제로 나는지 걷기 전에 확인 — '음성 안내 재확인'용.
-                # gTTS MP3(최상위 문서 autoplay) 우선, 실패 시 브라우저 speechSynthesis 폴백.
-                # 버튼 클릭 자체가 사용자 제스처라 이후 자동재생 허용에도 도움이 된다.
-                if st.button("🔊 음성 테스트 (목소리 확인)", width="stretch"):
-                    _phrase = "음성 안내 테스트입니다. 경로를 이탈하면 이렇게 알려드립니다."
-                    _mp3 = _tts_mp3(_phrase)
-                    if _mp3:
-                        st.audio(_mp3, format="audio/mp3", autoplay=True)
-                        st.toast("🔊 음성 테스트 — 목소리가 들리면 정상입니다")
-                    else:
-                        components.html(
-                            f"<script>(function(){{{build_tts_script(_phrase)}}})();</script>",
-                            height=0)
-                        st.toast("🔊 음성 테스트 — 브라우저 음성으로 시도(안 들리면 기기 제약)")
-            with st.expander("🔧 고급 설정 (이탈 감지 민감도)", expanded=False):
-                st.caption("GPS가 얼마나 벗어나야 경고할지 — 보통은 기본값 그대로 두세요")
-                drift_t = st.slider(
-                    "경고 시작 거리(m)", 5, 20, 10,
-                    help="경로에서 이만큼(m) 벗어나면 '주의' 경고가 울려요 (삐 1번)")
-                # 확정 거리는 시작 거리 이상·강한 이탈 거리(기본 25m) 이하(drift<=deviation<=strong).
-                dev_t = st.slider(
-                    "이탈 확정 거리(m)", drift_t, 25, max(15, drift_t),
-                    help="이만큼(m) 벗어난 상태가 이어지면 '이탈'로 확정하고 재탐색해요 (삐 2번)")
-                # 이탈 확정을 더 빨리 알리도록 기본 2샘플(과거 3). GPS 노이즈 오탐이
-                # 잦으면 이 값을 올리세요(높을수록 둔감·오탐↓, 낮을수록 민감·반응↑).
-                min_consec = st.slider(
-                    "연속 감지 횟수", 1, 5, 3,
-                    help="GPS는 약 1초마다 위치를 재요. 연속으로 이 횟수만큼 벗어나야 이탈 확정 — "
-                         "3이면 약 3초. GPS가 한 번 튄 것으로 오판하지 않기 위한 안전장치예요")
+                        f"<script>(function(){{{build_tts_script(_phrase)}}})();</script>",
+                        height=0)
+                    st.toast("🔊 음성 테스트 — 브라우저 음성으로 시도(안 들리면 기기 제약)")
+            # 방향 진단은 안내 중에도 열 수 있어야 한다 — 이 설정 묶음은 running 과
+            # 무관하게 렌더되므로 실제 길 위에서도 접근된다.
+            _render_heading_debug()
+            st.markdown("**🔧 이탈 감지 민감도**")
+            st.caption("GPS가 얼마나 벗어나야 경고할지 — 보통은 기본값 그대로 두세요")
+            drift_t = st.slider(
+                "경고 시작 거리(m)", 5, 20, 10,
+                help="경로에서 이만큼(m) 벗어나면 '주의' 경고가 울려요 (삐 1번)")
+            # 확정 거리는 시작 거리 이상·강한 이탈 거리(기본 25m) 이하(drift<=deviation<=strong).
+            dev_t = st.slider(
+                "이탈 확정 거리(m)", drift_t, 25, max(15, drift_t),
+                help="이만큼(m) 벗어난 상태가 이어지면 '이탈'로 확정하고 재탐색해요 (삐 2번)")
+            # 이탈 확정을 더 빨리 알리도록 기본 2샘플(과거 3). GPS 노이즈 오탐이
+            # 잦으면 이 값을 올리세요(높을수록 둔감·오탐↓, 낮을수록 민감·반응↑).
+            min_consec = st.slider(
+                "연속 감지 횟수", 1, 5, 3,
+                help="GPS는 약 1초마다 위치를 재요. 연속으로 이 횟수만큼 벗어나야 이탈 확정 — "
+                     "3이면 약 3초. GPS가 한 번 튄 것으로 오판하지 않기 위한 안전장치예요")
         st.session_state["nav_reroute_enabled"] = reroute_on
         st.session_state["nav_alert_enabled"] = alert_on
         st.session_state["nav_tts_enabled"] = tts_on
@@ -3910,8 +3924,10 @@ def main() -> None:
     # nav_running=True에서 즉시 return하므로 기능 손실 없이 화면만 비운다.
     if not running:
         st.divider()
-        _sidebar_favorites(favorites)
-        _sidebar_bookings(favorites, origin)
+        with st.expander("⭐ 자주 가는 길 (즐겨찾기·예약)", expanded=False):
+            _sidebar_favorites(favorites)
+            st.divider()
+            _sidebar_bookings(favorites, origin)
 
     # ── 도착 판정 (이탈 판정보다 우선) ────────────────────────────────────────
     arrived_now = False
@@ -4079,9 +4095,6 @@ def main() -> None:
     if journey is not None:
         _render_journey(journey, st.session_state.get("nav_active_leg_index", 0))
 
-    # 경로가 없어도 동의 철회·브라우저 데이터 삭제에 항상 접근할 수 있어야 한다.
-    _render_privacy_panel()
-
     if route is None or dest is None:
         if journey is None:
             st.info("목적지를 입력하고 '경로 찾기'를 누르세요. 지도는 현재 위치 기준으로 표시됩니다.")
@@ -4091,7 +4104,7 @@ def main() -> None:
         st.plotly_chart(
             _build_placeholder_map(st.session_state.get("nav_display_origin") or origin),
             width="stretch")
-        _render_diag_panel()
+        _render_side_panels()
         return
 
     if (not st.session_state["nav_running"]) and st.session_state.get("nav_arrival_summary"):
@@ -4167,7 +4180,7 @@ def main() -> None:
         _render_landmark_guidance()
 
     # 도보 진단 로그 — 동의한 비식별 데이터로 문제를 진단하고 사용자가 직접 내려받는다.
-    _render_diag_panel()
+    _render_side_panels()
 
     # 이번 rerun 최우선 오디오 1개 재생 — 알림음·이탈/도착/재탐색/회전 음성이 겹쳐도
     # 우선순위대로 하나만 낸다(모바일 1-autoplay 제한 준수). 렌더 맨 끝에서 1회.

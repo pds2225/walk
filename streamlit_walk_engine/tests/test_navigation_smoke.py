@@ -278,6 +278,28 @@ def test_suppressed_decisions_are_logged():
         assert f'why="{why}"' in source
 
 
+def test_secondary_panels_are_grouped_into_three():
+    """폰 화면이 접힌 패널 줄로 뒤덮이지 않도록 보조 기능은 세 묶음으로만 접는다:
+    ⚙️ 설정(알림·음성 테스트·민감도·방향 진단) / ⭐ 자주 가는 길(즐겨찾기·예약) /
+    🔒 개인정보·진단. Streamlit 은 expander 중첩이 불가하므로 묶음 안의 하위 패널은
+    expander 가 아니라 소제목으로 렌더해야 한다(중첩 시 런타임 예외)."""
+    source = PAGE.read_text(encoding="utf-8")
+
+    for label in ("⚙️ 설정 (알림·음성·민감도)",
+                  "⭐ 자주 가는 길 (즐겨찾기·예약)",
+                  "🔒 개인정보·진단 로그"):
+        assert f'st.expander("{label}"' in source
+
+    # 묶음에 흡수된 개별 패널은 더 이상 자기 expander 를 열지 않는다
+    for gone in ("🔧 고급 설정", "🔔 소리·음성 테스트 (걷기 전 확인)\", expanded",
+                 "즐겨찾기 관리\", expanded", "🗓️ 예약 경로",
+                 "🔒 개인정보와 브라우저 저장", "🧪 도보 진단 로그 (문제 진단용)\", expanded"):
+        assert f'st.expander("{gone}' not in source
+
+    # 개인정보·진단은 경로가 없어도 접근 가능해야 한다 → 두 분기 모두에서 호출
+    assert source.count("_render_side_panels()") >= 3   # 정의 1 + 호출 2
+
+
 def test_diag_summary_is_copyable_without_download():
     """원본 로그(최대 3000레코드)는 붙여넣기엔 크다 — 분포·횟수만 담은 요약 블록을
     진단 패널에 직접 렌더해, 내려받기 없이 복사만으로 넘길 수 있어야 한다.
