@@ -237,6 +237,50 @@ class TestSessionBehavior:
         assert engine._session.drift_start_timestamp_ms == 3_000
 
 
+class TestDriftHysteresis:
+    """임계선(기본 10m) 위를 걸을 때 판정이 매 표본 뒤집히지 않아야 한다."""
+
+    def test_stays_drifting_between_exit_and_entry_thresholds(self):
+        # 11m 로 진입한 뒤 9m(복귀 임계 8m 바깥)로 들어와도 아직 '경로 위'가 아니다.
+        engine = RouteDeviationEngine(straight_route())
+        entered = engine.process_sample(sample(20, 11, 90, 1_000))
+        held = engine.process_sample(sample(24, 9, 90, 2_000))
+
+        assert entered.state == "drifting"
+        assert held.state == "drifting"
+
+    def test_returns_to_on_route_inside_exit_threshold(self):
+        # 복귀 임계(8m) 안쪽으로 들어오면 정상적으로 '경로 위'로 돌아온다.
+        engine = RouteDeviationEngine(straight_route())
+        engine.process_sample(sample(20, 11, 90, 1_000))
+        recovered = engine.process_sample(sample(24, 7, 90, 2_000))
+
+        assert recovered.state == "on_route"
+
+    def test_threshold_line_walking_does_not_flap(self):
+        # 9~11m 를 오가며 걸어도 on_route 로 되돌아가며 깜빡이지 않는다.
+        engine = RouteDeviationEngine(straight_route())
+        states = [
+            engine.process_sample(sample(east, north, 90, ts)).state
+            for east, north, ts in (
+                (20, 11, 1_000), (23, 9, 2_000), (26, 11, 3_000),
+                (29, 9, 4_000), (32, 11, 5_000),
+            )
+        ]
+
+        assert states.count("on_route") == 0
+
+    def test_hysteresis_can_be_disabled_by_config(self):
+        # 비율 1.0 = 히스테리시스 없음(옛 동작) — 9m 에서 곧바로 경로 위로 판정.
+        engine = RouteDeviationEngine(
+            straight_route(), EngineConfig(drift_exit_hysteresis_ratio=1.0)
+        )
+        engine.process_sample(sample(20, 11, 90, 1_000))
+        recovered = engine.process_sample(sample(24, 9, 90, 2_000))
+
+        assert recovered.state == "on_route"
+
+
 class TestStraightRoadBackAndForth:
     """직진길에서 왔다갔다·서성임을 이탈로 판정하지 않는다."""
 

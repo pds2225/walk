@@ -352,6 +352,7 @@ def _init() -> None:
         "nav_config": EngineConfig(),
         "nav_last_alerted_state": "on_route",
         "nav_last_weak_toast_ts_ms": None,
+        "nav_last_drift_alert_ts_ms": None,   # '벗어나기 시작' 경고 재발화 쿨다운 기준 시각
         "nav_alert_enabled": True,
         "nav_tts_enabled": True,
         "nav_tts_primed": False,         # 안내 시작(제스처) 시 브라우저 TTS 해금 1회 실행 여부
@@ -421,6 +422,7 @@ def _reset() -> None:
         )
     st.session_state["nav_last_alerted_state"] = "on_route"
     st.session_state["nav_last_weak_toast_ts_ms"] = None
+    st.session_state["nav_last_drift_alert_ts_ms"] = None
     st.session_state["nav_last_reroute_ts_ms"] = None
     st.session_state["nav_reroute_count"] = 0
     st.session_state["nav_arrival_summary"] = None
@@ -574,6 +576,7 @@ def _commit_pending_reroute() -> None:
         "nav_reroute_count":       new_count,
         "nav_last_alerted_state":  "on_route",
         "nav_last_weak_toast_ts_ms": None,
+        "nav_last_drift_alert_ts_ms": None,
         # 새 경로의 회전점 id 가 옛 id 와 겹쳐도 예고가 막히지 않게 리셋
         "nav_turn_announced_id":   None,
     })
@@ -3980,6 +3983,7 @@ def main() -> None:
                 now_ms,
                 st.session_state["nav_last_weak_toast_ts_ms"],
                 st.session_state["nav_alert_enabled"],
+                last_drift_alert_ts_ms=st.session_state["nav_last_drift_alert_ts_ms"],
             )
             if decision.fire_full:
                 _trigger_alert(result.state, st.session_state["nav_tts_enabled"])
@@ -3991,6 +3995,7 @@ def main() -> None:
                       if isinstance(acc, (int, float)) else None)
             st.session_state["nav_last_alerted_state"] = decision.new_last_alerted
             st.session_state["nav_last_weak_toast_ts_ms"] = decision.new_last_weak_ts_ms
+            st.session_state["nav_last_drift_alert_ts_ms"] = decision.new_last_drift_alert_ts_ms
 
             # 다음 회전 예고 — 상태 경고와 별개인 '어디로 가라' 음성 안내.
             # accuracy를 넘겨 예고 거리를 보정한다(나쁜 신호 = 더 일찍 예고).

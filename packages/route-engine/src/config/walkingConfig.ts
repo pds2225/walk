@@ -10,6 +10,7 @@ export const DEFAULT_WALKING_ENGINE_CONFIG: EngineConfig = Object.freeze({
   minimumConsecutiveSamplesForDeviation: 3,
   minimumDriftDurationMs: 4_000,
   headingConflictMinimumSpeedMps: 0.7,
+  driftExitHysteresisRatio: 0.8,
 });
 
 function assertPositiveNumber(name: string, value: number): void {
@@ -58,6 +59,10 @@ export function validateEngineConfig(config: EngineConfig): EngineConfig {
   assertNonNegativeNumber(
     "headingConflictMinimumSpeedMps",
     config.headingConflictMinimumSpeedMps
+  );
+  assertPositiveNumber(
+    "driftExitHysteresisRatio",
+    config.driftExitHysteresisRatio
   );
 
   if (

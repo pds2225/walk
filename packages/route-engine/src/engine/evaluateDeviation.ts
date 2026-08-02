@@ -34,12 +34,14 @@ function roundScore(score: number): number {
 function createSessionState(
   consecutiveThresholdBreaches: number,
   driftStartTimestampMs: number | undefined,
-  activeApproachTurnId: string | undefined
+  activeApproachTurnId: string | undefined,
+  previousState: DeviationState
 ): EngineSessionState {
   return {
     consecutiveThresholdBreaches,
     ...(driftStartTimestampMs !== undefined ? { driftStartTimestampMs } : {}),
     ...(activeApproachTurnId !== undefined ? { activeApproachTurnId } : {}),
+    previousState,
   };
 }
 
@@ -190,8 +192,15 @@ export function evaluateDeviationStep(input: {
     activeApproachTurnId
   );
 
+  // 슈미트 트리거: 이미 벗어난 상태에서는 더 안쪽까지 들어와야 '경로 위'로 돌아온다.
+  // 임계선 위를 걸을 때 한 표본의 GPS 지터로 상태가 매번 뒤집히지 않는다.
+  const wasOffRoute =
+    (input.sessionState.previousState ?? "on_route") !== "on_route";
+  const driftThresholdMeters =
+    input.config.routeDriftDistanceThresholdMeters *
+    (wasOffRoute ? input.config.driftExitHysteresisRatio : 1);
   const driftDistanceBreach =
-    nearestSegment.distanceMeters >= input.config.routeDriftDistanceThresholdMeters;
+    nearestSegment.distanceMeters >= driftThresholdMeters;
   const deviationDistanceBreach =
     nearestSegment.distanceMeters >=
     input.config.routeDeviationDistanceThresholdMeters;
@@ -205,9 +214,7 @@ export function evaluateDeviationStep(input: {
       input.config.headingConflictMinimumSpeedMps;
   const thresholdBreach =
     driftDistanceBreach ||
-    (headingConflict &&
-      nearestSegment.distanceMeters >=
-        input.config.routeDriftDistanceThresholdMeters * 0.6);
+    (headingConflict && nearestSegment.distanceMeters >= driftThresholdMeters * 0.6);
 
   const consecutiveThresholdBreaches = thresholdBreach
     ? input.sessionState.consecutiveThresholdBreaches + 1
@@ -386,7 +393,8 @@ export function evaluateDeviationStep(input: {
     nextSessionState: createSessionState(
       consecutiveThresholdBreaches,
       driftStartTimestampMs,
-      activeApproachTurnId
+      activeApproachTurnId,
+      state
     ),
   };
 }

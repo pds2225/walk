@@ -54,6 +54,10 @@ class EngineConfig:
     # 이 속도 미만에서는 진행 방향을 신뢰하지 않는다. 제자리에서 서성이거나 직진길에서
     # 왔다갔다 할 때 heading 이 180°로 뒤집혀 이탈로 오판되는 것을 막는다.
     heading_conflict_minimum_speed_mps: float = 0.7
+    # 한 번 벗어난 뒤 '경로 위'로 되돌아오는 판정에 쓰는 임계 비율(슈미트 트리거).
+    # 들어갈 때는 drift 임계(기본 10m), 나올 때는 그 80%(8m)를 써서 임계선 위를 걸을 때
+    # on_route↔drifting 이 매 표본 튀는 것을 막는다. 1.0 이면 히스테리시스 없음.
+    drift_exit_hysteresis_ratio: float = 0.8
 
 
 @dataclass
@@ -61,6 +65,8 @@ class EngineSessionState:
     consecutive_threshold_breaches: int = 0
     drift_start_timestamp_ms: Optional[int] = None
     active_approach_turn_id: Optional[str] = None
+    # 직전 표본의 판정 — 복귀 임계(히스테리시스)를 적용할지 결정한다.
+    previous_state: "DeviationState" = "on_route"
 
 
 @dataclass(frozen=True)
@@ -503,7 +509,13 @@ def evaluate_deviation_step(
 
     active_turn = _resolve_active_turn(prepared_route, active_id)
 
-    drift_breach = nearest_segment.distance_meters >= config.route_drift_distance_threshold_meters
+    # 슈미트 트리거: 이미 벗어난 상태에서는 더 안쪽(기본 80%)까지 들어와야 '경로 위'로
+    # 돌아온다. 임계선 위를 걸을 때 한 표본의 GPS 지터로 상태가 매번 뒤집히지 않는다.
+    was_off_route = session.previous_state != "on_route"
+    drift_threshold = config.route_drift_distance_threshold_meters * (
+        config.drift_exit_hysteresis_ratio if was_off_route else 1.0
+    )
+    drift_breach = nearest_segment.distance_meters >= drift_threshold
     deviation_breach = nearest_segment.distance_meters >= config.route_deviation_distance_threshold_meters
     strong_breach = nearest_segment.distance_meters >= config.strong_deviation_distance_threshold_meters
     # 저속(제자리·서성임)에서는 heading 이 GPS 노이즈라 방향 충돌로 보지 않는다.
@@ -513,7 +525,7 @@ def evaluate_deviation_step(
     )
     threshold_breach = drift_breach or (
         heading_conflict
-        and nearest_segment.distance_meters >= config.route_drift_distance_threshold_meters * 0.6
+        and nearest_segment.distance_meters >= drift_threshold * 0.6
     )
 
     consecutive = session.consecutive_threshold_breaches + 1 if threshold_breach else 0
@@ -666,6 +678,7 @@ def evaluate_deviation_step(
         consecutive_threshold_breaches=consecutive,
         drift_start_timestamp_ms=drift_start,
         active_approach_turn_id=active_id,
+        previous_state=state,
     )
     return result, next_session
 

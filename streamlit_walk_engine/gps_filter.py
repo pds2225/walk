@@ -39,6 +39,10 @@ ALERT_ACCURACY_GATE_M = 15.0
 USABLE_ACCURACY_M = 50.0
 # weak toast 재발화 쿨다운
 WEAK_TOAST_COOLDOWN_MS = 15_000
+# '벗어나기 시작'(drifting) 경고 재발화 쿨다운 — 경로 옆 임계선(기본 10m) 근처를 걸으면
+# on_route↔drifting 이 몇 초 간격으로 반복 전이돼 같은 경고가 계속 울린다. 미확정 경고는
+# 이 간격 안에서 한 번만 낸다. 확정 이탈(deviated/passed_turn)은 이 쿨다운을 쓰지 않는다.
+DRIFT_REPEAT_COOLDOWN_MS = 20_000
 
 # 확정 이탈로 간주하는 엔진 상태 (engine.DeviationState 부분집합).
 # 호출측(페이지)도 '확정 이탈이라 억제 대상이 아님'을 같은 기준으로 판단하도록 공개한다.
@@ -72,6 +76,8 @@ class AlertDecision(NamedTuple):
     fire_weak_toast: bool
     new_last_alerted: str
     new_last_weak_ts_ms: Optional[int]
+    # 마지막으로 실제 발화한 drifting 경고 시각(재발화 쿨다운용). 호출부가 그대로 보관한다.
+    new_last_drift_alert_ts_ms: Optional[int] = None
 
 
 def accuracy_quality(accuracy_m: Optional[float]) -> AccuracyQuality:
@@ -167,6 +173,8 @@ def decide_alert(
     last_weak_ts_ms: Optional[int],
     alert_enabled: bool,
     cooldown_ms: int = WEAK_TOAST_COOLDOWN_MS,
+    last_drift_alert_ts_ms: Optional[int] = None,
+    drift_cooldown_ms: int = DRIFT_REPEAT_COOLDOWN_MS,
 ) -> AlertDecision:
     """상태 전이 게이트(state != last_alerted)까지 포함한 최종 발화 결정.
 
@@ -174,6 +182,9 @@ def decide_alert(
       (전이를 '소비'하지 않아 재활성화 시 정상 발화).
     - 전이 없음(state == last_alerted) → 미발화, 전부 불변.
     - full + 전이 → fire_full, last_alerted 갱신.
+    - full + drifting 재발화 + 쿨다운 미경과 → 미발화, last_alerted만 갱신.
+      임계선 근처를 걸을 때 같은 '벗어나기 시작' 경고가 반복되는 것을 막는다.
+      확정 이탈(deviated/passed_turn)에는 적용하지 않는다.
     - weak + 전이 + 쿨다운 경과(또는 첫 발화) → fire_weak_toast, last_alerted·ts 갱신.
     - weak + 전이 + 쿨다운 미경과 → 미발화, last_alerted만 갱신(동일 state 재토글 방지).
     - mute → 미발화, 기본적으로 last_alerted 미갱신(정확도 회복 시 같은 state로도
@@ -186,6 +197,7 @@ def decide_alert(
             fire_weak_toast=False,
             new_last_alerted=last_alerted,
             new_last_weak_ts_ms=last_weak_ts_ms,
+            new_last_drift_alert_ts_ms=last_drift_alert_ts_ms,
         )
 
     if state == last_alerted:
@@ -194,14 +206,35 @@ def decide_alert(
             fire_weak_toast=False,
             new_last_alerted=last_alerted,
             new_last_weak_ts_ms=last_weak_ts_ms,
+            new_last_drift_alert_ts_ms=last_drift_alert_ts_ms,
         )
 
     if level == "full":
+        # 실제로 '벗어나기 시작' 경고를 내는 drifting 에만 건다. on_route 복귀는 소리가
+        # 없으므로 쿨다운 시각을 건드리지 않아야 '마지막 발화 시각'이 정확히 유지된다.
+        drift_muffled = (
+            state == "drifting"
+            and last_drift_alert_ts_ms is not None
+            and now_ms - last_drift_alert_ts_ms <= drift_cooldown_ms
+        )
+        if drift_muffled:
+            # 전이는 소비한다(last_alerted 갱신) — on_route↔drifting 토글이 매 표본마다
+            # 다시 평가돼 쿨다운이 끝나는 순간 몰아서 울리는 것을 막는다.
+            return AlertDecision(
+                fire_full=False,
+                fire_weak_toast=False,
+                new_last_alerted=state,
+                new_last_weak_ts_ms=last_weak_ts_ms,
+                new_last_drift_alert_ts_ms=last_drift_alert_ts_ms,
+            )
         return AlertDecision(
             fire_full=True,
             fire_weak_toast=False,
             new_last_alerted=state,
             new_last_weak_ts_ms=last_weak_ts_ms,
+            new_last_drift_alert_ts_ms=(
+                now_ms if state == "drifting" else last_drift_alert_ts_ms
+            ),
         )
 
     if level == "weak":
@@ -214,12 +247,14 @@ def decide_alert(
                 fire_weak_toast=True,
                 new_last_alerted=state,
                 new_last_weak_ts_ms=now_ms,
+                new_last_drift_alert_ts_ms=last_drift_alert_ts_ms,
             )
         return AlertDecision(
             fire_full=False,
             fire_weak_toast=False,
             new_last_alerted=state,
             new_last_weak_ts_ms=last_weak_ts_ms,
+            new_last_drift_alert_ts_ms=last_drift_alert_ts_ms,
         )
 
     # level == "mute": 확정 이탈에서 muted 상태로 돌아온 경우만 동기화한다.
@@ -236,6 +271,7 @@ def decide_alert(
         fire_weak_toast=False,
         new_last_alerted=new_last_alerted,
         new_last_weak_ts_ms=last_weak_ts_ms,
+        new_last_drift_alert_ts_ms=last_drift_alert_ts_ms,
     )
 
 

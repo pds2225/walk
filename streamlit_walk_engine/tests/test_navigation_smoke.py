@@ -253,6 +253,16 @@ def test_wandering_mutes_drift_alert():
     assert source.count("= _build_snap_window(") == 1     # 정의 제외, 호출은 1곳
 
 
+def test_drift_alert_repeat_cooldown_wired():
+    """임계선 근처 보행에서 '벗어나기 시작' 경고가 반복되지 않도록 재발화 쿨다운을
+    쓴다. 기준 시각은 세션에 보관하고, 안내 시작·재탐색 때 함께 초기화해야 한다."""
+    source = PAGE.read_text(encoding="utf-8")
+
+    assert source.count('"nav_last_drift_alert_ts_ms"') >= 5   # 기본값·리셋 2곳·전달·저장
+    assert "last_drift_alert_ts_ms=st.session_state" in source
+    assert "decision.new_last_drift_alert_ts_ms" in source
+
+
 def test_reroute_cooldown_is_three_seconds():
     """연속 재탐색 방지 쿨다운(폭주 방지 안전벨트) = 3초. 값 자체는 재탐색 빈도에
     거의 영향 없음(워밍업·재중심화가 지배) — 근본 개선은 맵매칭이 필요."""
