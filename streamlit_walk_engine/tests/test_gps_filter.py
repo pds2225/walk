@@ -697,3 +697,47 @@ class TestSmoothHeading:
     def test_output_normalized_range(self):
         for out in (smooth_heading([359.0, 1.0]), smooth_heading([270.0, 350.0])):
             assert 0.0 <= out < 360.0
+
+
+class TestSuppressionReason:
+    """억제된 판정도 진단 로그에 남길 수 있도록 사유를 돌려준다."""
+
+    def test_no_transition_has_no_reason(self):
+        # 전이가 없는 대부분의 표본까지 남기면 로그가 무의미한 기록으로 덮인다.
+        decision = decide_alert(
+            state="drifting", last_alerted="drifting", level="full",
+            now_ms=T, last_weak_ts_ms=None, alert_enabled=True,
+        )
+        assert decision.suppressed_reason is None
+
+    def test_fired_alert_has_no_reason(self):
+        decision = decide_alert(
+            state="deviated", last_alerted="on_route", level="full",
+            now_ms=T, last_weak_ts_ms=None, alert_enabled=True,
+        )
+        assert decision.fire_full is True
+        assert decision.suppressed_reason is None
+
+    def test_reasons_cover_each_suppression_path(self):
+        disabled = decide_alert(
+            state="deviated", last_alerted="on_route", level="full",
+            now_ms=T, last_weak_ts_ms=None, alert_enabled=False,
+        )
+        muted = decide_alert(
+            state="drifting", last_alerted="on_route", level="mute",
+            now_ms=T, last_weak_ts_ms=None, alert_enabled=True,
+        )
+        drift_cd = decide_alert(
+            state="drifting", last_alerted="on_route", level="full",
+            now_ms=T + 1_000, last_weak_ts_ms=None, alert_enabled=True,
+            last_drift_alert_ts_ms=T,
+        )
+        weak_cd = decide_alert(
+            state="deviated", last_alerted="on_route", level="weak",
+            now_ms=T + 1_000, last_weak_ts_ms=T, alert_enabled=True,
+        )
+
+        assert disabled.suppressed_reason == "disabled"
+        assert muted.suppressed_reason == "mute"
+        assert drift_cd.suppressed_reason == "drift_cooldown"
+        assert weak_cd.suppressed_reason == "weak_cooldown"

@@ -16,6 +16,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from walk_diag import (
+    diag_report,
     COARSE_COORD_DECIMALS, DEFAULT_DIAG_RETENTION_HOURS, DIAG_CAP,
     append_capped, diag_findings, diag_json, diag_record, diag_summary,
     normalized_retention_hours, private_diag_record, prune_expired,
@@ -220,3 +221,86 @@ class TestDiagFindings:
         out = diag_findings(diag_summary(log))
         assert any("정확도 데이터 없음" in f for f in out)
         assert not any("특이사항 없음" in f for f in out)
+
+    def test_counts_suppressed_decisions_by_reason(self):
+        # 울린 경고만 기록하면 억제가 과한지 알 수 없다 — 억제 사유별 횟수를 요약에 남긴다.
+        log = [diag_record(i * 1000, "tick", st="drifting", acc=10.0) for i in range(10)]
+        log += [
+            diag_record(20000, "alert_muted", st="drifting", why="drift_cooldown"),
+            diag_record(21000, "alert_muted", st="drifting", why="drift_cooldown"),
+            diag_record(22000, "alert_muted", st="on_route", why="mute"),
+            diag_record(23000, "reroute_muted", st="deviated", why="stationary"),
+        ]
+        summ = diag_summary(log)
+
+        assert summ["muted"] == {
+            "alert:drift_cooldown": 2,
+            "alert:mute": 1,
+            "reroute:stationary": 1,
+        }
+        out = diag_findings(summ)
+        assert any("억제된 판정 4회" in f for f in out)
+
+    def test_flags_when_suppression_outweighs_alerts(self):
+        # 발화보다 억제가 훨씬 많으면 쿨다운·제자리 판정이 과할 수 있다고 알린다.
+        log = [diag_record(i * 1000, "tick", st="drifting", acc=10.0) for i in range(10)]
+        log.append(diag_record(50000, "alert", st="drifting"))
+        log += [
+            diag_record(50000 + i, "alert_muted", st="drifting", why="drift_cooldown")
+            for i in range(5)
+        ]
+        out = diag_findings(diag_summary(log))
+
+        assert any("억제가 발화보다 많음" in f for f in out)
+
+    def test_no_suppression_keeps_all_clear(self):
+        log = [diag_record(i * 1000, "tick", st="on_route", acc=10.0) for i in range(10)]
+        summ = diag_summary(log)
+
+        assert summ["muted"] == {}
+        assert any("특이사항 없음" in f for f in diag_findings(summ))
+
+
+class TestDiagReport:
+    """내려받기 없이 붙여넣기로 넘길 수 있는 한 화면 요약."""
+
+    def test_empty_log_reports_no_records(self):
+        assert diag_report(diag_summary([])) == "walk 진단 요약: 기록 없음"
+
+    def test_report_includes_distributions_counts_and_settings(self):
+        log = [
+            diag_record(i * 1000, "tick", st="on_route", acc=12.0,
+                        dist=3.0 + i, hdiff=10.0, spd=1.2)
+            for i in range(10)
+        ]
+        log += [
+            diag_record(20000, "alert", st="drifting"),
+            diag_record(21000, "alert_muted", st="drifting", why="drift_cooldown"),
+        ]
+        report = diag_report(diag_summary(log), {"drift_m": 10, "hyst": 0.8})
+
+        assert "walk 진단 요약" in report
+        assert "tick 10" in report and "alert 1" in report
+        assert "alert:drift_cooldown 1" in report
+        assert "경로 횡거리: p50" in report      # 임계값 조정의 핵심 분포
+        assert "GPS 정확도: p50 12.0m" in report
+        assert "속도: p50 1.2m/s" in report
+        assert "drift_m 10" in report and "hyst 0.8" in report
+        # 좌표는 로그에도 요약에도 남지 않는다
+        assert "lat" not in report and "lon" not in report
+
+    def test_missing_fields_say_no_data_instead_of_zero(self):
+        # 분포 데이터가 없는데 0 으로 적으면 '정확도 0m' 처럼 잘못 읽힌다.
+        log = [diag_record(i * 1000, "tick", st="on_route") for i in range(5)]
+        report = diag_report(diag_summary(log))
+
+        assert "GPS 정확도: 데이터 없음" in report
+        assert "경로 횡거리: 데이터 없음" in report
+
+    def test_tick_only_distributions_ignore_alert_records(self):
+        # alert 레코드에 dist 가 실려도 판정 분포를 오염시키면 안 된다.
+        log = [diag_record(i * 1000, "tick", st="on_route", dist=2.0) for i in range(5)]
+        log.append(diag_record(9000, "alert", st="deviated", dist=99.0))
+        summ = diag_summary(log)
+
+        assert summ["dist_max"] == 2.0
