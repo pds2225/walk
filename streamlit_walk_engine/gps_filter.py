@@ -40,8 +40,9 @@ USABLE_ACCURACY_M = 50.0
 # weak toast 재발화 쿨다운
 WEAK_TOAST_COOLDOWN_MS = 15_000
 
-# 확정 이탈로 간주하는 엔진 상태 (engine.DeviationState 부분집합)
-_CONFIRMED_DEVIATION_STATES = ("deviated", "passed_turn")
+# 확정 이탈로 간주하는 엔진 상태 (engine.DeviationState 부분집합).
+# 호출측(페이지)도 '확정 이탈이라 억제 대상이 아님'을 같은 기준으로 판단하도록 공개한다.
+CONFIRMED_DEVIATION_STATES = ("deviated", "passed_turn")
 
 # 도착 판정 반경 — 이 거리 이내 + accuracy 신뢰 가능 시 도착 처리
 ARRIVAL_RADIUS_M = 20.0
@@ -132,20 +133,28 @@ def alert_level(
     accuracy_m: Optional[float],
     engine_state: DeviationState,
     accuracy_gate_m: float = ALERT_ACCURACY_GATE_M,
+    *,
+    wandering: bool = False,
 ) -> AlertLevel:
     """accuracy와 엔진 상태로 알림 강도(full/weak/mute)를 결정한다.
 
+    - wandering(제자리 흔들림·왕복) + 미확정(on_route/drifting) → "mute".
+      직진길에서 왔다갔다 하면 on_route↔drifting 이 반복 전이돼 '벗어나기 시작' 경고가
+      계속 울린다. 방향성이 낮은 구간에서는 미확정 상태를 알리지 않는다. 확정 이탈
+      (deviated/passed_turn)은 이 억제를 적용하지 않는다(진짜 이탈을 놓치면 안 됨).
     - accuracy 미보고(None, 수동 입력 등) → "full" (기존 동작 보존).
     - accuracy ≤ gate(양호) → "full".
     - accuracy > gate(나쁨) + 확정 이탈(deviated/passed_turn) → "weak".
     - accuracy > gate(나쁨) + on_route/drifting → "mute".
       (drifting을 mute로 두는 것은 의도된 결정 — 모듈 docstring 참조.)
     """
+    if wandering and engine_state not in CONFIRMED_DEVIATION_STATES:
+        return "mute"
     if accuracy_m is None:
         return "full"
     if accuracy_m <= accuracy_gate_m:
         return "full"
-    if engine_state in _CONFIRMED_DEVIATION_STATES:
+    if engine_state in CONFIRMED_DEVIATION_STATES:
         return "weak"
     return "mute"
 
@@ -218,8 +227,8 @@ def decide_alert(
     # 상태 전이 없음으로 오인되고 알림이 묵살된다.
     new_last_alerted = (
         state
-        if last_alerted in _CONFIRMED_DEVIATION_STATES
-        and state not in _CONFIRMED_DEVIATION_STATES
+        if last_alerted in CONFIRMED_DEVIATION_STATES
+        and state not in CONFIRMED_DEVIATION_STATES
         else last_alerted
     )
     return AlertDecision(

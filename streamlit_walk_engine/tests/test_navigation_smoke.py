@@ -227,6 +227,32 @@ def test_gps_poll_bucket_splits_running_vs_idle():
     assert "time.time() // _gps_poll_bucket_sec()" in source
 
 
+def test_wandering_mutes_drift_alert():
+    """직진길 왕복·제자리 흔들림에서 on_route↔drifting 반복 전이로 '벗어나기 시작'
+    경고가 계속 울리던 문제 — 재탐색만이 아니라 알림 게이팅에도 같은 판정을 건다.
+    부수효과(Mapbox 호출·세션 갱신) 없는 읽기 전용 헬퍼로 분리해야 한다."""
+    source = PAGE.read_text(encoding="utf-8")
+
+    assert "def _wandering_now(" in source
+    assert "wandering = (" in source                      # alert_level 에 실제 배선
+    assert "and _wandering_now(" in source
+    helper = source[source.index("def _wandering_now("):]
+    helper = helper[:helper.index("def _reroute_suppressed(")]
+    assert "snap_router.STATIONARY" in helper
+    assert "st.session_state[" not in helper              # 읽기 전용(쓰기 금지)
+    assert "_mapbox_confirms_deviation" not in helper     # 알림 경로에서 유료 호출 금지
+
+    # 확정 이탈·알림 OFF 틱에서는 판정 자체를 돌리지 않는다(핫패스 + 재탐색 억제와 중복 제거).
+    gate = source[source.index("wandering = ("):]
+    gate = gate[:gate.index("lvl = gps_filter.alert_level(")]
+    assert 'st.session_state["nav_alert_enabled"]' in gate
+    assert "not in gps_filter.CONFIRMED_DEVIATION_STATES" in gate
+
+    # 윈도 생성·classify 는 한 곳(_snap_classify)에서만 — 알림·재탐색이 같은 판정을 쓴다.
+    assert source.count("snap_router.classify(") == 1
+    assert source.count("= _build_snap_window(") == 1     # 정의 제외, 호출은 1곳
+
+
 def test_reroute_cooldown_is_three_seconds():
     """연속 재탐색 방지 쿨다운(폭주 방지 안전벨트) = 3초. 값 자체는 재탐색 빈도에
     거의 영향 없음(워밍업·재중심화가 지배) — 근본 개선은 맵매칭이 필요."""
