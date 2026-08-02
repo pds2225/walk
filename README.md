@@ -27,6 +27,7 @@
 | 랜드마크 선정 엔진 | 구현 | 회전점·경로 거리, 방향, 가시성, 영속성, 식별성 점수화 |
 | 랜드마크 안내 | 구현 | 사진 카드·출입구·음성 안내문 템플릿 |
 | 랜드마크 관리 화면 | 로컬 MVP | 등록·수정·사진 교체·승인·폐점/공사·수정 이력 |
+| 랜드마크 후보 수집 | 구현 | 회전점 주변 POI 자동 수집(항상 draft·자동 승인 차단) |
 | 실제 현장 데이터 | 미구현 | 검수 전 데모 3건만 포함, 승인 데이터 0건 |
 | React PWA·FastAPI | 미구현 | 랜드마크 현장 검증 이후 진행 |
 | 다국어·배리어프리 경로 | 미구현 | 데이터와 평가 기준부터 구축 필요 |
@@ -100,9 +101,22 @@ Streamlit 실행 후 사이드바의 `Landmark Admin` 페이지를 엽니다.
 - 초안·승인·일시 사용불가·폐점 상태 관리
 - 작업자·상태 변경 이력 확인
 
+### 후보 자동 수집 (반자동)
+
+승인된 랜드마크가 없으면 안내는 "잠시 후 좌회전입니다"로만 나옵니다. 100~300개를 전부
+손으로 등록하는 대신, 경로가 잡힌 뒤 **⋯ 더보기 → 🔎 이 경로 주변 후보 자동 수집**을
+누르면 TMAP POI 검색으로 회전 지점 주변 장소를 모아 `draft`로 저장합니다.
+
+- 회전점 60m·경로선 40m 안쪽만, 좌/우회전 지점만 수집합니다.
+- 같은 자리(약 11m 격자·같은 이름)는 한 번만, 이미 등록된 것은 건너뜁니다.
+- 출처가 `poi_auto_...`라 **자동 승인은 차단**됩니다. POI DB는 좌표·이름만 주고
+  가시성·보이는 방향은 모르는데, 그 값들이 선정 점수의 30%를 차지하기 때문입니다.
+
+현장에서는 걸으면서 실제로 보이는 것만 사진·출입구·가시 방향을 채워 승인하면 됩니다.
+
 현장 승인 순서:
 
-1. `draft`로 등록
+1. `draft`로 등록(또는 자동 수집)
 2. 사진·출입구·가시 방향·출처를 채움
 3. 이중 검수 후 `approved`
 4. 운영 데이터는 로컬 `landmarks.local.json`(Git 제외)
@@ -196,6 +210,7 @@ streamlit_walk_engine/
   nav_privacy.py               동의·브라우저 저장 정책
   walk_diag.py                 비식별 진단·보존기간
   landmarks.py                 랜드마크 모델·선정·안내
+  landmark_harvest.py          회전점 주변 후보 자동 수집(draft)
   landmark_store.py            JSON 저장·승인 이력
   route_builder.py
   pages/
@@ -255,7 +270,7 @@ http://localhost:8501
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest streamlit_walk_engine\tests -q
-# 546 passed
+# 556 passed
 
 .\.venv\Scripts\python.exe -m pytest streamlit_task_organizer\tests -q
 # 20 passed

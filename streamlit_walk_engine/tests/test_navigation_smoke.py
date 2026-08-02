@@ -321,6 +321,27 @@ def test_first_screen_is_input_and_two_buttons():
     assert 'iframe[title^="streamlit_js_eval"]' in source
 
 
+def test_landmark_candidate_harvest_wired():
+    """랜드마크 후보 자동 수집(반자동): POI 로 회전점 주변 후보를 모으되 항상 draft 로
+    저장하고, 자동 출처라 현장 확인 전에는 승인·안내에 쓰이지 않아야 한다."""
+    source = PAGE.read_text(encoding="utf-8")
+
+    assert "import landmark_harvest" in source
+    assert "landmark_harvest.harvest_candidates(" in source
+    assert "route_builder.search_places_near" in source      # 거리순 POI 검색 주입
+    assert 'actor="poi_auto_harvest"' in source              # 이력에 자동 수집 표시
+    # 이미 등록된 것은 draft 로 되돌리지 않는다
+    assert "existing_ids=existing" in source
+    # 수집 패널은 본 화면이 아니라 접힌 묶음 안에서만 노출된다
+    assert "_render_landmark_harvest_panel()" in source
+    assert 'st.button("🔎 이 경로 주변 후보 자동 수집"' in source
+
+    harvest = (PAGE.parent.parent / "landmark_harvest.py").read_text(encoding="utf-8")
+    assert 'status="draft"' in harvest                       # 자동 승인 금지
+    assert "AUTO_SOURCE" in harvest
+    assert 'direction not in ("left", "right")' in harvest   # 직진 지점은 건너뜀
+
+
 def test_diag_summary_is_copyable_without_download():
     """원본 로그(최대 3000레코드)는 붙여넣기엔 크다 — 분포·횟수만 담은 요약 블록을
     진단 패널에 직접 렌더해, 내려받기 없이 복사만으로 넘길 수 있어야 한다.

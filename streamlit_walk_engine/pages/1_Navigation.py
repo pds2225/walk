@@ -45,6 +45,7 @@ from engine import (
     distance_meters,
 )
 import gps_filter
+import landmark_harvest
 import landmark_store
 import landmarks
 import mapbox_matcher
@@ -1775,6 +1776,8 @@ def _render_more_panel(favorites: list) -> None:
     st.divider()
     _sidebar_bookings(favorites, origin)
     st.divider()
+    _render_landmark_harvest_panel()
+    st.divider()
     _render_privacy_panel()
     st.divider()
     _render_diag_panel()
@@ -1786,6 +1789,7 @@ def _render_side_panels() -> None:
     경로가 없어도(안내 전) 항상 접근 가능해야 하므로 두 분기 모두에서 호출한다.
     """
     with st.expander("🔒 개인정보·진단 로그", expanded=False):
+        _render_landmark_harvest_panel()
         _render_privacy_panel()
         st.divider()
         _render_diag_panel()
@@ -2342,6 +2346,58 @@ def _render_metrics(results: list[EngineResult]) -> None:
         st.metric("샘플 수",   len(results))
         if st.session_state.get("nav_reroute_count", 0) > 0:
             st.metric("재탐색 횟수", f"{st.session_state['nav_reroute_count']}회")
+
+
+def _harvest_landmark_candidates() -> tuple[int, str]:
+    """현재 경로의 회전점 주변에서 랜드마크 후보를 모아 draft 로 저장한다.
+
+    (저장 건수, 사용자 안내 문구)를 돌려준다. 자동 수집분은 항상 draft·자동 출처라
+    현장 확인 전에는 안내에 쓰이지 않는다(landmark_store 가 승인을 막는다).
+    """
+    route: Optional[RouteModel] = st.session_state.get("nav_route")
+    if route is None or not route.turn_points:
+        return 0, "경로에 회전 지점이 없어 수집할 곳이 없습니다."
+    repo = landmark_store.LandmarkRepository()
+    try:
+        existing = [lm.id for lm in repo.load()]
+    except Exception as exc:  # noqa: BLE001 — 저장소 문제는 안내로만 알린다
+        return 0, f"랜드마크 저장소를 읽지 못했습니다: {exc}"
+    found = landmark_harvest.harvest_candidates(
+        route, route_builder.search_places_near, existing_ids=existing,
+    )
+    saved = 0
+    for candidate in found:
+        try:
+            repo.upsert(candidate, actor="poi_auto_harvest")
+            saved += 1
+        except Exception:  # noqa: BLE001 — 한 건 실패가 나머지를 막지 않게
+            continue
+    if not saved:
+        return 0, "새로 찾은 후보가 없습니다(이미 등록됐거나 주변 장소가 없음)."
+    return saved, (
+        f"후보 {saved}곳을 draft 로 저장했습니다. 걸으면서 실제로 보이는 것만 "
+        "승인하면 안내 문구에 쓰입니다."
+    )
+
+
+def _render_landmark_harvest_panel() -> None:
+    """랜드마크 후보 자동 수집 — 경로가 있을 때만 노출한다."""
+    route: Optional[RouteModel] = st.session_state.get("nav_route")
+    if route is None or not route.turn_points:
+        return
+    guidance_count = len(st.session_state.get("nav_landmark_guidance") or {})
+    st.markdown("**📍 랜드마크 후보 수집**")
+    st.caption(
+        f"이 경로의 회전 {len(route.turn_points)}곳 중 승인된 기준점 {guidance_count}곳. "
+        "주변 장소를 자동으로 모아 두면 현장에서 '보이는가'만 확인해 승인하면 됩니다."
+    )
+    if st.button("🔎 이 경로 주변 후보 자동 수집", width="stretch",
+                 key="harvest_landmarks"):
+        with st.spinner("회전 지점 주변 장소를 찾는 중…"):
+            saved, message = _harvest_landmark_candidates()
+        (st.success if saved else st.info)(message)
+        if saved:
+            _refresh_landmark_guidance(route)
 
 
 def _render_landmark_guidance() -> None:

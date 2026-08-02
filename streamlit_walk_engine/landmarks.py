@@ -325,6 +325,9 @@ def landmark_relative_position(origin: Coordinate, landmark: Landmark) -> str:
 
 _NON_FIELD_SOURCE_MARKERS = (
     "demo_seed",
+    # POI 자동 수집분 — 좌표·이름만 있고 가시성·보이는 방향은 모른다.
+    # 현장에서 눈으로 확인한 뒤에만 승인할 수 있게 여기서 막는다.
+    "poi_auto",
     "synthetic_demo",
     "synthetic_test",
     "synthetic_fixture",

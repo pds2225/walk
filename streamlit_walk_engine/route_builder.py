@@ -343,6 +343,52 @@ def _tmap_poi_results(query: str, limit: int = 5,
     return _fetch({"searchtypCd": "A"})
 
 
+def search_places_near(center: Coordinate, keyword: str,
+                       limit: int = 3) -> list[tuple[Coordinate, str]]:
+    """좌표 주변의 장소를 키워드로 찾는다(랜드마크 후보 자동 수집용).
+
+    TMAP POI 통합검색을 '거리순(searchtypCd=R)'으로만 쓴다 — 정확도순 폴백은 전국에서
+    같은 이름을 끌어와 회전점과 무관한 곳을 후보로 만든다. 앱키가 없거나 실패하면 빈
+    리스트(수집은 부가 기능이라 조용히 건너뛴다).
+    """
+    app_key = _tmap_app_key()
+    if not app_key:
+        return []
+    try:
+        resp = requests.get(
+            _TMAP_POI,
+            params={
+                "version": "1", "searchKeyword": keyword, "count": limit,
+                "centerLat": f"{center.latitude:.8f}",
+                "centerLon": f"{center.longitude:.8f}",
+                "searchtypCd": "R", "radius": "1",   # km 단위 — 1km 안에서 거리순
+                "reqCoordType": "WGS84GEO", "resCoordType": "WGS84GEO",
+            },
+            headers={"appKey": app_key, "Accept": "application/json"},
+            timeout=_TIMEOUT,
+        )
+        if resp.status_code != 200:
+            return []
+        pois = resp.json().get("searchPoiInfo", {}).get("pois", {}).get("poi", []) or []
+    except (requests.RequestException, KeyError, ValueError):
+        return []
+    out: list[tuple[Coordinate, str]] = []
+    for poi in pois[:limit]:
+        coord = None
+        for lat_key, lon_key in (("frontLat", "frontLon"), ("noorLat", "noorLon")):
+            try:
+                lat, lon = float(poi.get(lat_key) or 0), float(poi.get(lon_key) or 0)
+            except (TypeError, ValueError):
+                continue
+            if lat and lon:
+                coord = Coordinate(latitude=lat, longitude=lon)
+                break
+        name = (poi.get("name") or "").strip()
+        if coord is not None and name:
+            out.append((coord, name))
+    return out
+
+
 def _tmap_addr_results(query: str, limit: int = 5) -> list[tuple[Coordinate, str]]:
     """TMAP 주소 지오코딩(fullAddrGeo) — 도로명·지번 '주소' 검색어를 좌표로 변환.
 
