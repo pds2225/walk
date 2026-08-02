@@ -220,3 +220,41 @@ class TestDiagFindings:
         out = diag_findings(diag_summary(log))
         assert any("정확도 데이터 없음" in f for f in out)
         assert not any("특이사항 없음" in f for f in out)
+
+    def test_counts_suppressed_decisions_by_reason(self):
+        # 울린 경고만 기록하면 억제가 과한지 알 수 없다 — 억제 사유별 횟수를 요약에 남긴다.
+        log = [diag_record(i * 1000, "tick", st="drifting", acc=10.0) for i in range(10)]
+        log += [
+            diag_record(20000, "alert_muted", st="drifting", why="drift_cooldown"),
+            diag_record(21000, "alert_muted", st="drifting", why="drift_cooldown"),
+            diag_record(22000, "alert_muted", st="on_route", why="mute"),
+            diag_record(23000, "reroute_muted", st="deviated", why="stationary"),
+        ]
+        summ = diag_summary(log)
+
+        assert summ["muted"] == {
+            "alert:drift_cooldown": 2,
+            "alert:mute": 1,
+            "reroute:stationary": 1,
+        }
+        out = diag_findings(summ)
+        assert any("억제된 판정 4회" in f for f in out)
+
+    def test_flags_when_suppression_outweighs_alerts(self):
+        # 발화보다 억제가 훨씬 많으면 쿨다운·제자리 판정이 과할 수 있다고 알린다.
+        log = [diag_record(i * 1000, "tick", st="drifting", acc=10.0) for i in range(10)]
+        log.append(diag_record(50000, "alert", st="drifting"))
+        log += [
+            diag_record(50000 + i, "alert_muted", st="drifting", why="drift_cooldown")
+            for i in range(5)
+        ]
+        out = diag_findings(diag_summary(log))
+
+        assert any("억제가 발화보다 많음" in f for f in out)
+
+    def test_no_suppression_keeps_all_clear(self):
+        log = [diag_record(i * 1000, "tick", st="on_route", acc=10.0) for i in range(10)]
+        summ = diag_summary(log)
+
+        assert summ["muted"] == {}
+        assert any("특이사항 없음" in f for f in diag_findings(summ))

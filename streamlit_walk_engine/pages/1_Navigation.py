@@ -1320,6 +1320,7 @@ def _reroute_suppressed(results, samples, now_ms: int, deviation_state: str = "d
         return False
     if state == snap_router.STATIONARY:
         st.session_state["nav_snap_suppress_since_ms"] = None
+        _diag("reroute_muted", why="stationary", st=deviation_state)
         return True
     if deviation_state == "passed_turn" or state == snap_router.OFF_ROUTE_CONFIRMED:
         st.session_state["nav_snap_suppress_since_ms"] = None
@@ -1331,10 +1332,12 @@ def _reroute_suppressed(results, samples, now_ms: int, deviation_state: str = "d
         return False
     if verdict is False:
         st.session_state["nav_last_reroute_ts_ms"] = now_ms  # 경로 위 확인 → 잠깐 쿨다운
+        _diag("reroute_muted", why="mapbox_on_route", st=deviation_state)
         return True
     # 무료 폴백 ①: 저정확도(>FAIR_ACCURACY_M) 이탈 후보는 재탐색 보류 — 알림이 mute 되는
     # 나쁜 신호로 경로를 다시 만들면 튄 위치 기준의 잘못된 경로가 생긴다(churn).
     if acc is not None and acc > gps_filter.FAIR_ACCURACY_M:
+        _diag("reroute_muted", why="low_accuracy", st=deviation_state, acc=round(acc, 1))
         return True
     if state != snap_router.ON_ROUTE_LIKELY:
         return False
@@ -3993,6 +3996,12 @@ def main() -> None:
                 st.toast("⚠️ 경로 이탈 가능 — 위치 정확도 낮음, 확인 필요")
                 _diag("weak_toast", st=result.state, acc=round(acc, 1)
                       if isinstance(acc, (int, float)) else None)
+            if decision.suppressed_reason:
+                # 억제된 판정도 남긴다 — 울린 경고만 기록하면 억제가 과한지 모자란지
+                # 로그로 판단할 수 없다(임계값·쿨다운 튜닝 근거).
+                _diag("alert_muted", st=result.state, why=decision.suppressed_reason,
+                      wander=bool(wandering), lvl=lvl,
+                      dist=round(result.metrics.distance_from_route_meters, 1))
             st.session_state["nav_last_alerted_state"] = decision.new_last_alerted
             st.session_state["nav_last_weak_toast_ts_ms"] = decision.new_last_weak_ts_ms
             st.session_state["nav_last_drift_alert_ts_ms"] = decision.new_last_drift_alert_ts_ms

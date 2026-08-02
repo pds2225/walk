@@ -78,6 +78,13 @@ class AlertDecision(NamedTuple):
     new_last_weak_ts_ms: Optional[int]
     # 마지막으로 실제 발화한 drifting 경고 시각(재발화 쿨다운용). 호출부가 그대로 보관한다.
     new_last_drift_alert_ts_ms: Optional[int] = None
+    # 상태 전이가 있었는데 알리지 않은 이유(진단 로그용). 전이가 없으면 None —
+    # 매 표본 남기면 로그가 전이 없는 기록으로 뒤덮인다.
+    #   "disabled"      알림 토글 OFF
+    #   "mute"          알림 강도 mute(저정확도 또는 제자리·왕복)
+    #   "drift_cooldown"  같은 '벗어나기 시작' 경고 재발화 쿨다운
+    #   "weak_cooldown"   약경고 재발화 쿨다운
+    suppressed_reason: Optional[str] = None
 
 
 def accuracy_quality(accuracy_m: Optional[float]) -> AccuracyQuality:
@@ -198,6 +205,7 @@ def decide_alert(
             new_last_alerted=last_alerted,
             new_last_weak_ts_ms=last_weak_ts_ms,
             new_last_drift_alert_ts_ms=last_drift_alert_ts_ms,
+            suppressed_reason="disabled" if state != last_alerted else None,
         )
 
     if state == last_alerted:
@@ -226,6 +234,7 @@ def decide_alert(
                 new_last_alerted=state,
                 new_last_weak_ts_ms=last_weak_ts_ms,
                 new_last_drift_alert_ts_ms=last_drift_alert_ts_ms,
+                suppressed_reason="drift_cooldown",
             )
         return AlertDecision(
             fire_full=True,
@@ -255,6 +264,7 @@ def decide_alert(
             new_last_alerted=state,
             new_last_weak_ts_ms=last_weak_ts_ms,
             new_last_drift_alert_ts_ms=last_drift_alert_ts_ms,
+            suppressed_reason="weak_cooldown",
         )
 
     # level == "mute": 확정 이탈에서 muted 상태로 돌아온 경우만 동기화한다.
@@ -272,6 +282,7 @@ def decide_alert(
         new_last_alerted=new_last_alerted,
         new_last_weak_ts_ms=last_weak_ts_ms,
         new_last_drift_alert_ts_ms=last_drift_alert_ts_ms,
+        suppressed_reason="mute",
     )
 
 

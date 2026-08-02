@@ -150,6 +150,7 @@ def diag_summary(log: list) -> dict:
         return {"records": 0}
     events: dict[str, int] = {}
     states: dict[str, int] = {}
+    muted: dict[str, int] = {}  # 억제 사유별 횟수 — 억제가 과한지/모자란지 판단 근거
     tick_states: dict[str, int] = {}  # 판정(tick) 레코드에서만 센 상태 — 비율 계산의 분모/분자 일치용
     accs: list[float] = []
     times: list[float] = []
@@ -161,6 +162,10 @@ def diag_summary(log: list) -> dict:
             states[state] = states.get(state, 0) + 1
             if ev == "tick":  # alert·reroute 레코드도 st 를 달고 있어, 비율엔 tick 만 센다
                 tick_states[state] = tick_states.get(state, 0) + 1
+        if ev in ("alert_muted", "reroute_muted"):
+            why = str(rec.get("why", "?"))
+            key = f"{ev.split('_')[0]}:{why}"   # alert:mute / reroute:stationary ...
+            muted[key] = muted.get(key, 0) + 1
         acc = rec.get("acc")
         if isinstance(acc, (int, float)):
             accs.append(float(acc))
@@ -173,6 +178,7 @@ def diag_summary(log: list) -> dict:
         "events": events,
         "states": states,
         "tick_states": tick_states,
+        "muted": muted,
     }
     if accs:
         accs_sorted = sorted(accs)
@@ -222,6 +228,18 @@ def diag_findings(summary: dict) -> list[str]:
     notified = events.get("alert", 0) + events.get("weak_toast", 0)
     if dev >= 3 and notified == 0:
         findings.append("🔴 이탈이 있었는데 음성/알림 기록 0회 — 음성 미작동 의심")
+
+    # 억제가 실제로 얼마나 걸렸는지 — 발화 대비 비율로 임계값을 조정할 수 있게 노출한다.
+    muted = summary.get("muted", {}) or {}
+    muted_total = sum(muted.values())
+    if muted_total:
+        detail = ", ".join(f"{k} {v}" for k, v in sorted(muted.items()))
+        findings.append(f"ℹ️ 억제된 판정 {muted_total}회 — {detail}")
+    if notified and muted_total > notified * 3:
+        findings.append(
+            f"🟡 억제가 발화보다 많음 (억제 {muted_total} / 발화 {notified}) — "
+            "쿨다운·제자리 판정이 과할 수 있음"
+        )
 
     if ticks < 5:
         findings.append(f"ℹ️ 표본이 적음 (tick {ticks}) — 더 걸어야 진단 신뢰도가 올라감")

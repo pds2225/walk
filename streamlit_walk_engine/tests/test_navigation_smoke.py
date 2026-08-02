@@ -263,6 +263,21 @@ def test_drift_alert_repeat_cooldown_wired():
     assert "decision.new_last_drift_alert_ts_ms" in source
 
 
+def test_suppressed_decisions_are_logged():
+    """울린 경고·실행된 재탐색만 기록하면 억제가 과한지 로그로 알 수 없다 —
+    억제된 판정도 사유와 함께 남겨야 임계값·쿨다운을 데이터로 조정할 수 있다."""
+    source = PAGE.read_text(encoding="utf-8")
+
+    assert 'if decision.suppressed_reason:' in source
+    assert '_diag("alert_muted"' in source
+    assert 'why=decision.suppressed_reason' in source
+    assert 'wander=bool(wandering)' in source                 # 사유 구분에 필요
+    # 재탐색 억제 3경로(제자리·Mapbox 경로 위·저정확도)도 각각 사유를 남긴다
+    assert source.count('_diag("reroute_muted"') == 3
+    for why in ("stationary", "mapbox_on_route", "low_accuracy"):
+        assert f'why="{why}"' in source
+
+
 def test_reroute_cooldown_is_three_seconds():
     """연속 재탐색 방지 쿨다운(폭주 방지 안전벨트) = 3초. 값 자체는 재탐색 빈도에
     거의 영향 없음(워밍업·재중심화가 지배) — 근본 개선은 맵매칭이 필요."""

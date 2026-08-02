@@ -162,6 +162,11 @@ Streamlit 실행 후 사이드바의 `Landmark Admin` 페이지를 엽니다.
   상태가 반복 전환돼도 같은 안내가 계속 반복되지 않습니다.
 - 확정 이탈(재탐색 대상)은 두 억제 모두 적용받지 않고 그대로 알립니다.
 
+억제된 판정도 진단 로그에 사유와 함께 남깁니다(`alert_muted`, `reroute_muted`).
+울린 경고만 기록하면 억제가 과한지 모자란지 알 수 없기 때문입니다. 진단 패널의
+자동 진단에 억제 횟수와 사유별 내역이 표시되고, 발화보다 억제가 3배 넘게 많으면
+쿨다운·제자리 판정이 과할 수 있다고 알려줍니다.
+
 회전 안내는 실제로 30° 이상 꺾이는 지점만 남깁니다. 경로 API가 완만한 커브나 횡단보도
 진입까지 좌/우회전으로 표시해도, 앞뒤 15m 구간의 진행 방향을 비교해 꺾임이 작으면
 회전 지점으로 만들지 않습니다. 불필요한 회전 안내와 “회전 지나침” 오판이 함께 줄어듭니다.
@@ -242,7 +247,7 @@ http://localhost:8501
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest streamlit_walk_engine\tests -q
-# 532 passed
+# 538 passed
 
 .\.venv\Scripts\python.exe -m pytest streamlit_task_organizer\tests -q
 # 20 passed
