@@ -301,6 +301,26 @@ def test_secondary_panels_are_grouped_into_three():
     assert source.count("_render_side_panels()") >= 3   # 정의 1 + 호출 2
 
 
+def test_first_screen_is_input_and_two_buttons():
+    """첫 화면(안내 전·경로 없음)은 목적지 입력과 걷기/대중교통+걷기 만 남긴다.
+    보조 동작(초기화·경로만 보기)·개발자 캡션·빈 지도는 숨기고, 나머지 기능은
+    '⋯ 더보기' 한 묶음으로 접는다. 지팡이 사용자가 한 손으로 쓰는 화면이라
+    핵심 동선 외에는 보이지 않아야 한다(docs/product-notes.md)."""
+    source = PAGE.read_text(encoding="utf-8")
+
+    assert "def _simple_screen()" in source
+    assert 'st.expander("⋯ 더보기"' in source
+    assert "def _render_more_panel(" in source
+    # 보조 버튼·개발자 캡션은 첫 화면에서 감춘다
+    assert '(not _simple_screen()) and st.button("↺ 초기화"' in source
+    assert "(not has_plan) and (not _simple_screen())" in source
+    assert "if not _simple_screen():\n        st.caption(f\"경로 엔진:" in source
+    # 빈 지도·안내문도 띄우지 않는다
+    assert "if simple_screen:\n            return" in source
+    # 헬퍼 iframe(streamlit_js_eval)이 첫 화면 위쪽을 비워 두지 않게 흐름에서 뺀다
+    assert 'iframe[title^="streamlit_js_eval"]' in source
+
+
 def test_diag_summary_is_copyable_without_download():
     """원본 로그(최대 3000레코드)는 붙여넣기엔 크다 — 분포·횟수만 담은 요약 블록을
     진단 패널에 직접 렌더해, 내려받기 없이 복사만으로 넘길 수 있어야 한다.

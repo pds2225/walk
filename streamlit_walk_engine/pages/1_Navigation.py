@@ -3257,16 +3257,26 @@ _APP_CSS = """
   div[data-baseweb="input"], div[data-baseweb="select"] > div {
     border-radius: 14px !important; min-height: 60px;
   }
-  /* 버튼 — 걷기/대중교통+걷기가 화면의 주인공 */
+  /* 버튼 — 걷기/대중교통+걷기가 화면의 주인공. 다만 '대중교통+걷기'가 반 칸 폭에서
+     두 줄로 접히면 버튼이 뚱뚱해 보인다 → 한 줄에 들어가는 크기로 맞춘다. */
   div.stButton > button {
-    height: 74px; border-radius: 16px; font-size: 21px; font-weight: 800;
-    letter-spacing: -0.5px;
+    height: 56px; border-radius: 14px; font-weight: 800; letter-spacing: -0.7px;
+  }
+  div.stButton > button p {
+    font-size: 17px; white-space: nowrap;   /* 줄바꿈 금지 — 한 줄 고정 */
   }
   /* 접기(더보기·설정 등)는 보조 — 글씨는 키우되 색은 낮춘다 */
   details summary, div[data-testid="stExpander"] summary {
     font-size: 17px !important; font-weight: 700;
   }
   div[data-testid="stExpander"] { border-radius: 14px; }
+  /* localStorage 읽기·GPS 폴링용 헬퍼 컴포넌트(streamlit_js_eval)는 보일 필요가 없다.
+     8px 짜리 iframe 이 여러 개 쌓이면서 첫 화면 위쪽에 빈 공간이 500px 가까이 생겼다
+     (실기기 확인). display:none 대신 흐름에서만 빼서 iframe 자체는 그대로 살려 둔다. */
+  div[data-testid="stElementContainer"]:has(iframe[title^="streamlit_js_eval"]) {
+    position: absolute !important; width: 0 !important; height: 0 !important;
+    overflow: hidden !important; opacity: 0; pointer-events: none;
+  }
   h1, h2, h3 { letter-spacing: -0.8px; }
 </style>
 """
@@ -3421,8 +3431,9 @@ def _render_action_buttons() -> None:
         # 무력화된다. 대신 그 함수가 '출발 반경을 벗어나면' 재무장한다.
         st.rerun()
 
-    # 경로 엔진명(기술 정보)은 보조 정보 — 작은 캡션으로 맨 아래.
-    st.caption(f"경로 엔진: {st.session_state.get('nav_route_engine') or route_engine_label()}")
+    # 경로 엔진명은 기술 정보 — 첫 화면에서는 감춘다(경로가 생기면 아래 캡션으로 표시).
+    if not _simple_screen():
+        st.caption(f"경로 엔진: {st.session_state.get('nav_route_engine') or route_engine_label()}")
 
 
 def main() -> None:

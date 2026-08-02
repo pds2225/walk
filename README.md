@@ -110,6 +110,9 @@ Streamlit 실행 후 사이드바의 `Landmark Admin` 페이지를 엽니다.
 현재 관리 화면은 인증 없는 로컬 검증 도구입니다. 인터넷에 공개 배포하면 안 됩니다.
 데모 JSON 좌표를 실서비스 승인 데이터로 올리면 안 됩니다.
 
+대상 사용자와 그로부터 나온 설계 원칙(노인 이용자·지팡이 사용으로 화면을 볼 손이
+없음 → 음성 1순위, 큰 글씨, 첫 화면 최소화)은 `docs/product-notes.md` 에 정리했습니다.
+
 ## 개인정보 동작
 
 저장되는 기본값(동의 전):
@@ -252,7 +255,7 @@ http://localhost:8501
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest streamlit_walk_engine\tests -q
-# 545 passed
+# 546 passed
 
 .\.venv\Scripts\python.exe -m pytest streamlit_task_organizer\tests -q
 # 20 passed
