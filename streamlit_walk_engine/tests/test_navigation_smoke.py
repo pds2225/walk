@@ -278,6 +278,18 @@ def test_suppressed_decisions_are_logged():
         assert f'why="{why}"' in source
 
 
+def test_diag_summary_is_copyable_without_download():
+    """원본 로그(최대 3000레코드)는 붙여넣기엔 크다 — 분포·횟수만 담은 요약 블록을
+    진단 패널에 직접 렌더해, 내려받기 없이 복사만으로 넘길 수 있어야 한다.
+    현재 임계값도 함께 실어 '어떤 설정에서 나온 분포인지'가 남게 한다."""
+    source = PAGE.read_text(encoding="utf-8")
+
+    assert "diag_report" in source
+    assert 'st.code(report, language="text")' in source
+    for key in ("drift_m", "dev_m", "consec", "hold_ms", "hyst", "drift_cooldown_ms"):
+        assert f'"{key}"' in source
+
+
 def test_reroute_cooldown_is_three_seconds():
     """연속 재탐색 방지 쿨다운(폭주 방지 안전벨트) = 3초. 값 자체는 재탐색 빈도에
     거의 영향 없음(워밍업·재중심화가 지배) — 근본 개선은 맵매칭이 필요."""

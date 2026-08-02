@@ -54,7 +54,7 @@ import snap_router
 import transit_builder
 from alert_voice import build_tts_prime_script, build_tts_script, tts_phrase
 from walk_diag import (
-    DEFAULT_DIAG_RETENTION_HOURS, DIAG_CAP, append_capped, diag_findings,
+    DEFAULT_DIAG_RETENTION_HOURS, DIAG_CAP, append_capped, diag_findings, diag_report,
     diag_json, diag_summary, private_diag_record, prune_expired,
 )
 from route_builder import (
@@ -1660,6 +1660,21 @@ def _render_diag_panel() -> None:
         st.markdown("**자동 진단**")
         for finding in diag_findings(summ):
             st.write(finding)
+        # 원본 로그(최대 3000레코드)는 붙여넣기엔 너무 크다. 임계값 조정에 필요한
+        # 분포·횟수만 한 화면으로 압축해, 내려받기 없이 복사→붙여넣기로 넘길 수 있게 한다.
+        cfg = st.session_state["nav_config"]
+        report = diag_report(summ, {
+            "drift_m": cfg.route_drift_distance_threshold_meters,
+            "dev_m": cfg.route_deviation_distance_threshold_meters,
+            "consec": cfg.minimum_consecutive_samples_for_deviation,
+            "hold_ms": cfg.minimum_drift_duration_ms,
+            "hyst": cfg.drift_exit_hysteresis_ratio,
+            "drift_cooldown_ms": gps_filter.DRIFT_REPEAT_COOLDOWN_MS,
+        })
+        st.markdown("**요약 복사(분석용)**")
+        st.caption("이 블록만 복사해 보내면 임계값을 조정할 수 있습니다. 좌표는 들어가지 않습니다.")
+        st.code(report, language="text")
+
         payload = diag_json(log)
         st.download_button(
             "⬇️ 비식별 진단 로그 내려받기 (JSON)",

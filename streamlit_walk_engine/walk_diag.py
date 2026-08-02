@@ -12,7 +12,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import Any, Optional
 
 DIAG_CAP = 3000  # 레코드 상한 — 초과 시 오래된 것부터 버림(1초 폴링 ≈ 50분 분량)
 DEFAULT_DIAG_RETENTION_HOURS = 24
@@ -154,6 +154,10 @@ def diag_summary(log: list) -> dict:
     tick_states: dict[str, int] = {}  # 판정(tick) 레코드에서만 센 상태 — 비율 계산의 분모/분자 일치용
     accs: list[float] = []
     times: list[float] = []
+    # 판정(tick) 스트림의 분포 — 임계값 조정의 직접 근거라 백분위수로 요약한다.
+    dists: list[float] = []   # 경로까지 횡거리(m)
+    hdiffs: list[float] = []  # 경로 방향과의 차이(도)
+    spds: list[float] = []    # 속도(m/s)
     for rec in log:
         ev = str(rec.get("e", "?"))
         events[ev] = events.get(ev, 0) + 1
@@ -166,6 +170,11 @@ def diag_summary(log: list) -> dict:
             why = str(rec.get("why", "?"))
             key = f"{ev.split('_')[0]}:{why}"   # alert:mute / reroute:stationary ...
             muted[key] = muted.get(key, 0) + 1
+        if ev == "tick":
+            for key, bucket in (("dist", dists), ("hdiff", hdiffs), ("spd", spds)):
+                v = rec.get(key)
+                if isinstance(v, (int, float)):
+                    bucket.append(float(v))
         acc = rec.get("acc")
         if isinstance(acc, (int, float)):
             accs.append(float(acc))
@@ -185,7 +194,52 @@ def diag_summary(log: list) -> dict:
         summary["acc_p50"] = round(_percentile(accs_sorted, 50), 1)
         summary["acc_p90"] = round(_percentile(accs_sorted, 90), 1)
         summary["acc_max"] = round(max(accs), 1)
+    for name, vals in (("dist", dists), ("hdiff", hdiffs), ("spd", spds)):
+        if not vals:
+            continue
+        ordered = sorted(vals)
+        summary[f"{name}_p50"] = round(_percentile(ordered, 50), 1)
+        summary[f"{name}_p90"] = round(_percentile(ordered, 90), 1)
+        summary[f"{name}_max"] = round(max(vals), 1)
     return summary
+
+
+def _counts_text(counts: dict, empty: str = "없음") -> str:
+    return ", ".join(f"{k} {v}" for k, v in sorted(counts.items())) if counts else empty
+
+
+def _range_text(summary: dict, name: str, unit: str) -> str:
+    if f"{name}_p50" not in summary:
+        return "데이터 없음"
+    return (
+        f"p50 {summary[f'{name}_p50']}{unit} / "
+        f"p90 {summary[f'{name}_p90']}{unit} / "
+        f"max {summary[f'{name}_max']}{unit}"
+    )
+
+
+def diag_report(summary: dict, settings: Optional[dict] = None) -> str:
+    """붙여넣기용 한 화면 요약 — 원본 로그 없이 임계값을 조정할 수 있는 최소 정보.
+
+    좌표·목적지·검색어는 애초에 로그에 없고, 여기서도 분포값(백분위수)과 횟수만 낸다.
+    settings 에 현재 임계값을 넘기면 '어떤 설정에서 나온 분포인지'까지 한 번에 남는다.
+    """
+    if not summary or summary.get("records", 0) == 0:
+        return "walk 진단 요약: 기록 없음"
+    lines = [
+        "walk 진단 요약",
+        f"기간 {summary.get('span_s', 0.0)}초 / 레코드 {summary.get('records', 0)}",
+        f"이벤트: {_counts_text(summary.get('events', {}))}",
+        f"판정(tick): {_counts_text(summary.get('tick_states', {}))}",
+        f"억제: {_counts_text(summary.get('muted', {}))}",
+        f"GPS 정확도: {_range_text(summary, 'acc', 'm')}",
+        f"경로 횡거리: {_range_text(summary, 'dist', 'm')}",
+        f"방향차: {_range_text(summary, 'hdiff', '°')}",
+        f"속도: {_range_text(summary, 'spd', 'm/s')}",
+    ]
+    if settings:
+        lines.append(f"설정: {_counts_text(settings, '기본값')}")
+    return "\n".join(lines)
 
 
 def diag_findings(summary: dict) -> list[str]:
