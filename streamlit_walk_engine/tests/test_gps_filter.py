@@ -195,6 +195,78 @@ class TestDecideAlertMute:
                 assert decision.new_last_weak_ts_ms == 12345
 
 
+class TestDecideAlertDriftCooldown:
+    """임계선 근처 보행에서 '벗어나기 시작' 경고가 반복되지 않아야 한다."""
+
+    def test_first_drift_fires_and_records_ts(self):
+        decision = decide_alert(
+            state="drifting",
+            last_alerted="on_route",
+            level="full",
+            now_ms=T,
+            last_weak_ts_ms=None,
+            alert_enabled=True,
+            last_drift_alert_ts_ms=None,
+        )
+        assert decision.fire_full is True
+        assert decision.new_last_drift_alert_ts_ms == T
+
+    def test_repeat_drift_within_cooldown_is_silent_but_consumes_transition(self):
+        decision = decide_alert(
+            state="drifting",
+            last_alerted="on_route",
+            level="full",
+            now_ms=T + 5_000,
+            last_weak_ts_ms=None,
+            alert_enabled=True,
+            last_drift_alert_ts_ms=T,
+        )
+        assert decision.fire_full is False
+        assert decision.new_last_alerted == "drifting"       # 전이는 소비
+        assert decision.new_last_drift_alert_ts_ms == T      # 기준 시각은 그대로
+
+    def test_drift_refires_after_cooldown(self):
+        decision = decide_alert(
+            state="drifting",
+            last_alerted="on_route",
+            level="full",
+            now_ms=T + 25_000,
+            last_weak_ts_ms=None,
+            alert_enabled=True,
+            last_drift_alert_ts_ms=T,
+        )
+        assert decision.fire_full is True
+        assert decision.new_last_drift_alert_ts_ms == T + 25_000
+
+    def test_confirmed_deviation_ignores_drift_cooldown(self):
+        # 진짜 이탈은 직전에 drift 경고가 있었어도 즉시 알린다. 기준 시각도 건드리지 않는다.
+        for state in ("deviated", "passed_turn"):
+            decision = decide_alert(
+                state=state,
+                last_alerted="drifting",
+                level="full",
+                now_ms=T + 1_000,
+                last_weak_ts_ms=None,
+                alert_enabled=True,
+                last_drift_alert_ts_ms=T,
+            )
+            assert decision.fire_full is True
+            assert decision.new_last_drift_alert_ts_ms == T
+
+    def test_return_to_on_route_does_not_reset_cooldown(self):
+        # on_route 복귀는 소리가 없으므로 '마지막 발화 시각'을 앞당기면 안 된다.
+        decision = decide_alert(
+            state="on_route",
+            last_alerted="drifting",
+            level="full",
+            now_ms=T + 3_000,
+            last_weak_ts_ms=None,
+            alert_enabled=True,
+            last_drift_alert_ts_ms=T,
+        )
+        assert decision.new_last_drift_alert_ts_ms == T
+
+
 class TestDecideAlertWeakCooldown:
     # (h) weak 쿨다운 시퀀스
     def test_first_weak_fires_and_records_ts(self):
