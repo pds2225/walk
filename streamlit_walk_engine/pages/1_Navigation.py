@@ -326,6 +326,11 @@ def render_dependency_error() -> None:
 
 # ── 세션 상태 ─────────────────────────────────────────────────────────────────
 
+# 이탈 확정 지속시간 기준(ms). 엔진 기본 4000 대신 2000 — 연속샘플 OR 지속시간 중
+# 먼저 충족되면 확정되므로 둘 다 낮춰 체감 반응을 앞당긴다(실기기 피드백).
+_DRIFT_HOLD_MS = 2000
+
+
 def _init() -> None:
     for k, v in {
         "nav_origin": None,
@@ -350,7 +355,10 @@ def _init() -> None:
         "nav_running": False,
         "nav_prev_coord": None,
         "nav_prev_ts_ms": None,
-        "nav_config": EngineConfig(),
+        # 민감도 슬라이더가 아직 안 그려졌을 때도 같은 값이 쓰이도록 슬라이더 기본값과
+        # 맞춘다(_render_settings_body). 특히 minimum_drift_duration_ms 는 엔진 기본이
+        # 4000 이라, 맞추지 않으면 '더보기'를 연 적 있는지에 따라 반응 속도가 갈린다.
+        "nav_config": EngineConfig(minimum_drift_duration_ms=_DRIFT_HOLD_MS),
         "nav_last_alerted_state": "on_route",
         "nav_last_weak_toast_ts_ms": None,
         "nav_last_drift_alert_ts_ms": None,   # '벗어나기 시작' 경고 재발화 쿨다운 기준 시각
@@ -381,6 +389,10 @@ def _init() -> None:
         "nav_last_reroute_ts_ms": None,
         "nav_reroute_count": 0,
         "nav_search_history": [],
+        "nav_recent_expanded": False,     # 최근 목적지 칩 '＋' 펼침 여부(기본 한 줄)
+        # 무거운 보조 패널은 '열었을 때만' 렌더한다(접힌 expander 도 매 rerun 실행되므로).
+        "nav_more_open": False,
+        "nav_side_open": False,
         "nav_pending_hist": None,
         "nav_pending_activation": None,   # '출발' 눌렀으나 위치 미취득 → 위치 확보 후 활성화 예약
         "nav_booking_history": [],
@@ -1679,16 +1691,21 @@ def _render_diag_panel() -> None:
     st.caption("이 블록만 복사해 보내면 임계값을 조정할 수 있습니다. 좌표는 들어가지 않습니다.")
     st.code(report, language="text")
 
-    payload = diag_json(log)
-    st.download_button(
-        "⬇️ 비식별 진단 로그 내려받기 (JSON)",
-        payload,
-        file_name="walk_diag.json",
-        mime="application/json",
-        width="stretch",
-    )
-    if st.checkbox("📋 복사용 JSON 보기(모바일)", value=False):
-        st.code(payload, language="json")
+    # 원본 JSON 직렬화는 레코드가 수천 건이면 무겁다 — 실제로 내려받기/보기를 켠 사람만
+    # 비용을 치르도록 미룬다(위 '요약 복사'만으로 임계값 조정은 충분하다).
+    show_json = st.checkbox("📋 복사용 JSON 보기(모바일)", value=False)
+    if st.checkbox("⬇️ 원본 JSON 준비하기", value=False,
+                   help="큰 로그는 준비에 잠시 걸립니다. 요약 복사만 보낼 거면 켤 필요 없어요") or show_json:
+        payload = diag_json(log)
+        st.download_button(
+            "⬇️ 비식별 진단 로그 내려받기 (JSON)",
+            payload,
+            file_name="walk_diag.json",
+            mime="application/json",
+            width="stretch",
+        )
+        if show_json:
+            st.code(payload, language="json")
     if st.button("🗑️ 진단 로그 지우기", width="stretch"):
         st.session_state["nav_diag_log"] = []
         _remove_ls(_LS_KEY_DIAG)
@@ -1730,33 +1747,37 @@ def _render_settings_body() -> None:
                 height=0)
             st.toast("🔊 음성 테스트 — 브라우저 음성으로 시도(안 들리면 기기 제약)")
     # 방향 진단은 안내 중에도 열 수 있어야 한다 — 이 설정 묶음은 running 과
-    # 무관하게 렌더되므로 실제 길 위에서도 접근된다.
-    _render_heading_debug()
+    # 무관하게 렌더되므로 실제 길 위에서도 접근된다. 단 250ms 타이머가 도는 840px
+    # iframe 이라 항상 붙여 두면 무겁다 → 필요한 사람만 켜도록 토글 뒤로 옮겼다.
+    if st.toggle("🧭 방향(나침반) 진단 열기", value=False, key="nav_heading_debug_open",
+                 help="지도 화살표가 엉뚱한 곳을 가리킬 때만 켜세요"):
+        _render_heading_debug()
     st.markdown("**🔧 이탈 감지 민감도**")
     st.caption("GPS가 얼마나 벗어나야 경고할지 — 보통은 기본값 그대로 두세요")
+    # 기본값은 세션의 현재 설정에서 읽는다 — 이 패널은 '더보기'를 열었을 때만 렌더되므로,
+    # 상수로 두면 닫았다 열 때마다 사용자가 조정한 값이 기본값으로 되돌아간다.
+    cfg = st.session_state["nav_config"]
     drift_t = st.slider(
-        "경고 시작 거리(m)", 5, 20, 10,
+        "경고 시작 거리(m)", 5, 20, int(cfg.route_drift_distance_threshold_meters),
         help="경로에서 이만큼(m) 벗어나면 '주의' 경고가 울려요 (삐 1번)")
     # 확정 거리는 시작 거리 이상·강한 이탈 거리(기본 25m) 이하(drift<=deviation<=strong).
     dev_t = st.slider(
-        "이탈 확정 거리(m)", drift_t, 25, max(15, drift_t),
+        "이탈 확정 거리(m)", drift_t, 25,
+        max(int(cfg.route_deviation_distance_threshold_meters), drift_t),
         help="이만큼(m) 벗어난 상태가 이어지면 '이탈'로 확정하고 재탐색해요 (삐 2번)")
-    # 이탈 확정을 더 빨리 알리도록 기본 2샘플(과거 3). GPS 노이즈 오탐이
-    # 잦으면 이 값을 올리세요(높을수록 둔감·오탐↓, 낮을수록 민감·반응↑).
+    # GPS 노이즈 오탐이 잦으면 이 값을 올리세요(높을수록 둔감·오탐↓, 낮을수록 민감·반응↑).
     min_consec = st.slider(
-        "연속 감지 횟수", 1, 5, 3,
+        "연속 감지 횟수", 1, 5, int(cfg.minimum_consecutive_samples_for_deviation),
         help="GPS는 약 1초마다 위치를 재요. 연속으로 이 횟수만큼 벗어나야 이탈 확정 — "
              "3이면 약 3초. GPS가 한 번 튄 것으로 오판하지 않기 위한 안전장치예요")
     st.session_state["nav_reroute_enabled"] = reroute_on
     st.session_state["nav_alert_enabled"] = alert_on
     st.session_state["nav_tts_enabled"] = tts_on
     st.session_state["nav_config"] = EngineConfig(
-    route_drift_distance_threshold_meters=float(drift_t),
-    route_deviation_distance_threshold_meters=float(dev_t),
-    minimum_consecutive_samples_for_deviation=min_consec,
-    # 이탈 확정 지속시간 기준을 4초→2초로(빠른 안내). 연속샘플 OR 지속시간
-    # 둘 중 먼저 충족되면 확정되므로, 둘 다 낮춰 체감 반응을 앞당긴다.
-    minimum_drift_duration_ms=2000,
+        route_drift_distance_threshold_meters=float(drift_t),
+        route_deviation_distance_threshold_meters=float(dev_t),
+        minimum_consecutive_samples_for_deviation=min_consec,
+        minimum_drift_duration_ms=_DRIFT_HOLD_MS,
     )
 
 
@@ -1766,10 +1787,9 @@ def _render_more_panel(favorites: list) -> None:
     출발지·설정·즐겨찾기/예약·개인정보/진단, 그리고 보조 동작(초기화·경로만 보기)까지
     여기 들어간다. 본 화면에는 목적지 입력과 걷기/대중교통 버튼만 남는다.
     """
+    # 출발지는 '더보기'를 열지 않아도 바꿀 수 있어야 한다(실기기 요청) → 첫 화면 본문에서
+    # 직접 렌더한다. 위젯 키가 겹치면 Streamlit 이 중복 오류를 내므로 여기서는 렌더하지 않는다.
     origin = st.session_state.get("nav_origin")
-    st.markdown("**📍 출발지**")
-    _render_origin_override_body(_current_location_hint())
-    st.divider()
     _render_settings_body()
     st.divider()
     _sidebar_favorites(favorites)
@@ -1783,16 +1803,41 @@ def _render_more_panel(favorites: list) -> None:
     _render_diag_panel()
 
 
+def _render_more_toggle(favorites: list) -> None:
+    """'⋯ 더보기'를 expander 가 아니라 버튼 토글로 연다.
+
+    Streamlit 은 '접힌' expander 안의 코드도 매 rerun 전부 실행한다. 그 안에 진단 로그
+    요약·JSON 직렬화, 방향 진단 iframe(250ms 타이머), 예약·랜드마크 패널이 들어 있어
+    첫 화면을 그릴 때마다 그 비용을 다 치르고 있었다(첫 로딩·검색 반응 지연). 버튼
+    토글이면 열기 전까지 아예 실행되지 않는다.
+    """
+    is_open = st.session_state.get("nav_more_open", False)
+    if st.button("⋯ 접기" if is_open else "⋯ 더보기", key="more_toggle", width="stretch"):
+        st.session_state["nav_more_open"] = not is_open
+        st.rerun()
+    if is_open:
+        with st.container(border=True):
+            _render_more_panel(favorites)
+
+
 def _render_side_panels() -> None:
     """개인정보·진단을 한 묶음으로 접어 본 화면 줄 수를 줄인다.
 
     경로가 없어도(안내 전) 항상 접근 가능해야 하므로 두 분기 모두에서 호출한다.
+    '더보기'와 같은 이유로 버튼 토글이다 — 안내 중에는 1초마다 rerun 이 도는데, 접힌
+    expander 였을 때는 매 초 진단 요약·JSON 직렬화가 함께 돌았다.
     """
-    with st.expander("🔒 개인정보·진단 로그", expanded=False):
-        _render_landmark_harvest_panel()
-        _render_privacy_panel()
-        st.divider()
-        _render_diag_panel()
+    is_open = st.session_state.get("nav_side_open", False)
+    if st.button("🔒 개인정보·진단 로그" + (" 접기" if is_open else ""),
+                 key="side_panels_toggle", width="stretch"):
+        st.session_state["nav_side_open"] = not is_open
+        st.rerun()
+    if is_open:
+        with st.container(border=True):
+            _render_landmark_harvest_panel()
+            _render_privacy_panel()
+            st.divider()
+            _render_diag_panel()
 
 
 # 다음 회전 예고 음성 '기본' 거리(m). 실제 엔진+GPS 노이즈(σ6m)+1초 폴링 시뮬(720회 보행) 실측:
@@ -2660,10 +2705,41 @@ def _render_compass_enable() -> None:
 _HEADING_DEBUG_HTML = """
 <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:13px">
  <div id="st" style="padding:6px 8px;border-radius:6px;background:#fff3cd;margin-bottom:8px"></div>
- <div style="text-align:center;padding:8px;border-radius:8px;background:#eef2ff;margin-bottom:8px">
-  <div style="font-size:12px;color:#555">📱 지금 센서가 읽는 '내가 보는 방향'</div>
-  <div id="big" style="font-size:30px;font-weight:700;line-height:1.2">—</div>
-  <div id="bigsrc" style="font-size:11px;color:#777"></div>
+ <div style="padding:8px;border-radius:8px;background:#eef2ff;margin-bottom:8px">
+  <div style="font-size:12px;color:#555;text-align:center">📱 지금 센서가 읽는 '내가 보는 방향'</div>
+  <div style="display:flex;align-items:center;justify-content:center;gap:14px;margin-top:4px">
+   <!-- 나침반 그림: 빨간 화살표=내 정면(항상 위), 눈금판이 돌아 북이 어디인지 보여준다.
+        '남'이라는 글자만으로는 어느 쪽인지 감이 안 온다는 실기기 피드백. -->
+   <svg width="128" height="128" viewBox="-64 -64 128 128" style="flex:none">
+    <circle r="58" fill="#fff" stroke="#c7d2fe" stroke-width="2"/>
+    <g id="rose">
+     <line x1="0" y1="-58" x2="0" y2="-48" stroke="#dc2626" stroke-width="3"/>
+     <line x1="58" y1="0" x2="50" y2="0" stroke="#94a3b8" stroke-width="2"/>
+     <line x1="0" y1="58" x2="0" y2="50" stroke="#94a3b8" stroke-width="2"/>
+     <line x1="-58" y1="0" x2="-50" y2="0" stroke="#94a3b8" stroke-width="2"/>
+    </g>
+    <!-- 방위 글자는 눈금판과 함께 돌리면 거꾸로 뒤집혀 읽을 수 없다 → 위치만 JS 로 옮긴다 -->
+    <g font-size="13" font-weight="700" text-anchor="middle" dominant-baseline="central">
+     <text id="lbN" fill="#dc2626">북</text>
+     <text id="lbE" fill="#64748b">동</text>
+     <text id="lbS" fill="#64748b">남</text>
+     <text id="lbW" fill="#64748b">서</text>
+    </g>
+    <!-- 정면 화살표는 방위 글자(반지름 45)를 가리지 않도록 짧게 -->
+    <polygon points="0,-34 9,-12 0,-18 -9,-12" fill="#dc2626"/>
+    <circle r="3.5" fill="#dc2626"/>
+   </svg>
+   <div style="text-align:left">
+    <div id="big" style="font-size:30px;font-weight:700;line-height:1.2">—</div>
+    <div id="bigsrc" style="font-size:11px;color:#777"></div>
+    <div style="font-size:11px;color:#475569;margin-top:6px">
+     <span style="color:#dc2626;font-weight:700">▲ 빨간 화살표</span> = 내가 보는 쪽
+    </div>
+   </div>
+  </div>
+  <div style="font-size:11px;color:#555;text-align:center;margin-top:2px">
+   폰 윗변을 <b>내가 보는 쪽</b>으로 두고 보세요 — 눈금판의 '북'이 실제 북쪽을 가리키면 맞는 값입니다.
+  </div>
  </div>
  <div style="display:flex;gap:6px;margin-bottom:8px">
   <button id="fz" style="flex:1;font-size:14px;padding:9px 6px;border-radius:8px;
@@ -2690,8 +2766,11 @@ _HEADING_DEBUG_HTML = """
  var G={h:null,sp:null,acc:null,n:0};                        // GPS
  var frozen=false, frozenSnap=null;
 
+ var ARROWS=["↑","↗","→","↘","↓","↙","←","↖"];   // 북이 위인 지도 기준(_deg8_arrow 와 동일)
  function norm(d){return d==null?null:((d%360)+360)%360;}
- function lab(d){return d==null?"—":DIRS[Math.floor((norm(d)+22.5)/45)%8];}
+ function oct(d){return d==null?null:Math.floor((norm(d)+22.5)/45)%8;}
+ function lab(d){return d==null?"—":DIRS[oct(d)];}
+ function arw(d){return d==null?"·":ARROWS[oct(d)];}
  function fx(v,k){return v==null?"—":(+v).toFixed(k==null?1:k);}
 
  function onOri(slot,ev){
@@ -2767,7 +2846,7 @@ _HEADING_DEBUG_HTML = """
   L.push("alpha="+fx(S.alpha)+" beta="+fx(S.beta)+" gamma="+fx(S.gamma)+" 화면회전="+scr());
   L.push("webkitCompass="+fx(W.h)+" (정확도 "+fx(W.acc)+")");
   L.push("GPS heading="+fx(G.h)+" speed="+fx(G.sp,2)+" acc="+fx(G.acc)+" fix="+G.n);
-  cands().forEach(function(c){L.push("· "+c.t+" = "+fx(c.d)+"° "+lab(c.d)+(c.note?" ("+c.note+")":""));});
+  cands().forEach(function(c){L.push("· "+c.t+" = "+fx(c.d)+"° "+lab(c.d)+arw(c.d)+(c.note?" ("+c.note+")":""));});
   L.push("(화면 위 '앱이 쓰는 값' 두 줄도 함께 알려주세요)");
   return L.join("\\n");
  }
@@ -2777,6 +2856,7 @@ _HEADING_DEBUG_HTML = """
    +'border-radius:8px;background:'+(on?"#f1f5f9":"#fafafa")+';opacity:'+(on?1:0.5)+'">'
    +'<span style="flex:1;color:#444">'+c.t
    +(c.note?'<br><span style="font-size:11px;color:#b45309">'+c.note+'</span>':'')+'</span>'
+   +'<b style="font-size:19px;width:20px;text-align:center;color:#1d4ed8">'+arw(c.d)+'</b>'
    +'<b style="font-size:'+(big?19:18)+'px;min-width:48px;text-align:right">'+lab(c.d)+'</b>'
    +'<span style="width:46px;text-align:right;color:#666">'+fx(c.d,0)+'°</span></div>';
  }
@@ -2791,8 +2871,19 @@ _HEADING_DEBUG_HTML = """
    e.innerHTML=(live?"✅ 센서 수신 중":"⏳ 값이 잠시 멈춤")+" · 절대방위 "+A.n+"건 / 일반 "+P.n+"건"
     +(A.n===0?"<br><b>⚠ 절대방위 이벤트가 안 옵니다 — 이게 방향 오류의 원인일 수 있습니다</b>":"");}
   var pr=primary();
-  document.getElementById("big").textContent=(pr.d==null)?"—":(lab(pr.d)+"  "+fx(pr.d,0)+"°");
+  document.getElementById("big").textContent=
+   (pr.d==null)?"—":(arw(pr.d)+" "+lab(pr.d)+"  "+fx(pr.d,0)+"°");
   document.getElementById("bigsrc").textContent=pr.src?("출처: "+pr.src):"";
+  // 눈금판을 -방위각만큼 돌린다 → 빨간 화살표(정면, 항상 위) 기준으로 '북'이 실제
+  // 어느 쪽에 있는지 보인다. 예: 동쪽을 보면 '북'이 왼쪽으로 온다.
+  var h=(pr.d==null)?0:pr.d;
+  document.getElementById("rose").setAttribute("transform","rotate("+(-h).toFixed(1)+")");
+  [["lbN",0],["lbE",90],["lbS",180],["lbW",270]].forEach(function(p){
+   var a=(p[1]-h)*Math.PI/180, el=document.getElementById(p[0]);
+   el.setAttribute("x",(45*Math.sin(a)).toFixed(1));
+   el.setAttribute("y",(-45*Math.cos(a)).toFixed(1));
+   el.style.opacity=(pr.d==null)?0.35:1;
+  });
   var cs=cands(), h="";
   for(var i=0;i<cs.length;i++)h+=rowHTML(cs[i],i===0);
   document.getElementById("cand").innerHTML=h;
@@ -2821,16 +2912,32 @@ _HEADING_DEBUG_HTML = """
 """
 
 
-def _deg8_label(v) -> str:
-    """방위각(도) → 8방위 한글. None/비숫자는 '—'."""
+def _deg8_index(v) -> Optional[int]:
+    """방위각(도) → 8방위 인덱스(0=북, 시계방향). None/비숫자/NaN 은 None."""
     try:
         f = float(v)
     except (TypeError, ValueError):
-        return "—"
+        return None
     if f != f:  # NaN
+        return None
+    return int((f % 360 + 22.5) // 45) % 8
+
+
+def _deg8_label(v) -> str:
+    """방위각(도) → 8방위 한글. None/비숫자는 '—'."""
+    i = _deg8_index(v)
+    if i is None:
         return "—"
-    dirs = ("북", "북동", "동", "남동", "남", "남서", "서", "북서")
-    return dirs[int((f % 360 + 22.5) // 45) % 8]
+    return ("북", "북동", "동", "남동", "남", "남서", "서", "북서")[i]
+
+
+def _deg8_arrow(v) -> str:
+    """방위각(도) → 화살표(북이 위인 지도 기준). '남'이 어느 쪽인지 글자로는 감이 안 온다는
+    실기기 피드백 — 8방위 한글 옆에 같은 방향의 화살표를 붙여 한눈에 읽히게 한다."""
+    i = _deg8_index(v)
+    if i is None:
+        return "·"
+    return ("↑", "↗", "→", "↘", "↓", "↙", "←", "↖")[i]
 
 
 def _render_heading_debug() -> None:
@@ -2866,19 +2973,20 @@ def _render_heading_debug() -> None:
 
     st.markdown("**🧭 방향이 틀릴 때 — 방향값 진단(폰에서 확인)**")
     st.caption(
-        "실제 길에 서서 **정면으로 보고 있는 방향**과, 아래 큰 글씨(‘지금 센서가 읽는 방향’) 및 "
+        "실제 길에 서서 **정면으로 보고 있는 방향**과, 아래 나침반 그림(‘지금 센서가 읽는 방향’) 및 "
         "계산 방식별 값 중 **어느 게 맞는지** 알려주세요. 그 한 가지로 원인이 확정됩니다."
     )
     # ── 앱이 실제 쓰는 값(iframe 밖, 네이티브) ── srcdoc 오염을 막기 위해 여기서 렌더.
+    # 화살표는 '북이 위'인 지도 기준 — 글자('남')만으로는 어느 쪽인지 감이 안 온다는 피드백.
     st.markdown(
-        f"**앱이 쓰는 값**  ·  지도·화살표 **{_deg8_label(map_val)}** ({_fmt(map_val)})  "
-        f"·  나침반 카드 **{_deg8_label(app_val)}** ({_fmt(app_val)})"
+        f"**앱이 쓰는 값**  ·  지도·화살표 {_deg8_arrow(map_val)} **{_deg8_label(map_val)}** ({_fmt(map_val)})  "
+        f"·  나침반 카드 {_deg8_arrow(app_val)} **{_deg8_label(app_val)}** ({_fmt(app_val)})"
     )
     st.caption("↑ 이 두 값은 GPS 주기로만 갱신돼 조금 느립니다. 서 있는데 이 값이 "
                "실제 방향과 다르면 그 자체가 원인 신호예요. 값 복사 시 이 두 줄도 함께 알려주세요.")
     components.html(
         _HEADING_DEBUG_HTML.replace("__DECL__", repr(float(_COMPASS_DECL_DEG))),
-        height=720,
+        height=840,   # 나침반 그림(128px)이 추가돼 720 에서는 아래 후보 목록이 잘렸다
         scrolling=True,
     )
 
@@ -3016,21 +3124,50 @@ def _sidebar_destination(favorites: list, running: bool = False,
     _render_action_buttons()
 
     # ── 최근 검색 원탭 칩 — 반복 목적지를 접힌 메뉴 대신 한 번에 다시 안내(검색 마찰↓) ──
-    recent = st.session_state["nav_search_history"][:3]
-    if recent:
-        st.caption("최근")
-        cols = st.columns(len(recent))
-        for i, h in enumerate(recent):
-            with cols[i]:
-                if st.button(f"🕐 {h['query']}{_exit_tag(h['query'])}", key=f"recent_chip_{i}",
-                             width="stretch"):
-                    st.session_state["nav_pending_hist"] = h
-                    st.rerun()
+    _render_recent_chips()
 
     # ── 출발지 (기본은 현재 위치이므로 접어 둠 — 바꿀 때만 펼침) ──
     if show_origin:
         with st.expander("출발지 바꾸기 (기본: 현재 위치)", expanded=False):
             _render_origin_override_body(cur_hint)
+
+
+_RECENT_CHIP_ROW = 3    # 한 줄에 놓는 최근 목적지 개수(폰 가로폭 기준)
+_RECENT_CHIP_MAX = 9    # '＋'로 펼쳤을 때 최대 개수 — 그 이상은 검색이 빠르다
+
+
+def _render_recent_chips() -> None:
+    """최근 목적지 원탭 칩 — 기본은 가로 한 줄(3개)만, '＋'를 누르면 더 보여준다.
+
+    실기기 요청: 첫 화면에 칩이 여러 줄로 쌓이면 목적지 입력·출발 버튼이 밀려 내려간다.
+    그래서 기본 노출은 한 줄로 고정하고, 나머지는 '＋'(펼침)로 옮겼다.
+    """
+    history = st.session_state["nav_search_history"]
+    if not history:
+        return
+    expanded = st.session_state.get("nav_recent_expanded", False)
+    shown = history[:_RECENT_CHIP_MAX] if expanded else history[:_RECENT_CHIP_ROW]
+    has_more = len(history) > _RECENT_CHIP_ROW
+
+    st.caption("최근")
+    for start in range(0, len(shown), _RECENT_CHIP_ROW):
+        row = shown[start:start + _RECENT_CHIP_ROW]
+        # 첫 줄에만 '＋/−' 칸을 붙인다 — 더 볼 게 있을 때만.
+        extra = 1 if (start == 0 and has_more) else 0
+        cols = st.columns(len(row) + extra)
+        for i, h in enumerate(row):
+            with cols[i]:
+                if st.button(f"🕐 {h['query']}{_exit_tag(h['query'])}",
+                             key=f"recent_chip_{start + i}", width="stretch"):
+                    st.session_state["nav_pending_hist"] = h
+                    st.rerun()
+        if extra:
+            with cols[-1]:
+                if st.button("−" if expanded else "＋", key="recent_chip_more",
+                             width="stretch",
+                             help="접기" if expanded else f"최근 목적지 {len(history)}개 모두 보기"):
+                    st.session_state["nav_recent_expanded"] = not expanded
+                    st.rerun()
 
 
 def _render_favorite_chips(favorites: list) -> None:
@@ -3780,12 +3917,12 @@ def main() -> None:
         defer_controls = running and st.session_state.get("nav_journey") is None
         simple_screen = _simple_screen()
         if not defer_controls:
-            _sidebar_destination(favorites, running=running,
-                                 show_origin=not simple_screen)
+            # 첫 화면에서도 출발지를 노출한다(접힌 한 줄) — '더보기'를 열어야만 바꿀 수
+            # 있는 건 불편하다는 실기기 요청. 대신 _render_more_panel 에서는 뺀다(키 중복 방지).
+            _sidebar_destination(favorites, running=running, show_origin=True)
         # 첫 화면: 목적지 입력·모드 버튼 바로 아래에 나머지 기능을 한 묶음으로 접는다.
         if simple_screen:
-            with st.expander("⋯ 더보기", expanded=False):
-                _render_more_panel(favorites)
+            _render_more_toggle(favorites)
 
         # 내비 진행 중엔 '현재 위치' 헤더/구분선을 숨겨 지도·판정에 자리를 양보.
         # 첫 화면에서도 숨긴다 — 위치 상태는 목적지 입력 아래 캡션으로 충분하다.

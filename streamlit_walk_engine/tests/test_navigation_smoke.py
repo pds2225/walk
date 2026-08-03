@@ -74,12 +74,22 @@ def test_dest_reset_a_hardening():
 
 
 def test_deviation_confirmation_defaults_are_faster():
-    """이탈 확정을 더 빨리 알리도록 기본 연속 2샘플·지속 2초로 설정한다.
-    (deviated = 연속샘플 OR 지속시간 둘 중 먼저 충족되므로 둘 다 낮춰야 체감이 빨라진다.)"""
-    source = PAGE.read_text(encoding="utf-8")
+    """이탈 확정을 더 빨리 알리도록 기본 연속 3샘플·지속 2초로 설정한다.
+    (deviated = 연속샘플 OR 지속시간 둘 중 먼저 충족되므로 둘 다 낮춰야 체감이 빨라진다.)
 
-    assert '"연속 감지 횟수", 1, 5, 3' in source           # 1초 샘플링 × 3회 ≈ 3초 확정
-    assert "minimum_drift_duration_ms=2000" in source       # 지속시간 경로도 3번째 표본과 일치
+    민감도 슬라이더는 '더보기'를 열었을 때만 렌더되므로, 소스 문자열이 아니라 실제
+    세션 기본값(nav_config)으로 고정한다 — 한 번도 열지 않은 사용자가 엔진 기본값
+    (4초)으로 떨어지던 회귀를 막는다."""
+    app = AppTest.from_file(str(PAGE))
+    _run_past_consent(app)
+
+    cfg = app.session_state["nav_config"]
+    assert cfg.minimum_consecutive_samples_for_deviation == 3   # 1초 샘플링 × 3회 ≈ 3초 확정
+    assert cfg.minimum_drift_duration_ms == 2000                # 지속시간 경로도 3번째 표본과 일치
+    assert cfg.route_drift_distance_threshold_meters == 10.0
+    assert cfg.route_deviation_distance_threshold_meters == 15.0
+
+    source = PAGE.read_text(encoding="utf-8")
     # 안내 중·'출발' 예약 중 1초 폴링 — 첫 fix·대략위치 승격 대기는 5초, 예약 유휴는 10초
     assert '1000 if (st.session_state["nav_running"] or _pending_act)' in source
     assert "else 5_000 if _needs_idle_fix else 10_000" in source
@@ -208,6 +218,111 @@ def test_heading_debug_falls_back_from_stale_or_uncalibrated_sensor():
     assert "기울기+화면회전(-) 보정" in debug
 
 
+def test_heading_shown_as_arrow_not_only_words():
+    """'남'이라는 글자만으로는 어느 쪽인지 모르겠다는 실기기 피드백 — 방위 한글 옆에
+    같은 방향의 화살표를, 큰 표시에는 나침반 그림을 함께 그린다."""
+    source = PAGE.read_text(encoding="utf-8")
+
+    # 파이썬쪽: 8방위 인덱스 하나로 한글·화살표를 함께 만든다(두 표기가 어긋나지 않게)
+    assert "def _deg8_index(" in source
+    assert 'return ("↑", "↗", "→", "↘", "↓", "↙", "←", "↖")[i]' in source
+    assert "_deg8_arrow(map_val)" in source and "_deg8_arrow(app_val)" in source
+
+    debug = source[source.index('_HEADING_DEBUG_HTML = """'):]
+    debug = debug[:debug.index("def _deg8_index(")]
+    # iframe 쪽도 같은 화살표 표(한글/화살표가 따로 놀지 않게)
+    assert 'var ARROWS=["↑","↗","→","↘","↓","↙","←","↖"];' in debug
+    assert "function arw(d)" in debug
+    # 나침반 그림: 눈금판은 -방위각으로 돌리되, 글자는 뒤집히지 않게 위치만 옮긴다
+    assert 'document.getElementById("rose").setAttribute("transform","rotate("+(-h)' in debug
+    assert '[["lbN",0],["lbE",90],["lbS",180],["lbW",270]]' in debug
+    assert "내 정면" in debug
+
+
+def test_recent_destinations_are_one_row_until_expanded():
+    """최근 목적지 칩이 여러 줄로 쌓이면 목적지 입력·출발 버튼이 밀려 내려간다.
+    기본은 가로 한 줄(3개)만, 나머지는 '＋'를 눌렀을 때만 펼친다(실기기 요청)."""
+    source = PAGE.read_text(encoding="utf-8")
+
+    assert "_RECENT_CHIP_ROW = 3" in source
+    assert "def _render_recent_chips()" in source
+    assert 'st.button("−" if expanded else "＋"' in source
+
+    app = AppTest.from_file(str(PAGE))
+    _run_past_consent(app)
+    app.session_state["nav_search_history"] = [
+        {"query": f"장소{i}", "display_name": f"장소{i}", "lat": 37.5 + i / 1000, "lon": 127.0}
+        for i in range(5)
+    ]
+    app.run(timeout=30)
+
+    chips = [b.label for b in app.button if b.label.startswith("🕐")]
+    assert len(chips) == 3                                   # 한 줄만 — 5개 있어도 3개
+    more = [b for b in app.button if b.label == "＋"]
+    assert more                                              # 더 볼 게 있으면 '＋'가 뜬다
+
+    more[0].click().run(timeout=30)
+    assert len([b.label for b in app.button if b.label.startswith("🕐")]) == 5
+    assert [b for b in app.button if b.label == "−"]          # 다시 접을 수 있다
+
+
+def test_origin_editable_without_opening_more():
+    """출발지는 '더보기'를 열지 않아도 바꿀 수 있어야 한다(실기기 요청).
+    본문에서 직접 렌더하므로 더보기 묶음에서는 빠져야 한다 — 위젯 키 중복 방지."""
+    source = PAGE.read_text(encoding="utf-8")
+    more = source[source.index("def _render_more_panel("):]
+    more = more[:more.index("def _render_more_toggle(")]
+    assert "_render_origin_override_body" not in more
+
+    app = AppTest.from_file(str(PAGE))
+    _run_past_consent(app)
+
+    assert not app.exception
+    assert [e.label for e in app.expander] == ["출발지 바꾸기 (기본: 현재 위치)"]
+
+
+def test_first_screen_skips_heavy_panels():
+    """첫 로딩·검색 반응 속도: Streamlit 은 '접힌' expander 안의 코드도 매 rerun 전부
+    실행한다. 진단 요약·JSON 직렬화, 방향 진단 iframe(250ms 타이머), 예약·랜드마크
+    패널이 첫 화면에서 매번 돌던 것을 버튼 토글로 바꿔 열기 전까지 실행하지 않는다."""
+    app = AppTest.from_file(str(PAGE))
+    _run_past_consent(app)
+
+    assert not app.exception
+    # 첫 화면에는 출발 버튼 2개 + 더보기만 — 무거운 패널의 위젯이 하나도 없어야 한다
+    assert [b.label for b in app.button] == ["걷기", "대중교통+걷기", "⋯ 더보기"]
+    assert not app.slider and not app.toggle and not app.checkbox
+
+    # 열면 그때 전부 나온다
+    [b for b in app.button if b.label == "⋯ 더보기"][0].click().run(timeout=30)
+    assert not app.exception
+    assert "🧭 방향(나침반) 진단 열기" in [t.label for t in app.toggle]
+    assert "연속 감지 횟수" in [s.label for s in app.slider]
+    assert "⋯ 접기" in [b.label for b in app.button]
+
+
+def test_settings_sliders_survive_panel_close():
+    """민감도 슬라이더는 '더보기'를 닫으면 언마운트된다. 기본값을 상수로 두면 다시 열
+    때마다 사용자가 조정한 값이 되돌아가므로, 세션의 현재 설정에서 읽어야 한다."""
+    source = PAGE.read_text(encoding="utf-8")
+    assert 'cfg = st.session_state["nav_config"]' in source
+    assert "int(cfg.route_drift_distance_threshold_meters)" in source
+    assert "int(cfg.minimum_consecutive_samples_for_deviation)" in source
+
+    app = AppTest.from_file(str(PAGE))
+    _run_past_consent(app)
+    [b for b in app.button if b.label == "⋯ 더보기"][0].click().run(timeout=30)
+    [s for s in app.slider if s.label == "연속 감지 횟수"][0].set_value(5).run(timeout=30)
+    assert app.session_state["nav_config"].minimum_consecutive_samples_for_deviation == 5
+
+    [b for b in app.button if b.label == "⋯ 접기"][0].click().run(timeout=30)
+    # 닫혀 있어도 설정은 유지되고(엔진이 그대로 쓴다)
+    assert app.session_state["nav_config"].minimum_consecutive_samples_for_deviation == 5
+    # 다시 열면 그 값이 슬라이더 기본값으로 복원된다
+    [b for b in app.button if b.label == "⋯ 더보기"][0].click().run(timeout=30)
+    assert [s for s in app.slider if s.label == "연속 감지 횟수"][0].value == 5
+
+
 def test_searchbox_debounce_wired():
     """검색창 debounce 배선(2026-07-17 '도착지 검색 느림') — 키 입력마다 검색 API
     콜백이 돌던 것을 입력 멈춤 후 1회로 축소. 미지원 구버전엔 미전달(TypeError 방지)."""
@@ -287,9 +402,11 @@ def test_secondary_panels_are_grouped_into_three():
     source = PAGE.read_text(encoding="utf-8")
 
     for label in ("⚙️ 설정 (알림·음성·민감도)",
-                  "⭐ 자주 가는 길 (즐겨찾기·예약)",
-                  "🔒 개인정보·진단 로그"):
+                  "⭐ 자주 가는 길 (즐겨찾기·예약)"):
         assert f'st.expander("{label}"' in source
+    # 개인정보·진단은 expander 가 아니라 버튼 토글이다 — 접힌 expander 도 매 rerun
+    # 실행되는 탓에 안내 중 1초마다 진단 요약·JSON 직렬화가 함께 돌았다.
+    assert 'st.button("🔒 개인정보·진단 로그"' in source
 
     # 묶음에 흡수된 개별 패널은 더 이상 자기 expander 를 열지 않는다
     for gone in ("🔧 고급 설정", "🔔 소리·음성 테스트 (걷기 전 확인)\", expanded",
@@ -309,7 +426,9 @@ def test_first_screen_is_input_and_two_buttons():
     source = PAGE.read_text(encoding="utf-8")
 
     assert "def _simple_screen()" in source
-    assert 'st.expander("⋯ 더보기"' in source
+    # '더보기'는 expander 가 아니라 버튼 토글 — 열기 전까지 무거운 패널을 아예 실행하지
+    # 않아야 첫 화면이 빨리 뜬다(Streamlit 은 접힌 expander 안도 매 rerun 실행한다).
+    assert 'st.button("⋯ 접기" if is_open else "⋯ 더보기"' in source
     assert "def _render_more_panel(" in source
     # 보조 버튼·개발자 캡션은 첫 화면에서 감춘다
     assert '(not _simple_screen()) and st.button("↺ 초기화"' in source
