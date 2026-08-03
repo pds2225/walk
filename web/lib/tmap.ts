@@ -96,6 +96,11 @@ function sameCoord(a: Coordinate, b: Coordinate): boolean {
 }
 
 /** 안내할 가치가 있는 회전인지 — 완만한 커브는 회전으로 보지 않는다. */
+/** 이 소스를 쓸 수 있는지(앱키가 있는지). 키 값은 노출하지 않는다. */
+export function tmapAvailable(): boolean {
+  return Boolean(process.env.TMAP_APP_KEY);
+}
+
 export function isSignificantTurn(polyline: readonly Coordinate[], index: number): boolean {
   const change = headingChangeDegrees(polyline, index);
   return change !== null && change >= MIN_TURN_HEADING_CHANGE_DEGREES;
@@ -243,13 +248,13 @@ function addressHits(body: unknown): PlaceHit[] {
 }
 
 /**
- * 목적지 후보 — 주소(fullAddrGeo)와 장소명(POI)을 동시에 물어 합친다.
+ * TMAP 후보 — 주소(fullAddrGeo)와 장소명(POI)을 동시에 물어 합친다.
  *
  * 파이썬쪽과 같은 이유로 둘 다 쓴다: '역삼동 123' 같은 주소지와 '강남역 10번출구' 같은
  * 장소는 서로 다른 API 가 답한다. center 를 주면 POI 를 거리순으로 받아 동명 장소
  * 오선택을 줄인다(searchtypCd=R).
  */
-export async function searchPlaces(query: string, center: Coordinate | null, limit = 8): Promise<PlaceHit[]> {
+export async function searchTmapPlaces(query: string, center: Coordinate | null, limit = 8): Promise<PlaceHit[]> {
   const poiParams = new URLSearchParams({
     version: "1",
     searchKeyword: query,

@@ -38,6 +38,9 @@ function metersText(m: number | null | undefined): string {
 export default function Home() {
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<PlaceHit[]>([]);
+  // 결과가 0건일 때 '왜 없는지'. 소스가 조용히 죽으면 '장소 없음'과 구별이 안 된다.
+  const [missHint, setMissHint] = useState<string | null>(null);
+  const [searched, setSearched] = useState(false);
   const [searching, setSearching] = useState(false);
   const [dest, setDest] = useState<Recent | null>(null);
   const [routeResponse, setRouteResponse] = useState<RouteResponse | null>(null);
@@ -65,6 +68,8 @@ export default function Home() {
     const q = query.trim();
     if (!q || dest) {
       setHits([]);
+      setMissHint(null);
+      setSearched(false);
       return;
     }
     const seq = ++searchSeq.current;
@@ -81,9 +86,15 @@ export default function Home() {
         // 타이핑이 계속돼 더 새로운 요청이 나갔으면 이 응답은 버린다(순서 뒤집힘 방지).
         if (seq !== searchSeq.current) return;
         setHits(resp.ok ? ((body as { hits?: PlaceHit[] }).hits ?? []) : []);
+        setMissHint(resp.ok ? ((body as { hint?: string | null }).hint ?? null) : null);
         setError(resp.ok ? null : ((body as { error?: string }).error ?? null));
+        setSearched(true);
       } catch {
-        if (seq === searchSeq.current) setHits([]);
+        if (seq === searchSeq.current) {
+          setHits([]);
+          setMissHint(null);
+          setSearched(true);
+        }
       } finally {
         if (seq === searchSeq.current) setSearching(false);
       }
@@ -210,6 +221,13 @@ export default function Home() {
       />
 
       {searching ? <p className="hint">검색 중…</p> : null}
+
+      {searched && !searching && hits.length === 0 && !dest ? (
+        <>
+          <p className="hint">‘{query.trim()}’ — 일치하는 장소가 없습니다.</p>
+          {missHint ? <p className="error">⚠️ {missHint}</p> : null}
+        </>
+      ) : null}
 
       {hits.length > 0 ? (
         <ul className="hits">

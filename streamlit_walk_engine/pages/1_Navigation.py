@@ -1791,6 +1791,8 @@ def _render_more_panel(favorites: list) -> None:
     # 출발지는 '더보기'를 열지 않아도 바꿀 수 있어야 한다(실기기 요청) → 첫 화면 본문에서
     # 직접 렌더한다. 위젯 키가 겹치면 Streamlit 이 중복 오류를 내므로 여기서는 렌더하지 않는다.
     origin = st.session_state.get("nav_origin")
+    _render_search_source_panel()
+    st.divider()
     _render_settings_body()
     st.divider()
     _sidebar_favorites(favorites)
@@ -3018,6 +3020,35 @@ def _search_places(query: str) -> list:
     except Exception:
         st.session_state["nav_search_last"] = {"q": q, "count": 0, "failed": True}
         return []
+
+
+def _render_search_source_panel() -> None:
+    """검색 소스(키) 설정 상태 — '다 들어가 있는지' 한눈에.
+
+    키 값은 절대 표시하지 않는다. 설정 여부(bool)만 보여준다.
+    """
+    st.markdown("**🔑 검색 소스 상태**")
+    status = route_builder.search_source_status()
+    rows = [
+        ("네이버 지역검색", status["naver_local"], "상호·가게 이름 (○○치킨, △△카페)",
+         "NAVER_SEARCH_CLIENT_ID / SECRET"),
+        ("네이버 지오코딩", status["naver_geocode"], "주소",
+         "NAVER_MAPS_CLIENT_ID / SECRET"),
+        ("TMAP", status["tmap"], "주소 + 큰 장소, 그리고 경로 탐색", "TMAP_APP_KEY"),
+    ]
+    for name, ok, what, keys in rows:
+        st.write(f"{'✅' if ok else '❌'} **{name}** — {what}")
+        if not ok:
+            st.caption(f"　　꺼짐: `{keys}` 미설정")
+    st.caption("Nominatim(OSM)은 키가 필요 없지만, 위 소스가 모두 비었을 때만 씁니다.")
+    if not status["naver_local"]:
+        st.warning(
+            "네이버 지도에 뜨는 **가게 이름**은 네이버 지역검색에서만 나옵니다. "
+            "이 키가 없으면 '네이버엔 있는데 여긴 안 나옴'이 계속 생깁니다.")
+    st.caption(
+        "키는 환경변수 또는 `.streamlit/secrets.toml` 로 넣습니다. "
+        "네이버 지역검색 키는 developers.naver.com '검색' 애플리케이션에서 발급하며, "
+        "지오코딩(네이버 클라우드)과는 **다른 키**입니다.")
 
 
 def _render_search_miss_notice() -> None:

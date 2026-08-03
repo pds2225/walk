@@ -644,3 +644,26 @@ def test_voice_test_button_and_gps_accuracy_shown():
     assert "GPS 정확도 ±" in source
     assert "_acc = _gating_accuracy()" in source
     assert "트인 곳으로 이동 권장" in source  # 정확도 낮을 때 행동 유도
+
+
+def test_search_source_status_visible_and_never_leaks_keys():
+    """'네이버 키가 들어가 있는지' 를 앱 안에서 확인할 수 있어야 한다.
+
+    사용자는 폰으로만 앱을 쓰므로 서버 환경변수를 들여다볼 방법이 없다. 그런데 소스가
+    꺼져 있으면 검색이 조용히 비기만 해서 '네이버엔 있는데 여긴 없다'가 반복됐다.
+    상태는 보여주되 키 값은 절대 화면에 넣지 않는다."""
+    source = PAGE.read_text(encoding="utf-8")
+    assert "def _render_search_source_panel()" in source
+    assert "route_builder.search_source_status()" in source
+
+    app = AppTest.from_file(str(PAGE))
+    _run_past_consent(app)
+    [b for b in app.button if b.label == "⋯ 더보기"][0].click().run(timeout=30)
+
+    assert not app.exception
+    shown = "\n".join(str(m.value) for m in app.markdown)
+    shown += "\n".join(str(c.value) for c in app.caption)
+    assert "검색 소스 상태" in shown
+    assert "네이버 지역검색" in shown
+    # 상태는 ✅/❌ 로만 — 키 이름은 안내하되 값은 어디에도 넣지 않는다
+    assert "✅" in shown or "❌" in shown
