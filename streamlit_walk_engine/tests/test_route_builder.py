@@ -1285,3 +1285,54 @@ class TestParseCoordLiteral:
     def test_geocode_suggestions_uses_literal(self):
         out = route_builder.geocode_suggestions("37.5, 127.0")
         assert len(out) == 1 and abs(out[0][0].longitude - 127.0) < 1e-9
+
+
+class TestSearchSourceStatus:
+    """검색 소스가 조용히 죽는 것을 화면에서 구분할 수 있어야 한다.
+
+    실기기 보고: "네이버에 검색되는데 내 앱에서는 안 나온다". 원인 대부분은 장소가
+    없어서가 아니라 네이버 지역검색 키가 없어 그 소스를 아예 안 물어본 것인데,
+    모든 실패가 빈 목록으로 같아 보여 구분이 안 됐다.
+    """
+
+    def test_status_reports_each_source(self, monkeypatch):
+        monkeypatch.setattr(route_builder, "_naver_search_headers", lambda: {"X-Naver-Client-Id": "x"})
+        monkeypatch.setattr(route_builder, "_naver_headers", lambda: None)
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: "k")
+
+        assert route_builder.search_source_status() == {
+            "naver_local": True, "naver_geocode": False, "tmap": True,
+        }
+
+    def test_status_never_leaks_key_values(self, monkeypatch):
+        secret = "super-secret-value"
+        monkeypatch.setattr(route_builder, "_naver_search_headers",
+                            lambda: {"X-Naver-Client-Id": secret})
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: secret)
+
+        assert secret not in repr(route_builder.search_source_status())
+        assert all(isinstance(v, bool) for v in route_builder.search_source_status().values())
+
+    def test_hint_points_at_naver_local_first(self, monkeypatch):
+        # 상호·가게 이름은 네이버 지역검색에서만 나온다 — 가장 흔한 원인이라 먼저 알린다.
+        monkeypatch.setattr(route_builder, "_naver_search_headers", lambda: None)
+        monkeypatch.setattr(route_builder, "_naver_headers", lambda: None)
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: None)
+
+        hint = route_builder.missing_source_hint()
+        assert hint is not None and "네이버 지역검색" in hint
+
+    def test_hint_mentions_tmap_when_only_tmap_missing(self, monkeypatch):
+        monkeypatch.setattr(route_builder, "_naver_search_headers", lambda: {"a": "b"})
+        monkeypatch.setattr(route_builder, "_naver_headers", lambda: {"a": "b"})
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: None)
+
+        hint = route_builder.missing_source_hint()
+        assert hint is not None and "TMAP" in hint
+
+    def test_no_hint_when_all_sources_available(self, monkeypatch):
+        monkeypatch.setattr(route_builder, "_naver_search_headers", lambda: {"a": "b"})
+        monkeypatch.setattr(route_builder, "_naver_headers", lambda: {"a": "b"})
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: "k")
+
+        assert route_builder.missing_source_hint() is None

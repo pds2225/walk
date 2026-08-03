@@ -51,6 +51,7 @@ import landmarks
 import mapbox_matcher
 import nav_privacy
 import nav_session
+import route_builder
 import snap_router
 import transit_builder
 from alert_voice import build_tts_prime_script, build_tts_script, tts_phrase
@@ -1790,6 +1791,8 @@ def _render_more_panel(favorites: list) -> None:
     # 출발지는 '더보기'를 열지 않아도 바꿀 수 있어야 한다(실기기 요청) → 첫 화면 본문에서
     # 직접 렌더한다. 위젯 키가 겹치면 Streamlit 이 중복 오류를 내므로 여기서는 렌더하지 않는다.
     origin = st.session_state.get("nav_origin")
+    _render_search_source_panel()
+    st.divider()
     _render_settings_body()
     st.divider()
     _sidebar_favorites(favorites)
@@ -3007,12 +3010,71 @@ def _search_places(query: str) -> list:
         origin = st.session_state.get("nav_origin")
         suggestions = sort_suggestions_by_distance(
             _suggest_destinations(q, *_origin_round3()), origin)
+        # 후보가 0개일 때 '왜 없는지'를 화면에서 설명하려면 이 결과를 남겨야 한다
+        # (드롭다운은 비어 있기만 해서 원인이 보이지 않는다).
+        st.session_state["nav_search_last"] = {"q": q, "count": len(suggestions), "failed": False}
         return [
             (label_with_distance(disp, coord, origin), (coord, disp))
             for coord, disp in suggestions
         ]
     except Exception:
+        st.session_state["nav_search_last"] = {"q": q, "count": 0, "failed": True}
         return []
+
+
+def _render_search_source_panel() -> None:
+    """검색 소스(키) 설정 상태 — '다 들어가 있는지' 한눈에.
+
+    키 값은 절대 표시하지 않는다. 설정 여부(bool)만 보여준다.
+    """
+    st.markdown("**🔑 검색 소스 상태**")
+    status = route_builder.search_source_status()
+    rows = [
+        ("네이버 지역검색", status["naver_local"], "상호·가게 이름 (○○치킨, △△카페)",
+         "NAVER_SEARCH_CLIENT_ID / SECRET"),
+        ("네이버 지오코딩", status["naver_geocode"], "주소",
+         "NAVER_MAPS_CLIENT_ID / SECRET"),
+        ("TMAP", status["tmap"], "주소 + 큰 장소, 그리고 경로 탐색", "TMAP_APP_KEY"),
+    ]
+    for name, ok, what, keys in rows:
+        st.write(f"{'✅' if ok else '❌'} **{name}** — {what}")
+        if not ok:
+            st.caption(f"　　꺼짐: `{keys}` 미설정")
+    st.caption("Nominatim(OSM)은 키가 필요 없지만, 위 소스가 모두 비었을 때만 씁니다.")
+    if not status["naver_local"]:
+        st.warning(
+            "네이버 지도에 뜨는 **가게 이름**은 네이버 지역검색에서만 나옵니다. "
+            "이 키가 없으면 '네이버엔 있는데 여긴 안 나옴'이 계속 생깁니다.")
+    st.caption(
+        "키는 환경변수 또는 `.streamlit/secrets.toml` 로 넣습니다. "
+        "네이버 지역검색 키는 developers.naver.com '검색' 애플리케이션에서 발급하며, "
+        "지오코딩(네이버 클라우드)과는 **다른 키**입니다.")
+
+
+def _render_search_miss_notice() -> None:
+    """검색 결과가 0개일 때 '왜 없는지'를 알린다.
+
+    검색 소스(네이버 지역검색·네이버 지오코딩·TMAP)는 키가 없거나 실패해도 조용히 빈
+    목록을 돌려준다 — 다른 소스로 통과시키기 위해서다. 그 결과 화면에서는 '그런 장소가
+    없음'과 '그 소스를 아예 안 물어봄'이 똑같이 보인다. 실기기 보고("네이버엔 나오는데
+    여긴 안 뜬다")의 대부분이 이 구분 불가였다.
+    """
+    last = st.session_state.get("nav_search_last")
+    if not isinstance(last, dict) or last.get("count"):
+        return
+    # 이미 목적지를 고른 뒤라면(다음 검색어를 치는 중이 아니면) 안내하지 않는다.
+    sb = st.session_state.get("nav_dest_sb")
+    typing = isinstance(sb, dict) and (sb.get("search") or "").strip() and sb.get("result") is None
+    if not typing:
+        return
+
+    if last.get("failed"):
+        st.caption("⚠️ 장소 검색이 실패했습니다 — 연결 상태를 확인해 주세요.")
+        return
+    st.caption(f"'{last.get('q', '')}' — 일치하는 장소가 없습니다.")
+    hint = route_builder.missing_source_hint()
+    if hint:
+        st.caption(f"⚠️ {hint}")
 
 
 def _render_dest_inputs() -> None:
@@ -3047,6 +3109,7 @@ def _render_dest_inputs() -> None:
                 typed = (sb.get("search") or "").strip()
                 if typed:
                     st.session_state["nav_dest_input"] = typed
+        _render_search_miss_notice()
         # (1) 즐겨찾기·히스토리가 nav_dest_input만 설정했을 때(picked=None) 사용자 인지 안내
         if st.session_state.get("nav_dest_input") and not st.session_state.get("nav_dest_picked"):
             st.caption(f"📌 선택된 목적지: {st.session_state['nav_dest_input']}")
@@ -3084,6 +3147,9 @@ def _render_dest_inputs() -> None:
             st.session_state["nav_dest_picked"] = suggestions[choice_idx]
         else:
             st.warning(f"'{dest_q}' — 일치하는 장소를 찾지 못했습니다. 다른 이름이나 가까운 지하철역 출구로 검색해 보세요.")
+            hint = route_builder.missing_source_hint()
+            if hint:
+                st.caption(f"⚠️ {hint}")
             st.session_state["nav_dest_picked"] = None
     else:
         st.session_state["nav_dest_picked"] = None
