@@ -45,6 +45,7 @@ from engine import (
     distance_meters,
 )
 import gps_filter
+import landmark_harvest
 import landmark_store
 import landmarks
 import mapbox_matcher
@@ -1694,12 +1695,101 @@ def _render_diag_panel() -> None:
         st.rerun()
 
 
+def _render_settings_body() -> None:
+    """알림 토글·소리/음성 테스트·이탈 감지 민감도 — expander 없이 렌더한다."""
+    reroute_on = st.toggle(
+        "길 벗어나면 자동 재탐색", value=st.session_state["nav_reroute_enabled"],
+        help="경로 이탈·회전 미이행 감지 시 현재 위치 기준으로 재탐색 (3초 쿨다운)")
+    alert_on = st.toggle(
+        "이탈 시 소리·진동 경고", value=st.session_state["nav_alert_enabled"],
+        help="소리+진동 · 삐 1번=벗어나기 시작 / 삐 2번=경로 이탈(재탐색) / 삐 3번=회전 지나침")
+    tts_on = st.toggle(
+        "음성 안내", value=st.session_state["nav_tts_enabled"],
+        help="이탈 상태를 한국어 음성(TTS)으로 안내 (브라우저 음성 합성)")
+    st.markdown("**🔔 소리·음성 테스트 (걷기 전 확인)**")
+    # 걷기 전에 폰에서 소리·진동이 실제로 나는지 확인하는 버튼. 이 탭 자체가
+    # 브라우저에 '사용자 상호작용'을 만들어 이후 자동재생 허용에도 도움이 된다.
+    if st.button("🔔 소리·진동 테스트", width="stretch"):
+        st.audio(_alert_tone_wav("deviated"), format="audio/wav", autoplay=True)
+        components.html(
+            "<script>try{if(navigator.vibrate)navigator.vibrate([200,100,300]);}"
+            "catch(e){}</script>", height=0)
+        st.toast("🔔 알림 테스트 — 삐삐 소리가 나면 정상입니다")
+    # 음성(TTS)이 폰에서 실제로 나는지 걷기 전에 확인 — '음성 안내 재확인'용.
+    # gTTS MP3(최상위 문서 autoplay) 우선, 실패 시 브라우저 speechSynthesis 폴백.
+    # 버튼 클릭 자체가 사용자 제스처라 이후 자동재생 허용에도 도움이 된다.
+    if st.button("🔊 음성 테스트 (목소리 확인)", width="stretch"):
+        _phrase = "음성 안내 테스트입니다. 경로를 이탈하면 이렇게 알려드립니다."
+        _mp3 = _tts_mp3(_phrase)
+        if _mp3:
+            st.audio(_mp3, format="audio/mp3", autoplay=True)
+            st.toast("🔊 음성 테스트 — 목소리가 들리면 정상입니다")
+        else:
+            components.html(
+                f"<script>(function(){{{build_tts_script(_phrase)}}})();</script>",
+                height=0)
+            st.toast("🔊 음성 테스트 — 브라우저 음성으로 시도(안 들리면 기기 제약)")
+    # 방향 진단은 안내 중에도 열 수 있어야 한다 — 이 설정 묶음은 running 과
+    # 무관하게 렌더되므로 실제 길 위에서도 접근된다.
+    _render_heading_debug()
+    st.markdown("**🔧 이탈 감지 민감도**")
+    st.caption("GPS가 얼마나 벗어나야 경고할지 — 보통은 기본값 그대로 두세요")
+    drift_t = st.slider(
+        "경고 시작 거리(m)", 5, 20, 10,
+        help="경로에서 이만큼(m) 벗어나면 '주의' 경고가 울려요 (삐 1번)")
+    # 확정 거리는 시작 거리 이상·강한 이탈 거리(기본 25m) 이하(drift<=deviation<=strong).
+    dev_t = st.slider(
+        "이탈 확정 거리(m)", drift_t, 25, max(15, drift_t),
+        help="이만큼(m) 벗어난 상태가 이어지면 '이탈'로 확정하고 재탐색해요 (삐 2번)")
+    # 이탈 확정을 더 빨리 알리도록 기본 2샘플(과거 3). GPS 노이즈 오탐이
+    # 잦으면 이 값을 올리세요(높을수록 둔감·오탐↓, 낮을수록 민감·반응↑).
+    min_consec = st.slider(
+        "연속 감지 횟수", 1, 5, 3,
+        help="GPS는 약 1초마다 위치를 재요. 연속으로 이 횟수만큼 벗어나야 이탈 확정 — "
+             "3이면 약 3초. GPS가 한 번 튄 것으로 오판하지 않기 위한 안전장치예요")
+    st.session_state["nav_reroute_enabled"] = reroute_on
+    st.session_state["nav_alert_enabled"] = alert_on
+    st.session_state["nav_tts_enabled"] = tts_on
+    st.session_state["nav_config"] = EngineConfig(
+    route_drift_distance_threshold_meters=float(drift_t),
+    route_deviation_distance_threshold_meters=float(dev_t),
+    minimum_consecutive_samples_for_deviation=min_consec,
+    # 이탈 확정 지속시간 기준을 4초→2초로(빠른 안내). 연속샘플 OR 지속시간
+    # 둘 중 먼저 충족되면 확정되므로, 둘 다 낮춰 체감 반응을 앞당긴다.
+    minimum_drift_duration_ms=2000,
+    )
+
+
+def _render_more_panel(favorites: list) -> None:
+    """간단 화면에서 숨긴 기능을 한 묶음으로 렌더한다(expander 중첩 금지 → 소제목).
+
+    출발지·설정·즐겨찾기/예약·개인정보/진단, 그리고 보조 동작(초기화·경로만 보기)까지
+    여기 들어간다. 본 화면에는 목적지 입력과 걷기/대중교통 버튼만 남는다.
+    """
+    origin = st.session_state.get("nav_origin")
+    st.markdown("**📍 출발지**")
+    _render_origin_override_body(_current_location_hint())
+    st.divider()
+    _render_settings_body()
+    st.divider()
+    _sidebar_favorites(favorites)
+    st.divider()
+    _sidebar_bookings(favorites, origin)
+    st.divider()
+    _render_landmark_harvest_panel()
+    st.divider()
+    _render_privacy_panel()
+    st.divider()
+    _render_diag_panel()
+
+
 def _render_side_panels() -> None:
     """개인정보·진단을 한 묶음으로 접어 본 화면 줄 수를 줄인다.
 
     경로가 없어도(안내 전) 항상 접근 가능해야 하므로 두 분기 모두에서 호출한다.
     """
     with st.expander("🔒 개인정보·진단 로그", expanded=False):
+        _render_landmark_harvest_panel()
         _render_privacy_panel()
         st.divider()
         _render_diag_panel()
@@ -2256,6 +2346,58 @@ def _render_metrics(results: list[EngineResult]) -> None:
         st.metric("샘플 수",   len(results))
         if st.session_state.get("nav_reroute_count", 0) > 0:
             st.metric("재탐색 횟수", f"{st.session_state['nav_reroute_count']}회")
+
+
+def _harvest_landmark_candidates() -> tuple[int, str]:
+    """현재 경로의 회전점 주변에서 랜드마크 후보를 모아 draft 로 저장한다.
+
+    (저장 건수, 사용자 안내 문구)를 돌려준다. 자동 수집분은 항상 draft·자동 출처라
+    현장 확인 전에는 안내에 쓰이지 않는다(landmark_store 가 승인을 막는다).
+    """
+    route: Optional[RouteModel] = st.session_state.get("nav_route")
+    if route is None or not route.turn_points:
+        return 0, "경로에 회전 지점이 없어 수집할 곳이 없습니다."
+    repo = landmark_store.LandmarkRepository()
+    try:
+        existing = [lm.id for lm in repo.load()]
+    except Exception as exc:  # noqa: BLE001 — 저장소 문제는 안내로만 알린다
+        return 0, f"랜드마크 저장소를 읽지 못했습니다: {exc}"
+    found = landmark_harvest.harvest_candidates(
+        route, route_builder.search_places_near, existing_ids=existing,
+    )
+    saved = 0
+    for candidate in found:
+        try:
+            repo.upsert(candidate, actor="poi_auto_harvest")
+            saved += 1
+        except Exception:  # noqa: BLE001 — 한 건 실패가 나머지를 막지 않게
+            continue
+    if not saved:
+        return 0, "새로 찾은 후보가 없습니다(이미 등록됐거나 주변 장소가 없음)."
+    return saved, (
+        f"후보 {saved}곳을 draft 로 저장했습니다. 걸으면서 실제로 보이는 것만 "
+        "승인하면 안내 문구에 쓰입니다."
+    )
+
+
+def _render_landmark_harvest_panel() -> None:
+    """랜드마크 후보 자동 수집 — 경로가 있을 때만 노출한다."""
+    route: Optional[RouteModel] = st.session_state.get("nav_route")
+    if route is None or not route.turn_points:
+        return
+    guidance_count = len(st.session_state.get("nav_landmark_guidance") or {})
+    st.markdown("**📍 랜드마크 후보 수집**")
+    st.caption(
+        f"이 경로의 회전 {len(route.turn_points)}곳 중 승인된 기준점 {guidance_count}곳. "
+        "주변 장소를 자동으로 모아 두면 현장에서 '보이는가'만 확인해 승인하면 됩니다."
+    )
+    if st.button("🔎 이 경로 주변 후보 자동 수집", width="stretch",
+                 key="harvest_landmarks"):
+        with st.spinner("회전 지점 주변 장소를 찾는 중…"):
+            saved, message = _harvest_landmark_candidates()
+        (st.success if saved else st.info)(message)
+        if saved:
+            _refresh_landmark_guidance(route)
 
 
 def _render_landmark_guidance() -> None:
@@ -2839,22 +2981,15 @@ def _render_dest_inputs() -> None:
         st.session_state["nav_dest_picked"] = None
 
 
-def _sidebar_destination(favorites: list, running: bool = False) -> None:
+def _sidebar_destination(favorites: list, running: bool = False,
+                         show_origin: bool = True) -> None:
     """목적지 입력(최상단) + 출발지(기본 현재 위치·접기) + 경로 찾기 전 후보 미리보기 + 즐겨찾기/히스토리.
 
     running=True(내비 진행 중)이면 입력 영역을 접어 지도·판정이 한 화면에 보이게 한다.
     이때 목적지 text_input은 접힌 expander 안에 그대로 마운트해 위젯·세션키를 보존하고,
     출발지/즐겨찾기 하위 expander는 설정 단계 전용이라 렌더를 생략한다(중첩 expander 금지).
     """
-    # 현재 위치 힌트 (출발지 placeholder·기본값 안내에 공통 사용)
-    origin_now = st.session_state.get("nav_origin")
-    origin_addr = st.session_state.get("nav_origin_address")
-    if origin_addr:
-        cur_hint = origin_addr
-    elif origin_now is not None:
-        cur_hint = f"{origin_now.latitude:.5f}, {origin_now.longitude:.5f}"
-    else:
-        cur_hint = "현재 위치 취득 중…"
+    cur_hint = _current_location_hint()
 
     # ── 내비 진행 중: 입력 영역을 접어 화면을 비운다(위젯은 마운트 유지) ──
     if running:
@@ -2874,6 +3009,9 @@ def _sidebar_destination(favorites: list, running: bool = False) -> None:
     )
     _render_dest_inputs()
 
+    # 즐겨찾기(집·회사)는 목적지 입력 바로 아래 원탭 칩으로 — 검색 없이 한 번에.
+    _render_favorite_chips(favorites)
+
     # 핵심 동선: 목적지 입력칸 '바로 아래'에 출발 버튼(탐색+시작). 부가 설정은 그 아래로.
     _render_action_buttons()
 
@@ -2890,7 +3028,42 @@ def _sidebar_destination(favorites: list, running: bool = False) -> None:
                     st.rerun()
 
     # ── 출발지 (기본은 현재 위치이므로 접어 둠 — 바꿀 때만 펼침) ──
-    with st.expander("출발지 바꾸기 (기본: 현재 위치)", expanded=False):
+    if show_origin:
+        with st.expander("출발지 바꾸기 (기본: 현재 위치)", expanded=False):
+            _render_origin_override_body(cur_hint)
+
+
+def _render_favorite_chips(favorites: list) -> None:
+    """즐겨찾기를 원탭 칩으로 노출한다(집·회사 등). 누르면 목적지 칸에 채워 넣는다.
+
+    등록·삭제는 '⋯ 더보기 → 즐겨찾기 관리'에서 한다. 첫 화면에는 최대 3개만 —
+    한 줄을 넘기면 목적지 입력과 출발 버튼 사이가 다시 복잡해진다.
+    """
+    chips = (favorites or [])[:3]
+    if not chips:
+        return
+    cols = st.columns(len(chips))
+    for i, fav in enumerate(chips):
+        with cols[i]:
+            if st.button(f"⭐ {fav['name']}", key=f"fav_chip_{i}", width="stretch"):
+                st.session_state["nav_dest_input"] = fav["address"]
+                st.rerun()
+
+
+def _current_location_hint() -> str:
+    """출발지 placeholder·안내 문구에 공통으로 쓰는 '현재 위치' 표기."""
+    origin_addr = st.session_state.get("nav_origin_address")
+    if origin_addr:
+        return origin_addr
+    origin_now = st.session_state.get("nav_origin")
+    if origin_now is not None:
+        return f"{origin_now.latitude:.5f}, {origin_now.longitude:.5f}"
+    return "현재 위치 취득 중…"
+
+
+def _render_origin_override_body(cur_hint: str) -> None:
+    """출발지 직접 입력 — 묶음(⋯ 더보기) 안에서도 쓰도록 expander 없이 렌더한다."""
+    if True:
         # 자동완성(st_searchbox)을 여기서는 쓰지 않는다: react-select 드롭다운이 모바일
         # expander 안에서 잘리거나 터치가 안 돼 '출발지 바꾸기 사용불가'가 된다(실기기 보고).
         # 네이티브 text_input+selectbox 는 expander 안에서도 정상 동작한다(목적지는 expander
@@ -2924,24 +3097,6 @@ def _sidebar_destination(favorites: list, running: bool = False) -> None:
         else:
             st.session_state["nav_start_picked"] = None
             st.caption(f"📍 현재 위치를 출발지로 사용: {cur_hint}")
-
-    # '대중교통 포함'은 별도 토글 대신 출발 버튼 2개(🚶 걷기 / 🚇 대중교통+걷기)가
-    # 그 자리에서 nav_transit_enabled 를 설정한다(_render_action_buttons). 최근검색 칩·
-    # 자동 재탐색은 마지막에 누른 모드를 따른다. (위젯 key 를 세션 저장키로 쓰지 않는
-    # 원칙은 유지 — 버튼 핸들러가 세션에 직접 대입)
-    # [향후 슬롯] 멀티 provider(검색 소스 선택·지도 언어 토글)는 여기 아래 '고급 설정'
-    # 접기로 추가 예정 — 검색 전면은 단순하게 유지하고 고급 옵션만 접어 둔다.
-
-    # 즐겨찾기 관리 (최근 검색은 위 원탭 칩으로 대체 — 중복 목록 제거).
-    if favorites:
-        with st.expander("⭐ 즐겨찾기", expanded=False):
-            fav_opts = ["선택 안 함"] + [f"{f['name']} · {f['address']}" for f in favorites]
-            sel = st.selectbox("즐겨찾기에서 선택", fav_opts, key="fav_dest_sel")
-            if sel != "선택 안 함":
-                addr = favorites[fav_opts.index(sel) - 1]["address"]
-                if st.button("목적지에 입력", key="fav_to_dest", width="stretch"):
-                    st.session_state["nav_dest_input"] = addr
-                    st.rerun()
 
 
 def _sidebar_favorites(favorites: list) -> None:
@@ -3145,6 +3300,57 @@ def _run_activation(dest_text: str, origin: Optional[Coordinate], *, start_now: 
     return False
 
 
+# ── 화면 스타일 (TMAP 계열 내비 앱 느낌: 큰 글씨·큰 터치 타깃·둥근 모서리) ──
+# 기기 다크모드와 무관한 흰 배경은 .streamlit/config.toml 의 theme 로 고정하고,
+# 여기서는 위젯 크기·모서리·글씨만 키운다(야외에서 장갑 낀 손으로도 눌리게).
+_APP_CSS = """
+<style>
+  .block-container { padding-top: 1.1rem; padding-bottom: 2rem; max-width: 720px; }
+  /* 목적지·출발지 입력 — 크고 둥글게 */
+  div[data-baseweb="input"] input, div[data-baseweb="base-input"] input {
+    font-size: 19px !important; font-weight: 600; height: 40px;
+  }
+  div[data-baseweb="input"], div[data-baseweb="select"] > div {
+    border-radius: 14px !important; min-height: 60px;
+  }
+  /* 버튼 — 걷기/대중교통+걷기가 화면의 주인공. 다만 '대중교통+걷기'가 반 칸 폭에서
+     두 줄로 접히면 버튼이 뚱뚱해 보인다 → 한 줄에 들어가는 크기로 맞춘다. */
+  div.stButton > button {
+    height: 56px; border-radius: 14px; font-weight: 800; letter-spacing: -0.7px;
+  }
+  div.stButton > button p {
+    font-size: 17px; white-space: nowrap;   /* 줄바꿈 금지 — 한 줄 고정 */
+  }
+  /* 접기(더보기·설정 등)는 보조 — 글씨는 키우되 색은 낮춘다 */
+  details summary, div[data-testid="stExpander"] summary {
+    font-size: 17px !important; font-weight: 700;
+  }
+  div[data-testid="stExpander"] { border-radius: 14px; }
+  /* localStorage 읽기·GPS 폴링용 헬퍼 컴포넌트(streamlit_js_eval)는 보일 필요가 없다.
+     8px 짜리 iframe 이 여러 개 쌓이면서 첫 화면 위쪽에 빈 공간이 500px 가까이 생겼다
+     (실기기 확인). display:none 대신 흐름에서만 빼서 iframe 자체는 그대로 살려 둔다. */
+  div[data-testid="stElementContainer"]:has(iframe[title^="streamlit_js_eval"]) {
+    position: absolute !important; width: 0 !important; height: 0 !important;
+    overflow: hidden !important; opacity: 0; pointer-events: none;
+  }
+  h1, h2, h3 { letter-spacing: -0.8px; }
+</style>
+"""
+
+
+def _simple_screen() -> bool:
+    """첫 화면(목적지 미입력·경로 없음) 여부.
+
+    True 면 화면에 목적지 입력과 걷기/대중교통 버튼만 남기고, 나머지는 '⋯ 더보기'
+    묶음으로 접는다(실기기 요청: 화면에 기능이 너무 많아 핵심 동선이 묻힘).
+    """
+    return (
+        not st.session_state.get("nav_running", False)
+        and st.session_state.get("nav_route") is None
+        and st.session_state.get("nav_journey") is None
+    )
+
+
 def _render_action_buttons() -> None:
     """경로 탐색·시작·초기화 버튼 (도착지 입력 직후 표시).
 
@@ -3179,19 +3385,19 @@ def _render_action_buttons() -> None:
         # 있으면 '▶ 시작'(캐시)이 주 동작이므로 두 버튼은 강조를 낮춘다(다시 찾기).
         walk_col, transit_col = st.columns(2)
         with walk_col:
-            if st.button("🚶 걷기", disabled=not ready, width="stretch",
+            if st.button("걷기", disabled=not ready, width="stretch",
                          type="primary" if not has_plan else "secondary"):
                 st.session_state["nav_transit_enabled"] = False
                 started = _activate_or_defer(dest_text, origin, start_now=True)
         with transit_col:
-            if st.button("🚇 대중교통+걷기", disabled=not ready, width="stretch",
+            if st.button("대중교통+걷기", disabled=not ready, width="stretch",
                          type="primary" if not has_plan else "secondary"):
                 st.session_state["nav_transit_enabled"] = True
                 started = _activate_or_defer(dest_text, origin, start_now=True)
 
         # 출발 전에 경로만 확인하고 싶을 때 (계획이 아직 없을 때만 노출 — 있으면 ▶ 시작 사용).
-        if (not has_plan) and st.button("🔍 경로만 보기", disabled=not ready,
-                                        width="stretch"):
+        if (not has_plan) and (not _simple_screen()) and st.button(
+                "🔍 경로만 보기", disabled=not ready, width="stretch"):
             if _activate_or_defer(dest_text, origin, start_now=False):
                 summary = _plan_summary_text()
                 suffix = f" — {summary}" if summary else ""
@@ -3258,8 +3464,8 @@ def _render_action_buttons() -> None:
                 st.toast("🚶 안내를 시작합니다")
                 st.rerun()
 
-    # 초기화는 보조 동작 — 시작/중지 아래 전폭으로 분리(오탭 방지).
-    if st.button("↺ 초기화", width="stretch"):
+    # 초기화는 보조 동작 — 간단 화면(목적지 미입력)에서는 ⋯ 더보기 안으로 숨긴다.
+    if (not _simple_screen()) and st.button("↺ 초기화", width="stretch"):
         for k in ("nav_route", "nav_dest", "nav_dest_display", "nav_engine", "nav_results",
                   "nav_samples", "nav_prev_coord", "nav_prev_ts_ms", "nav_route_info",
                   "nav_static_map"):
@@ -3281,8 +3487,9 @@ def _render_action_buttons() -> None:
         # 무력화된다. 대신 그 함수가 '출발 반경을 벗어나면' 재무장한다.
         st.rerun()
 
-    # 경로 엔진명(기술 정보)은 보조 정보 — 작은 캡션으로 맨 아래.
-    st.caption(f"경로 엔진: {st.session_state.get('nav_route_engine') or route_engine_label()}")
+    # 경로 엔진명은 기술 정보 — 첫 화면에서는 감춘다(경로가 생기면 아래 캡션으로 표시).
+    if not _simple_screen():
+        st.caption(f"경로 엔진: {st.session_state.get('nav_route_engine') or route_engine_label()}")
 
 
 def main() -> None:
@@ -3292,6 +3499,7 @@ def main() -> None:
         render_dependency_error()
         st.stop()
 
+    st.markdown(_APP_CSS, unsafe_allow_html=True)
     _init()
     _load_privacy_settings_from_ls()
     # 개인정보 선택 전에는 동의 화면만 그린다 — 목적지 입력·경로 화면에 밀려 닫히지 않게.
@@ -3570,11 +3778,18 @@ def main() -> None:
         # 단, 도보 안내 중엔 '가는 길'(판정+지도)이 최상단에 오도록 입력·버튼을 지도
         # 아래로 미룬다(실기기 요청). 대중교통 여정 화면은 기존 순서 유지.
         defer_controls = running and st.session_state.get("nav_journey") is None
+        simple_screen = _simple_screen()
         if not defer_controls:
-            _sidebar_destination(favorites, running=running)
+            _sidebar_destination(favorites, running=running,
+                                 show_origin=not simple_screen)
+        # 첫 화면: 목적지 입력·모드 버튼 바로 아래에 나머지 기능을 한 묶음으로 접는다.
+        if simple_screen:
+            with st.expander("⋯ 더보기", expanded=False):
+                _render_more_panel(favorites)
 
         # 내비 진행 중엔 '현재 위치' 헤더/구분선을 숨겨 지도·판정에 자리를 양보.
-        if not running:
+        # 첫 화면에서도 숨긴다 — 위치 상태는 목적지 입력 아래 캡션으로 충분하다.
+        if not running and not simple_screen:
             st.divider()
             st.markdown("**현재 위치**")
             _render_compass_enable()  # iOS 나침반 권한(탭 1회) — 값 들어오면 자동 숨김
@@ -3853,76 +4068,19 @@ def main() -> None:
         # 위젯 자체는 항상 렌더하고, 헤더/구분선만 내비 중 숨겨 화면을 단순화한다.
         if not running:
             st.divider()
-        # 설정은 걷기 전에 한 번 만지는 항목이라 하나로 접는다 — 본 화면에는 핵심 동선
-        # (목적지·걷기/대중교통·시작/중지·초기화)만 남긴다. 슬라이더·토글은 접혀 있어도
-        # 매 rerun 실행되므로 nav_config 재기록은 그대로 보장된다.
-        with st.expander("⚙️ 설정 (알림·음성·민감도)", expanded=False):
-            reroute_on = st.toggle(
-                "길 벗어나면 자동 재탐색", value=st.session_state["nav_reroute_enabled"],
-                help="경로 이탈·회전 미이행 감지 시 현재 위치 기준으로 재탐색 (3초 쿨다운)")
-            alert_on = st.toggle(
-                "이탈 시 소리·진동 경고", value=st.session_state["nav_alert_enabled"],
-                help="소리+진동 · 삐 1번=벗어나기 시작 / 삐 2번=경로 이탈(재탐색) / 삐 3번=회전 지나침")
-            tts_on = st.toggle(
-                "음성 안내", value=st.session_state["nav_tts_enabled"],
-                help="이탈 상태를 한국어 음성(TTS)으로 안내 (브라우저 음성 합성)")
-            st.markdown("**🔔 소리·음성 테스트 (걷기 전 확인)**")
-            # 걷기 전에 폰에서 소리·진동이 실제로 나는지 확인하는 버튼. 이 탭 자체가
-            # 브라우저에 '사용자 상호작용'을 만들어 이후 자동재생 허용에도 도움이 된다.
-            if st.button("🔔 소리·진동 테스트", width="stretch"):
-                st.audio(_alert_tone_wav("deviated"), format="audio/wav", autoplay=True)
-                components.html(
-                    "<script>try{if(navigator.vibrate)navigator.vibrate([200,100,300]);}"
-                    "catch(e){}</script>", height=0)
-                st.toast("🔔 알림 테스트 — 삐삐 소리가 나면 정상입니다")
-            # 음성(TTS)이 폰에서 실제로 나는지 걷기 전에 확인 — '음성 안내 재확인'용.
-            # gTTS MP3(최상위 문서 autoplay) 우선, 실패 시 브라우저 speechSynthesis 폴백.
-            # 버튼 클릭 자체가 사용자 제스처라 이후 자동재생 허용에도 도움이 된다.
-            if st.button("🔊 음성 테스트 (목소리 확인)", width="stretch"):
-                _phrase = "음성 안내 테스트입니다. 경로를 이탈하면 이렇게 알려드립니다."
-                _mp3 = _tts_mp3(_phrase)
-                if _mp3:
-                    st.audio(_mp3, format="audio/mp3", autoplay=True)
-                    st.toast("🔊 음성 테스트 — 목소리가 들리면 정상입니다")
-                else:
-                    components.html(
-                        f"<script>(function(){{{build_tts_script(_phrase)}}})();</script>",
-                        height=0)
-                    st.toast("🔊 음성 테스트 — 브라우저 음성으로 시도(안 들리면 기기 제약)")
-            # 방향 진단은 안내 중에도 열 수 있어야 한다 — 이 설정 묶음은 running 과
-            # 무관하게 렌더되므로 실제 길 위에서도 접근된다.
-            _render_heading_debug()
-            st.markdown("**🔧 이탈 감지 민감도**")
-            st.caption("GPS가 얼마나 벗어나야 경고할지 — 보통은 기본값 그대로 두세요")
-            drift_t = st.slider(
-                "경고 시작 거리(m)", 5, 20, 10,
-                help="경로에서 이만큼(m) 벗어나면 '주의' 경고가 울려요 (삐 1번)")
-            # 확정 거리는 시작 거리 이상·강한 이탈 거리(기본 25m) 이하(drift<=deviation<=strong).
-            dev_t = st.slider(
-                "이탈 확정 거리(m)", drift_t, 25, max(15, drift_t),
-                help="이만큼(m) 벗어난 상태가 이어지면 '이탈'로 확정하고 재탐색해요 (삐 2번)")
-            # 이탈 확정을 더 빨리 알리도록 기본 2샘플(과거 3). GPS 노이즈 오탐이
-            # 잦으면 이 값을 올리세요(높을수록 둔감·오탐↓, 낮을수록 민감·반응↑).
-            min_consec = st.slider(
-                "연속 감지 횟수", 1, 5, 3,
-                help="GPS는 약 1초마다 위치를 재요. 연속으로 이 횟수만큼 벗어나야 이탈 확정 — "
-                     "3이면 약 3초. GPS가 한 번 튄 것으로 오판하지 않기 위한 안전장치예요")
-        st.session_state["nav_reroute_enabled"] = reroute_on
-        st.session_state["nav_alert_enabled"] = alert_on
-        st.session_state["nav_tts_enabled"] = tts_on
-        st.session_state["nav_config"] = EngineConfig(
-            route_drift_distance_threshold_meters=float(drift_t),
-            route_deviation_distance_threshold_meters=float(dev_t),
-            minimum_consecutive_samples_for_deviation=min_consec,
-            # 이탈 확정 지속시간 기준을 4초→2초로(빠른 안내). 연속샘플 OR 지속시간
-            # 둘 중 먼저 충족되면 확정되므로, 둘 다 낮춰 체감 반응을 앞당긴다.
-            minimum_drift_duration_ms=2000,
-        )
+        # 설정은 걷기 전에 한 번 만지는 항목이라 접어 둔다. 간단 화면에서는 '⋯ 더보기'
+        # 묶음 안에서 렌더된다(_render_more_panel). 토글·슬라이더는 접혀 있어도 매 rerun
+        # 실행되므로 nav_config 재기록 계약은 그대로다.
+        if simple_screen:
+            pass  # 간단 화면: 아래 '⋯ 더보기' 묶음에서 렌더
+        else:
+            with st.expander("⚙️ 설정 (알림·음성·민감도)", expanded=False):
+                _render_settings_body()
 
     # ── 자주 가는 길·관리 (핵심 동선 아래로 배치) ─────────────────────────────
     # 내비 진행 중엔 관리 패널을 숨긴다 — 예약 자동활성화(_try_activate_booking)는
     # nav_running=True에서 즉시 return하므로 기능 손실 없이 화면만 비운다.
-    if not running:
+    if not running and not simple_screen:
         st.divider()
         with st.expander("⭐ 자주 가는 길 (즐겨찾기·예약)", expanded=False):
             _sidebar_favorites(favorites)
@@ -4096,6 +4254,8 @@ def main() -> None:
         _render_journey(journey, st.session_state.get("nav_active_leg_index", 0))
 
     if route is None or dest is None:
+        if simple_screen:
+            return  # 첫 화면은 입력·버튼·⋯더보기 만 — 빈 지도와 안내문도 띄우지 않는다
         if journey is None:
             st.info("목적지를 입력하고 '경로 찾기'를 누르세요. 지도는 현재 위치 기준으로 표시됩니다.")
         else:

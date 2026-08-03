@@ -37,8 +37,9 @@ def test_navigation_page_renders_with_transit_toggle():
     assert not app.exception
     # '대중교통 포함' 토글은 출발 버튼 2개(걷기/대중교통+걷기)로 대체됐다.
     labels = [b.label for b in app.button]
-    assert any("🚶 걷기" in lb for lb in labels)
-    assert any("대중교통+걷기" in lb for lb in labels)
+    # 아이콘 없이 글씨만 — 첫 화면의 주인공 버튼 2개(실기기 요청).
+    assert "걷기" in labels
+    assert "대중교통+걷기" in labels
 
 
 def test_navigation_source_clears_journey_for_non_journey_flows():
@@ -300,6 +301,47 @@ def test_secondary_panels_are_grouped_into_three():
     assert source.count("_render_side_panels()") >= 3   # 정의 1 + 호출 2
 
 
+def test_first_screen_is_input_and_two_buttons():
+    """첫 화면(안내 전·경로 없음)은 목적지 입력과 걷기/대중교통+걷기 만 남긴다.
+    보조 동작(초기화·경로만 보기)·개발자 캡션·빈 지도는 숨기고, 나머지 기능은
+    '⋯ 더보기' 한 묶음으로 접는다. 지팡이 사용자가 한 손으로 쓰는 화면이라
+    핵심 동선 외에는 보이지 않아야 한다(docs/product-notes.md)."""
+    source = PAGE.read_text(encoding="utf-8")
+
+    assert "def _simple_screen()" in source
+    assert 'st.expander("⋯ 더보기"' in source
+    assert "def _render_more_panel(" in source
+    # 보조 버튼·개발자 캡션은 첫 화면에서 감춘다
+    assert '(not _simple_screen()) and st.button("↺ 초기화"' in source
+    assert "(not has_plan) and (not _simple_screen())" in source
+    assert "if not _simple_screen():\n        st.caption(f\"경로 엔진:" in source
+    # 빈 지도·안내문도 띄우지 않는다
+    assert "if simple_screen:\n            return" in source
+    # 헬퍼 iframe(streamlit_js_eval)이 첫 화면 위쪽을 비워 두지 않게 흐름에서 뺀다
+    assert 'iframe[title^="streamlit_js_eval"]' in source
+
+
+def test_landmark_candidate_harvest_wired():
+    """랜드마크 후보 자동 수집(반자동): POI 로 회전점 주변 후보를 모으되 항상 draft 로
+    저장하고, 자동 출처라 현장 확인 전에는 승인·안내에 쓰이지 않아야 한다."""
+    source = PAGE.read_text(encoding="utf-8")
+
+    assert "import landmark_harvest" in source
+    assert "landmark_harvest.harvest_candidates(" in source
+    assert "route_builder.search_places_near" in source      # 거리순 POI 검색 주입
+    assert 'actor="poi_auto_harvest"' in source              # 이력에 자동 수집 표시
+    # 이미 등록된 것은 draft 로 되돌리지 않는다
+    assert "existing_ids=existing" in source
+    # 수집 패널은 본 화면이 아니라 접힌 묶음 안에서만 노출된다
+    assert "_render_landmark_harvest_panel()" in source
+    assert 'st.button("🔎 이 경로 주변 후보 자동 수집"' in source
+
+    harvest = (PAGE.parent.parent / "landmark_harvest.py").read_text(encoding="utf-8")
+    assert 'status="draft"' in harvest                       # 자동 승인 금지
+    assert "AUTO_SOURCE" in harvest
+    assert 'direction not in ("left", "right")' in harvest   # 직진 지점은 건너뜀
+
+
 def test_diag_summary_is_copyable_without_download():
     """원본 로그(최대 3000레코드)는 붙여넣기엔 크다 — 분포·횟수만 담은 요약 블록을
     진단 패널에 직접 렌더해, 내려받기 없이 복사만으로 넘길 수 있어야 한다.
@@ -377,7 +419,7 @@ def test_booking_rearms_only_after_leaving_start_radius():
     assert "outside = distance_meters(origin, start)" in block
     assert 'if outside:\n                st.session_state["nav_active_booking_id"] = None' in block
     # 초기화 핸들러는 id 를 지우지 않아야 한다(루프 방지).
-    reset_at = source.index('if st.button("↺ 초기화"')
+    reset_at = source.index('st.button("↺ 초기화"')
     reset_block = source[reset_at:reset_at + 700]
     assert 'st.session_state["nav_active_booking_id"] = None' not in reset_block
 
