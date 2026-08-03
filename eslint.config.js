@@ -13,6 +13,14 @@ export default tseslint.config(
       ".venv/**",
       "package-lock.json",
       "eslint.config.js",
+      // 루트 tsconfig(packages 전용) 밖이라 타입 정보를 못 붙인다
+      "vitest.config.ts",
+      // 빌드 산출물 — 소스를 이미 검사한다
+      "**/dist/**",
+      "web/.next/**",
+      // Next.js 앱은 자체 tsconfig(DOM·JSX)를 쓴다. 여기 규칙(node 전용 project)으로
+      // 끌어들이면 타입 정보가 안 맞아 파서가 죽는다 — `npm run next:build` 가 타입체크한다.
+      "web/**",
     ],
   },
   js.configs.recommended,

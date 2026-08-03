@@ -1,0 +1,19 @@
+{
+  "name": "@walk/route-engine",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Pedestrian route deviation engine — shared by the Streamlit prototype (mirrored in Python) and the Next.js web app",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json"
+  }
+}

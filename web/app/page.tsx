@@ -1,0 +1,266 @@
+"use client";
+
+import dynamic from "next/dynamic";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useCompass, useGeolocation } from "../lib/useGeolocation";
+import { useNavigation } from "../lib/useNavigation";
+import type { Coordinate, PlaceHit, RouteResponse } from "../lib/types";
+
+// maplibre 는 window 를 직접 만져 서버 렌더가 불가능하다 — 클라이언트에서만 불러온다.
+const MapView = dynamic(() => import("../components/MapView"), { ssr: false });
+
+const RECENT_KEY = "walk.recent.v1";
+const RECENT_ROW = 3;      // 첫 화면에 가로로 놓을 최근 목적지 개수
+const RECENT_MAX = 9;      // '＋'로 펼쳤을 때 최대 개수
+const SEARCH_DEBOUNCE_MS = 250;
+
+interface Recent {
+  readonly name: string;
+  readonly coordinate: Coordinate;
+}
+
+function loadRecents(): Recent[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(RECENT_KEY);
+    const parsed: unknown = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? (parsed as Recent[]).slice(0, RECENT_MAX) : [];
+  } catch {
+    return [];
+  }
+}
+
+function metersText(m: number | null | undefined): string {
+  if (m === null || m === undefined) return "";
+  return m >= 1000 ? `${(m / 1000).toFixed(1)}km` : `${Math.round(m)}m`;
+}
+
+export default function Home() {
+  const [query, setQuery] = useState("");
+  const [hits, setHits] = useState<PlaceHit[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [dest, setDest] = useState<Recent | null>(null);
+  const [routeResponse, setRouteResponse] = useState<RouteResponse | null>(null);
+  const [routing, setRouting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [running, setRunning] = useState(false);
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
+  const [headingUp, setHeadingUp] = useState(true);
+  const [recents, setRecents] = useState<Recent[]>([]);
+  const [recentsExpanded, setRecentsExpanded] = useState(false);
+
+  useEffect(() => setRecents(loadRecents()), []);
+
+  // 위치는 '경로를 만들 준비가 됐을 때'부터 구독한다 — 첫 화면에서 권한 팝업이
+  // 바로 뜨면 무슨 앱인지도 모르고 거부하게 된다.
+  const wantLocation = running || routeResponse !== null || dest !== null;
+  const { fix, error: geoError, waiting } = useGeolocation(wantLocation);
+  const { headingDegrees: compass, request: requestCompass } = useCompass(running);
+
+  const nav = useNavigation(running ? routeResponse : null, fix, { voiceEnabled });
+
+  // ── 목적지 검색 (입력이 멈춘 뒤 1회) ──────────────────────────────────────
+  const searchSeq = useRef(0);
+  useEffect(() => {
+    const q = query.trim();
+    if (!q || dest) {
+      setHits([]);
+      return;
+    }
+    const seq = ++searchSeq.current;
+    setSearching(true);
+    const timer = setTimeout(async () => {
+      try {
+        const params = new URLSearchParams({ q });
+        if (fix) {
+          params.set("lat", String(fix.latitude));
+          params.set("lon", String(fix.longitude));
+        }
+        const resp = await fetch(`/api/places?${params}`);
+        const body: unknown = await resp.json();
+        // 타이핑이 계속돼 더 새로운 요청이 나갔으면 이 응답은 버린다(순서 뒤집힘 방지).
+        if (seq !== searchSeq.current) return;
+        setHits(resp.ok ? ((body as { hits?: PlaceHit[] }).hits ?? []) : []);
+        setError(resp.ok ? null : ((body as { error?: string }).error ?? null));
+      } catch {
+        if (seq === searchSeq.current) setHits([]);
+      } finally {
+        if (seq === searchSeq.current) setSearching(false);
+      }
+    }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [query, dest, fix]);
+
+  const rememberRecent = useCallback((entry: Recent) => {
+    setRecents((prev) => {
+      const next = [entry, ...prev.filter((r) => r.name !== entry.name)].slice(0, RECENT_MAX);
+      try {
+        window.localStorage.setItem(RECENT_KEY, JSON.stringify(next));
+      } catch {
+        /* 저장 실패(사파리 시크릿 등)해도 이번 세션 동작에는 지장이 없다 */
+      }
+      return next;
+    });
+  }, []);
+
+  const startWalking = useCallback(
+    async (target: Recent) => {
+      if (!fix) {
+        setError("현재 위치를 찾는 중입니다. 잠시 후 다시 눌러 주세요.");
+        return;
+      }
+      setRouting(true);
+      setError(null);
+      try {
+        const resp = await fetch("/api/route", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ origin: fix, dest: target.coordinate }),
+        });
+        const body: unknown = await resp.json();
+        if (!resp.ok) {
+          setError((body as { error?: string }).error ?? "경로를 찾지 못했습니다.");
+          return;
+        }
+        setRouteResponse(body as RouteResponse);
+        setRunning(true);
+        rememberRecent(target);
+        requestCompass();   // iOS 나침반 권한은 이 클릭(사용자 제스처) 안에서만 요청된다
+      } catch {
+        setError("경로를 찾지 못했습니다. 연결 상태를 확인해 주세요.");
+      } finally {
+        setRouting(false);
+      }
+    },
+    [fix, rememberRecent, requestCompass],
+  );
+
+  const pick = useCallback((hit: PlaceHit) => {
+    const entry: Recent = { name: hit.name, coordinate: hit.coordinate };
+    setDest(entry);
+    setQuery(hit.name);
+    setHits([]);
+  }, []);
+
+  const reset = useCallback(() => {
+    setRunning(false);
+    setRouteResponse(null);
+    setDest(null);
+    setQuery("");
+    setHits([]);
+    setError(null);
+  }, []);
+
+  // ── 안내 중 화면 ──────────────────────────────────────────────────────────
+  if (running && routeResponse) {
+    const offRoute = nav.state === "deviated" || nav.state === "passed_turn";
+    return (
+      <main className="nav-screen">
+        <div className={`banner ${offRoute ? "banner-off" : nav.state === "drifting" ? "banner-warn" : ""}`}>
+          <strong>{nav.banner}</strong>
+          <span>
+            {nav.remainingMeters !== null ? `남은 거리 ${metersText(nav.remainingMeters)}` : ""}
+            {nav.nextTurn && nav.nextTurn.direction !== "straight"
+              ? ` · ${metersText(nav.nextTurn.distanceMeters)} 앞 ${nav.nextTurn.direction === "left" ? "좌회전" : "우회전"}`
+              : ""}
+          </span>
+        </div>
+
+        <MapView
+          route={routeResponse.route}
+          here={fix}
+          headingDegrees={compass ?? fix?.headingDegrees ?? null}
+          headingUp={headingUp}
+          offRoute={offRoute}
+        />
+
+        <div className="nav-actions">
+          <button type="button" onClick={() => setHeadingUp((v) => !v)}>
+            {headingUp ? "북쪽 위" : "진행방향 위"}
+          </button>
+          <button type="button" onClick={() => setVoiceEnabled((v) => !v)}>
+            {voiceEnabled ? "음성 끄기" : "음성 켜기"}
+          </button>
+          <button type="button" className="stop" onClick={reset}>
+            안내 중지
+          </button>
+        </div>
+        {geoError ? <p className="error">{geoError}</p> : null}
+      </main>
+    );
+  }
+
+  // ── 첫 화면: 목적지 + 버튼 ────────────────────────────────────────────────
+  const shown = recentsExpanded ? recents : recents.slice(0, RECENT_ROW);
+  return (
+    <main className="home">
+      <h1>어디로 갈까요?</h1>
+
+      <input
+        className="dest-input"
+        type="search"
+        inputMode="search"
+        placeholder="예) 경복궁, 강남역 10번출구"
+        value={query}
+        onChange={(e) => {
+          setQuery(e.target.value);
+          setDest(null);
+        }}
+        aria-label="목적지"
+      />
+
+      {searching ? <p className="hint">검색 중…</p> : null}
+
+      {hits.length > 0 ? (
+        <ul className="hits">
+          {hits.map((hit) => (
+            <li key={`${hit.name}-${hit.coordinate.latitude}-${hit.coordinate.longitude}`}>
+              <button type="button" onClick={() => pick(hit)}>
+                <span className="hit-name">{hit.name}</span>
+                {hit.distanceMeters !== undefined ? (
+                  <span className="hit-dist">{metersText(hit.distanceMeters)}</span>
+                ) : null}
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
+      {shown.length > 0 ? (
+        <>
+          <p className="hint">최근</p>
+          <div className="chips">
+            {shown.map((r) => (
+              <button key={r.name} type="button" className="chip" onClick={() => void startWalking(r)}>
+                {r.name}
+              </button>
+            ))}
+            {recents.length > RECENT_ROW ? (
+              <button
+                type="button"
+                className="chip chip-more"
+                onClick={() => setRecentsExpanded((v) => !v)}
+                aria-label={recentsExpanded ? "접기" : "최근 목적지 더 보기"}
+              >
+                {recentsExpanded ? "−" : "＋"}
+              </button>
+            ) : null}
+          </div>
+        </>
+      ) : null}
+
+      <button
+        type="button"
+        className="primary"
+        disabled={!dest || routing}
+        onClick={() => dest && void startWalking(dest)}
+      >
+        {routing ? "경로 찾는 중…" : "걷기"}
+      </button>
+
+      {waiting && dest ? <p className="hint">현재 위치 확인 중…</p> : null}
+      {error ? <p className="error">{error}</p> : null}
+      {geoError ? <p className="error">{geoError}</p> : null}
+    </main>
+  );
+}

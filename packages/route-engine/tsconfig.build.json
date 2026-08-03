@@ -1,0 +1,15 @@
+{
+  "//": "dist 산출 전용. 소스는 NodeNext(.js 확장자 포함 import)라 번들러가 그대로 못 읽어, Next.js 앱은 여기서 나온 dist 를 쓴다.",
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "types": ["node"],
+    "noEmit": false
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["src/simulator/**"]
+}

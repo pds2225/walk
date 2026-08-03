@@ -1,0 +1,193 @@
+/* 야외에서 한 손으로 쓰는 화면 — 큰 글씨, 큰 터치 타깃, 항상 흰 배경.
+   기기 다크모드에 맞춰 색을 뒤집지 않는다(햇빛 아래 대비가 떨어짐). */
+:root {
+  --blue: #1b64da;
+  --ink: #16181d;
+  --muted: #5f6673;
+  --line: #e3e6eb;
+  --warn: #b45309;
+  --danger: #e11d48;
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: #fff;
+  color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo",
+    "Noto Sans KR", sans-serif;
+  letter-spacing: -0.4px;
+  /* 주소창 높이 변화에 화면이 튀지 않게 */
+  overscroll-behavior: none;
+}
+
+/* ── 첫 화면 ─────────────────────────────────────────────────────────────── */
+.home {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 24px 18px 40px;
+}
+
+.home h1 {
+  font-size: 26px;
+  margin: 8px 0 16px;
+}
+
+.dest-input {
+  width: 100%;
+  height: 60px;
+  padding: 0 16px;
+  font-size: 19px;
+  font-weight: 600;
+  border: 1.5px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  color: var(--ink);
+}
+.dest-input:focus {
+  outline: none;
+  border-color: var(--blue);
+}
+
+.hint { color: var(--muted); font-size: 14px; margin: 12px 0 6px; }
+.error { color: var(--danger); font-size: 15px; font-weight: 600; margin-top: 14px; }
+
+.hits { list-style: none; margin: 10px 0 0; padding: 0; }
+.hits li + li { border-top: 1px solid var(--line); }
+.hits button {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 58px;
+  padding: 10px 4px;
+  background: none;
+  border: 0;
+  text-align: left;
+  font-size: 17px;
+  color: var(--ink);
+  cursor: pointer;
+}
+.hit-name { font-weight: 600; }
+.hit-dist { color: var(--muted); font-size: 14px; white-space: nowrap; }
+
+.chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.chip {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 52px;
+  padding: 0 12px;
+  border: 1.5px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 16px;
+  font-weight: 600;
+  /* 긴 이름이 줄바꿈돼 칩 높이가 들쭉날쭉해지지 않게 */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+.chip-more { flex: 0 0 56px; font-size: 20px; }
+
+.primary {
+  width: 100%;
+  height: 74px;
+  margin-top: 20px;
+  border: 0;
+  border-radius: 16px;
+  background: var(--blue);
+  color: #fff;
+  font-size: 21px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.primary:disabled { background: #c8ced9; cursor: default; }
+
+/* ── 안내 화면 ───────────────────────────────────────────────────────────── */
+.nav-screen {
+  display: flex;
+  flex-direction: column;
+  /* 모바일 주소창을 감안한 실제 보이는 높이 */
+  height: 100dvh;
+}
+
+.banner {
+  padding: 14px 18px;
+  background: #eef3ff;
+  border-bottom: 1px solid var(--line);
+}
+.banner strong { display: block; font-size: 20px; }
+.banner span { display: block; margin-top: 2px; color: var(--muted); font-size: 15px; }
+.banner-warn { background: #fff7e6; }
+.banner-off { background: #ffe9ed; }
+.banner-off strong { color: var(--danger); }
+
+.map-wrap { position: relative; flex: 1; min-height: 0; }
+.map { width: 100%; height: 100%; }
+.map-off { outline: 3px solid var(--danger); outline-offset: -3px; }
+
+.recenter {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1.5px solid var(--line);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.95);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.nav-actions {
+  display: flex;
+  gap: 8px;
+  padding: 10px;
+  border-top: 1px solid var(--line);
+  background: #fff;
+}
+.nav-actions button {
+  flex: 1;
+  min-height: 56px;
+  border: 1.5px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink);
+  cursor: pointer;
+}
+.nav-actions .stop { border-color: var(--danger); color: var(--danger); }
+
+/* 현재 위치 마커 — 방위가 있으면 화살표가 그 방향을 가리킨다 */
+.here-marker { position: relative; width: 26px; height: 26px; }
+.here-dot {
+  position: absolute;
+  left: 7px;
+  top: 7px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--blue);
+  border: 2.5px solid #fff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.15);
+}
+.here-arrow {
+  position: absolute;
+  left: 8px;
+  top: -5px;
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-bottom: 10px solid var(--blue);
+}
