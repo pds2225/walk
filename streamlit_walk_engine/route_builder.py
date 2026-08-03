@@ -176,6 +176,32 @@ def _parse_naver_local_items(items: list, limit: int, query: str) -> list[tuple[
     return out
 
 
+def search_source_status() -> dict[str, bool]:
+    """검색 소스별 사용 가능 여부(키가 설정돼 있는지). 키 값 자체는 반환하지 않는다.
+
+    소스가 죽어도 geocode_suggestions 는 조용히 []를 돌려주게 설계돼 있어(다른 소스로
+    통과), 화면에서는 '장소가 없음'과 '키가 없어 아예 안 물어봄'이 똑같아 보인다.
+    실기기에서 "네이버엔 나오는데 여긴 안 뜬다"는 보고의 대부분이 이 구분 불가였다.
+    """
+    return {
+        "naver_local": _naver_search_headers() is not None,   # 네이버 지역검색(상호·POI)
+        "naver_geocode": _naver_headers() is not None,        # 네이버 지오코딩(주소)
+        "tmap": _tmap_app_key() is not None,                  # TMAP 주소 + 장소
+    }
+
+
+def missing_source_hint() -> str | None:
+    """검색이 비었을 때 덧붙일 설명. 빠진 소스가 없으면 None."""
+    status = search_source_status()
+    if not status["naver_local"]:
+        # 네이버 지도에 뜨는 상호·가게는 이 소스에서만 나온다 — 가장 흔한 원인.
+        return ("네이버 지역검색이 꺼져 있어 상호·가게 이름은 검색되지 않습니다 "
+                "(NAVER_SEARCH_CLIENT_ID/SECRET 미설정). 주소나 지하철역 출구로 찾아보세요.")
+    if not status["tmap"]:
+        return "TMAP 키가 없어 주소·장소 검색이 제한됩니다 (TMAP_APP_KEY 미설정)."
+    return None
+
+
 def _naver_local_hits(query: str, limit: int = 5) -> list[tuple[Coordinate, str]]:
     """네이버 지역검색(장소 DB) 후보 — 네이버 지도에 뜨는 상호·건물·POI 를 좌표로.
 
