@@ -3030,6 +3030,8 @@ def _render_search_source_panel() -> None:
     st.markdown("**🔑 검색 소스 상태**")
     status = route_builder.search_source_status()
     rows = [
+        ("카카오 로컬", status["kakao_local"], "상호·가게 이름 (○○치킨, △△카페)",
+         "KAKAO_REST_API_KEY  ※ REST API 키 (JavaScript·네이티브 앱 키 아님)"),
         ("네이버 지역검색", status["naver_local"], "상호·가게 이름 (○○치킨, △△카페)",
          "NAVER_SEARCH_CLIENT_ID / SECRET"),
         ("네이버 지오코딩", status["naver_geocode"], "주소",
@@ -3041,10 +3043,14 @@ def _render_search_source_panel() -> None:
         if not ok:
             st.caption(f"　　꺼짐: `{keys}` 미설정")
     st.caption("Nominatim(OSM)은 키가 필요 없지만, 위 소스가 모두 비었을 때만 씁니다.")
-    if not status["naver_local"]:
+    # 이름이 틀린 키는 '없는 키'와 화면에서 똑같이 ❌ 로 보인다 — 실제로 이것 때문에
+    # "다 넣었는데 왜 안 되냐"로 오래 헤맸다. 따로 짚어준다.
+    for hint in route_builder.misnamed_key_hints():
+        st.error(f"✏️ {hint}")
+    if not (status["kakao_local"] or status["naver_local"]):
         st.warning(
-            "네이버 지도에 뜨는 **가게 이름**은 네이버 지역검색에서만 나옵니다. "
-            "이 키가 없으면 '네이버엔 있는데 여긴 안 나옴'이 계속 생깁니다.")
+            "**가게 이름**은 카카오 로컬·네이버 지역검색에서만 나옵니다. 둘 다 꺼져 있으면 "
+            "'지도 앱엔 있는데 여긴 안 나옴'이 계속 생깁니다. 둘 중 하나만 켜도 됩니다.")
     st.caption(
         "키는 환경변수 또는 `.streamlit/secrets.toml` 로 넣습니다. "
         "네이버 지역검색 키는 developers.naver.com '검색' 애플리케이션에서 발급하며, "

@@ -13,6 +13,10 @@ import type { PlaceHit } from "./types";
 const ORIGIN: Coordinate = { latitude: 37.5665, longitude: 126.978 };
 const at = (east: number, north: number) => moveCoordinateByMeters(ORIGIN, east, north);
 
+vi.mock("./kakao", () => ({
+  kakaoLocalAvailable: vi.fn(() => true),
+  searchKakaoLocal: vi.fn(async (): Promise<PlaceHit[]> => []),
+}));
 vi.mock("./naver", () => ({
   naverLocalAvailable: vi.fn(() => true),
   searchLocal: vi.fn(async (): Promise<PlaceHit[]> => []),
@@ -26,16 +30,21 @@ vi.mock("./tmap", async () => {
   };
 });
 
+const kakao = await import("./kakao");
 const naver = await import("./naver");
 const tmap = await import("./tmap");
 const { missingSourceHint, searchDestinations, sourceStatus } = await import("./search");
 
+const mockKakaoAvailable = vi.mocked(kakao.kakaoLocalAvailable);
+const mockSearchKakao = vi.mocked(kakao.searchKakaoLocal);
 const mockNaverAvailable = vi.mocked(naver.naverLocalAvailable);
 const mockSearchLocal = vi.mocked(naver.searchLocal);
 const mockTmapAvailable = vi.mocked(tmap.tmapAvailable);
 const mockSearchTmap = vi.mocked(tmap.searchTmapPlaces);
 
 function reset() {
+  mockKakaoAvailable.mockReturnValue(true);
+  mockSearchKakao.mockResolvedValue([]);
   mockNaverAvailable.mockReturnValue(true);
   mockTmapAvailable.mockReturnValue(true);
   mockSearchLocal.mockResolvedValue([]);
@@ -92,6 +101,7 @@ describe("searchDestinations", () => {
   });
 
   it("한 소스가 실패해도 나머지 후보는 살린다", async () => {
+    mockSearchKakao.mockRejectedValue(new Error("kakao down"));
     mockSearchLocal.mockRejectedValue(new Error("naver down"));
     mockSearchTmap.mockResolvedValue([{ name: "서울시청", coordinate: at(0, 0) }]);
 
@@ -101,6 +111,7 @@ describe("searchDestinations", () => {
   });
 
   it("켜진 소스가 전부 실패하면 빈 목록으로 감추지 않고 오류를 낸다", async () => {
+    mockSearchKakao.mockRejectedValue(new Error("kakao down"));
     mockSearchLocal.mockRejectedValue(new Error("naver down"));
     mockSearchTmap.mockRejectedValue(new Error("tmap down"));
 
@@ -108,6 +119,7 @@ describe("searchDestinations", () => {
   });
 
   it("키가 하나도 없으면 오류를 낸다 — '장소 없음'으로 보이면 안 된다", async () => {
+    mockKakaoAvailable.mockReturnValue(false);
     mockNaverAvailable.mockReturnValue(false);
     mockTmapAvailable.mockReturnValue(false);
 
@@ -115,15 +127,17 @@ describe("searchDestinations", () => {
   });
 
   it("결과가 0건이면 빠진 소스를 이유로 함께 돌려준다", async () => {
+    mockKakaoAvailable.mockReturnValue(false);
     mockNaverAvailable.mockReturnValue(false);   // 상호 검색 불가
 
     const { hits, hint } = await searchDestinations("동네치킨", null);
 
     expect(hits).toEqual([]);
-    expect(hint).toContain("네이버 지역검색");
+    expect(hint).toContain("상호");
   });
 
   it("결과가 있으면 이유를 붙이지 않는다", async () => {
+    mockKakaoAvailable.mockReturnValue(false);
     mockNaverAvailable.mockReturnValue(false);
     mockSearchTmap.mockResolvedValue([{ name: "서울시청", coordinate: at(0, 0) }]);
 
@@ -145,15 +159,22 @@ describe("searchDestinations", () => {
 
 describe("sourceStatus / missingSourceHint", () => {
   it("키 설정 여부만 bool 로 알린다", async () => {
-    expect(sourceStatus()).toEqual({ naverLocal: true, tmap: true });
+    expect(sourceStatus()).toEqual({ kakaoLocal: true, naverLocal: true, tmap: true });
     expect(Object.values(sourceStatus()).every((v) => typeof v === "boolean")).toBe(true);
   });
 
-  it("상호 검색이 막히는 네이버 지역검색을 먼저 짚는다", async () => {
+  it("상호 소스가 둘 다 꺼졌을 때만 상호 검색을 짚는다", async () => {
+    mockKakaoAvailable.mockReturnValue(false);
     mockNaverAvailable.mockReturnValue(false);
     mockTmapAvailable.mockReturnValue(false);
 
-    expect(missingSourceHint()).toContain("네이버 지역검색");
+    expect(missingSourceHint()).toContain("상호");
+  });
+
+  it("한쪽만 켜져 있으면 상호 검색을 경고하지 않는다", async () => {
+    mockNaverAvailable.mockReturnValue(false);   // 카카오만 켜짐
+
+    expect(missingSourceHint()).toBeNull();
   });
 
   it("TMAP 만 없으면 TMAP 을 짚는다", async () => {
@@ -164,5 +185,43 @@ describe("sourceStatus / missingSourceHint", () => {
 
   it("다 있으면 덧붙일 말이 없다", async () => {
     expect(missingSourceHint()).toBeNull();
+  });
+});
+
+describe("상호 소스 인터리브", () => {
+  it("카카오와 네이버를 번갈아 섞는다 — 한쪽이 limit 을 다 먹지 않게", async () => {
+    mockSearchKakao.mockResolvedValue([
+      { name: "카카오1", coordinate: at(0, 0) },
+      { name: "카카오2", coordinate: at(200, 0) },
+    ]);
+    mockSearchLocal.mockResolvedValue([
+      { name: "네이버1", coordinate: at(0, 300) },
+      { name: "네이버2", coordinate: at(200, 300) },
+    ]);
+
+    const { hits } = await searchDestinations("치킨", null);
+
+    expect(hits.map((h) => h.name)).toEqual(["카카오1", "네이버1", "카카오2", "네이버2"]);
+  });
+
+  it("한 소스가 비면 다른 소스가 그 자리를 채운다", async () => {
+    mockSearchKakao.mockResolvedValue([]);
+    mockSearchLocal.mockResolvedValue([
+      { name: "네이버1", coordinate: at(0, 0) },
+      { name: "네이버2", coordinate: at(300, 0) },
+    ]);
+
+    const { hits } = await searchDestinations("치킨", null);
+
+    expect(hits.map((h) => h.name)).toEqual(["네이버1", "네이버2"]);
+  });
+
+  it("상호 소스가 TMAP 보다 앞에 온다", async () => {
+    mockSearchKakao.mockResolvedValue([{ name: "동네치킨", coordinate: at(0, 0) }]);
+    mockSearchTmap.mockResolvedValue([{ name: "서울시청", coordinate: at(500, 0) }]);
+
+    const { hits } = await searchDestinations("치킨", null);
+
+    expect(hits.map((h) => h.name)).toEqual(["동네치킨", "서울시청"]);
   });
 });
