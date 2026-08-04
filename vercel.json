@@ -4,5 +4,5 @@
   "installCommand": "npm install",
   "outputDirectory": "web/.next",
   "framework": "nextjs",
-  "regions": ["icn"]
+  "regions": ["icn1"]
 }
