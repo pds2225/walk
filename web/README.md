@@ -21,20 +21,36 @@ Streamlit 으로는 할 수 없던 것 — 지도 위에 경로를 겹쳐 그리
 ```bash
 # 저장소 루트에서
 npm install
-echo 'TMAP_APP_KEY=발급받은_키' > web/.env.local   # 커밋 금지 (.gitignore 에 있음)
+cp web/.env.local.example web/.env.local   # 발급받은 키를 채워 넣는다(커밋 금지)
 npm run next:dev
 ```
 
 `http://localhost:3000` — 단, **위치 기능은 https 또는 localhost 에서만** 동작합니다.
 폰에서 테스트하려면 Vercel 프리뷰 배포 주소로 접속하세요.
 
+## 필요한 키
+
+| 이름 | 없으면 | 발급처 |
+|---|---|---|
+| `TMAP_APP_KEY` | **경로 탐색 불가** (앱이 동작하지 않음) | [openapi.sk.com](https://openapi.sk.com/) |
+| `KAKAO_REST_API_KEY` | 가게·상호 이름 검색 안 됨 | 카카오 developers → 앱 키 → **REST API 키** |
+| `NAVER_SEARCH_CLIENT_ID` / `_SECRET` | 네이버쪽 상호 검색만 빠짐 | developers.naver.com |
+
+상호 검색(카카오·네이버)은 **둘 중 하나만 있어도** 됩니다 — 둘 다 넣으면 한쪽이 못
+찾는 가게를 다른 쪽이 찾습니다. 둘 다 없으면 주소·큰 장소만 검색됩니다.
+
+카카오는 반드시 **REST API 키**입니다. JavaScript 키·네이티브 앱 키는 401 이 납니다.
+
 ## Vercel 배포
 
 1. Vercel 에서 이 저장소를 import 합니다. `vercel.json` 이 빌드 명령을 지정하므로
    **Root Directory 는 저장소 루트 그대로** 둡니다(`web` 으로 바꾸면 워크스페이스가 깨집니다).
-2. Settings → Environment Variables 에 `TMAP_APP_KEY` 를 넣습니다.
+2. Settings → Environment Variables 에 위 키들을 넣습니다.
    Production / Preview 양쪽에 넣어야 프리뷰에서도 검색·경로가 됩니다.
 3. 배포 후 폰 브라우저로 접속 → 위치 권한 허용.
+
+Git 을 나중에 연결하면 **그 시점의 커밋은 소급 배포되지 않습니다** — 다음 push 부터
+자동 배포됩니다. 바로 올리려면 대시보드에서 Redeploy 를 누르세요.
 
 키는 서버(API 라우트)에서만 읽습니다. 브라우저 번들에 들어가지 않으므로
 `NEXT_PUBLIC_` 접두어를 붙이면 **안 됩니다**.

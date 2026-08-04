@@ -2,6 +2,9 @@
 .streamlit/secrets.toml
 .env
 .env.*
+# 값이 비어 있는 예시 파일만 예외 — 어떤 키가 필요한지 알려면 저장소에 있어야 한다.
+# '.example' 로 끝나는 것만 풀어 주므로 실제 키 파일은 계속 무시된다.
+!**/.env*.example
 
 # Python
 __pycache__/
