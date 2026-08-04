@@ -84,6 +84,41 @@ _HTML_TAG_RE = re.compile(r"<[^>]+>")  # 지역검색 title 의 <b> 하이라이
 _DEDUP_NEAR_M = 60.0
 
 
+def _parse_env_line(line: str) -> tuple[str, str] | None:
+    """`.env` 한 줄 → (이름, 값). 주석·빈 줄·형식 오류는 None.
+
+    실기기에서 키가 조용히 안 먹던 원인 두 가지를 여기서 흡수한다:
+      · `KEY = "값"` 처럼 `=` 앞뒤에 공백이 있는 형식(TOML 습관대로 쓴 경우)
+      · 값을 감싼 따옴표 — 벗기지 않으면 `"abc"` 가 그대로 키로 나가 인증이 실패한다
+    둘 다 '값이 틀렸다'는 신호 없이 그냥 인증 오류로만 보여 원인 찾기가 어렵다.
+    """
+    line = line.strip()
+    if not line or line.startswith("#") or "=" not in line:
+        return None
+    name, _, raw = line.partition("=")
+    name = name.strip()
+    value = raw.strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in ("'", '"'):
+        value = value[1:-1]
+    return (name, value) if name else None
+
+
+def _env_shared_values(*names: str) -> dict[str, str]:
+    """마스터 .env 에서 요청한 이름들의 값을 읽는다. 없거나 못 읽으면 빈 dict."""
+    if not _ENV_SHARED.is_file():
+        return {}
+    wanted = set(names)
+    found: dict[str, str] = {}
+    try:
+        for line in _ENV_SHARED.read_text(encoding="utf-8").splitlines():
+            parsed = _parse_env_line(line)
+            if parsed and parsed[0] in wanted and parsed[1]:
+                found[parsed[0]] = parsed[1]
+    except OSError:
+        return {}
+    return found
+
+
 def _naver_headers() -> dict[str, str] | None:
     """NCP 인증 헤더. 환경변수 → Streamlit secrets → 마스터 .env 순으로 로드(1회 캐시).
 
@@ -102,16 +137,10 @@ def _naver_headers() -> dict[str, str] | None:
                 sec = sec or str(st.secrets.get("NAVER_MAPS_CLIENT_SECRET", "") or "")
             except Exception:
                 pass
-        if not (cid and sec) and _ENV_SHARED.is_file():
-            try:
-                for line in _ENV_SHARED.read_text(encoding="utf-8").splitlines():
-                    line = line.strip()
-                    if line.startswith("NAVER_MAPS_CLIENT_ID="):
-                        cid = line.partition("=")[2].strip()
-                    elif line.startswith("NAVER_MAPS_CLIENT_SECRET="):
-                        sec = line.partition("=")[2].strip()
-            except OSError:
-                pass
+        if not (cid and sec):
+            shared = _env_shared_values("NAVER_MAPS_CLIENT_ID", "NAVER_MAPS_CLIENT_SECRET")
+            cid = cid or shared.get("NAVER_MAPS_CLIENT_ID", "")
+            sec = sec or shared.get("NAVER_MAPS_CLIENT_SECRET", "")
         _naver_keys_cache = (
             {"X-NCP-APIGW-API-KEY-ID": cid, "X-NCP-APIGW-API-KEY": sec}
             if cid and sec else None
@@ -136,16 +165,10 @@ def _naver_search_headers() -> dict[str, str] | None:
                 sec = sec or str(st.secrets.get("NAVER_SEARCH_CLIENT_SECRET", "") or "")
             except Exception:
                 pass
-        if not (cid and sec) and _ENV_SHARED.is_file():
-            try:
-                for line in _ENV_SHARED.read_text(encoding="utf-8").splitlines():
-                    line = line.strip()
-                    if line.startswith("NAVER_SEARCH_CLIENT_ID="):
-                        cid = line.partition("=")[2].strip()
-                    elif line.startswith("NAVER_SEARCH_CLIENT_SECRET="):
-                        sec = line.partition("=")[2].strip()
-            except OSError:
-                pass
+        if not (cid and sec):
+            shared = _env_shared_values("NAVER_SEARCH_CLIENT_ID", "NAVER_SEARCH_CLIENT_SECRET")
+            cid = cid or shared.get("NAVER_SEARCH_CLIENT_ID", "")
+            sec = sec or shared.get("NAVER_SEARCH_CLIENT_SECRET", "")
         _naver_search_keys_cache = (
             {"X-Naver-Client-Id": cid, "X-Naver-Client-Secret": sec}
             if cid and sec else None
@@ -188,6 +211,62 @@ def search_source_status() -> dict[str, bool]:
         "naver_geocode": _naver_headers() is not None,        # 네이버 지오코딩(주소)
         "tmap": _tmap_app_key() is not None,                  # TMAP 주소 + 장소
     }
+
+
+EXPECTED_KEY_NAMES = (
+    "NAVER_SEARCH_CLIENT_ID", "NAVER_SEARCH_CLIENT_SECRET",
+    "NAVER_MAPS_CLIENT_ID", "NAVER_MAPS_CLIENT_SECRET",
+    "TMAP_APP_KEY", "ODSAY_API_KEY",
+)
+
+
+def _configured_key_names() -> set[str]:
+    """설정에 실제로 들어 있는 이름들(값은 읽지 않는다)."""
+    names = {n for n in os.environ if n.isupper()}
+    try:
+        import streamlit as st
+        names |= {str(n) for n in st.secrets}
+    except Exception:
+        pass
+    names |= set(_env_shared_names())
+    return names
+
+
+def _env_shared_names() -> list[str]:
+    """마스터 .env 에 적힌 이름 목록(값은 읽지 않는다)."""
+    if not _ENV_SHARED.is_file():
+        return []
+    try:
+        lines = _ENV_SHARED.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return []
+    out = []
+    for line in lines:
+        parsed = _parse_env_line(line)
+        if parsed:
+            out.append(parsed[0])
+    return out
+
+
+def misnamed_key_hints(configured: set[str] | None = None) -> list[str]:
+    """오타 난 키 이름을 찾아 알려준다.
+
+    실제로 겪은 사고: `NAVER_SEARCH_CLIENT_ID_ID` 로 한 글자 덧붙은 이름을 넣어 두고
+    "키를 다 넣었는데 왜 검색이 안 되냐"로 몇 시간을 헤맸다. 키가 '없는' 것과 '이름이
+    틀린' 것은 화면에서 똑같이 ❌ 로 보여 구분이 안 된다 — 그래서 따로 짚어준다.
+
+    판정: 기대 이름을 그대로 품고 있지만 정확히 같지는 않은 이름(접두·접미 오타).
+    """
+    have = _configured_key_names() if configured is None else configured
+    hints: list[str] = []
+    for expected in EXPECTED_KEY_NAMES:
+        if expected in have:
+            continue   # 제대로 들어 있음
+        for name in sorted(have):
+            if name != expected and expected in name:
+                hints.append(f"`{name}` → `{expected}` 오타로 보입니다")
+                break
+    return hints
 
 
 def missing_source_hint() -> str | None:

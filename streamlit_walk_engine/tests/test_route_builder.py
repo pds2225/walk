@@ -1336,3 +1336,62 @@ class TestSearchSourceStatus:
         monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: "k")
 
         assert route_builder.missing_source_hint() is None
+
+
+class TestEnvLineParsing:
+    """마스터 .env 파싱 — 조용히 틀린 값을 만들어 인증만 실패하던 경로."""
+
+    def test_strips_quotes_around_value(self):
+        # TOML 습관대로 따옴표를 씌우면, 벗기지 않는 한 `"abc"` 가 그대로 키로 나간다
+        assert route_builder._parse_env_line('KEY="abc123"') == ("KEY", "abc123")
+        assert route_builder._parse_env_line("KEY='abc123'") == ("KEY", "abc123")
+
+    def test_allows_spaces_around_equals(self):
+        assert route_builder._parse_env_line('TMAP_APP_KEY = "abc"') == ("TMAP_APP_KEY", "abc")
+
+    def test_plain_value_unchanged(self):
+        assert route_builder._parse_env_line("KEY=abc123") == ("KEY", "abc123")
+
+    def test_skips_comments_and_blanks(self):
+        assert route_builder._parse_env_line("# KEY=abc") is None
+        assert route_builder._parse_env_line("") is None
+        assert route_builder._parse_env_line("   ") is None
+        assert route_builder._parse_env_line("KEY_WITHOUT_EQUALS") is None
+
+    def test_keeps_inner_quotes(self):
+        # 양끝이 짝이 아닐 때는 건드리지 않는다
+        assert route_builder._parse_env_line('KEY="abc') == ("KEY", '"abc')
+
+
+class TestMisnamedKeyHints:
+    """키 이름 오타는 '키 없음'과 화면에서 구별되지 않아 원인 찾기가 매우 어렵다.
+
+    실제 사고: NAVER_SEARCH_CLIENT_ID_ID 로 넣어 두고 "다 넣었는데 왜 안 되냐"로 헤맴.
+    """
+
+    def test_flags_doubled_suffix_typo(self):
+        hints = route_builder.misnamed_key_hints({"NAVER_SEARCH_CLIENT_ID_ID"})
+
+        assert len(hints) == 1
+        assert "NAVER_SEARCH_CLIENT_ID_ID" in hints[0]
+        assert "NAVER_SEARCH_CLIENT_ID" in hints[0]
+
+    def test_flags_prefix_typo(self):
+        hints = route_builder.misnamed_key_hints({"MY_TMAP_APP_KEY"})
+
+        assert any("TMAP_APP_KEY" in h for h in hints)
+
+    def test_silent_when_name_is_correct(self):
+        assert route_builder.misnamed_key_hints({"NAVER_SEARCH_CLIENT_ID"}) == []
+
+    def test_correct_name_wins_even_if_typo_also_present(self):
+        # 고친 뒤 옛 줄이 남아 있어도 다시 경고하지 않는다
+        have = {"NAVER_SEARCH_CLIENT_ID", "NAVER_SEARCH_CLIENT_ID_ID"}
+
+        assert route_builder.misnamed_key_hints(have) == []
+
+    def test_silent_when_nothing_configured(self):
+        assert route_builder.misnamed_key_hints(set()) == []
+
+    def test_unrelated_names_are_not_flagged(self):
+        assert route_builder.misnamed_key_hints({"PATH", "HOME", "KAKAO_REST_API_KEY"}) == []

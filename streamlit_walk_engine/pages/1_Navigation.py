@@ -3041,6 +3041,10 @@ def _render_search_source_panel() -> None:
         if not ok:
             st.caption(f"　　꺼짐: `{keys}` 미설정")
     st.caption("Nominatim(OSM)은 키가 필요 없지만, 위 소스가 모두 비었을 때만 씁니다.")
+    # 이름이 틀린 키는 '없는 키'와 화면에서 똑같이 ❌ 로 보인다 — 실제로 이것 때문에
+    # "다 넣었는데 왜 안 되냐"로 오래 헤맸다. 따로 짚어준다.
+    for hint in route_builder.misnamed_key_hints():
+        st.error(f"✏️ {hint}")
     if not status["naver_local"]:
         st.warning(
             "네이버 지도에 뜨는 **가게 이름**은 네이버 지역검색에서만 나옵니다. "
