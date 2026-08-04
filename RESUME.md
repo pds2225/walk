@@ -23,6 +23,8 @@ python -m pytest streamlit_walk_engine\tests -q
 ## 3. 남은 작업 ⬜ (다음 세션에서 이어서)
 - [ ] **실행: 환승 "도착" 수정 (결정 2-1)** — `REQUESTS_LEDGER.md` §결정잠금 TASK B. 다음 구간 start명·마지막만 도착. 격리 worktree.
 - [ ] **사람: 클라우드 Secrets에 Naver 키 2줄 붙여넣기 (결정 1-1)** — 로컬 `.streamlit/secrets.toml`은 2026-08-04 설정·실동작 검증 완료(목적지 검색·현재위치 POI 주소 OK). 남은 건 배포 앱 Settings→Secrets 붙여넣기뿐. 코드 변경 없음. ※Streamlit 앱이라 Vercel 배포는 불가(서버리스·WebSocket 제약) — Streamlit Cloud 유지.
+- [ ] **Vercel 배포 (사람 1회)** — `web/` Next.js 앱은 이미 main에 있고 로컬 빌드 통과. vercel.com → Add New Project → pds2225/walk import → **Root Directory는 루트 그대로**(vercel.json이 빌드 지정) → Env에 `TMAP_APP_KEY`(필수, 없으면 경로탐색 불가)·`NAVER_SEARCH_CLIENT_ID/SECRET`(상호검색). ※MCP 커넥터·CLI 둘 다 권한 없어 자동 배포 실패(403/미로그인).
+- [ ] **TMAP 앱키 발급** — `web/`의 경로탐색·주소검색이 전부 TMAP 의존. 없으면 배포해도 "걷기" 동작 안 함.
 - [ ] **[제품] 산책 기록 MVP(사진 제외)** — `VISION_SOCIAL.md` §3. 격리 worktree+브랜치, `1_Navigation.py` 최소 변경.
 - [ ] **폰 실기기 확인** — `REQUESTS_LEDGER.md` §7
 
@@ -58,4 +60,5 @@ python -m pytest streamlit_walk_engine\tests -q
 - `D:/walk/.claude/worktrees/dest-reset` → `fix/dest-input-reset`
 - `D:/walk/.claude/worktrees/dest-reset-a` → `fix/dest-reset-a`
 - `D:/walk/.claude/worktrees/heading-debug` → `fix/heading-debug-panel`
+
 
