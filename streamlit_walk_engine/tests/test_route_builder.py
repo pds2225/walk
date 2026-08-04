@@ -866,9 +866,12 @@ class TestTmapPoiResults:
         assert "centerLat" not in captured
         assert "radius" not in captured
 
-    def test_far_poi_falls_back_to_accuracy_order(self, monkeypatch):
-        """근본 수정: 인천에서 검색한 서울 '대륭포스트타워8차'처럼 반경 밖 장소가 거리순
-        검색에서 비면, center 없이 정확도순으로 한 번 더 검색해 반드시 뜨게 한다."""
+    def test_far_poi_still_found_via_accuracy_order(self, monkeypatch):
+        """인천에서 검색한 서울 '대륭포스트타워8차'처럼 반경 밖 장소도 반드시 떠야 한다.
+
+        예전엔 거리순이 '완전히 빌 때만' 정확도순으로 폴백했다. 지금은 정확도순을 항상
+        부르고 거리순과 섞으므로, 거리순이 근처 잡음으로 채워져도 이 장소가 살아남는다
+        (그 폴백이 발동하지 않아 '경복궁'에 엉뚱한 가게가 뜨던 문제의 수정)."""
         monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: "k")
         calls: list = []
 
@@ -884,7 +887,8 @@ class TestTmapPoiResults:
         center = route_builder.Coordinate(latitude=37.45, longitude=126.72)  # 인천
         out = route_builder._tmap_poi_results("대륭포스트타워8차", 5, center=center)
         assert [d for _, d in out] == ["서울 금천구 대륭포스트타워8차"]
-        assert [c.get("searchtypCd") for c in calls] == ["R", "A"]  # 거리순 → 정확도순 폴백
+        # 정확도순을 먼저(항상) 부르고 거리순도 함께 받는다 — 폴백이 아니라 병행이다
+        assert sorted(c.get("searchtypCd") for c in calls) == ["A", "R"]
 
     def test_skips_poi_without_usable_coords(self, monkeypatch):
         monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: "k")
@@ -1585,3 +1589,87 @@ class TestKakaoSortMode:
         params = self._captured_params(monkeypatch, None)
 
         assert "x" not in params and "y" not in params
+
+
+class TestTmapPoiSortMix:
+    """TMAP POI 는 정확도순과 거리순을 함께 받아 섞어야 한다.
+
+    배포본 실측(2026-08-04, 서울시청 기준): 거리순만 쓰면 '경복궁' 검색에 경복궁이
+    아예 안 나오고 '경복궁 참치 / 고려주차장 / 종각컨설팅부동산중개'가 떴다.
+    옛 코드는 거리순이 '완전히 비었을 때만' 정확도순으로 폴백했는데, 거리순은 근처
+    아무거나로 늘 채워지므로 그 폴백이 사실상 발동하지 않았다.
+    """
+
+    @staticmethod
+    def _poi(name: str, lat: float, lon: float) -> dict:
+        return {"name": name, "frontLat": str(lat), "frontLon": str(lon),
+                "upperAddrName": "서울"}
+
+    def _fake_tmap(self, monkeypatch, by_sort: dict[str, list]):
+        calls: list[str] = []
+
+        class _Resp:
+            def __init__(self, pois):
+                self.status_code = 200
+                self._pois = pois
+
+            def json(self):
+                return {"searchPoiInfo": {"pois": {"poi": self._pois}}}
+
+        def fake_get(url, params=None, headers=None, timeout=None):
+            sort = (params or {}).get("searchtypCd", "?")
+            calls.append(sort)
+            return _Resp(by_sort.get(sort, []))
+
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: "k")
+        monkeypatch.setattr(route_builder.requests, "get", fake_get)
+        return calls
+
+    def test_queries_both_sorts_when_center_given(self, monkeypatch):
+        calls = self._fake_tmap(monkeypatch, {})
+        center = route_builder.Coordinate(latitude=37.5665, longitude=126.978)
+
+        route_builder._tmap_poi_results("경복궁", limit=5, center=center)
+
+        assert "A" in calls and "R" in calls   # 거리순만 쓰지 않는다
+
+    def test_landmark_from_accuracy_survives_nearby_noise(self, monkeypatch):
+        # 거리순이 근처 잡음으로 가득 차도 정확도순 1위(경복궁)가 맨 앞에 남아야 한다
+        self._fake_tmap(monkeypatch, {
+            "A": [self._poi("경복궁", 37.5796, 126.9770)],
+            "R": [self._poi("경복궁 참치", 37.5706, 126.9798),
+                  self._poi("고려주차장", 37.5706, 126.9749)],
+        })
+        center = route_builder.Coordinate(latitude=37.5665, longitude=126.978)
+
+        got = [d for _, d in route_builder._tmap_poi_results("경복궁", limit=5, center=center)]
+
+        assert got[0].endswith("경복궁")
+        assert any("경복궁 참치" in d for d in got)   # 근처 후보도 버리지 않는다
+
+    def test_only_accuracy_without_center(self, monkeypatch):
+        calls = self._fake_tmap(monkeypatch, {"A": [self._poi("경복궁", 37.5796, 126.977)]})
+
+        route_builder._tmap_poi_results("경복궁", limit=5, center=None)
+
+        assert calls == ["A"]   # 위치를 모르면 거리순은 의미가 없다
+
+    def test_same_place_from_both_sorts_appears_once(self, monkeypatch):
+        same = self._poi("경복궁", 37.5796, 126.9770)
+        self._fake_tmap(monkeypatch, {"A": [same], "R": [same]})
+        center = route_builder.Coordinate(latitude=37.5665, longitude=126.978)
+
+        got = route_builder._tmap_poi_results("경복궁", limit=5, center=center)
+
+        assert len(got) == 1
+
+    def test_respects_limit(self, monkeypatch):
+        self._fake_tmap(monkeypatch, {
+            "A": [self._poi(f"A{i}", 37.5 + i / 100, 127.0) for i in range(5)],
+            "R": [self._poi(f"R{i}", 37.6 + i / 100, 127.0) for i in range(5)],
+        })
+        center = route_builder.Coordinate(latitude=37.5665, longitude=126.978)
+
+        got = route_builder._tmap_poi_results("가게", limit=3, center=center)
+
+        assert len(got) == 3
