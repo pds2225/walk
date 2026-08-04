@@ -71,6 +71,7 @@ _NAVER_REVERSE = "https://maps.apigw.ntruss.com/map-reversegeocode/v2/gc"
 # 네이버 '지역(장소)검색' 오픈API — 상호·건물·POI 등 네이버 지도와 같은 장소 DB.
 # 지오코딩(주소 전용)이 못 찾는 장소명을 여기서 잡아 '네이버엔 나오는데 여긴 안 뜸'을 해소.
 _NAVER_LOCAL = "https://openapi.naver.com/v1/search/local.json"
+_KAKAO_LOCAL = "https://dapi.kakao.com/v2/local/search/keyword.json"  # 장소(상호) 키워드 검색
 _TMAP_POI = "https://apis.openapi.sk.com/tmap/pois"  # 장소명(POI) 통합검색
 _TMAP_ADDR_GEO = "https://apis.openapi.sk.com/tmap/geo/fullAddrGeo"  # 주소→좌표(도로명·지번)
 _TMAP_REVERSE = "https://apis.openapi.sk.com/tmap/geo/reversegeocoding"  # 좌표→주소
@@ -78,6 +79,7 @@ _TMAP_STATIC_MAP = "https://apis.openapi.sk.com/tmap/staticMap"
 _ENV_SHARED = Path(r"D:\_secure\.env.shared")  # 마스터 .env — 키를 코드에 넣지 않음
 _naver_keys_cache: dict[str, str] | None | bool = False  # False=미로드, None=키 없음
 _naver_search_keys_cache: dict[str, str] | None | bool = False  # 지역검색 키(지오코딩과 별개)
+_kakao_keys_cache: dict[str, str] | None | bool = False         # 카카오 로컬(장소) REST 키
 _HTML_TAG_RE = re.compile(r"<[^>]+>")  # 지역검색 title 의 <b> 하이라이트 태그 제거용
 # 같은 라벨 후보를 '중복'으로 합칠 좌표 근접 상한(m). 이보다 멀면 동명 '다른 장소'로 보고
 # 둘 다 남긴다 — 한 도로/건물의 여러 표현만 합쳐 검색 결과가 사라지지 않게 하는 경계.
@@ -199,6 +201,78 @@ def _parse_naver_local_items(items: list, limit: int, query: str) -> list[tuple[
     return out
 
 
+def _kakao_headers() -> dict[str, str] | None:
+    """카카오 로컬(장소) REST 인증 헤더. 없으면 None → 소스 생략.
+
+    반드시 'REST API 키'다 — JavaScript 키(브라우저 SDK)·네이티브 앱 키는 이 API 에서
+    401 이 난다. 서버에서만 호출하므로 키가 사용자에게 노출되지 않는다.
+    """
+    global _kakao_keys_cache
+    if _kakao_keys_cache is False:
+        key = os.environ.get("KAKAO_REST_API_KEY", "").strip()
+        if not key:
+            try:
+                import streamlit as st
+                key = str(st.secrets.get("KAKAO_REST_API_KEY", "") or "").strip()
+            except Exception:
+                pass
+        if not key:
+            key = _env_shared_values("KAKAO_REST_API_KEY").get("KAKAO_REST_API_KEY", "")
+        _kakao_keys_cache = {"Authorization": f"KakaoAK {key}"} if key else None
+    return _kakao_keys_cache or None
+
+
+def _parse_kakao_documents(documents: list, limit: int, query: str) -> list[tuple[Coordinate, str]]:
+    """카카오 로컬 documents[] → (Coordinate, 표시문자열) 목록(순수 함수).
+
+    x=경도, y=위도 이며 문자열로 온다(네이버의 ×10^7 정수와 규약이 다르다 — 헷갈리면
+    엉뚱한 곳으로 안내하게 되므로 여기서만 변환한다). 표시는 네이버와 같은 한국식
+    '주소 뒤 상호'로 맞춰, 두 소스가 섞여도 목록이 한 형식으로 보이게 한다.
+    """
+    out: list[tuple[Coordinate, str]] = []
+    for doc in documents[:limit]:
+        try:
+            lon = float(doc["x"])
+            lat = float(doc["y"])
+        except (KeyError, ValueError, TypeError):
+            continue
+        if not (33.0 <= lat <= 39.5 and 124.0 <= lon <= 132.0):
+            continue  # 한국 범위 밖 = 좌표계 오인/이상치
+        name = str(doc.get("place_name") or "").strip()
+        addr = str(doc.get("road_address_name") or doc.get("address_name") or "").strip()
+        display = f"{addr} {name}".strip() if name and addr else (name or addr or query)
+        out.append((Coordinate(latitude=lat, longitude=lon), display))
+    return out
+
+
+def _kakao_local_hits(query: str, limit: int = 5,
+                      center: Coordinate | None = None) -> list[tuple[Coordinate, str]]:
+    """카카오 로컬 장소 검색 — 네이버 지역검색과 같은 자리(상호·가게)를 메운다.
+
+    상호 검색 소스를 둘로 두는 이유: 한쪽이 못 찾는 가게를 다른 쪽이 찾는 일이 잦고,
+    한쪽 키가 막혀도 검색이 통째로 죽지 않는다. 키 없음·오류·결과 없음이면 [].
+    """
+    headers = _kakao_headers()
+    if headers is None:
+        return []
+    params: dict[str, str] = {"query": query, "size": str(max(1, min(limit, 15)))}
+    if center is not None:
+        # x/y 만 넘기고 정렬은 기본값(accuracy)을 쓴다. sort=distance 로 두면 관련도를
+        # 통째로 무시해 '경복궁' 검색에 근처 미용실·부동산이 뜬다(실측: 경복궁→쏘아베
+        # 에스테틱, 강남역→바른명상연구소). accuracy 도 x/y 를 위치 편향으로 반영해
+        # 'CU편의점' 같은 체인 검색은 거리순과 결과가 같았다 — 잃는 것 없이 관련도만 얻는다.
+        params["x"] = f"{center.longitude:.7f}"
+        params["y"] = f"{center.latitude:.7f}"
+    try:
+        resp = requests.get(_KAKAO_LOCAL, params=params, headers=headers, timeout=_TIMEOUT)
+        if resp.status_code != 200:
+            return []
+        documents = resp.json().get("documents", []) or []
+    except (requests.RequestException, KeyError, ValueError):
+        return []
+    return _parse_kakao_documents(documents, limit, query)
+
+
 def search_source_status() -> dict[str, bool]:
     """검색 소스별 사용 가능 여부(키가 설정돼 있는지). 키 값 자체는 반환하지 않는다.
 
@@ -207,6 +281,7 @@ def search_source_status() -> dict[str, bool]:
     실기기에서 "네이버엔 나오는데 여긴 안 뜬다"는 보고의 대부분이 이 구분 불가였다.
     """
     return {
+        "kakao_local": _kakao_headers() is not None,          # 카카오 로컬(상호·가게)
         "naver_local": _naver_search_headers() is not None,   # 네이버 지역검색(상호·POI)
         "naver_geocode": _naver_headers() is not None,        # 네이버 지오코딩(주소)
         "tmap": _tmap_app_key() is not None,                  # TMAP 주소 + 장소
@@ -216,7 +291,7 @@ def search_source_status() -> dict[str, bool]:
 EXPECTED_KEY_NAMES = (
     "NAVER_SEARCH_CLIENT_ID", "NAVER_SEARCH_CLIENT_SECRET",
     "NAVER_MAPS_CLIENT_ID", "NAVER_MAPS_CLIENT_SECRET",
-    "TMAP_APP_KEY", "ODSAY_API_KEY",
+    "TMAP_APP_KEY", "ODSAY_API_KEY", "KAKAO_REST_API_KEY",
 )
 
 
@@ -272,10 +347,12 @@ def misnamed_key_hints(configured: set[str] | None = None) -> list[str]:
 def missing_source_hint() -> str | None:
     """검색이 비었을 때 덧붙일 설명. 빠진 소스가 없으면 None."""
     status = search_source_status()
-    if not status["naver_local"]:
-        # 네이버 지도에 뜨는 상호·가게는 이 소스에서만 나온다 — 가장 흔한 원인.
-        return ("네이버 지역검색이 꺼져 있어 상호·가게 이름은 검색되지 않습니다 "
-                "(NAVER_SEARCH_CLIENT_ID/SECRET 미설정). 주소나 지하철역 출구로 찾아보세요.")
+    # 상호·가게는 카카오/네이버에서만 나온다. 둘 다 꺼져 있을 때만 짚는다 —
+    # 하나만 켜져 있어도 가게 검색은 되므로 굳이 경고할 이유가 없다.
+    if not (status["kakao_local"] or status["naver_local"]):
+        return ("상호·가게 이름 검색이 꺼져 있습니다 "
+                "(KAKAO_REST_API_KEY 또는 NAVER_SEARCH_CLIENT_ID/SECRET 미설정). "
+                "주소나 지하철역 출구로 찾아보세요.")
     if not status["tmap"]:
         return "TMAP 키가 없어 주소·장소 검색이 제한됩니다 (TMAP_APP_KEY 미설정)."
     return None
@@ -727,22 +804,26 @@ def geocode_suggestions(query: str, limit: int = 5,
     # 우선순위 그대로 병합한다 — 후보 구성·순서는 직렬 때와 동일.
     # (Naver 성공 시 fullAddrGeo 결과는 버려지는 투기 호출이지만 지연 0·쿼터 여유.
     #  키 없는 소스는 네트워크 없이 즉시 [] 반환이라 스레드 낭비도 없음.)
-    with ThreadPoolExecutor(max_workers=4) as pool:
+    with ThreadPoolExecutor(max_workers=5) as pool:
+        f_kakao = pool.submit(_kakao_local_hits, q, limit, center)
         f_local = pool.submit(_naver_local_hits, q, limit)
         f_naver = pool.submit(_naver_suggestion_hits, q, limit)
         f_addr = pool.submit(_tmap_addr_results, q, limit)
         f_poi = pool.submit(_tmap_poi_results, q, limit, center)
+        kakao_hits = _future_result(f_kakao)
         local_hits = _future_result(f_local)
         naver_hits = _future_result(f_naver)
         addr_hits = _future_result(f_addr)
         poi_hits = _future_result(f_poi)
 
-    # 0) 네이버 지역검색(장소 DB) 먼저 — 네이버 지도에 뜨는 상호·건물·POI 를 최우선으로
-    #    보여준다('네이버엔 나오는데 여긴 안 뜸' 해소). 키 없으면 []라 아래 순서와 동일.
-    for coord, display in local_hits:
-        if len(out) >= limit:
-            break
-        _add(coord.latitude, coord.longitude, display)
+    # 0) 상호·가게 먼저 — 카카오 로컬과 네이버 지역검색을 번갈아 섞는다.
+    #    한쪽을 앞에 몰아 넣으면 limit 에 막혀 다른 쪽 결과가 아예 안 보인다. 한 소스가
+    #    비면 다른 소스가 그 자리를 그대로 채운다(zip_longest 가 아니라 수동 인터리브).
+    for i in range(max(len(kakao_hits), len(local_hits))):
+        for hits in (kakao_hits, local_hits):
+            if i < len(hits) and len(out) < limit:
+                coord, display = hits[i]
+                _add(coord.latitude, coord.longitude, display)
 
     # 1) 주소 후보: Naver 지오코딩 → 키 없음·결과 없음이면 TMAP 주소 지오코딩(fullAddrGeo)
     #    — 배포 환경에 Naver 키가 없으면 주소 검색이 통째로 죽던 문제의 수정(#67) 보존.

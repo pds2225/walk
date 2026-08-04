@@ -1296,16 +1296,19 @@ class TestSearchSourceStatus:
     """
 
     def test_status_reports_each_source(self, monkeypatch):
+        monkeypatch.setattr(route_builder, "_kakao_headers", lambda: None)
         monkeypatch.setattr(route_builder, "_naver_search_headers", lambda: {"X-Naver-Client-Id": "x"})
         monkeypatch.setattr(route_builder, "_naver_headers", lambda: None)
         monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: "k")
 
         assert route_builder.search_source_status() == {
-            "naver_local": True, "naver_geocode": False, "tmap": True,
+            "kakao_local": False, "naver_local": True, "naver_geocode": False, "tmap": True,
         }
 
     def test_status_never_leaks_key_values(self, monkeypatch):
         secret = "super-secret-value"
+        monkeypatch.setattr(route_builder, "_kakao_headers",
+                            lambda: {"Authorization": f"KakaoAK {secret}"})
         monkeypatch.setattr(route_builder, "_naver_search_headers",
                             lambda: {"X-Naver-Client-Id": secret})
         monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: secret)
@@ -1313,16 +1316,18 @@ class TestSearchSourceStatus:
         assert secret not in repr(route_builder.search_source_status())
         assert all(isinstance(v, bool) for v in route_builder.search_source_status().values())
 
-    def test_hint_points_at_naver_local_first(self, monkeypatch):
-        # 상호·가게 이름은 네이버 지역검색에서만 나온다 — 가장 흔한 원인이라 먼저 알린다.
+    def test_hint_points_at_storefront_sources_first(self, monkeypatch):
+        # 상호·가게 이름은 카카오/네이버에서만 나온다 — 가장 흔한 원인이라 먼저 알린다.
+        monkeypatch.setattr(route_builder, "_kakao_headers", lambda: None)
         monkeypatch.setattr(route_builder, "_naver_search_headers", lambda: None)
         monkeypatch.setattr(route_builder, "_naver_headers", lambda: None)
         monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: None)
 
         hint = route_builder.missing_source_hint()
-        assert hint is not None and "네이버 지역검색" in hint
+        assert hint is not None and "상호" in hint
 
     def test_hint_mentions_tmap_when_only_tmap_missing(self, monkeypatch):
+        monkeypatch.setattr(route_builder, "_kakao_headers", lambda: None)
         monkeypatch.setattr(route_builder, "_naver_search_headers", lambda: {"a": "b"})
         monkeypatch.setattr(route_builder, "_naver_headers", lambda: {"a": "b"})
         monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: None)
@@ -1331,6 +1336,7 @@ class TestSearchSourceStatus:
         assert hint is not None and "TMAP" in hint
 
     def test_no_hint_when_all_sources_available(self, monkeypatch):
+        monkeypatch.setattr(route_builder, "_kakao_headers", lambda: {"Authorization": "KakaoAK x"})
         monkeypatch.setattr(route_builder, "_naver_search_headers", lambda: {"a": "b"})
         monkeypatch.setattr(route_builder, "_naver_headers", lambda: {"a": "b"})
         monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: "k")
@@ -1395,3 +1401,187 @@ class TestMisnamedKeyHints:
 
     def test_unrelated_names_are_not_flagged(self):
         assert route_builder.misnamed_key_hints({"PATH", "HOME", "KAKAO_REST_API_KEY"}) == []
+
+
+class TestKakaoLocal:
+    """카카오 로컬(장소) 파싱 — 좌표 규약이 네이버와 반대라 여기서 어긋나면 오안내가 된다."""
+
+    SEOUL = {"x": "126.9780", "y": "37.5665"}
+
+    def test_x_is_longitude_y_is_latitude(self):
+        hits = route_builder._parse_kakao_documents(
+            [{**self.SEOUL, "place_name": "서울시청"}], 5, "시청")
+
+        assert len(hits) == 1
+        coord, _ = hits[0]
+        assert abs(coord.latitude - 37.5665) < 1e-4
+        assert abs(coord.longitude - 126.9780) < 1e-4
+
+    def test_display_is_address_then_place_like_naver(self):
+        hits = route_builder._parse_kakao_documents(
+            [{**self.SEOUL, "place_name": "동네치킨",
+              "road_address_name": "서울 중구 세종대로 110"}], 5, "치킨")
+
+        assert hits[0][1] == "서울 중구 세종대로 110 동네치킨"
+
+    def test_falls_back_to_jibun_address(self):
+        hits = route_builder._parse_kakao_documents(
+            [{**self.SEOUL, "place_name": "가게", "address_name": "서울 중구 태평로1가 31"}],
+            5, "가게")
+
+        assert hits[0][1] == "서울 중구 태평로1가 31 가게"
+
+    def test_drops_coordinates_outside_korea(self):
+        # x/y 를 뒤집어 보낸 응답 — 그대로 쓰면 엉뚱한 곳으로 안내한다
+        hits = route_builder._parse_kakao_documents(
+            [{"x": "37.5665", "y": "126.9780", "place_name": "뒤집힘"}], 5, "x")
+
+        assert hits == []
+
+    def test_drops_unparsable_coordinates(self):
+        assert route_builder._parse_kakao_documents([{"place_name": "좌표없음"}], 5, "x") == []
+        assert route_builder._parse_kakao_documents(
+            [{"x": "abc", "y": "def", "place_name": "이상"}], 5, "x") == []
+
+    def test_respects_limit(self):
+        docs = [{**self.SEOUL, "place_name": f"가게{i}"} for i in range(10)]
+
+        assert len(route_builder._parse_kakao_documents(docs, 3, "가게")) == 3
+
+    def test_uses_query_when_no_name_or_address(self):
+        assert route_builder._parse_kakao_documents([dict(self.SEOUL)], 5, "빈검색")[0][1] == "빈검색"
+
+    def test_skipped_entirely_without_key(self, monkeypatch):
+        monkeypatch.setattr(route_builder, "_kakao_headers", lambda: None)
+
+        assert route_builder._kakao_local_hits("치킨") == []
+
+
+class TestStorefrontSourcesInterleave:
+    """상호 소스(카카오·네이버)를 번갈아 섞는다.
+
+    한쪽을 앞에 몰아 넣으면 limit 에 막혀 다른 쪽 결과가 아예 안 보인다 — 한 소스가
+    못 찾는 가게를 다른 쪽이 찾는 게 소스를 둘 두는 이유인데, 그 이점이 사라진다.
+    """
+
+    @staticmethod
+    def _coord(i: int):
+        return route_builder.Coordinate(latitude=37.5 + i * 0.01, longitude=127.0 + i * 0.01)
+
+    def _patch(self, monkeypatch, kakao, naver):
+        monkeypatch.setattr(route_builder, "_kakao_local_hits",
+                            lambda q, limit=5, center=None: kakao)
+        monkeypatch.setattr(route_builder, "_naver_local_hits", lambda q, limit=5: naver)
+        monkeypatch.setattr(route_builder, "_naver_suggestion_hits", lambda q, limit: [])
+        monkeypatch.setattr(route_builder, "_tmap_addr_results", lambda q, limit=5: [])
+        monkeypatch.setattr(route_builder, "_tmap_poi_results",
+                            lambda q, limit=5, center=None: [])
+
+    def test_alternates_between_sources(self, monkeypatch):
+        self._patch(
+            monkeypatch,
+            kakao=[(self._coord(0), "카카오1"), (self._coord(1), "카카오2")],
+            naver=[(self._coord(2), "네이버1"), (self._coord(3), "네이버2")],
+        )
+
+        got = [display for _, display in route_builder.geocode_suggestions("치킨", limit=8)]
+
+        assert got == ["카카오1", "네이버1", "카카오2", "네이버2"]
+
+    def test_one_empty_source_does_not_leave_gaps(self, monkeypatch):
+        self._patch(monkeypatch, kakao=[],
+                    naver=[(self._coord(0), "네이버1"), (self._coord(1), "네이버2")])
+
+        got = [display for _, display in route_builder.geocode_suggestions("치킨", limit=8)]
+
+        assert got == ["네이버1", "네이버2"]
+
+    def test_storefront_sources_come_before_addresses(self, monkeypatch):
+        monkeypatch.setattr(route_builder, "_kakao_local_hits",
+                            lambda q, limit=5, center=None: [(self._coord(0), "동네치킨")])
+        monkeypatch.setattr(route_builder, "_naver_local_hits", lambda q, limit=5: [])
+        monkeypatch.setattr(route_builder, "_naver_suggestion_hits",
+                            lambda q, limit: [(self._coord(5), "서울 중구 어딘가")])
+        monkeypatch.setattr(route_builder, "_tmap_addr_results", lambda q, limit=5: [])
+        monkeypatch.setattr(route_builder, "_tmap_poi_results",
+                            lambda q, limit=5, center=None: [])
+
+        got = [display for _, display in route_builder.geocode_suggestions("치킨", limit=8)]
+
+        assert got[0] == "동네치킨"
+
+
+class TestKakaoInSourceStatus:
+    def test_status_includes_kakao(self, monkeypatch):
+        monkeypatch.setattr(route_builder, "_kakao_headers", lambda: {"Authorization": "KakaoAK x"})
+        monkeypatch.setattr(route_builder, "_naver_search_headers", lambda: None)
+        monkeypatch.setattr(route_builder, "_naver_headers", lambda: None)
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: None)
+
+        assert route_builder.search_source_status()["kakao_local"] is True
+
+    def test_no_storefront_hint_when_only_kakao_is_on(self, monkeypatch):
+        # 카카오만 있어도 가게 검색은 된다 — 굳이 경고하지 않는다
+        monkeypatch.setattr(route_builder, "_kakao_headers", lambda: {"Authorization": "KakaoAK x"})
+        monkeypatch.setattr(route_builder, "_naver_search_headers", lambda: None)
+        monkeypatch.setattr(route_builder, "_naver_headers", lambda: {"a": "b"})
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: "k")
+
+        assert route_builder.missing_source_hint() is None
+
+    def test_hint_when_both_storefront_sources_are_off(self, monkeypatch):
+        monkeypatch.setattr(route_builder, "_kakao_headers", lambda: None)
+        monkeypatch.setattr(route_builder, "_naver_search_headers", lambda: None)
+        monkeypatch.setattr(route_builder, "_naver_headers", lambda: {"a": "b"})
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: "k")
+
+        hint = route_builder.missing_source_hint()
+        assert hint is not None and "상호" in hint
+
+    def test_kakao_key_typo_is_flagged(self):
+        hints = route_builder.misnamed_key_hints({"KAKAO_REST_API_KEY_ID"})
+
+        assert any("KAKAO_REST_API_KEY" in h for h in hints)
+
+
+class TestKakaoSortMode:
+    """카카오는 정렬 기본값(accuracy)을 써야 한다.
+
+    실측(2026-08-04, 서울시청 기준):
+      sort=distance → 경복궁: 쏘아베에스테틱 / 강남역: 바른명상연구소  (관련도 무시)
+      sort=accuracy → 경복궁: 경복궁        / 강남역: 강남역 2호선
+      'CU편의점' 같은 체인은 두 모드 결과가 같았다 — x/y 가 위치 편향으로 반영되므로
+      거리순으로 강제해서 얻는 것이 없고, 랜드마크 검색만 망가진다.
+    """
+
+    def _captured_params(self, monkeypatch, center):
+        seen = {}
+
+        class _Resp:
+            status_code = 200
+
+            @staticmethod
+            def json():
+                return {"documents": []}
+
+        def fake_get(url, params=None, headers=None, timeout=None):
+            seen.update(params or {})
+            return _Resp()
+
+        monkeypatch.setattr(route_builder, "_kakao_headers", lambda: {"Authorization": "KakaoAK x"})
+        monkeypatch.setattr(route_builder.requests, "get", fake_get)
+        route_builder._kakao_local_hits("경복궁", limit=5, center=center)
+        return seen
+
+    def test_never_forces_distance_sort(self, monkeypatch):
+        center = route_builder.Coordinate(latitude=37.5665, longitude=126.978)
+
+        params = self._captured_params(monkeypatch, center)
+
+        assert params.get("sort") != "distance"
+        assert "x" in params and "y" in params    # 위치 편향은 유지한다
+
+    def test_omits_coordinates_without_center(self, monkeypatch):
+        params = self._captured_params(monkeypatch, None)
+
+        assert "x" not in params and "y" not in params
