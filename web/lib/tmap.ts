@@ -251,21 +251,25 @@ function addressHits(body: unknown): PlaceHit[] {
  * TMAP 후보 — 주소(fullAddrGeo)와 장소명(POI)을 동시에 물어 합친다.
  *
  * 파이썬쪽과 같은 이유로 둘 다 쓴다: '역삼동 123' 같은 주소지와 '강남역 10번출구' 같은
- * 장소는 서로 다른 API 가 답한다. center 를 주면 POI 를 거리순으로 받아 동명 장소
- * 오선택을 줄인다(searchtypCd=R).
+ * 장소는 서로 다른 API 가 답한다.
+ *
+ * POI 는 정확도순(A)과 거리순(R)을 함께 받아 섞는다. 거리순만 쓰면 관련도를 통째로
+ * 무시해 '경복궁' 검색에 '경복궁 참치·고려주차장·종각컨설팅부동산중개'가 뜬다(배포본
+ * 실측). 정확도순만 쓰면 'CU편의점' 같은 체인이 전국 기준으로 뽑혀 가까운 지점이 빠진다.
  */
 export async function searchTmapPlaces(query: string, center: Coordinate | null, limit = 8): Promise<PlaceHit[]> {
-  const poiParams = new URLSearchParams({
+  const poiBase = {
     version: "1",
     searchKeyword: query,
     count: String(limit),
     resCoordType: "WGS84GEO",
-    searchtypCd: center ? "R" : "A",   // R=거리순, A=정확도순
-  });
+  };
+  const exactParams = new URLSearchParams({ ...poiBase, searchtypCd: "A" });
+  const nearParams = new URLSearchParams({ ...poiBase, searchtypCd: "R" });
   if (center) {
-    poiParams.set("centerLat", center.latitude.toFixed(7));
-    poiParams.set("centerLon", center.longitude.toFixed(7));
-    poiParams.set("radius", "0");      // 0 = 반경 제한 없음(멀리 있는 목적지도 후보에 든다)
+    nearParams.set("centerLat", center.latitude.toFixed(7));
+    nearParams.set("centerLon", center.longitude.toFixed(7));
+    nearParams.set("radius", "0");      // 0 = 반경 제한 없음(멀리 있는 목적지도 후보에 든다)
   }
 
   const addrParams = new URLSearchParams({
@@ -278,20 +282,33 @@ export async function searchTmapPlaces(query: string, center: Coordinate | null,
   // '검색 결과 없음'으로 보여, 있는 장소를 없다고 알리는 최악의 오해가 생긴다.
   appKey();
 
+  const none = Promise.resolve<unknown>(null);
   // 한쪽이 실패해도 나머지 후보는 살린다 — 검색이 통째로 비는 것이 가장 나쁘다.
-  const [poi, addr] = await Promise.allSettled([
-    tmapFetch(`${POI_URL}?${poiParams}`, { method: "GET" }),
+  const [exact, near, addr] = await Promise.allSettled([
+    tmapFetch(`${POI_URL}?${exactParams}`, { method: "GET" }),
+    center ? tmapFetch(`${POI_URL}?${nearParams}`, { method: "GET" }) : none,
     tmapFetch(`${ADDR_GEO_URL}?${addrParams}`, { method: "GET" }),
   ]);
 
-  // 둘 다 실패했으면 네트워크·API 문제다. 빈 목록으로 감추지 않고 그대로 알린다.
-  if (poi.status === "rejected" && addr.status === "rejected") {
-    throw poi.reason instanceof TmapError ? poi.reason : new TmapError("장소 검색에 실패했습니다.");
+  // 전부 실패했으면 네트워크·API 문제다. 빈 목록으로 감추지 않고 그대로 알린다.
+  if (exact.status === "rejected" && addr.status === "rejected") {
+    throw exact.reason instanceof TmapError ? exact.reason : new TmapError("장소 검색에 실패했습니다.");
+  }
+
+  // 랜드마크는 정확도순이, 근처 체인점은 거리순이 답을 낸다 → 번갈아 섞는다.
+  const exactHits = exact.status === "fulfilled" ? poiHits(exact.value, center) : [];
+  const nearHits = near.status === "fulfilled" ? poiHits(near.value, center) : [];
+  const poiInterleaved: PlaceHit[] = [];
+  for (let i = 0; i < Math.max(exactHits.length, nearHits.length); i += 1) {
+    const e = exactHits[i];
+    const n = nearHits[i];
+    if (e) poiInterleaved.push(e);
+    if (n) poiInterleaved.push(n);
   }
 
   const merged: PlaceHit[] = [
     ...(addr.status === "fulfilled" ? addressHits(addr.value) : []),
-    ...(poi.status === "fulfilled" ? poiHits(poi.value, center) : []),
+    ...poiInterleaved,
   ];
 
   const seen = new Set<string>();

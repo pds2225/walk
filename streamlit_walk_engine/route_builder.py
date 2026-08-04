@@ -515,14 +515,36 @@ def _tmap_poi_results(query: str, limit: int = 5,
             found.append((coord, display))
         return found
 
-    if center is not None:
-        near = _fetch({"centerLat": f"{center.latitude:.8f}",
-                       "centerLon": f"{center.longitude:.8f}",
-                       "searchtypCd": "R", "radius": "0"})
-        if near:
-            return near
-        # 거리순이 비면 정확도순으로 폴백(먼 곳의 유일한 이름이 반경에 걸려 누락되는 것 방지)
-    return _fetch({"searchtypCd": "A"})
+    exact = _fetch({"searchtypCd": "A"})   # 정확도순 — 이름이 맞으면 거리와 무관하게 뜬다
+    if center is None:
+        return exact[:limit]
+
+    near = _fetch({"centerLat": f"{center.latitude:.8f}",
+                   "centerLon": f"{center.longitude:.8f}",
+                   "searchtypCd": "R", "radius": "0"})
+
+    # 정확도순과 거리순을 번갈아 섞는다.
+    #
+    # 거리순만 쓰면 관련도를 통째로 무시해, '경복궁' 검색에 경복궁 대신 '경복궁 참치·
+    # 고려주차장·종각컨설팅부동산중개'가 뜬다(배포본 실측). 예전 코드는 거리순이 '완전히
+    # 비었을 때만' 정확도순으로 폴백했는데, 거리순은 근처 아무거나로 늘 채워지므로 그
+    # 폴백이 사실상 발동하지 않았다.
+    # 반대로 정확도순만 쓰면 'CU편의점' 같은 체인이 전국 기준으로 뽑혀 가까운 지점이
+    # 후보에서 빠진다. 그래서 둘 다 받아 섞는다 — 랜드마크는 정확도순이, 체인은 거리순이
+    # 각각 답을 낸다. radius=0 은 반경 제한 없음(먼 목적지도 후보에 들게).
+    merged: list[tuple[Coordinate, str]] = []
+    seen: set[str] = set()
+    for i in range(max(len(exact), len(near))):
+        for hits in (exact, near):
+            if i >= len(hits) or len(merged) >= limit:
+                continue
+            coord, display = hits[i]
+            key = f"{display}@{coord.latitude:.5f},{coord.longitude:.5f}"
+            if key in seen:
+                continue
+            seen.add(key)
+            merged.append((coord, display))
+    return merged
 
 
 def search_places_near(center: Coordinate, keyword: str,
