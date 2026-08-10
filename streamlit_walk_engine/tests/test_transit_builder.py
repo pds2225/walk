@@ -185,6 +185,20 @@ class TestEndLabelPolicy:
         assert journey.legs[0].end_label == "시청역"
         assert journey.legs[-1].end_label == "도착"
 
+    def test_tmap_missing_end_and_next_start_uses_waypoint_label(self):
+        payload = _tmap_payload()
+        payload["metaData"]["plan"]["itineraries"][0]["legs"][1]["end"] = {
+            "lat": 37.5660, "lon": 126.9820,
+        }
+        payload["metaData"]["plan"]["itineraries"][0]["legs"][2]["start"] = {
+            "lat": 37.5660, "lon": 126.9820,
+        }
+
+        journey = transit_builder.parse_tmap_transit(payload)
+        assert journey.legs[1].end_label == "경유지"
+        assert journey.legs[1].transit is not None
+        assert journey.legs[1].transit.alight_station == "경유지"
+
     def test_odsay_missing_end_name_fills_from_next_start(self):
         payload = _odsay_payload()
         del payload["result"]["path"][0]["subPath"][0]["endName"]

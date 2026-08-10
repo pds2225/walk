@@ -178,9 +178,8 @@ def _journey_with_default_labels(journey: Journey) -> Journey:
     for i in range(n - 1):
         end = legs[i].end_label
         if end == "" or end == "도착":
-            nxt = legs[i + 1].start_label
-            if nxt:
-                legs[i] = _with_end_label(legs[i], nxt)
+            nxt = legs[i + 1].start_label or "경유지"
+            legs[i] = _with_end_label(legs[i], nxt)
 
     if legs[-1].end_label == "":
         legs[-1] = _with_end_label(legs[-1], "도착")
