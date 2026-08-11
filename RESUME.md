@@ -21,7 +21,7 @@ python -m pytest streamlit_walk_engine\tests -q
 - [x] 세션 마무리(2026-08-01): 위키·회고·이 RESUME 갱신
 
 ## 3. 남은 작업 ⬜ (다음 세션에서 이어서)
-- [ ] **실행: 환승 "도착" 수정 (결정 2-1)** — `REQUESTS_LEDGER.md` §결정잠금 TASK B. 다음 구간 start명·마지막만 도착. 격리 worktree.
+- [x] **환승 "도착" 수정 (결정 2-1, 2026-08-10)** — PR #100 `fix/transit-end-label`. rebase 후 584 passed.
 - [ ] **사람: 클라우드 Secrets에 Naver 키 2줄 붙여넣기 (결정 1-1)** — 로컬 `.streamlit/secrets.toml`은 2026-08-04 설정·실동작 검증 완료(목적지 검색·현재위치 POI 주소 OK). 남은 건 배포 앱 Settings→Secrets 붙여넣기뿐. 코드 변경 없음. ※Streamlit 앱이라 Vercel 배포는 불가(서버리스·WebSocket 제약) — Streamlit Cloud 유지.
 - [x] **Vercel 배포 완료(2026-08-04)** — https://walk-five.vercel.app 프로덕션 Ready(여분 도메인은 정리함). **단 2026-08-04 사용자 결정: 주력은 원래 쓰던 Streamlit Cloud 앱(walk-navi 계열)으로 유지, Vercel판은 보류.** Streamlit 앱 Secrets 에 TMAP+NAVER_MAPS 넣는 것이 다음 액션 — 로컬 secrets.toml 은 반영·검증 완료(경로엔진이 Valhalla→TMAP 승격, 출발지 POI 주소 표시). 폰 브라우저에서 바로 사용 가능(인증벽 해제됨). Env=`TMAP_APP_KEY` 3환경 등록. 리전 버그(icn→icn1) main 반영. ※CLI 직접 업로드 방식이라 git push 자동배포는 아직 미연결 — 원하면 Vercel 대시보드 Git 연동.
 - [x] **TMAP 앱키 확보·검증 완료(2026-08-04)** — 로컬 서버로 `/api/places`(검색 8건)·`/api/route`(260m·회전안내) 실호출 통과. Vercel Env에 `TMAP_APP_KEY` 한 줄만 넣으면 됨. ※받은 `mwgqaj3qk6` 키는 네이버검색·NCP 양쪽 401이라 미사용(상호검색은 TMAP POI가 충분히 커버 — 대륭포스트타워8차 등 확인). 카카오 키는 현재 web 코드 미참조.
