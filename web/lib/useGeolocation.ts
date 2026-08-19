@@ -24,6 +24,13 @@ export interface GeolocationState {
  * 밀어줄 때만 상태가 바뀌고, 바뀐 부분만 다시 그린다 — 폴링도, 화면 재생성도 없다.
  * `enabled` 가 false 면 워처를 아예 붙이지 않아 목적지 입력 중 배터리를 쓰지 않는다.
  */
+/**
+ * 실외를 걸을 때는 신호가 잠깐씩 끊기며 watchPosition 의 오류 콜백이 튄다 — 성공
+ * 콜백 사이사이에 섞여 온다. 튈 때마다 바로 에러 문구를 띄우면(그리고 바로 다음
+ * fix 에서 지우면) 화면이 계속 깜빡인다. 이만큼(ms) 이어질 때만 진짜 문제로 본다.
+ */
+const GEO_ERROR_GRACE_MS = 3_000;
+
 export function useGeolocation(enabled: boolean): GeolocationState {
   const [fix, setFix] = useState<Fix | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -40,8 +47,16 @@ export function useGeolocation(enabled: boolean): GeolocationState {
     }
 
     setWaiting(true);
+    let errorTimer: ReturnType<typeof setTimeout> | null = null;
+    const clearErrorTimer = () => {
+      if (errorTimer !== null) {
+        clearTimeout(errorTimer);
+        errorTimer = null;
+      }
+    };
     const id = navigator.geolocation.watchPosition(
       (pos) => {
+        clearErrorTimer();
         setWaiting(false);
         setError(null);
         setFix({
@@ -55,15 +70,21 @@ export function useGeolocation(enabled: boolean): GeolocationState {
       },
       (err) => {
         setWaiting(false);
-        setError(
-          err.code === err.PERMISSION_DENIED
-            ? "위치 권한이 꺼져 있습니다. 브라우저 설정에서 허용해 주세요."
-            : "현재 위치를 찾지 못했습니다. 실내라면 창가로 나가 보세요.",
-        );
+        clearErrorTimer();
+        errorTimer = setTimeout(() => {
+          setError(
+            err.code === err.PERMISSION_DENIED
+              ? "위치 권한이 꺼져 있습니다. 브라우저 설정에서 허용해 주세요."
+              : "현재 위치를 찾지 못했습니다. 실내라면 창가로 나가 보세요.",
+          );
+        }, GEO_ERROR_GRACE_MS);
       },
       { enableHighAccuracy: true, maximumAge: 0, timeout: 15_000 },
     );
-    return () => navigator.geolocation.clearWatch(id);
+    return () => {
+      clearErrorTimer();
+      navigator.geolocation.clearWatch(id);
+    };
   }, [enabled]);
 
   return { fix, error, waiting };
