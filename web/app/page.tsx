@@ -64,12 +64,21 @@ export default function Home() {
 
   // ── 목적지 검색 (입력이 멈춘 뒤 1회) ──────────────────────────────────────
   const searchSeq = useRef(0);
+  // 검색은 목적지가 아직 안 정해졌을 때만 돈다 — 그 상태에서는 위치 구독 자체가
+  // 꺼져 있어(wantLocation) fix 가 바뀔 일이 없다. 그래도 fix 를 effect 의존성에
+  // 넣으면, 목적지를 고른 뒤 GPS 가 값을 계속 밀어줄 때마다(초당 여러 번일 수 있다)
+  // 이 effect 가 다시 돌면서 hits/missHint 를 매번 '새' 빈 배열·null 로 덮어써
+  // 화면 전체가 끊임없이 리렌더링됐다(입력창까지 다시 그려져 깜빡였다). ref 로
+  // 최신값만 읽고 재실행 트리거에서는 뺀다.
+  const fixRef = useRef(fix);
+  fixRef.current = fix;
   useEffect(() => {
     const q = query.trim();
     if (!q || dest) {
       setHits([]);
       setMissHint(null);
       setSearched(false);
+      setSearching(false);
       return;
     }
     const seq = ++searchSeq.current;
@@ -77,9 +86,10 @@ export default function Home() {
     const timer = setTimeout(async () => {
       try {
         const params = new URLSearchParams({ q });
-        if (fix) {
-          params.set("lat", String(fix.latitude));
-          params.set("lon", String(fix.longitude));
+        const currentFix = fixRef.current;
+        if (currentFix) {
+          params.set("lat", String(currentFix.latitude));
+          params.set("lon", String(currentFix.longitude));
         }
         const resp = await fetch(`/api/places?${params}`);
         const body: unknown = await resp.json();
@@ -100,7 +110,7 @@ export default function Home() {
       }
     }, SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(timer);
-  }, [query, dest, fix]);
+  }, [query, dest]);
 
   const rememberRecent = useCallback((entry: Recent) => {
     setRecents((prev) => {
