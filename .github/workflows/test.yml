@@ -35,6 +35,12 @@ jobs:
       - name: Typecheck (packages/)
         run: npm run typecheck
 
+      # web 의 tsc 는 @walk/route-engine 을 workspace 패키지로 resolve 하는데,
+      # 그건 dist/ 산출물(package.json 의 main/types)을 통해서다 — 소스가 아니라.
+      # (테스트는 vitest.config.ts 의 alias 로 소스를 직접 보므로 이 빌드가 필요 없다.)
+      - name: Build route-engine
+        run: npm run build --workspace @walk/route-engine
+
       - name: Typecheck (web)
         run: npm run typecheck --workspace web
 
