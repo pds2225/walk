@@ -2,7 +2,8 @@
 
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useCompass, useGeolocation } from "../lib/useGeolocation";
+import { getCurrentPositionOnce, useCompass, useWatchPosition } from "../lib/useGeolocation";
+import type { Fix } from "../lib/useGeolocation";
 import { useNavigation } from "../lib/useNavigation";
 import type { Coordinate, PlaceHit, RouteResponse } from "../lib/types";
 
@@ -13,6 +14,15 @@ const RECENT_KEY = "walk.recent.v1";
 const RECENT_ROW = 3;      // 첫 화면에 가로로 놓을 최근 목적지 개수
 const RECENT_MAX = 9;      // '＋'로 펼쳤을 때 최대 개수
 const SEARCH_DEBOUNCE_MS = 250;
+
+/**
+ * 목적지 검색/선택과 실시간 GPS 내비게이션은 서로 다른 화면이자 서로 다른 lifecycle
+ * 이다. idle/destination_selected/acquiring_location/routing 동안에는 어떤
+ * geolocation API 도 호출되지 않는다 — navigating(그리고 도착 후 arrived)에서만
+ * watchPosition 이 켜진다. 목적지를 고르는 것만으로 GPS 구독이 시작되던 것이
+ * 화면이 계속 깜빡이던 근본 원인이었다.
+ */
+type Phase = "idle" | "destination_selected" | "acquiring_location" | "routing" | "navigating" | "arrived";
 
 interface Recent {
   readonly name: string;
@@ -44,9 +54,11 @@ export default function Home() {
   const [searching, setSearching] = useState(false);
   const [dest, setDest] = useState<Recent | null>(null);
   const [routeResponse, setRouteResponse] = useState<RouteResponse | null>(null);
-  const [routing, setRouting] = useState(false);
+  const [phase, setPhase] = useState<Phase>("idle");
+  // '걷기' 클릭 때 얻은 1회성 위치 — navigating 진입 직후, 아직 첫 watchPosition
+  // 틱이 오기 전에도 지도가 빈 채로 뜨지 않도록 잠깐 대신 쓴다.
+  const [originFix, setOriginFix] = useState<Fix | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [running, setRunning] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [headingUp, setHeadingUp] = useState(true);
   const [recents, setRecents] = useState<Recent[]>([]);
@@ -54,24 +66,26 @@ export default function Home() {
 
   useEffect(() => setRecents(loadRecents()), []);
 
-  // 위치는 '경로를 만들 준비가 됐을 때'부터 구독한다 — 첫 화면에서 권한 팝업이
-  // 바로 뜨면 무슨 앱인지도 모르고 거부하게 된다.
-  const wantLocation = running || routeResponse !== null || dest !== null;
-  const { fix, error: geoError, waiting } = useGeolocation(wantLocation);
-  const { headingDegrees: compass, request: requestCompass } = useCompass(running);
+  // 실시간 GPS 구독은 오직 navigating/arrived 에서만 켠다 — 목적지를 고르는 것만으로는
+  // 절대 켜지지 않는다.
+  const wantWatch = phase === "navigating" || phase === "arrived";
+  const { fix, error: geoError } = useWatchPosition(wantWatch);
+  const { headingDegrees: compass, request: requestCompass } = useCompass(wantWatch);
+  const currentFix = fix ?? originFix;
 
-  const nav = useNavigation(running ? routeResponse : null, fix, { voiceEnabled });
+  const nav = useNavigation(wantWatch ? routeResponse : null, currentFix, { voiceEnabled });
+
+  // 엔진이 도착으로 판정하면 phase 도 따라간다 — GPS 동작(watchPosition 유지)은
+  // navigating 과 동일하다. '안내 중지'를 눌러야 완전히 끝난다.
+  useEffect(() => {
+    if (phase === "navigating" && nav.arrived) setPhase("arrived");
+  }, [phase, nav.arrived]);
 
   // ── 목적지 검색 (입력이 멈춘 뒤 1회) ──────────────────────────────────────
+  // fix 는 navigating/arrived 가 아닌 동안은 절대 바뀌지 않는다(watchPosition 이
+  // 꺼져 있으므로) — 이 화면(검색)에 있는 동안은 그냥 고정값이라, deps 에 넣을
+  // 필요도, ref 로 우회할 필요도 없다.
   const searchSeq = useRef(0);
-  // 검색은 목적지가 아직 안 정해졌을 때만 돈다 — 그 상태에서는 위치 구독 자체가
-  // 꺼져 있어(wantLocation) fix 가 바뀔 일이 없다. 그래도 fix 를 effect 의존성에
-  // 넣으면, 목적지를 고른 뒤 GPS 가 값을 계속 밀어줄 때마다(초당 여러 번일 수 있다)
-  // 이 effect 가 다시 돌면서 hits/missHint 를 매번 '새' 빈 배열·null 로 덮어써
-  // 화면 전체가 끊임없이 리렌더링됐다(입력창까지 다시 그려져 깜빡였다). ref 로
-  // 최신값만 읽고 재실행 트리거에서는 뺀다.
-  const fixRef = useRef(fix);
-  fixRef.current = fix;
   useEffect(() => {
     const q = query.trim();
     if (!q || dest) {
@@ -86,10 +100,9 @@ export default function Home() {
     const timer = setTimeout(async () => {
       try {
         const params = new URLSearchParams({ q });
-        const currentFix = fixRef.current;
-        if (currentFix) {
-          params.set("lat", String(currentFix.latitude));
-          params.set("lon", String(currentFix.longitude));
+        if (fix) {
+          params.set("lat", String(fix.latitude));
+          params.set("lon", String(fix.longitude));
         }
         const resp = await fetch(`/api/places?${params}`);
         const body: unknown = await resp.json();
@@ -126,34 +139,41 @@ export default function Home() {
 
   const startWalking = useCallback(
     async (target: Recent) => {
-      if (!fix) {
-        setError("현재 위치를 찾는 중입니다. 잠시 후 다시 눌러 주세요.");
+      setError(null);
+      setPhase("acquiring_location");
+      let origin: Fix;
+      try {
+        origin = await getCurrentPositionOnce();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "현재 위치를 찾지 못했습니다.");
+        setPhase("destination_selected");
         return;
       }
-      setRouting(true);
-      setError(null);
+
+      setPhase("routing");
       try {
         const resp = await fetch("/api/route", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ origin: fix, dest: target.coordinate }),
+          body: JSON.stringify({ origin, dest: target.coordinate }),
         });
         const body: unknown = await resp.json();
         if (!resp.ok) {
           setError((body as { error?: string }).error ?? "경로를 찾지 못했습니다.");
+          setPhase("destination_selected");
           return;
         }
         setRouteResponse(body as RouteResponse);
-        setRunning(true);
+        setOriginFix(origin);
         rememberRecent(target);
         requestCompass();   // iOS 나침반 권한은 이 클릭(사용자 제스처) 안에서만 요청된다
+        setPhase("navigating");   // 이 시점부터만 watchPosition 이 시작된다
       } catch {
         setError("경로를 찾지 못했습니다. 연결 상태를 확인해 주세요.");
-      } finally {
-        setRouting(false);
+        setPhase("destination_selected");
       }
     },
-    [fix, rememberRecent, requestCompass],
+    [rememberRecent, requestCompass],
   );
 
   const pick = useCallback((hit: PlaceHit) => {
@@ -161,19 +181,27 @@ export default function Home() {
     setDest(entry);
     setQuery(hit.name);
     setHits([]);
+    setPhase("destination_selected");
   }, []);
 
   const reset = useCallback(() => {
-    setRunning(false);
+    setPhase("idle");
     setRouteResponse(null);
+    setOriginFix(null);
     setDest(null);
     setQuery("");
     setHits([]);
     setError(null);
   }, []);
 
+  const onQueryChange = useCallback((value: string) => {
+    setQuery(value);
+    setDest(null);
+    setPhase((p) => (p === "navigating" || p === "arrived" ? p : "idle"));
+  }, []);
+
   // ── 안내 중 화면 ──────────────────────────────────────────────────────────
-  if (running && routeResponse) {
+  if ((phase === "navigating" || phase === "arrived") && routeResponse) {
     const offRoute = nav.state === "deviated" || nav.state === "passed_turn";
     return (
       <main className="nav-screen">
@@ -189,8 +217,8 @@ export default function Home() {
 
         <MapView
           route={routeResponse.route}
-          here={fix}
-          headingDegrees={compass ?? fix?.headingDegrees ?? null}
+          here={currentFix}
+          headingDegrees={compass ?? currentFix?.headingDegrees ?? null}
           headingUp={headingUp}
           offRoute={offRoute}
         />
@@ -212,6 +240,7 @@ export default function Home() {
   }
 
   // ── 첫 화면: 목적지 + 버튼 ────────────────────────────────────────────────
+  const busy = phase === "acquiring_location" || phase === "routing";
   const shown = recentsExpanded ? recents : recents.slice(0, RECENT_ROW);
   return (
     <main className="home">
@@ -223,10 +252,7 @@ export default function Home() {
         inputMode="search"
         placeholder="예) 경복궁, 강남역 10번출구"
         value={query}
-        onChange={(e) => {
-          setQuery(e.target.value);
-          setDest(null);
-        }}
+        onChange={(e) => onQueryChange(e.target.value)}
         aria-label="목적지"
       />
 
@@ -280,15 +306,13 @@ export default function Home() {
       <button
         type="button"
         className="primary"
-        disabled={!dest || routing}
+        disabled={!dest || busy}
         onClick={() => dest && void startWalking(dest)}
       >
-        {routing ? "경로 찾는 중…" : "걷기"}
+        {phase === "acquiring_location" ? "현재 위치 확인 중…" : phase === "routing" ? "경로 찾는 중…" : "걷기"}
       </button>
 
-      {waiting && dest ? <p className="hint">현재 위치 확인 중…</p> : null}
       {error ? <p className="error">{error}</p> : null}
-      {geoError ? <p className="error">{geoError}</p> : null}
     </main>
   );
 }

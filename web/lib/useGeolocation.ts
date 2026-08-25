@@ -10,35 +10,71 @@ export interface Fix extends Coordinate {
   readonly timestampMs: number;
 }
 
-export interface GeolocationState {
-  readonly fix: Fix | null;
-  readonly error: string | null;
-  /** 아직 첫 위치를 못 받은 동안 true — 버튼을 막지 않고 안내만 띄우는 데 쓴다. */
-  readonly waiting: boolean;
+function toFix(pos: GeolocationPosition): Fix {
+  return {
+    latitude: pos.coords.latitude,
+    longitude: pos.coords.longitude,
+    accuracyMeters: Number.isFinite(pos.coords.accuracy) ? pos.coords.accuracy : null,
+    headingDegrees: Number.isFinite(pos.coords.heading ?? NaN) ? pos.coords.heading : null,
+    speedMetersPerSecond: Number.isFinite(pos.coords.speed ?? NaN) ? pos.coords.speed : null,
+    timestampMs: pos.timestamp,
+  };
+}
+
+function geoErrorMessage(err: GeolocationPositionError): string {
+  return err.code === err.PERMISSION_DENIED
+    ? "위치 권한이 꺼져 있습니다. 브라우저 설정에서 허용해 주세요."
+    : "현재 위치를 찾지 못했습니다. 실내라면 창가로 나가 보세요.";
 }
 
 /**
- * watchPosition 을 그대로 구독한다.
- *
- * Streamlit 판(1초 폴링 + 전체 rerun)과 가장 크게 다른 지점이다. 브라우저가 새 fix 를
- * 밀어줄 때만 상태가 바뀌고, 바뀐 부분만 다시 그린다 — 폴링도, 화면 재생성도 없다.
- * `enabled` 가 false 면 워처를 아예 붙이지 않아 목적지 입력 중 배터리를 쓰지 않는다.
+ * '걷기'를 누른 그 순간에만 위치를 한 번 읽는다 — watchPosition 을 붙이지 않는다.
+ * 목적지를 고르는 동안에는 이 함수가 절대 호출되지 않는다: 호출부는 오직
+ * page.tsx 의 startWalking() 뿐이다. 실패해도 재시도하지 않는다 — 버튼을 다시
+ * 누르는 것 자체가 재시도다.
  */
+export function getCurrentPositionOnce(): Promise<Fix> {
+  return new Promise((resolve, reject) => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      reject(new Error("이 브라우저는 위치 기능을 지원하지 않습니다."));
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve(toFix(pos)),
+      (err) => reject(new Error(geoErrorMessage(err))),
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 15_000 },
+    );
+  });
+}
+
+export interface WatchPositionState {
+  readonly fix: Fix | null;
+  readonly error: string | null;
+}
+
 /**
  * 실외를 걸을 때는 신호가 잠깐씩 끊기며 watchPosition 의 오류 콜백이 튄다 — 성공
  * 콜백 사이사이에 섞여 온다. 튈 때마다 바로 에러 문구를 띄우면(그리고 바로 다음
  * fix 에서 지우면) 화면이 계속 깜빡인다. 이만큼(ms) 이어질 때만 진짜 문제로 본다.
+ * getCurrentPositionOnce 는 사용자가 직접 누른 단발 시도라 이 유예가 필요 없다
+ * (실패하면 바로 보여주고, 재시도는 재클릭으로 한다).
  */
 const GEO_ERROR_GRACE_MS = 3_000;
 
-export function useGeolocation(enabled: boolean): GeolocationState {
+/**
+ * enabled 인 동안만 watchPosition 을 구독한다 — navigating/arrived 화면에서만
+ * 켜진다(page.tsx). 목적지를 고르는 것만으로는 절대 켜지지 않는다: 그게 이전에
+ * 화면이 계속 깜빡이던 근본 원인이었다(목적지 선택 → GPS 구독 시작 → fix 갱신마다
+ * 리렌더). enabled 가 꺼지면 지난 오류 문구도 같이 지운다 — 안 지우면 이전
+ * 내비게이션에서 뜬 GPS 오류가 다음 화면까지 남아있는다.
+ */
+export function useWatchPosition(enabled: boolean): WatchPositionState {
   const [fix, setFix] = useState<Fix | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [waiting, setWaiting] = useState(false);
 
   useEffect(() => {
     if (!enabled) {
-      setWaiting(false);
+      setError(null);
       return;
     }
     if (typeof navigator === "undefined" || !navigator.geolocation) {
@@ -46,7 +82,6 @@ export function useGeolocation(enabled: boolean): GeolocationState {
       return;
     }
 
-    setWaiting(true);
     let errorTimer: ReturnType<typeof setTimeout> | null = null;
     const clearErrorTimer = () => {
       if (errorTimer !== null) {
@@ -57,27 +92,12 @@ export function useGeolocation(enabled: boolean): GeolocationState {
     const id = navigator.geolocation.watchPosition(
       (pos) => {
         clearErrorTimer();
-        setWaiting(false);
         setError(null);
-        setFix({
-          latitude: pos.coords.latitude,
-          longitude: pos.coords.longitude,
-          accuracyMeters: Number.isFinite(pos.coords.accuracy) ? pos.coords.accuracy : null,
-          headingDegrees: Number.isFinite(pos.coords.heading ?? NaN) ? pos.coords.heading : null,
-          speedMetersPerSecond: Number.isFinite(pos.coords.speed ?? NaN) ? pos.coords.speed : null,
-          timestampMs: pos.timestamp,
-        });
+        setFix(toFix(pos));
       },
       (err) => {
-        setWaiting(false);
         clearErrorTimer();
-        errorTimer = setTimeout(() => {
-          setError(
-            err.code === err.PERMISSION_DENIED
-              ? "위치 권한이 꺼져 있습니다. 브라우저 설정에서 허용해 주세요."
-              : "현재 위치를 찾지 못했습니다. 실내라면 창가로 나가 보세요.",
-          );
-        }, GEO_ERROR_GRACE_MS);
+        errorTimer = setTimeout(() => setError(geoErrorMessage(err)), GEO_ERROR_GRACE_MS);
       },
       { enableHighAccuracy: true, maximumAge: 0, timeout: 15_000 },
     );
@@ -87,7 +107,7 @@ export function useGeolocation(enabled: boolean): GeolocationState {
     };
   }, [enabled]);
 
-  return { fix, error, waiting };
+  return { fix, error };
 }
 
 /**
