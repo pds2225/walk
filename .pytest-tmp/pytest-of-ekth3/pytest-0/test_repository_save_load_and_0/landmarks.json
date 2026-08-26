@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "landmarks": [
+    {
+      "id": "a",
+      "name": "테스트 건물",
+      "category": "building",
+      "entrance_description": "",
+      "photo_url": "",
+      "photo_alt": "",
+      "visible_from_degrees": [],
+      "visibility_score": 0.5,
+      "permanence_score": 0.5,
+      "distinctiveness_score": 0.5,
+      "accessibility_tags": [],
+      "source": "field",
+      "verified_at": "",
+      "status": "draft",
+      "condition_notes": "",
+      "updated_at": "",
+      "latitude": 37.5665,
+      "longitude": 126.978
+    },
+    {
+      "id": "b",
+      "name": "테스트 건물",
+      "category": "building",
+      "entrance_description": "",
+      "photo_url": "",
+      "photo_alt": "",
+      "visible_from_degrees": [],
+      "visibility_score": 0.5,
+      "permanence_score": 0.5,
+      "distinctiveness_score": 0.5,
+      "accessibility_tags": [],
+      "source": "field",
+      "verified_at": "",
+      "status": "draft",
+      "condition_notes": "",
+      "updated_at": "",
+      "latitude": 37.5665,
+      "longitude": 126.978
+    }
+  ]
+}

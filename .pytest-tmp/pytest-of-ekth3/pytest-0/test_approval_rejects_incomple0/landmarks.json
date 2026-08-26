@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "landmarks": [
+    {
+      "id": "synth",
+      "name": "테스트 건물",
+      "category": "building",
+      "entrance_description": "입구",
+      "photo_url": "photo.jpg",
+      "photo_alt": "alt",
+      "visible_from_degrees": [
+        90.0
+      ],
+      "visibility_score": 0.5,
+      "permanence_score": 0.5,
+      "distinctiveness_score": 0.5,
+      "accessibility_tags": [],
+      "source": "synthetic_test_only",
+      "verified_at": "2026-08-26T14:18:32+00:00",
+      "status": "approved",
+      "condition_notes": "",
+      "updated_at": "2026-08-26T14:18:32+00:00",
+      "latitude": 37.5665,
+      "longitude": 126.978
+    }
+  ]
+}

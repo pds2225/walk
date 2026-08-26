@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "landmarks": [
+    {
+      "id": "test-place",
+      "name": "테스트 건물",
+      "category": "building",
+      "entrance_description": "정문",
+      "photo_url": "data/landmark_photos/test.webp",
+      "photo_alt": "정면 사진",
+      "visible_from_degrees": [
+        0.0
+      ],
+      "visibility_score": 0.5,
+      "permanence_score": 0.5,
+      "distinctiveness_score": 0.5,
+      "accessibility_tags": [],
+      "source": "field_manual",
+      "verified_at": "2026-08-26T14:18:32+00:00",
+      "status": "approved",
+      "condition_notes": "",
+      "updated_at": "2026-08-26T14:18:32+00:00",
+      "latitude": 37.5665,
+      "longitude": 126.978
+    }
+  ]
+}

@@ -161,6 +161,17 @@ def test_maplibre_smooth_headingup_component():
     assert '["Noto Sans Regular"]' in html          # 한글 라벨 글리프 지정
 
 
+def test_kakao_roadview_toggle_during_navigation():
+    """안내 중 로드뷰: JavaScript 키가 있을 때만 지도/로드뷰 전환. 선언은 별도 모듈."""
+    source = PAGE.read_text(encoding="utf-8")
+    assert "from kakao_roadview_component import kakao_roadview" in source
+    assert "from kakao_js_key import kakao_javascript_key" in source
+    assert 'options=["지도", "로드뷰"]' in source
+    assert 'key="nav_roadview"' in source
+    assert "KAKAO_JAVASCRIPT_KEY" in source
+    assert "declare_component(" not in source
+
+
 def test_headingup_pydeck_map_when_running():
     """안내 중 지도 = pydeck 헤딩업(진행 방향이 위) + 사용자 핀치줌 유지.
     핵심 계약: Streamlit 1.38+ 는 initial_view_state 를 '바뀐 키만' merge 하므로

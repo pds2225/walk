@@ -1,0 +1,2 @@
+{"timestamp": "2026-08-26T14:18:32+00:00", "landmark_id": "test-place", "actor": "field-user", "action": "created", "from_status": null, "to_status": "draft"}
+{"timestamp": "2026-08-26T14:18:32+00:00", "landmark_id": "test-place", "actor": "reviewer", "action": "updated", "from_status": "draft", "to_status": "approved"}
