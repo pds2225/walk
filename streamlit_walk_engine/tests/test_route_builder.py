@@ -367,7 +367,9 @@ class TestTmapAppKey:
 
     def test_missing_everywhere_returns_none(self, monkeypatch):
         monkeypatch.delenv("TMAP_APP_KEY", raising=False)
-        # secrets 파일이 없는 환경에서는 st.secrets 접근이 예외 → None
+        # 로컬 secrets 파일이 있어도, 이 테스트는 모든 공급원이 없는 경우를 검증한다.
+        import streamlit
+        monkeypatch.setattr(streamlit, "secrets", _FakeSecrets({}))
         assert route_builder._tmap_app_key() is None
 
 
