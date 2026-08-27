@@ -4,7 +4,7 @@
 > Secret/API Key/.env 값 금지. 세부는 링크만.
 
 ## 0. 30초 컨텍스트
-walk 앱(`D:\walk`)의 Production `Ready` 상태와 `k-walk.vercel.app` 도메인을 재확인 완료했다. Preview 실패는 `backup/WIN-K20QOC29TOB` 브랜치의 별도 빌드 문제로 Production에는 영향이 없다. 로컬 `main=83aa91c`, 실제 원격·배포 기준 `main=5e2cfff`이며 동기화·리셋은 하지 않았다.
+walk 앱(`D:\walk`)의 Production `Ready` 상태와 `k-walk.vercel.app` 도메인을 재확인 완료했다. Vercel의 `Deployment Settings`는 Root Directory `.`, Next.js, `npm run next:build`, Output `web/.next`, Install `npm install`, Node 24.x로 확인됐고 현재 배포와 일치한다. `4 Recommendations`는 연결·분석·성능 관련 선택형 운영 권고이며 오류가 아니다. `To update your Production Deployment, push to the main branch.`도 현재 Production을 갱신하려면 `main` 브랜치에 변경사항을 push하라는 일반 안내다. Vercel의 `github/pds2225`는 연결된 GitHub 저장소 소유자/조직 표기이고, `Source`의 `main`은 기본 배포 브랜치, `5e2cfff`는 배포에 사용된 Git 커밋 식별자다. 커밋 제목 `feat(web): wire deviation reroute into navigation`은 웹 앱에 경로 이탈 시 재탐색 기능을 연결한 변경을 뜻한다. `6h ago by pds2225`는 배포 생성 시각·생성 주체이며 오류가 아니다. Preview 실패는 `backup/WIN-K20QOC29TOB` 브랜치의 별도 빌드 문제로 Production에는 영향이 없다. 로컬 `main=83aa91c`, 실제 원격·배포 기준 `main=5e2cfff`이며 동기화·리셋은 하지 않았다.
 
 ## 1. 빠른 재개 (복붙용)
 ```powershell
@@ -56,10 +56,20 @@ python -m pytest streamlit_walk_engine\tests -q
 - Vercel 연결 도구에서는 이 프로젝트/배포를 조회하지 못했고, 이전 직접 요청은 로컬 Schannel TLS 오류로 실패했다.
 
 ## 7. 재개 시 첫 행동
+0. 이번 재개 확인: `Production Checklist 2/5`는 5개 점검 중 2개 완료라는 뜻이며, `4 Recommendations`와 함께 오류가 아닌 선택형 출시·운영 점검이다. `Connect Git Repository`는 `github/pds2225/walk`가 이미 연결되어 있어 별도 조치가 필요 없다. `Add Custom Domain`은 별도 구매한 개인 도메인을 연결하는 항목이며, 현재 `k-walk.vercel.app` 주소는 정상 사용 중이다. `Preview Deployment`는 작업 브랜치·PR을 Production 반영 전에 확인하는 임시 배포이며, 일부 백업 브랜치의 빌드 실패는 Production과 별개다. `Enable Web Analytics`는 방문자·페이지 조회 통계를 보는 선택 기능이며 서비스 동작에는 필수가 아니다. `Upgrade to Speed Insights Plus`는 선택적인 유료 성능 분석 업그레이드이며 현재 서비스 사용에 필요하지 않다. `Observability`는 요청 수·함수 실행·오류율을 보는 모니터링 영역이며, 현재 0건 표시는 사용량이 없다는 뜻일 수 있다. Observability 옆 `6h`는 최근 6시간 관측 범위 또는 배포 후 경과 시간을 나타내는 표시이며 오류 코드가 아니다. `Edge Requests`는 Vercel 엣지 서버로 들어온 웹 요청 횟수이며 `0`은 해당 관측 시간에 기록된 요청이 없다는 뜻이다. `Function Invocations`는 API·서버 함수가 실행된 횟수이며 `0`은 선택된 기간에 집계된 실행이 0회라는 뜻이다. `Error Rate`는 전체 요청 중 오류가 발생한 비율이며 현재 `0%`는 선택된 관측 기간에 감지된 오류가 없다는 뜻이다. `Analytics`는 방문자 수·페이지 조회·유입 흐름을 보는 통계 메뉴이며 앱 기능과는 별개다. `Track Visitors and Page Views`는 방문자 수와 페이지 조회 수를 기록·분석한다는 안내다. `See real-time traffic, top pages, and audience trends`는 실시간 방문 흐름·인기 페이지·방문자 추세를 확인한다는 Analytics 안내다. `Active Branches`는 최근 배포·활동이 있는 Git 브랜치 목록이며 각 `Preview`는 해당 브랜치의 테스트용 배포다. `Search`는 Active Branches 목록에서 브랜치명·배포를 찾는 필터 입력창이다. `backup/WIN-K20QOC29TOB`는 백업용 Git 브랜치이며, 확인된 Preview 빌드 실패는 Production과 별개다. `Preview` 표시는 해당 브랜치의 임시 테스트 배포라는 뜻이며 Production 주소가 아니다. `EaHGJrdRB`는 해당 Preview 배포를 식별하는 짧은 배포 ID이며 오류 코드가 아니다.
 1. 다음 작업은 `VISION_SOCIAL.md` §3 기준 산책 기록 MVP를 격리 worktree에서 착수한다.
 2. 폰 실기기 확인이 먼저 필요하면 `REQUESTS_LEDGER.md` §7을 갱신한다.
 
 ## 활성 worktree (참고)
 - `D:/walk/.claude/worktrees/compass-fix` → `fix/android-compass-fallback`
 - `D:/walk/.claude/worktrees/dest-reset` → `fix/dest-input-reset`
-- `D:/walk/.claude/worktrees/dest-reset-a` → 
+- `D:/walk/.claude/worktrees/dest-reset-a` → `fix/dest-reset-a`
+- `D:/walk/.claude/worktrees/heading-debug` → `fix/heading-debug-panel`
+- `D:/walk/.claude/worktrees/web-vercel` → `worktree-web-vercel` (locked)
+- `D:/walk/.worktrees/transit-end-label` → `fix/transit-end-label`
+
+
+
+
+
+
