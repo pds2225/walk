@@ -90,6 +90,41 @@ python -m pytest streamlit_walk_engine\tests -q
 0. `Aug 13`은 해당 CI Preview·PR 활동 날짜가 8월 13일이라는 뜻이다.
 0. `docs/task-git-ahead-push-20260813`는 Git 상태·push 안내 문서 작업용 브랜치명이며 `20260813`은 8월 13일을 뜻한다.
 0. 해당 문서 브랜치의 `Preview`도 Production 전 검토용 임시 배포다.
+0. `GN5jhwbvX`는 해당 문서 브랜치 Preview를 식별하는 짧은 Vercel 배포 ID다.
+0. `#105`는 해당 문서 작업 Preview와 연결된 GitHub Pull Request 번호다.
+0. `#105` 화면의 `github/pds2225`도 연결된 GitHub 계정·저장소 소유자 표기다.
+0. `#105` 화면의 `pds2225`는 GitHub 사용자·PR 작성자 표기다.
+0. 문서 PR의 `Aug 13`은 활동 날짜가 8월 13일이라는 뜻이다.
+0. `docs/task-std-20260813`는 문서 표준화 작업용 Git 브랜치이며 `20260813`은 8월 13일을 뜻한다.
+0. 해당 문서 표준화 브랜치의 `Preview`도 Production 전 테스트용 임시 배포다.
+0. `7KjK8oDXk`는 해당 문서 표준화 브랜치 Preview를 식별하는 짧은 Vercel 배포 ID다.
+0. `#104`는 해당 문서 표준화 Preview와 연결된 GitHub Pull Request 번호다.
+0. `#104` 화면의 `github/pds2225`도 연결된 GitHub 계정·저장소 소유자 표기다.
+0. `#104` 화면의 `pds2225`는 GitHub 사용자·PR 작성자 정보다.
+0. 문서 표준화 PR의 `Aug 13`은 활동 날짜가 8월 13일이라는 뜻이다.
+0. `docs/task-template-20260813`는 작업 템플릿 문서 작성용 Git 브랜치이며 `20260813`은 8월 13일을 뜻한다.
+0. 해당 작업 템플릿 브랜치의 `Preview`도 Production 전 테스트용 임시 배포다.
+0. `C6DMmG48Z`는 해당 작업 템플릿 브랜치 Preview를 식별하는 짧은 Vercel 배포 ID다.
+0. `#103`은 해당 작업 템플릿 Preview와 연결된 GitHub Pull Request 번호다.
+0. `#103` 화면의 `github/pds2225`는 연결된 GitHub 계정·저장소 소유자 표기다.
+0. `#103` 화면의 `pds2225`는 GitHub 사용자·PR 작성자 표기다.
+0. 작업 템플릿 PR의 `Aug 13`은 활동 날짜가 8월 13일이라는 뜻이다.
+0. `walk - Overview – Vercel`은 walk 프로젝트의 Vercel Overview 페이지 제목이며 오류 메시지가 아니다.
+0. Vercel Overview의 `Production Checklist`도 선택형 출시 점검표이며 오류가 아니다.
+0. 체크리스트 안내 문구는 Production 준비를 위해 보안·핵심 기능 설정을 검토하라는 권고이며 오류 메시지가 아니다.
+0. 체크리스트의 `Connect Git Repository`는 이미 완료된 GitHub 연결을 다시 안내하는 선택 항목이다.
+0. Vercel 안내 문구는 push마다 Preview를 만들고 Production 브랜치(`main`)에 병합하면 운영 도메인에 반영된다는 Git 연동 배포 흐름을 설명한다.
+0. `Add Custom Domain`은 개인 도메인을 운영 주소로 연결하는 선택 항목이며 현재 Vercel 주소로는 이미 접속 가능하다.
+0. 개인 도메인은 새로 구매하거나 기존 도메인을 연결해 Production 트래픽을 받을 수 있으며, 도메인 구매는 별도 승인 없이는 진행하지 않는다.
+0. `Preview Deployment`는 각 push·작업 브랜치의 변경사항을 미리 확인하는 임시 배포다.
+0. 새 브랜치를 생성해 push하면 Production 전 변경사항을 확인하는 Preview가 생성된다는 Vercel 안내이며, 이 세션에서는 브랜치 생성·push를 실행하지 않았다.
+0. `Enable Web Analytics`는 방문자·페이지 조회 통계를 활성화하는 선택 기능이며, 아직 활성화 작업은 실행하지 않았다.
+0. `Gain insights into your website's visitors`는 웹사이트 방문자 정보를 분석해 이해하라는 Analytics 소개 문구다.
+0. `Upgrade to Speed Insights Plus`는 선택적인 유료 성능 분석 업그레이드 안내이며, 아직 업그레이드하지 않았다.
+0. Speed Insights 문구는 사이트 성능과 Core Web Vitals를 모니터링해 빠른 상태를 유지하라는 안내이며 오류가 아니다.
+0. `Further reading`은 관련 Vercel 문서를 추가로 확인하는 안내 영역이며 오류가 아니다.
+0. `Production checklist for launch`는 서비스 출시 전 확인할 항목을 모아둔 Vercel 점검표 제목이며 오류가 아니다.
+0. 전체 화면 종합: Production은 `Ready`, 체크리스트 문구는 권고사항, 나열된 `CC6o9bazu`·`X8hJCEJ39`·`5otN8qjAV`·`89otMePf1`·`GN5jhwbvX`·`7KjK8oDXk`·`C6DMmG48Z`는 Preview 배포 기록이며 각 `#109`·`#108`·`#106`·`#105`·`#104`·`#103`은 PR 번호다.
 1. 다음 작업은 `VISION_SOCIAL.md` §3 기준 산책 기록 MVP를 격리 worktree에서 착수한다.
 2. 폰 실기기 확인이 먼저 필요하면 `REQUESTS_LEDGER.md` §7을 갱신한다.
 
