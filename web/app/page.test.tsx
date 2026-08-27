@@ -31,6 +31,11 @@ type ErrorCb = (err: GeolocationPositionError) => void;
 const ORIGIN: Coordinate = { latitude: 37.5665, longitude: 126.978 };
 const DEST_COORD = moveCoordinateByMeters(ORIGIN, 200, 0);
 const ROUTE: RouteModel = { polyline: [ORIGIN, DEST_COORD], turnPoints: [] };
+const REROUTE_START = moveCoordinateByMeters(ORIGIN, 50, 90);
+const REROUTED_ROUTE: RouteModel = {
+  polyline: [REROUTE_START, moveCoordinateByMeters(REROUTE_START, 150, 0), DEST_COORD],
+  turnPoints: [],
+};
 
 const mockGetCurrentPosition = vi.fn();
 const mockWatchPosition = vi.fn();
@@ -63,6 +68,8 @@ function position(coord: Coordinate, timestampMs: number): GeolocationPosition {
 }
 
 let fetchMock: ReturnType<typeof vi.fn>;
+let routeResponses: RouteModel[];
+let routeResponseIndex: number;
 
 function placesCallCount() {
   return fetchMock.mock.calls.filter((c) => String(c[0]).startsWith("/api/places")).length;
@@ -82,9 +89,10 @@ function installFetchMock() {
       );
     }
     if (url.startsWith("/api/route")) {
+      const route = routeResponses[Math.min(routeResponseIndex++, routeResponses.length - 1)] ?? ROUTE;
       return new Response(
         JSON.stringify({
-          route: ROUTE,
+          route,
           totalDistanceMeters: 200,
           totalSeconds: 160,
           turnDescriptions: {},
@@ -106,6 +114,8 @@ beforeEach(() => {
   mockGetCurrentPosition.mockReset();
   mockWatchPosition.mockReset();
   mockClearWatch.mockReset();
+  routeResponses = [ROUTE];
+  routeResponseIndex = 0;
   installGeolocationMock();
   installFetchMock();
 });
@@ -244,5 +254,60 @@ describe("TEST D — 안내 중지는 워처를 반드시 해제한다", () => {
     watch.success?.(position(moveCoordinateByMeters(ORIGIN, 50, 0), 9999));
     expect(screen.queryByRole("button", { name: "안내 중지" })).toBeNull();
     expect(screen.getByText("어디로 갈까요?")).toBeTruthy();
+  });
+});
+
+describe("TEST E — 확정 이탈은 active route 를 실제로 재탐색한다", () => {
+  it("reroute_candidate 한 번만 /api/route 를 추가 호출하고 새 경로를 설치한다", async () => {
+    routeResponses = [ROUTE, REROUTED_ROUTE];
+    mockGetCurrentPosition.mockImplementation((success: SuccessCb) => success(position(ORIGIN, 1000)));
+    const watch: { success: SuccessCb | null } = { success: null };
+    mockWatchPosition.mockImplementation((success: SuccessCb) => {
+      watch.success = success;
+      return 42;
+    });
+
+    await pickDestination();
+    fireEvent.click(screen.getByRole("button", { name: "걷기" }));
+    await waitFor(() => expect(mockWatchPosition).toHaveBeenCalledTimes(1));
+
+    // 경로에서 90m 벗어난 상태를 3회/4초 유지한다. 단일 spike 로는
+    // 재탐색하지 않고, 공유 엔진의 기존 deviation 판정을 그대로 따른다.
+    for (let i = 1; i <= 3; i++) {
+      const point = moveCoordinateByMeters(REROUTE_START, i * 2, 0);
+      watch.success?.(position(point, 1000 + i * 2_000));
+      // eslint-disable-next-line no-await-in-loop
+      await waitFor(() => {});
+    }
+
+    await waitFor(() => expect(routeCallCount()).toBe(2));
+    expect(screen.queryByText("경로를 다시 찾는 중…")).toBeNull();
+    expect(screen.queryByText(/재탐색에 실패했습니다/)).toBeNull();
+
+    // 같은 active route에서 후속 GPS 틱이 와도 자동 재탐색을 반복하지 않는다.
+    watch.success?.(position(moveCoordinateByMeters(REROUTE_START, 10, 0), 9_000));
+    await waitFor(() => {});
+    expect(routeCallCount()).toBe(2);
+  });
+});
+
+describe("TEST F — 도착은 실시간 위치 안내를 종료한다", () => {
+  it("목적지 반경에 들어오면 도착 화면을 유지하고 watcher 를 해제한다", async () => {
+    mockGetCurrentPosition.mockImplementation((success: SuccessCb) => success(position(ORIGIN, 1000)));
+    const watch: { success: SuccessCb | null } = { success: null };
+    mockWatchPosition.mockImplementation((success: SuccessCb) => {
+      watch.success = success;
+      return 42;
+    });
+
+    await pickDestination();
+    fireEvent.click(screen.getByRole("button", { name: "걷기" }));
+    await waitFor(() => expect(mockWatchPosition).toHaveBeenCalledTimes(1));
+
+    watch.success?.(position(DEST_COORD, 2_000));
+
+    await waitFor(() => expect(screen.getByText("목적지에 도착했습니다")).toBeTruthy());
+    await waitFor(() => expect(mockClearWatch).toHaveBeenCalledWith(42));
+    expect(screen.getByRole("button", { name: "안내 중지" })).toBeTruthy();
   });
 });

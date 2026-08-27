@@ -73,6 +73,7 @@ export function useNavigation(
   useEffect(() => {
     setResult(null);
     setArrived(false);
+    lastFixTs.current = null;
     prevSample.current = null;
     spokenState.current = "on_route";
     lastDriftSpokenMs.current = 0;

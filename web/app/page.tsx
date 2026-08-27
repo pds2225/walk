@@ -59,6 +59,7 @@ export default function Home() {
   // 틱이 오기 전에도 지도가 빈 채로 뜨지 않도록 잠깐 대신 쓴다.
   const [originFix, setOriginFix] = useState<Fix | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [rerouting, setRerouting] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [headingUp, setHeadingUp] = useState(true);
   const [recents, setRecents] = useState<Recent[]>([]);
@@ -66,20 +67,75 @@ export default function Home() {
 
   useEffect(() => setRecents(loadRecents()), []);
 
-  // 실시간 GPS 구독은 오직 navigating/arrived 에서만 켠다 — 목적지를 고르는 것만으로는
+  // 실시간 GPS 구독은 오직 navigating 에서만 켠다 — 목적지를 고르는 것만으로는
   // 절대 켜지지 않는다.
-  const wantWatch = phase === "navigating" || phase === "arrived";
+  const wantWatch = phase === "navigating";
   const { fix, error: geoError } = useWatchPosition(wantWatch);
   const { headingDegrees: compass, request: requestCompass } = useCompass(wantWatch);
   const currentFix = fix ?? originFix;
 
-  const nav = useNavigation(wantWatch ? routeResponse : null, currentFix, { voiceEnabled });
+  // 도착 화면에서는 새 GPS를 받지 않지만 마지막 active route와 arrival 결과는
+  // 유지해야 한다. null을 넘기면 hook이 arrival 상태까지 초기화하기 때문이다.
+  const navRoute = phase === "navigating" || phase === "arrived" ? routeResponse : null;
+  const nav = useNavigation(navRoute, currentFix, { voiceEnabled });
 
   // 엔진이 도착으로 판정하면 phase 도 따라간다 — GPS 동작(watchPosition 유지)은
   // navigating 과 동일하다. '안내 중지'를 눌러야 완전히 끝난다.
   useEffect(() => {
     if (phase === "navigating" && nav.arrived) setPhase("arrived");
   }, [phase, nav.arrived]);
+
+  /**
+   * 확정 이탈/놓친 회전마다 route API를 매 GPS 틱 재호출하지 않는다. 하나의
+   * active route에서 첫 `reroute_candidate`만 자동 재탐색하고, 실패해도 기존
+   * 경로와 안내는 유지한다. 새 경로가 설치되면 route identity가 바뀌어 다음
+   * 이탈 episode에서 다시 시도할 수 있다.
+  */
+  const rerouteAttemptedRoute = useRef<RouteResponse | null>(null);
+  const lastRerouteFixTimestamp = useRef<number | null>(null);
+  const requestReroute = useCallback(
+    async (current: Fix) => {
+      if (!dest || !routeResponse || rerouting) return;
+      setRerouting(true);
+      try {
+        const resp = await fetch("/api/route", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ origin: current, dest: dest.coordinate }),
+        });
+        const body: unknown = await resp.json();
+        if (!resp.ok) {
+          setError((body as { error?: string }).error ?? "재탐색에 실패했습니다. 현재 경로로 계속 안내합니다.");
+          return;
+        }
+        setRouteResponse(body as RouteResponse);
+        setOriginFix(current);
+        setError(null);
+      } catch {
+        setError("재탐색에 실패했습니다. 현재 경로로 계속 안내합니다.");
+      } finally {
+        setRerouting(false);
+      }
+    },
+    [dest, rerouting, routeResponse],
+  );
+
+  useEffect(() => {
+    if (
+      phase !== "navigating" ||
+      !routeResponse ||
+      !currentFix ||
+      rerouting ||
+      nav.result?.suggestedNextAction !== "reroute_candidate" ||
+      rerouteAttemptedRoute.current === routeResponse ||
+      lastRerouteFixTimestamp.current === currentFix.timestampMs
+    ) {
+      return;
+    }
+    rerouteAttemptedRoute.current = routeResponse;
+    lastRerouteFixTimestamp.current = currentFix.timestampMs;
+    void requestReroute(currentFix);
+  }, [currentFix, nav.result, phase, requestReroute, rerouting, routeResponse]);
 
   // ── 목적지 검색 (입력이 멈춘 뒤 1회) ──────────────────────────────────────
   // fix 는 navigating/arrived 가 아닌 동안은 절대 바뀌지 않는다(watchPosition 이
@@ -192,6 +248,9 @@ export default function Home() {
     setQuery("");
     setHits([]);
     setError(null);
+    setRerouting(false);
+    rerouteAttemptedRoute.current = null;
+    lastRerouteFixTimestamp.current = null;
   }, []);
 
   const onQueryChange = useCallback((value: string) => {
@@ -206,7 +265,7 @@ export default function Home() {
     return (
       <main className="nav-screen">
         <div className={`banner ${offRoute ? "banner-off" : nav.state === "drifting" ? "banner-warn" : ""}`}>
-          <strong>{nav.banner}</strong>
+          <strong>{rerouting ? "경로를 다시 찾는 중…" : nav.banner}</strong>
           <span>
             {nav.remainingMeters !== null ? `남은 거리 ${metersText(nav.remainingMeters)}` : ""}
             {nav.nextTurn && nav.nextTurn.direction !== "straight"
@@ -234,6 +293,7 @@ export default function Home() {
             안내 중지
           </button>
         </div>
+        {error ? <p className="error" role="alert">{error}</p> : null}
         {geoError ? <p className="error">{geoError}</p> : null}
       </main>
     );
