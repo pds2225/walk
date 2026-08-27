@@ -16,5 +16,11 @@ export default defineConfig({
     // 테스트는 순수 함수 테스트라 jsdom 이 필요 없다.
     include: ["packages/**/*.test.ts", "web/**/*.test.ts", "web/**/*.test.tsx"],
     exclude: ["**/node_modules/**", "**/dist/**", "**/.next/**"],
+    setupFiles: ["./vitest.setup.ts"],
+    environmentOptions: {
+      // Node 25+ 는 기본 origin 에서 localStorage 를 비활성화한다. 브라우저
+      // navigation 테스트는 실제 앱과 같은 유효 origin 을 사용해야 한다.
+      jsdom: { url: "http://localhost/" },
+    },
   },
 });

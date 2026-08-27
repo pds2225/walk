@@ -15,6 +15,7 @@ export default tseslint.config(
       "eslint.config.js",
       // 루트 tsconfig(packages 전용) 밖이라 타입 정보를 못 붙인다
       "vitest.config.ts",
+      "vitest.setup.ts",
       // 빌드 산출물 — 소스를 이미 검사한다
       "**/dist/**",
       "web/.next/**",
