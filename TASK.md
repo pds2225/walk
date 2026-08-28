@@ -1635,7 +1635,7 @@ navigation core/state를 동시에 여러 branch에서 수정하는 병렬 작�
 
 `BASE_COMMIT = 806bff088524be182b5e0be8d0ddb6ab8d96916e`
 
-`END_COMMIT = PENDING`
+`END_COMMIT = 8153638bf54fd8d557444af56cc9c268427cc76a`
 
 `FILES_CHANGED = README.md, TASK.md`
 
@@ -1653,7 +1653,7 @@ navigation core/state를 동시에 여러 branch에서 수정하는 병렬 작�
 
 `NEW_TASKS = none`
 
-`PR = PENDING`
+`PR = #116`
 
 ---
 
