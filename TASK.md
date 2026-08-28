@@ -1718,3 +1718,185 @@ LEASE =
 - 최신 cancel/stop 지시가 확인됨
 
 단일 TASK의 BLOCKED는 전체 종료 사유가 아니다.
+
+## TASK COMPLETION RECORDS — 2026-08-28 AUTONOMOUS RUN
+
+### KN-20260826-01
+
+`TASK_ID = KN-20260826-01`
+
+`STATUS = IMPLEMENTED`
+
+`BRANCH = task/kn-20260826-01-20260827`
+
+`BASE_COMMIT = 3a08483cb40162e6371823746ac2cc9b5bcf1e64`
+
+`END_COMMIT = de31c96c84b458c1743e7a3dcc758faf0350717e`
+
+`FILES_CHANGED = web/app/page.tsx, web/app/page.test.tsx, vitest.setup.ts`
+
+`IMPLEMENTATION = Connected active-route rerouting and arrival lifecycle to the web navigation entrypoint with session guards; a stale reroute response cannot overwrite a stopped or arrived session.`
+
+`TEST_COMMANDS = npm run test:run; npm run typecheck --workspace web; npm run lint; npm run build --workspace web; runtime HTTP smoke`
+
+`TEST_RESULT = CI and local JavaScript/typecheck/lint/build passed; later KN-02 accuracy/session follow-up covers the identified stale-response edge.`
+
+`RUNTIME_RESULT = Next production entrypoint returned 200; invalid route payload returned 400.`
+
+`ACCEPTANCE = Navigation start, active reroute, arrival, and reroute failure fallback are wired; no route-loop repetition guard is bypassed.`
+
+`KNOWN_LIMITATIONS = Independent verifier initially found a stale-session race and missing accuracy evidence; KN-02 follow-up fixed those shared lifecycle issues. A dedicated re-review was not returned.`
+
+`NEW_TASKS = none`
+
+`PR = #110, merged`
+
+### KN-20260826-02
+
+`TASK_ID = KN-20260826-02`
+
+`STATUS = IMPLEMENTED`
+
+`BRANCH = task/kn-20260826-02-fix-20260828`
+
+`BASE_COMMIT = 72432bb`
+
+`END_COMMIT = 6a4d311afc8a9c806d9444365d0d27df2c858a9b`
+
+`FILES_CHANGED = web/lib/useGeolocation.ts, web/lib/useNavigation.ts, web/app/page.tsx, web/app/page.test.tsx, Python GPS regression tests`
+
+`IMPLEMENTATION = Added accuracy gates for usable/arrival/deviation fixes, stale timestamp rejection, navigation session validation for initial route and reroute responses, reroute warmup/cooldown/fingerprint protection, and low-confidence drift handling.`
+
+`TEST_COMMANDS = npm run test:run; npm run typecheck --workspace web; npm run lint; npm run build --workspace web; targeted Python GPS suite; full Python suite with explicit basetemp`
+
+`TEST_RESULT = 89 local JavaScript tests and targeted GPS tests passed; full Python run had 592 passed and 8 pre-existing Streamlit AppTest bare-mode failures.`
+
+`RUNTIME_RESULT = Next production HTTP smoke passed; invalid route payload rejected; trace/engine regression passed.`
+
+`ACCEPTANCE = Heading alone never causes deviation; unreliable/stale fixes do not trigger reroute; active session cannot be overwritten by stale async responses; reroute storm controls retained.`
+
+`KNOWN_LIMITATIONS = Independent follow-up review was requested but not returned at report time; outdoor GNSS field test remains required.`
+
+`NEW_TASKS = none`
+
+`PR = #111 original plus #112 follow-up, both merged`
+
+### KN-20260826-03
+
+`TASK_ID = KN-20260826-03`
+
+`STATUS = IMPLEMENTED`
+
+`BRANCH = task/kn-20260826-03-20260828`
+
+`BASE_COMMIT = 3e5e3677639ba5c3125e13eb91409a7b67ed2fe6`
+
+`END_COMMIT = 38186766175afe37cc659024b08d6acc0c63080b`
+
+`FILES_CHANGED = web/lib/useNavigation.ts, web/components/MapView.tsx, web/app/page.tsx, web/app/globals.css, web/app/page.test.tsx`
+
+`IMPLEMENTATION = Separated device/view heading from GPS movement heading. Map bearing uses the phone orientation only; movement course/trajectory is used for marker/path direction and route-following evidence. The UI exposes both values and the no-signal state.`
+
+`TEST_COMMANDS = npm run test:run; npm run typecheck --workspace web; npm run lint; npm run build --workspace web; runtime HTTP smoke`
+
+`TEST_RESULT = 90 local JavaScript tests passed; typecheck/lint/build passed; page test covers independent orientation and movement values.`
+
+`RUNTIME_RESULT = Next production entrypoint returned 200 and invalid route returned 400.`
+
+`ACCEPTANCE = Mobile navigation UI is bound to live navigation state and keeps view direction separate from movement direction; no GPS heading is used as map bearing fallback.`
+
+`KNOWN_LIMITATIONS = Device orientation permission and outdoor movement require field testing; independent verifier response was pending at record time.`
+
+`NEW_TASKS = none`
+
+`PR = #113, merged`
+
+### KN-20260826-04
+
+`TASK_ID = KN-20260826-04`
+
+`STATUS = IMPLEMENTED`
+
+`BRANCH = task/kn-20260826-04-20260828`
+
+`BASE_COMMIT = 25b21121e4abb63dffe535d96e73b2a46a64a696`
+
+`END_COMMIT = c77000dda4ed7af486a29dc4f18dff3676893a89`
+
+`FILES_CHANGED = web/lib/voice.ts, web/lib/voice.test.ts, web/lib/i18n.ts, web/lib/i18n.test.ts, web/lib/useNavigation.ts, web/app/page.tsx, web/app/page.test.tsx, web/app/globals.css`
+
+`IMPLEMENTATION = Replaced per-event speechSynthesis.cancel behavior with a serialized priority queue. Turn/state completion is recorded only after start/end playback evidence; failed speech is retried once, navigation continues on TTS failure, and user-gesture speech warmup is performed. Added Korean/English/Japanese/Chinese UI and event speech resources with language persistence.`
+
+`TEST_COMMANDS = npm run test:run; npm run typecheck --workspace web; npm run lint; npm run build --workspace web; runtime HTTP smoke`
+
+`TEST_RESULT = 97 local JavaScript tests passed; voice queue covers serialization, priority-ready requests, failure/retry, and session clear; typecheck/lint/build passed; CI test/docs-gate/Vercel/Cursor checks passed.`
+
+`RUNTIME_RESULT = Next production entrypoint returned 200 and invalid route returned 400; Browser extension DOM/screenshot path timed out, so rendered fallback evidence is from jsdom page flow and HTTP smoke.`
+
+`ACCEPTANCE = Start/turn/deviation/reroute/arrival event wiring, duplicate suppression, retry, four-language UI/TTS locale mapping, and non-fatal TTS failure are implemented.`
+
+`KNOWN_LIMITATIONS = Real mobile speech synthesis and outdoor device voice playback require field testing; independent verifier response was pending at record time.`
+
+`NEW_TASKS = none`
+
+`PR = #114, merged`
+
+### KN-20260826-05
+
+`TASK_ID = KN-20260826-05`
+
+`STATUS = IMPLEMENTED`
+
+`BRANCH = task/kn-20260826-05-20260828`
+
+`BASE_COMMIT = 6fc0d3e62a6c5c26362178888548c78269ebd5c9`
+
+`END_COMMIT = 260524580f7a5aeb003c6c9eb10baeaa59321284`
+
+`FILES_CHANGED = web/lib/roadview.ts, web/lib/roadview.test.ts, web/components/RoadviewViewer.tsx, web/app/page.tsx, web/app/page.test.tsx, web/app/globals.css, web/lib/i18n.ts, web/.env.local.example`
+
+`IMPLEMENTATION = Added a provider-neutral Roadview seam with KakaoRoadviewAdapter, environment-based NEXT_PUBLIC_KAKAO_JAVASCRIPT_KEY loading, configurable 50m then 30m nearest-pano search, destination identification overlay, optional approach bearing, mobile container, close/map return, and non-fatal no-key/no-pano/SDK failure fallback. Roadview opens only near the canonical destination and does not replace navigation.`
+
+`TEST_COMMANDS = npm run test:run; npm run typecheck --workspace web; npm run lint; npm run build --workspace web; runtime HTTP smoke`
+
+`TEST_RESULT = 101 local JavaScript tests passed; Roadview adapter and no-pano fallback tests passed; typecheck/lint/build passed; CI test/docs-gate/Vercel/Cursor checks passed.`
+
+`RUNTIME_RESULT = Next production entrypoint returned 200 and invalid route returned 400; real Kakao pano was not called because no local browser key was exposed.`
+
+`ACCEPTANCE = SDK key is environment based with no value in source/logs; canonical destination flows to nearest-pano search; real container, marker/UI, mobile sizing, close path, and navigation fallback are connected.`
+
+`KNOWN_LIMITATIONS = Real Kakao authorization/domain/pano and outdoor mobile verification require the configured deployment and field test.`
+
+`NEW_TASKS = none`
+
+`PR = #115, merged`
+
+### KN-20260826-07
+
+`TASK_ID = KN-20260826-07`
+
+`STATUS = BLOCKED`
+
+`BRANCH = task/kn-20260826-07-20260828`
+
+`BASE_COMMIT = b6427f0ed41fe889ceadb947ebbb5adf056a70e4`
+
+`END_COMMIT = b313d68f6ca979374ef3067ceca56dc20dc502ef`
+
+`FILES_CHANGED = none`
+
+`IMPLEMENTATION = Integration audit executed against latest main after KN-01 through KN-06 merges. Canonical task dependencies are present; no additional code change was justified.`
+
+`TEST_COMMANDS = npm run test:run; npm run typecheck --workspace web; npm run lint; npm run build --workspace web; full Python regression with explicit basetemp; Next HTTP runtime smoke`
+
+`TEST_RESULT = 101 JavaScript tests passed; web typecheck/lint/build passed; Python 592 passed and 8 existing Streamlit AppTest bare-mode tests failed; HTTP root 200 and invalid route 400.`
+
+`RUNTIME_RESULT = Production Next entrypoint and route validation responded correctly; real TMAP/Kakao credentialed route/Roadview and real outdoor GPS/voice cannot be completed in this unattended environment.`
+
+`ACCEPTANCE = Simulation/unit/integration evidence is green for route engine, location gates, reroute lifecycle, heading separation, localization/TTS queue, Roadview fallback, and arrival. Full real-device/provider E2E is not claimed.`
+
+`KNOWN_LIMITATIONS = FIELD_TEST_REQUIRED for outdoor GPS, device orientation, mobile speech playback, and credentialed Kakao/TMAP Roadview/route flow. Independent verifier response was pending at record time.`
+
+`NEW_TASKS = none`
+
+`PR = #117`
