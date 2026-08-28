@@ -367,6 +367,29 @@ describe("TEST E — 확정 이탈은 active route 를 실제로 재탐색한다
     releaseReroute?.();
     await waitFor(() => expect(screen.getByText("목적지에 도착했습니다")).toBeTruthy());
   });
+
+  it("정확도 35~50m인 이탈 후보는 reroute 근거로 사용하지 않는다", async () => {
+    routeResponses = [ROUTE, REROUTED_ROUTE];
+    mockGetCurrentPosition.mockImplementation((success: SuccessCb) => success(position(ORIGIN, 1000)));
+    const watch: { success: SuccessCb | null } = { success: null };
+    mockWatchPosition.mockImplementation((success: SuccessCb) => {
+      watch.success = success;
+      return 42;
+    });
+
+    await pickDestination();
+    fireEvent.click(screen.getByRole("button", { name: "걷기" }));
+    await waitFor(() => expect(mockWatchPosition).toHaveBeenCalledTimes(1));
+
+    for (let i = 1; i <= 5; i++) {
+      watch.success?.(position(moveCoordinateByMeters(REROUTE_START, i * 2, 0), 1000 + i * 8_000, 40));
+      // eslint-disable-next-line no-await-in-loop
+      await waitFor(() => {});
+    }
+
+    await waitFor(() => expect(routeCallCount()).toBe(1));
+    expect(screen.queryByText("경로를 다시 찾는 중…")).toBeNull();
+  });
 });
 
 describe("TEST F — 도착은 실시간 위치 안내를 종료한다", () => {

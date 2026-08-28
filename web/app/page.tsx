@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getCurrentPositionOnce, useCompass, useWatchPosition } from "../lib/useGeolocation";
+import { getCurrentPositionOnce, isDeviationFixReliable, useCompass, useWatchPosition } from "../lib/useGeolocation";
 import type { Fix } from "../lib/useGeolocation";
 import { useNavigation } from "../lib/useNavigation";
 import type { Coordinate, PlaceHit, RouteResponse } from "../lib/types";
@@ -161,6 +161,7 @@ export default function Home() {
       !currentFix ||
       rerouting ||
       nav.result?.suggestedNextAction !== "reroute_candidate" ||
+      !isDeviationFixReliable(currentFix.accuracyMeters) ||
       rerouteAttemptedRoute.current === routeFingerprint(routeResponse) ||
       lastRerouteFixTimestamp.current === currentFix.timestampMs ||
       (nav.sampleCount < REROUTE_WARMUP_SAMPLES && nav.elapsedSinceStartMs < REROUTE_WARMUP_MS) ||
@@ -232,7 +233,10 @@ export default function Home() {
 
   const startWalking = useCallback(
     async (target: Recent) => {
-      navigationSession.current += 1;
+      const session = navigationSession.current + 1;
+      navigationSession.current = session;
+      setDest(target);
+      setQuery(target.name);
       setError(null);
       setRerouting(false);
       rerouteAttemptedRoute.current = null;
@@ -243,11 +247,13 @@ export default function Home() {
       try {
         origin = await getCurrentPositionOnce();
       } catch (err) {
+        if (navigationSession.current !== session) return;
         setError(err instanceof Error ? err.message : "현재 위치를 찾지 못했습니다.");
         setPhase("destination_selected");
         return;
       }
 
+      if (navigationSession.current !== session) return;
       setPhase("routing");
       try {
         const resp = await fetch("/api/route", {
@@ -256,6 +262,7 @@ export default function Home() {
           body: JSON.stringify({ origin, dest: target.coordinate }),
         });
         const body: unknown = await resp.json();
+        if (navigationSession.current !== session) return;
         if (!resp.ok) {
           setError((body as { error?: string }).error ?? "경로를 찾지 못했습니다.");
           setPhase("destination_selected");
@@ -267,6 +274,7 @@ export default function Home() {
         requestCompass();   // iOS 나침반 권한은 이 클릭(사용자 제스처) 안에서만 요청된다
         setPhase("navigating");   // 이 시점부터만 watchPosition 이 시작된다
       } catch {
+        if (navigationSession.current !== session) return;
         setError("경로를 찾지 못했습니다. 연결 상태를 확인해 주세요.");
         setPhase("destination_selected");
       }
@@ -389,7 +397,13 @@ export default function Home() {
           <p className="hint">최근</p>
           <div className="chips">
             {shown.map((r) => (
-              <button key={r.name} type="button" className="chip" onClick={() => void startWalking(r)}>
+              <button
+                key={r.name}
+                type="button"
+                className="chip"
+                disabled={busy}
+                onClick={() => void startWalking(r)}
+              >
                 {r.name}
               </button>
             ))}
