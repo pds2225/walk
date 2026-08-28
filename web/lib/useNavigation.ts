@@ -22,6 +22,8 @@ export interface NavigationSnapshot {
   readonly nextTurn: { id: string; direction: "left" | "right" | "straight"; distanceMeters: number } | null;
   readonly sampleCount: number;
   readonly elapsedSinceStartMs: number;
+  /** GPS course/trajectory heading used for route-following decisions. */
+  readonly movementHeadingDegrees: number | null;
   /** 화면 맨 위에 띄울 한 줄 안내. */
   readonly banner: string;
 }
@@ -57,6 +59,7 @@ export function useNavigation(
   const [sampleCount, setSampleCount] = useState(0);
   const [elapsedSinceStartMs, setElapsedSinceStartMs] = useState(0);
   const [lastFixReliable, setLastFixReliable] = useState(true);
+  const [movementHeadingDegrees, setMovementHeadingDegrees] = useState<number | null>(null);
 
   const engine = useMemo(
     () => (routeResponse ? createRouteDeviationEngine(routeResponse.route) : null),
@@ -82,6 +85,7 @@ export function useNavigation(
     setSampleCount(0);
     setElapsedSinceStartMs(0);
     setLastFixReliable(true);
+    setMovementHeadingDegrees(null);
     lastFixTs.current = null;
     firstFixTs.current = null;
     acceptedSampleCount.current = 0;
@@ -115,6 +119,7 @@ export function useNavigation(
         heading = ((Math.atan2(dLon, fix.latitude - previous.latitude) * 180) / Math.PI + 360) % 360;
       }
     }
+    setMovementHeadingDegrees(heading);
 
     const sample: PositionSample = {
       latitude: fix.latitude,
@@ -199,5 +204,15 @@ export function useNavigation(
     : rawState;
   const banner = arrived ? "목적지에 도착했습니다" : STATE_TEXT[state];
 
-  return { result, state, arrived, remainingMeters, nextTurn, banner, sampleCount, elapsedSinceStartMs };
+  return {
+    result,
+    state,
+    arrived,
+    remainingMeters,
+    nextTurn,
+    banner,
+    sampleCount,
+    elapsedSinceStartMs,
+    movementHeadingDegrees,
+  };
 }

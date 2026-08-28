@@ -314,6 +314,11 @@ export default function Home() {
   // ── 안내 중 화면 ──────────────────────────────────────────────────────────
   if ((phase === "navigating" || phase === "arrived") && routeResponse) {
     const offRoute = nav.state === "deviated" || nav.state === "passed_turn";
+    const directionReadout = compass !== null
+      ? `내가 보는 방향 ${Math.round(compass)}°`
+      : nav.movementHeadingDegrees !== null
+        ? `이동 방향 ${Math.round(nav.movementHeadingDegrees)}°`
+        : "방향 신호 대기 중";
     return (
       <main className="nav-screen">
         <div className={`banner ${offRoute ? "banner-off" : nav.state === "drifting" ? "banner-warn" : ""}`}>
@@ -324,12 +329,14 @@ export default function Home() {
               ? ` · ${metersText(nav.nextTurn.distanceMeters)} 앞 ${nav.nextTurn.direction === "left" ? "좌회전" : "우회전"}`
               : ""}
           </span>
+          <span className="direction-readout" aria-label="방향 상태">{directionReadout}</span>
         </div>
 
         <MapView
           route={routeResponse.route}
           here={currentFix}
-          headingDegrees={compass ?? currentFix?.headingDegrees ?? null}
+          viewHeadingDegrees={compass}
+          movementHeadingDegrees={nav.movementHeadingDegrees ?? currentFix?.headingDegrees ?? null}
           headingUp={headingUp}
           offRoute={offRoute}
         />

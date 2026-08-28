@@ -18,8 +18,17 @@ import Home from "./page";
 
 vi.mock("next/dynamic", () => ({
   default: () => {
-    function MockMapView() {
-      return null;
+    function MockMapView(props: {
+      viewHeadingDegrees?: number | null;
+      movementHeadingDegrees?: number | null;
+    }) {
+      return (
+        <div
+          data-testid="map-view"
+          data-view-heading={props.viewHeadingDegrees ?? "null"}
+          data-movement-heading={props.movementHeadingDegrees ?? "null"}
+        />
+      );
     }
     return MockMapView;
   },
@@ -249,6 +258,32 @@ describe("TEST C — navigating 중 GPS 틱은 엔진에 반영되고 검색 상
 
     expect(placesCallCount()).toBe(placesBefore);
     await waitFor(() => expect(screen.getByText(/남은 거리/)).toBeTruthy());
+    await waitFor(() => expect(screen.getByTestId("map-view").getAttribute("data-movement-heading")).not.toBe("null"));
+  });
+});
+
+describe("TEST G — 사용자 시야방향과 GPS 이동방향은 별도 데이터다", () => {
+  it("지도 회전은 나침반을 사용하고 경로 표시는 GPS 이동방향을 유지한다", async () => {
+    mockGetCurrentPosition.mockImplementation((success: SuccessCb) => success(position(ORIGIN, 1000)));
+    const watch: { success: SuccessCb | null } = { success: null };
+    mockWatchPosition.mockImplementation((success: SuccessCb) => {
+      watch.success = success;
+      return 42;
+    });
+
+    await pickDestination();
+    fireEvent.click(screen.getByRole("button", { name: "걷기" }));
+    await waitFor(() => expect(mockWatchPosition).toHaveBeenCalledTimes(1));
+
+    const orientation = new Event("deviceorientationabsolute");
+    Object.defineProperty(orientation, "alpha", { value: 90 });
+    window.dispatchEvent(orientation);
+    watch.success?.(position(moveCoordinateByMeters(ORIGIN, 2, 0), 2_000));
+
+    await waitFor(() => expect(screen.getByText("내가 보는 방향 270°")).toBeTruthy());
+    expect(screen.getByTestId("map-view").getAttribute("data-view-heading")).toBe("270");
+    expect(screen.getByTestId("map-view").getAttribute("data-movement-heading")).not.toBe("null");
+    expect(screen.getByTestId("map-view").getAttribute("data-movement-heading")).not.toBe("270");
   });
 });
 
