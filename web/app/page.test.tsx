@@ -45,6 +45,10 @@ const REROUTED_ROUTE: RouteModel = {
   polyline: [REROUTE_START, moveCoordinateByMeters(REROUTE_START, 150, 0), DEST_COORD],
   turnPoints: [],
 };
+const ROADVIEW_ROUTE: RouteModel = {
+  polyline: [ORIGIN, moveCoordinateByMeters(ORIGIN, 40, 0)],
+  turnPoints: [],
+};
 
 const mockGetCurrentPosition = vi.fn();
 const mockWatchPosition = vi.fn();
@@ -462,5 +466,23 @@ describe("TEST F — 도착은 실시간 위치 안내를 종료한다", () => {
     await waitFor(() => expect(screen.getByText("목적지에 도착했습니다")).toBeTruthy());
     await waitFor(() => expect(mockClearWatch).toHaveBeenCalledWith(42));
     expect(screen.getByRole("button", { name: "안내 중지" })).toBeTruthy();
+  });
+});
+
+describe("TEST I — 목적지 근처 Roadview 실패는 지도 안내를 중단하지 않는다", () => {
+  it("50m 이내에서 Roadview를 열 수 없어도 fallback과 안내 중지 동작이 남는다", async () => {
+    routeResponses = [ROADVIEW_ROUTE];
+    mockGetCurrentPosition.mockImplementation((success: SuccessCb) => success(position(ORIGIN, 1000)));
+    mockWatchPosition.mockImplementation(() => 42);
+
+    await pickDestination();
+    fireEvent.click(screen.getByRole("button", { name: "걷기" }));
+    await waitFor(() => expect(mockWatchPosition).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole("button", { name: "목적지 주변 Roadview 보기" }));
+
+    await waitFor(() => expect(screen.getByText(/Roadview를 사용할 수 없습니다/)).toBeTruthy());
+    expect(screen.getByRole("button", { name: "안내 중지" })).toBeTruthy();
+    fireEvent.click(screen.getAllByRole("button", { name: "지도 안내로 돌아가기" })[0]!);
+    expect(screen.getByRole("button", { name: "목적지 주변 Roadview 보기" })).toBeTruthy();
   });
 });

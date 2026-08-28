@@ -167,6 +167,85 @@ html, body {
 .map { width: 100%; height: 100%; }
 .map-off { outline: 3px solid var(--danger); outline-offset: -3px; }
 
+.roadview-entry {
+  flex: 0 0 auto;
+  padding: 8px 10px;
+  background: #fff;
+  border-top: 1px solid var(--line);
+}
+.roadview-entry > button {
+  width: 100%;
+  min-height: 52px;
+  border: 1.5px solid var(--blue);
+  border-radius: 14px;
+  background: #eef3ff;
+  color: var(--blue);
+  font-size: 16px;
+  font-weight: 800;
+}
+.roadview-panel { width: 100%; }
+.roadview-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.roadview-heading h2 { margin: 0; font-size: 18px; }
+.roadview-heading button,
+.roadview-message button {
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1.5px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 700;
+}
+.roadview-frame {
+  position: relative;
+  height: min(48dvh, 360px);
+  min-height: 220px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #eef1f5;
+}
+.roadview-container { width: 100%; height: 100%; }
+.roadview-message {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  gap: 10px;
+  padding: 20px;
+  margin: 0;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--muted);
+  font-size: 15px;
+  font-weight: 600;
+}
+.roadview-message p { margin: 0; }
+.roadview-destination {
+  position: absolute;
+  left: 50%;
+  top: 16px;
+  transform: translateX(-50%);
+  max-width: calc(100% - 24px);
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--danger);
+  font-size: 14px;
+  font-weight: 800;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.18);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .recenter {
   position: absolute;
   right: 12px;

@@ -39,6 +39,13 @@ interface UiText {
   readonly rerouteFailed: string;
   readonly state: (state: DeviationState) => string;
   readonly turn: (direction: TurnDirection) => string;
+  readonly roadviewButton: string;
+  readonly roadviewTitle: string;
+  readonly roadviewLoading: string;
+  readonly roadviewNoPano: string;
+  readonly roadviewUnavailable: string;
+  readonly roadviewClose: string;
+  readonly roadviewDestination: (name: string) => string;
 }
 
 const UI: Record<Locale, UiText> = {
@@ -77,6 +84,13 @@ const UI: Record<Locale, UiText> = {
       passed_turn: "회전 지점을 지나쳤어요",
     })[state],
     turn: (direction) => ({ left: "좌회전", right: "우회전", straight: "직진" })[direction],
+    roadviewButton: "목적지 주변 Roadview 보기",
+    roadviewTitle: "목적지 주변 Roadview",
+    roadviewLoading: "Roadview를 불러오는 중…",
+    roadviewNoPano: "목적지 주변에 Roadview가 없습니다. 지도 안내를 계속합니다.",
+    roadviewUnavailable: "Roadview를 사용할 수 없습니다. 지도 안내를 계속합니다.",
+    roadviewClose: "지도 안내로 돌아가기",
+    roadviewDestination: (name) => `목적지: ${name}`,
   },
   en: {
     language: "Language",
@@ -113,6 +127,13 @@ const UI: Record<Locale, UiText> = {
       passed_turn: "You passed the turn",
     })[state],
     turn: (direction) => ({ left: "Turn left", right: "Turn right", straight: "Go straight" })[direction],
+    roadviewButton: "View Roadview near destination",
+    roadviewTitle: "Roadview near destination",
+    roadviewLoading: "Loading Roadview…",
+    roadviewNoPano: "No Roadview is available nearby. Navigation will continue on the map.",
+    roadviewUnavailable: "Roadview is unavailable. Navigation will continue on the map.",
+    roadviewClose: "Return to map navigation",
+    roadviewDestination: (name) => `Destination: ${name}`,
   },
   ja: {
     language: "言語",
@@ -149,6 +170,13 @@ const UI: Record<Locale, UiText> = {
       passed_turn: "曲がり角を通り過ぎました",
     })[state],
     turn: (direction) => ({ left: "左折", right: "右折", straight: "直進" })[direction],
+    roadviewButton: "目的地周辺のRoadviewを見る",
+    roadviewTitle: "目的地周辺のRoadview",
+    roadviewLoading: "Roadviewを読み込み中…",
+    roadviewNoPano: "目的地周辺にRoadviewがありません。地図案内を続けます。",
+    roadviewUnavailable: "Roadviewを利用できません。地図案内を続けます。",
+    roadviewClose: "地図案内に戻る",
+    roadviewDestination: (name) => `目的地：${name}`,
   },
   zh: {
     language: "语言",
@@ -185,6 +213,13 @@ const UI: Record<Locale, UiText> = {
       passed_turn: "错过了转弯点",
     })[state],
     turn: (direction) => ({ left: "左转", right: "右转", straight: "直行" })[direction],
+    roadviewButton: "查看目的地附近的Roadview",
+    roadviewTitle: "目的地附近的Roadview",
+    roadviewLoading: "正在加载Roadview…",
+    roadviewNoPano: "目的地附近没有Roadview，将继续使用地图导航。",
+    roadviewUnavailable: "Roadview不可用，将继续使用地图导航。",
+    roadviewClose: "返回地图导航",
+    roadviewDestination: (name) => `目的地：${name}`,
   },
 };
 
