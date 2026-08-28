@@ -10,6 +10,19 @@ export interface Fix extends Coordinate {
   readonly timestampMs: number;
 }
 
+// Streamlit 판과 동일한 위치 품질 경계. 50m 초과 fix는 현재 위치·엔진
+// 입력으로 쓰지 않고, 35m 초과 fix는 도착을 확정하지 않는다.
+export const USABLE_ACCURACY_M = 50;
+export const ARRIVAL_ACCURACY_M = 35;
+
+export function isFixUsable(accuracyMeters: number | null): boolean {
+  return accuracyMeters === null || accuracyMeters <= USABLE_ACCURACY_M;
+}
+
+export function isArrivalAccuracyReliable(accuracyMeters: number | null): boolean {
+  return accuracyMeters === null || accuracyMeters <= ARRIVAL_ACCURACY_M;
+}
+
 function toFix(pos: GeolocationPosition): Fix {
   return {
     latitude: pos.coords.latitude,
@@ -40,7 +53,14 @@ export function getCurrentPositionOnce(): Promise<Fix> {
       return;
     }
     navigator.geolocation.getCurrentPosition(
-      (pos) => resolve(toFix(pos)),
+      (pos) => {
+        const fix = toFix(pos);
+        if (!isFixUsable(fix.accuracyMeters)) {
+          reject(new Error("현재 위치의 정확도가 낮습니다. 잠시 후 다시 시도해 주세요."));
+          return;
+        }
+        resolve(fix);
+      },
       (err) => reject(new Error(geoErrorMessage(err))),
       { enableHighAccuracy: true, maximumAge: 0, timeout: 15_000 },
     );
@@ -92,8 +112,13 @@ export function useWatchPosition(enabled: boolean): WatchPositionState {
     const id = navigator.geolocation.watchPosition(
       (pos) => {
         clearErrorTimer();
+        const nextFix = toFix(pos);
+        if (!isFixUsable(nextFix.accuracyMeters)) {
+          setError("위치 신호가 약해 현재 위치를 잠시 유지합니다.");
+          return;
+        }
         setError(null);
-        setFix(toFix(pos));
+        setFix(nextFix);
       },
       (err) => {
         clearErrorTimer();

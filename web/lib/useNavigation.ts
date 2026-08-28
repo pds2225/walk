@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createRouteDeviationEngine, distanceMeters, getNextTurnPoint, prepareRouteModel } from "@walk/route-engine";
 import type { DeviationState, EngineResult, PositionSample } from "@walk/route-engine";
+import { isArrivalAccuracyReliable } from "./useGeolocation";
 import type { Fix } from "./useGeolocation";
 import type { RouteResponse } from "./types";
 
@@ -21,6 +22,8 @@ export interface NavigationSnapshot {
   readonly arrived: boolean;
   readonly remainingMeters: number | null;
   readonly nextTurn: { id: string; direction: "left" | "right" | "straight"; distanceMeters: number } | null;
+  readonly sampleCount: number;
+  readonly elapsedSinceStartMs: number;
   /** 화면 맨 위에 띄울 한 줄 안내. */
   readonly banner: string;
 }
@@ -53,6 +56,8 @@ export function useNavigation(
 ): NavigationSnapshot {
   const [result, setResult] = useState<EngineResult | null>(null);
   const [arrived, setArrived] = useState(false);
+  const [sampleCount, setSampleCount] = useState(0);
+  const [elapsedSinceStartMs, setElapsedSinceStartMs] = useState(0);
 
   const engine = useMemo(
     () => (routeResponse ? createRouteDeviationEngine(routeResponse.route) : null),
@@ -64,6 +69,8 @@ export function useNavigation(
   );
 
   const lastFixTs = useRef<number | null>(null);
+  const firstFixTs = useRef<number | null>(null);
+  const acceptedSampleCount = useRef(0);
   const prevSample = useRef<PositionSample | null>(null);
   const spokenState = useRef<DeviationState>("on_route");
   const lastDriftSpokenMs = useRef<number>(0);
@@ -73,7 +80,11 @@ export function useNavigation(
   useEffect(() => {
     setResult(null);
     setArrived(false);
+    setSampleCount(0);
+    setElapsedSinceStartMs(0);
     lastFixTs.current = null;
+    firstFixTs.current = null;
+    acceptedSampleCount.current = 0;
     prevSample.current = null;
     spokenState.current = "on_route";
     lastDriftSpokenMs.current = 0;
@@ -82,8 +93,13 @@ export function useNavigation(
 
   useEffect(() => {
     if (!engine || !prepared || !routeResponse || !fix || arrived) return;
-    if (lastFixTs.current === fix.timestampMs) return;   // 같은 fix 로 두 번 돌리지 않는다
+    if (lastFixTs.current !== null && fix.timestampMs <= lastFixTs.current) return;   // stale/same fix 무시
     lastFixTs.current = fix.timestampMs;
+
+    if (firstFixTs.current === null) firstFixTs.current = fix.timestampMs;
+    acceptedSampleCount.current += 1;
+    setSampleCount(acceptedSampleCount.current);
+    setElapsedSinceStartMs(Math.max(0, fix.timestampMs - (firstFixTs.current ?? fix.timestampMs)));
 
     const previous = prevSample.current;
     // heading·speed 는 기기가 안 줄 때가 많다(정지 중·실내). 직전 표본에서 직접 계산해 채운다.
@@ -112,7 +128,11 @@ export function useNavigation(
     setResult(next);
 
     const dest = routeResponse.route.polyline[routeResponse.route.polyline.length - 1];
-    if (dest && distanceMeters(fix, dest) <= ARRIVAL_RADIUS_M) {
+    if (
+      dest &&
+      distanceMeters(fix, dest) <= ARRIVAL_RADIUS_M &&
+      isArrivalAccuracyReliable(fix.accuracyMeters)
+    ) {
       setArrived(true);
       speak("목적지에 도착했습니다.", options.voiceEnabled);
       return;
@@ -175,5 +195,5 @@ export function useNavigation(
   const state = result?.state ?? "on_route";
   const banner = arrived ? "목적지에 도착했습니다" : STATE_TEXT[state];
 
-  return { result, state, arrived, remainingMeters, nextTurn, banner };
+  return { result, state, arrived, remainingMeters, nextTurn, banner, sampleCount, elapsedSinceStartMs };
 }

@@ -52,12 +52,12 @@ function installGeolocationMock() {
   });
 }
 
-function position(coord: Coordinate, timestampMs: number): GeolocationPosition {
+function position(coord: Coordinate, timestampMs: number, accuracy = 5): GeolocationPosition {
   return {
     coords: {
       latitude: coord.latitude,
       longitude: coord.longitude,
-      accuracy: 5,
+      accuracy,
       heading: null,
       speed: null,
       altitude: null,
@@ -70,6 +70,8 @@ function position(coord: Coordinate, timestampMs: number): GeolocationPosition {
 let fetchMock: ReturnType<typeof vi.fn>;
 let routeResponses: RouteModel[];
 let routeResponseIndex: number;
+let rerouteGate: Promise<void> | null;
+let releaseReroute: (() => void) | null;
 
 function placesCallCount() {
   return fetchMock.mock.calls.filter((c) => String(c[0]).startsWith("/api/places")).length;
@@ -89,7 +91,9 @@ function installFetchMock() {
       );
     }
     if (url.startsWith("/api/route")) {
-      const route = routeResponses[Math.min(routeResponseIndex++, routeResponses.length - 1)] ?? ROUTE;
+      const responseIndex = routeResponseIndex++;
+      const route = routeResponses[Math.min(responseIndex, routeResponses.length - 1)] ?? ROUTE;
+      if (responseIndex === 1 && rerouteGate) await rerouteGate;
       return new Response(
         JSON.stringify({
           route,
@@ -116,6 +120,8 @@ beforeEach(() => {
   mockClearWatch.mockReset();
   routeResponses = [ROUTE];
   routeResponseIndex = 0;
+  rerouteGate = null;
+  releaseReroute = null;
   installGeolocationMock();
   installFetchMock();
 });
@@ -203,6 +209,20 @@ describe("TEST B — '걷기' 클릭에서만 원샷 위치 조회, 성공해야
     expect(mockWatchPosition).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "걷기" })).toBeTruthy();
   });
+
+  it("원샷 위치 정확도가 50m를 넘으면 route API 를 부르지 않는다", async () => {
+    mockGetCurrentPosition.mockImplementation((success: SuccessCb) => {
+      success(position(ORIGIN, 1000, 50.1));
+    });
+
+    await pickDestination();
+    fireEvent.click(screen.getByRole("button", { name: "걷기" }));
+
+    await waitFor(() => expect(screen.queryByText(/정확도가 낮습니다/)).not.toBeNull());
+    expect(routeCallCount()).toBe(0);
+    expect(mockWatchPosition).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "걷기" })).toBeTruthy();
+  });
 });
 
 describe("TEST C — navigating 중 GPS 틱은 엔진에 반영되고 검색 상태는 건드리지 않는다", () => {
@@ -271,11 +291,11 @@ describe("TEST E — 확정 이탈은 active route 를 실제로 재탐색한다
     fireEvent.click(screen.getByRole("button", { name: "걷기" }));
     await waitFor(() => expect(mockWatchPosition).toHaveBeenCalledTimes(1));
 
-    // 경로에서 90m 벗어난 상태를 3회/4초 유지한다. 단일 spike 로는
-    // 재탐색하지 않고, 공유 엔진의 기존 deviation 판정을 그대로 따른다.
-    for (let i = 1; i <= 3; i++) {
+    // 경로에서 90m 벗어난 상태를 여러 번 유지한다. 시작 직후 5개 샘플
+    // 또는 30초가 지나기 전에는 재탐색하지 않는다.
+    for (let i = 1; i <= 5; i++) {
       const point = moveCoordinateByMeters(REROUTE_START, i * 2, 0);
-      watch.success?.(position(point, 1000 + i * 2_000));
+      watch.success?.(position(point, 1000 + i * 8_000));
       // eslint-disable-next-line no-await-in-loop
       await waitFor(() => {});
     }
@@ -285,9 +305,67 @@ describe("TEST E — 확정 이탈은 active route 를 실제로 재탐색한다
     expect(screen.queryByText(/재탐색에 실패했습니다/)).toBeNull();
 
     // 같은 active route에서 후속 GPS 틱이 와도 자동 재탐색을 반복하지 않는다.
-    watch.success?.(position(moveCoordinateByMeters(REROUTE_START, 10, 0), 9_000));
+    watch.success?.(position(moveCoordinateByMeters(REROUTE_START, 10, 0), 50_000));
     await waitFor(() => {});
     expect(routeCallCount()).toBe(2);
+  });
+
+  it("중지 후 늦게 도착한 reroute 응답은 새 안내 세션을 덮어쓰지 않는다", async () => {
+    routeResponses = [ROUTE, REROUTED_ROUTE];
+    rerouteGate = new Promise<void>((resolve) => {
+      releaseReroute = resolve;
+    });
+    mockGetCurrentPosition.mockImplementation((success: SuccessCb) => success(position(ORIGIN, 1000)));
+    const watch: { success: SuccessCb | null } = { success: null };
+    mockWatchPosition.mockImplementation((success: SuccessCb) => {
+      watch.success = success;
+      return 42;
+    });
+
+    await pickDestination();
+    fireEvent.click(screen.getByRole("button", { name: "걷기" }));
+    await waitFor(() => expect(mockWatchPosition).toHaveBeenCalledTimes(1));
+
+    for (let i = 1; i <= 5; i++) {
+      watch.success?.(position(moveCoordinateByMeters(REROUTE_START, i * 2, 0), 1000 + i * 8_000));
+      // eslint-disable-next-line no-await-in-loop
+      await waitFor(() => {});
+    }
+    await waitFor(() => expect(routeCallCount()).toBe(2));
+
+    fireEvent.click(screen.getByRole("button", { name: "안내 중지" }));
+    releaseReroute?.();
+    await waitFor(() => expect(screen.getByText("어디로 갈까요?")).toBeTruthy());
+    expect(screen.queryByRole("button", { name: "안내 중지" })).toBeNull();
+  });
+
+  it("도착 직후 늦게 도착한 reroute 응답은 도착 상태를 되돌리지 않는다", async () => {
+    routeResponses = [ROUTE, REROUTED_ROUTE];
+    rerouteGate = new Promise<void>((resolve) => {
+      releaseReroute = resolve;
+    });
+    mockGetCurrentPosition.mockImplementation((success: SuccessCb) => success(position(ORIGIN, 1000)));
+    const watch: { success: SuccessCb | null } = { success: null };
+    mockWatchPosition.mockImplementation((success: SuccessCb) => {
+      watch.success = success;
+      return 42;
+    });
+
+    await pickDestination();
+    fireEvent.click(screen.getByRole("button", { name: "걷기" }));
+    await waitFor(() => expect(mockWatchPosition).toHaveBeenCalledTimes(1));
+
+    for (let i = 1; i <= 5; i++) {
+      watch.success?.(position(moveCoordinateByMeters(REROUTE_START, i * 2, 0), 1000 + i * 8_000));
+      // eslint-disable-next-line no-await-in-loop
+      await waitFor(() => {});
+    }
+    await waitFor(() => expect(routeCallCount()).toBe(2));
+
+    watch.success?.(position(DEST_COORD, 50_000));
+    await waitFor(() => expect(screen.getByText("목적지에 도착했습니다")).toBeTruthy());
+    releaseReroute?.();
+    await waitFor(() => expect(screen.getByText("목적지에 도착했습니다")).toBeTruthy());
   });
 });
 
@@ -304,7 +382,12 @@ describe("TEST F — 도착은 실시간 위치 안내를 종료한다", () => {
     fireEvent.click(screen.getByRole("button", { name: "걷기" }));
     await waitFor(() => expect(mockWatchPosition).toHaveBeenCalledTimes(1));
 
-    watch.success?.(position(DEST_COORD, 2_000));
+    // 정확도가 낮은 목적지 fix 는 도착을 확정하지 않는다.
+    watch.success?.(position(DEST_COORD, 2_000, 40));
+    await waitFor(() => expect(screen.queryByText("목적지에 도착했습니다")).toBeNull());
+    expect(mockClearWatch).not.toHaveBeenCalled();
+
+    watch.success?.(position(DEST_COORD, 3_000, 5));
 
     await waitFor(() => expect(screen.getByText("목적지에 도착했습니다")).toBeTruthy());
     await waitFor(() => expect(mockClearWatch).toHaveBeenCalledWith(42));
