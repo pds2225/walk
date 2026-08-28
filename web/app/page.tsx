@@ -14,11 +14,16 @@ const RECENT_KEY = "walk.recent.v1";
 const RECENT_ROW = 3;      // 첫 화면에 가로로 놓을 최근 목적지 개수
 const RECENT_MAX = 9;      // '＋'로 펼쳤을 때 최대 개수
 const SEARCH_DEBOUNCE_MS = 250;
+// Streamlit navigation과 동일한 재탐색 보호값. 시작 직후 위치 안정화 기간에는
+// route provider를 부르지 않고, 이후에도 짧은 시간 내 요청을 중복하지 않는다.
+const REROUTE_WARMUP_SAMPLES = 5;
+const REROUTE_WARMUP_MS = 30_000;
+const REROUTE_COOLDOWN_MS = 3_000;
 
 /**
  * 목적지 검색/선택과 실시간 GPS 내비게이션은 서로 다른 화면이자 서로 다른 lifecycle
- * 이다. idle/destination_selected/acquiring_location/routing 동안에는 어떤
- * geolocation API 도 호출되지 않는다 — navigating(그리고 도착 후 arrived)에서만
+ * 이다. idle/destination_selected/acquiring_location/routing/arrived 동안에는 어떤
+ * geolocation API 도 호출되지 않는다 — navigating에서만
  * watchPosition 이 켜진다. 목적지를 고르는 것만으로 GPS 구독이 시작되던 것이
  * 화면이 계속 깜빡이던 근본 원인이었다.
  */
@@ -43,6 +48,12 @@ function loadRecents(): Recent[] {
 function metersText(m: number | null | undefined): string {
   if (m === null || m === undefined) return "";
   return m >= 1000 ? `${(m / 1000).toFixed(1)}km` : `${Math.round(m)}m`;
+}
+
+function routeFingerprint(response: RouteResponse): string {
+  return response.route.polyline
+    .map((point) => `${point.latitude.toFixed(7)},${point.longitude.toFixed(7)}`)
+    .join("|");
 }
 
 export default function Home() {
@@ -79,23 +90,37 @@ export default function Home() {
   const navRoute = phase === "navigating" || phase === "arrived" ? routeResponse : null;
   const nav = useNavigation(navRoute, currentFix, { voiceEnabled });
 
+  // 비동기 route 응답이 안내 중지/새 세션 뒤에 도착해 현재 상태를 덮어쓰지
+  // 않도록 세션과 최신 lifecycle 상태를 동기적으로 보관한다.
+  const navigationSession = useRef(0);
+  const phaseRef = useRef<Phase>(phase);
+  const arrivedRef = useRef(nav.arrived);
+  phaseRef.current = phase;
+  arrivedRef.current = nav.arrived;
+
   // 엔진이 도착으로 판정하면 phase 도 따라간다 — GPS 동작(watchPosition 유지)은
-  // navigating 과 동일하다. '안내 중지'를 눌러야 완전히 끝난다.
+  // arrived 전환과 함께 watcher도 해제된다.
   useEffect(() => {
-    if (phase === "navigating" && nav.arrived) setPhase("arrived");
+    if (phase === "navigating" && nav.arrived) {
+      navigationSession.current += 1;
+      setRerouting(false);
+      setPhase("arrived");
+    }
   }, [phase, nav.arrived]);
 
   /**
    * 확정 이탈/놓친 회전마다 route API를 매 GPS 틱 재호출하지 않는다. 하나의
    * active route에서 첫 `reroute_candidate`만 자동 재탐색하고, 실패해도 기존
-   * 경로와 안내는 유지한다. 새 경로가 설치되면 route identity가 바뀌어 다음
-   * 이탈 episode에서 다시 시도할 수 있다.
+   * 경로와 안내는 유지한다. 새 경로가 설치되면 route fingerprint가 바뀌어
+   * 다음 이탈 episode에서 다시 시도할 수 있다.
   */
-  const rerouteAttemptedRoute = useRef<RouteResponse | null>(null);
+  const rerouteAttemptedRoute = useRef<string | null>(null);
   const lastRerouteFixTimestamp = useRef<number | null>(null);
+  const lastRerouteAtMs = useRef<number | null>(null);
   const requestReroute = useCallback(
     async (current: Fix) => {
       if (!dest || !routeResponse || rerouting) return;
+      const session = navigationSession.current;
       setRerouting(true);
       try {
         const resp = await fetch("/api/route", {
@@ -104,6 +129,13 @@ export default function Home() {
           body: JSON.stringify({ origin: current, dest: dest.coordinate }),
         });
         const body: unknown = await resp.json();
+        if (
+          navigationSession.current !== session ||
+          phaseRef.current !== "navigating" ||
+          arrivedRef.current
+        ) {
+          return;
+        }
         if (!resp.ok) {
           setError((body as { error?: string }).error ?? "재탐색에 실패했습니다. 현재 경로로 계속 안내합니다.");
           return;
@@ -112,9 +144,11 @@ export default function Home() {
         setOriginFix(current);
         setError(null);
       } catch {
-        setError("재탐색에 실패했습니다. 현재 경로로 계속 안내합니다.");
+        if (navigationSession.current === session && phaseRef.current === "navigating") {
+          setError("재탐색에 실패했습니다. 현재 경로로 계속 안내합니다.");
+        }
       } finally {
-        setRerouting(false);
+        if (navigationSession.current === session) setRerouting(false);
       }
     },
     [dest, rerouting, routeResponse],
@@ -127,15 +161,18 @@ export default function Home() {
       !currentFix ||
       rerouting ||
       nav.result?.suggestedNextAction !== "reroute_candidate" ||
-      rerouteAttemptedRoute.current === routeResponse ||
-      lastRerouteFixTimestamp.current === currentFix.timestampMs
+      rerouteAttemptedRoute.current === routeFingerprint(routeResponse) ||
+      lastRerouteFixTimestamp.current === currentFix.timestampMs ||
+      (nav.sampleCount < REROUTE_WARMUP_SAMPLES && nav.elapsedSinceStartMs < REROUTE_WARMUP_MS) ||
+      (lastRerouteAtMs.current !== null && Date.now() - lastRerouteAtMs.current < REROUTE_COOLDOWN_MS)
     ) {
       return;
     }
-    rerouteAttemptedRoute.current = routeResponse;
+    rerouteAttemptedRoute.current = routeFingerprint(routeResponse);
     lastRerouteFixTimestamp.current = currentFix.timestampMs;
+    lastRerouteAtMs.current = Date.now();
     void requestReroute(currentFix);
-  }, [currentFix, nav.result, phase, requestReroute, rerouting, routeResponse]);
+  }, [currentFix, nav.elapsedSinceStartMs, nav.result, nav.sampleCount, phase, requestReroute, rerouting, routeResponse]);
 
   // ── 목적지 검색 (입력이 멈춘 뒤 1회) ──────────────────────────────────────
   // fix 는 navigating/arrived 가 아닌 동안은 절대 바뀌지 않는다(watchPosition 이
@@ -195,7 +232,12 @@ export default function Home() {
 
   const startWalking = useCallback(
     async (target: Recent) => {
+      navigationSession.current += 1;
       setError(null);
+      setRerouting(false);
+      rerouteAttemptedRoute.current = null;
+      lastRerouteFixTimestamp.current = null;
+      lastRerouteAtMs.current = null;
       setPhase("acquiring_location");
       let origin: Fix;
       try {
@@ -241,6 +283,7 @@ export default function Home() {
   }, []);
 
   const reset = useCallback(() => {
+    navigationSession.current += 1;
     setPhase("idle");
     setRouteResponse(null);
     setOriginFix(null);
@@ -251,6 +294,7 @@ export default function Home() {
     setRerouting(false);
     rerouteAttemptedRoute.current = null;
     lastRerouteFixTimestamp.current = null;
+    lastRerouteAtMs.current = null;
   }, []);
 
   const onQueryChange = useCallback((value: string) => {
