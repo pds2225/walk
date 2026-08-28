@@ -1881,7 +1881,7 @@ LEASE =
 
 `BASE_COMMIT = b6427f0ed41fe889ceadb947ebbb5adf056a70e4`
 
-`END_COMMIT = PENDING`
+`END_COMMIT = b313d68f6ca979374ef3067ceca56dc20dc502ef`
 
 `FILES_CHANGED = none`
 
@@ -1899,4 +1899,4 @@ LEASE =
 
 `NEW_TASKS = none`
 
-`PR = PENDING`
+`PR = #117`
