@@ -6,6 +6,8 @@ import { getCurrentPositionOnce, isDeviationFixReliable, useCompass, useWatchPos
 import type { Fix } from "../lib/useGeolocation";
 import { useNavigation } from "../lib/useNavigation";
 import type { Coordinate, PlaceHit, RouteResponse } from "../lib/types";
+import { getUiText, LOCALE_OPTIONS, type Locale } from "../lib/i18n";
+import { primeSpeech } from "../lib/voice";
 
 // maplibre 는 window 를 직접 만져 서버 렌더가 불가능하다 — 클라이언트에서만 불러온다.
 const MapView = dynamic(() => import("../components/MapView"), { ssr: false });
@@ -19,6 +21,7 @@ const SEARCH_DEBOUNCE_MS = 250;
 const REROUTE_WARMUP_SAMPLES = 5;
 const REROUTE_WARMUP_MS = 30_000;
 const REROUTE_COOLDOWN_MS = 3_000;
+const LOCALE_KEY = "walk.locale.v1";
 
 /**
  * 목적지 검색/선택과 실시간 GPS 내비게이션은 서로 다른 화면이자 서로 다른 lifecycle
@@ -43,6 +46,12 @@ function loadRecents(): Recent[] {
   } catch {
     return [];
   }
+}
+
+function loadLocale(): Locale {
+  if (typeof window === "undefined") return "ko";
+  const value = window.localStorage.getItem(LOCALE_KEY);
+  return LOCALE_OPTIONS.some((option) => option.value === value) ? (value as Locale) : "ko";
 }
 
 function metersText(m: number | null | undefined): string {
@@ -73,10 +82,25 @@ export default function Home() {
   const [rerouting, setRerouting] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [headingUp, setHeadingUp] = useState(true);
+  const [locale, setLocale] = useState<Locale>("ko");
   const [recents, setRecents] = useState<Recent[]>([]);
   const [recentsExpanded, setRecentsExpanded] = useState(false);
 
-  useEffect(() => setRecents(loadRecents()), []);
+  useEffect(() => {
+    setRecents(loadRecents());
+    setLocale(loadLocale());
+  }, []);
+
+  const ui = getUiText(locale);
+
+  const changeLocale = useCallback((value: Locale) => {
+    setLocale(value);
+    try {
+      window.localStorage.setItem(LOCALE_KEY, value);
+    } catch {
+      /* 저장 실패해도 현재 내비게이션의 언어 전환은 유지한다. */
+    }
+  }, []);
 
   // 실시간 GPS 구독은 오직 navigating 에서만 켠다 — 목적지를 고르는 것만으로는
   // 절대 켜지지 않는다.
@@ -88,7 +112,7 @@ export default function Home() {
   // 도착 화면에서는 새 GPS를 받지 않지만 마지막 active route와 arrival 결과는
   // 유지해야 한다. null을 넘기면 hook이 arrival 상태까지 초기화하기 때문이다.
   const navRoute = phase === "navigating" || phase === "arrived" ? routeResponse : null;
-  const nav = useNavigation(navRoute, currentFix, { voiceEnabled });
+  const nav = useNavigation(navRoute, currentFix, { voiceEnabled, locale, rerouting });
 
   // 비동기 route 응답이 안내 중지/새 세션 뒤에 도착해 현재 상태를 덮어쓰지
   // 않도록 세션과 최신 lifecycle 상태를 동기적으로 보관한다.
@@ -137,7 +161,7 @@ export default function Home() {
           return;
         }
         if (!resp.ok) {
-          setError((body as { error?: string }).error ?? "재탐색에 실패했습니다. 현재 경로로 계속 안내합니다.");
+          setError((body as { error?: string }).error ?? ui.rerouteFailed);
           return;
         }
         setRouteResponse(body as RouteResponse);
@@ -145,13 +169,13 @@ export default function Home() {
         setError(null);
       } catch {
         if (navigationSession.current === session && phaseRef.current === "navigating") {
-          setError("재탐색에 실패했습니다. 현재 경로로 계속 안내합니다.");
+          setError(ui.rerouteFailed);
         }
       } finally {
         if (navigationSession.current === session) setRerouting(false);
       }
     },
-    [dest, rerouting, routeResponse],
+    [dest, rerouting, routeResponse, ui.rerouteFailed],
   );
 
   useEffect(() => {
@@ -233,6 +257,7 @@ export default function Home() {
 
   const startWalking = useCallback(
     async (target: Recent) => {
+      primeSpeech(locale); // 모바일 브라우저가 사용자 제스처 뒤의 TTS를 허용하도록 예열한다
       const session = navigationSession.current + 1;
       navigationSession.current = session;
       setDest(target);
@@ -248,7 +273,7 @@ export default function Home() {
         origin = await getCurrentPositionOnce();
       } catch (err) {
         if (navigationSession.current !== session) return;
-        setError(err instanceof Error ? err.message : "현재 위치를 찾지 못했습니다.");
+        setError(err instanceof Error ? err.message : ui.locating);
         setPhase("destination_selected");
         return;
       }
@@ -264,7 +289,7 @@ export default function Home() {
         const body: unknown = await resp.json();
         if (navigationSession.current !== session) return;
         if (!resp.ok) {
-          setError((body as { error?: string }).error ?? "경로를 찾지 못했습니다.");
+          setError((body as { error?: string }).error ?? ui.routeFailed);
           setPhase("destination_selected");
           return;
         }
@@ -275,11 +300,11 @@ export default function Home() {
         setPhase("navigating");   // 이 시점부터만 watchPosition 이 시작된다
       } catch {
         if (navigationSession.current !== session) return;
-        setError("경로를 찾지 못했습니다. 연결 상태를 확인해 주세요.");
+        setError(ui.routeFailed);
         setPhase("destination_selected");
       }
     },
-    [rememberRecent, requestCompass],
+    [locale, rememberRecent, requestCompass, ui.routeFailed, ui.locating],
   );
 
   const pick = useCallback((hit: PlaceHit) => {
@@ -315,21 +340,29 @@ export default function Home() {
   if ((phase === "navigating" || phase === "arrived") && routeResponse) {
     const offRoute = nav.state === "deviated" || nav.state === "passed_turn";
     const directionReadout = compass !== null
-      ? `내가 보는 방향 ${Math.round(compass)}°`
+      ? ui.viewDirection(Math.round(compass))
       : nav.movementHeadingDegrees !== null
-        ? `이동 방향 ${Math.round(nav.movementHeadingDegrees)}°`
-        : "방향 신호 대기 중";
+        ? ui.movementDirection(Math.round(nav.movementHeadingDegrees))
+        : ui.waitingDirection;
     return (
       <main className="nav-screen">
+        <div className="language-bar">
+          <label>
+            <span className="visually-hidden">{ui.language}</span>
+            <select aria-label={ui.language} value={locale} onChange={(e) => changeLocale(e.target.value as Locale)}>
+              {LOCALE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </select>
+          </label>
+        </div>
         <div className={`banner ${offRoute ? "banner-off" : nav.state === "drifting" ? "banner-warn" : ""}`}>
-          <strong>{rerouting ? "경로를 다시 찾는 중…" : nav.banner}</strong>
+          <strong>{rerouting ? ui.rerouting : nav.banner}</strong>
           <span>
-            {nav.remainingMeters !== null ? `남은 거리 ${metersText(nav.remainingMeters)}` : ""}
+            {nav.remainingMeters !== null ? ui.remaining(metersText(nav.remainingMeters)) : ""}
             {nav.nextTurn && nav.nextTurn.direction !== "straight"
-              ? ` · ${metersText(nav.nextTurn.distanceMeters)} 앞 ${nav.nextTurn.direction === "left" ? "좌회전" : "우회전"}`
+              ? ` · ${ui.turnAhead(metersText(nav.nextTurn.distanceMeters), ui.turn(nav.nextTurn.direction))}`
               : ""}
           </span>
-          <span className="direction-readout" aria-label="방향 상태">{directionReadout}</span>
+          <span className="direction-readout" aria-label={ui.directionStatus}>{directionReadout}</span>
         </div>
 
         <MapView
@@ -343,13 +376,13 @@ export default function Home() {
 
         <div className="nav-actions">
           <button type="button" onClick={() => setHeadingUp((v) => !v)}>
-            {headingUp ? "북쪽 위" : "진행방향 위"}
+            {headingUp ? ui.northUp : ui.movementUp}
           </button>
           <button type="button" onClick={() => setVoiceEnabled((v) => !v)}>
-            {voiceEnabled ? "음성 끄기" : "음성 켜기"}
+            {voiceEnabled ? ui.voiceOff : ui.voiceOn}
           </button>
           <button type="button" className="stop" onClick={reset}>
-            안내 중지
+            {ui.stop}
           </button>
         </div>
         {error ? <p className="error" role="alert">{error}</p> : null}
@@ -363,23 +396,32 @@ export default function Home() {
   const shown = recentsExpanded ? recents : recents.slice(0, RECENT_ROW);
   return (
     <main className="home">
-      <h1>어디로 갈까요?</h1>
+      <div className="language-bar">
+        <label>
+          <span className="visually-hidden">{ui.language}</span>
+          <select aria-label={ui.language} value={locale} onChange={(e) => changeLocale(e.target.value as Locale)}>
+            {LOCALE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+          </select>
+        </label>
+      </div>
+
+      <h1>{ui.homeTitle}</h1>
 
       <input
         className="dest-input"
         type="search"
         inputMode="search"
-        placeholder="예) 경복궁, 강남역 10번출구"
+        placeholder={ui.destinationPlaceholder}
         value={query}
         onChange={(e) => onQueryChange(e.target.value)}
-        aria-label="목적지"
+        aria-label={ui.destination}
       />
 
-      {searching ? <p className="hint">검색 중…</p> : null}
+      {searching ? <p className="hint">{ui.searchLoading}</p> : null}
 
       {searched && !searching && hits.length === 0 && !dest ? (
         <>
-          <p className="hint">‘{query.trim()}’ — 일치하는 장소가 없습니다.</p>
+          <p className="hint">{ui.noMatch(query.trim())}</p>
           {missHint ? <p className="error">⚠️ {missHint}</p> : null}
         </>
       ) : null}
@@ -401,7 +443,7 @@ export default function Home() {
 
       {shown.length > 0 ? (
         <>
-          <p className="hint">최근</p>
+          <p className="hint">{ui.recents}</p>
           <div className="chips">
             {shown.map((r) => (
               <button
@@ -419,7 +461,7 @@ export default function Home() {
                 type="button"
                 className="chip chip-more"
                 onClick={() => setRecentsExpanded((v) => !v)}
-                aria-label={recentsExpanded ? "접기" : "최근 목적지 더 보기"}
+                aria-label={recentsExpanded ? ui.collapse : ui.moreRecent}
               >
                 {recentsExpanded ? "−" : "＋"}
               </button>
@@ -434,7 +476,7 @@ export default function Home() {
         disabled={!dest || busy}
         onClick={() => dest && void startWalking(dest)}
       >
-        {phase === "acquiring_location" ? "현재 위치 확인 중…" : phase === "routing" ? "경로 찾는 중…" : "걷기"}
+        {phase === "acquiring_location" ? ui.locating : phase === "routing" ? ui.findingRoute : ui.startWalking}
       </button>
 
       {error ? <p className="error">{error}</p> : null}

@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createRouteDeviationEngine, distanceMeters, getNextTurnPoint, prepareRouteModel } from "@walk/route-engine";
 import type { DeviationState, EngineResult, PositionSample } from "@walk/route-engine";
 import { isArrivalAccuracyReliable, isDeviationFixReliable } from "./useGeolocation";
 import type { Fix } from "./useGeolocation";
 import type { RouteResponse } from "./types";
+import { getUiText, speechForEvent, speechForState, speechForTurn, type Locale } from "./i18n";
+import { SpeechQueue, type SpeechPriority } from "./voice";
 
 /** 이 거리(m) 안에 들어오면 도착으로 본다. */
 const ARRIVAL_RADIUS_M = 20;
@@ -13,6 +15,8 @@ const ARRIVAL_RADIUS_M = 20;
 const TURN_ANNOUNCE_M = 10;
 /** '벗어나기 시작' 경고 재발화 간격 — 같은 말을 계속 반복하지 않게. */
 const DRIFT_REPEAT_COOLDOWN_MS = 20_000;
+const VOICE_RETRY_DELAY_MS = 1_500;
+const VOICE_MAX_ATTEMPTS = 2;
 
 export interface NavigationSnapshot {
   readonly result: EngineResult | null;
@@ -28,21 +32,6 @@ export interface NavigationSnapshot {
   readonly banner: string;
 }
 
-const STATE_TEXT: Record<DeviationState, string> = {
-  on_route: "경로대로 가고 있어요",
-  drifting: "길에서 조금 벗어났어요",
-  deviated: "길을 벗어났습니다",
-  passed_turn: "회전 지점을 지나쳤어요",
-};
-
-function speak(phrase: string, enabled: boolean): void {
-  if (!enabled || typeof window === "undefined" || !window.speechSynthesis) return;
-  const utter = new SpeechSynthesisUtterance(phrase);
-  utter.lang = "ko-KR";
-  window.speechSynthesis.cancel();   // 밀린 안내가 쌓여 뒤늦게 나오는 것을 막는다
-  window.speechSynthesis.speak(utter);
-}
-
 /**
  * 새 GPS fix 가 올 때마다 엔진을 한 번 돌리고, 상태가 바뀔 때만 음성을 낸다.
  *
@@ -52,7 +41,7 @@ function speak(phrase: string, enabled: boolean): void {
 export function useNavigation(
   routeResponse: RouteResponse | null,
   fix: Fix | null,
-  options: { voiceEnabled: boolean },
+  options: { voiceEnabled: boolean; locale: Locale; rerouting?: boolean },
 ): NavigationSnapshot {
   const [result, setResult] = useState<EngineResult | null>(null);
   const [arrived, setArrived] = useState(false);
@@ -77,9 +66,63 @@ export function useNavigation(
   const spokenState = useRef<DeviationState>("on_route");
   const lastDriftSpokenMs = useRef<number>(0);
   const announcedTurn = useRef<string | null>(null);
+  const speechQueue = useMemo(() => new SpeechQueue(), []);
+  const speechCompleted = useRef(new Set<string>());
+  const speechPending = useRef(new Set<string>());
+  const speechAttempts = useRef(new Map<string, number>());
+  const speechRetryTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+  const speechGeneration = useRef(0);
+  const announceRef = useRef<(eventId: string, phrase: string, priority: SpeechPriority) => Promise<boolean>>(
+    () => Promise.resolve(false),
+  );
+  const previousRerouting = useRef(false);
+  const hadRoute = useRef(false);
+
+  const announce = useCallback(
+    (eventId: string, phrase: string, priority: SpeechPriority): Promise<boolean> => {
+      if (!options.voiceEnabled || speechCompleted.current.has(eventId)) return Promise.resolve(false);
+      if (speechPending.current.has(eventId)) return Promise.resolve(false);
+      const attempts = speechAttempts.current.get(eventId) ?? 0;
+      if (attempts >= VOICE_MAX_ATTEMPTS) return Promise.resolve(false);
+      speechAttempts.current.set(eventId, attempts + 1);
+      speechPending.current.add(eventId);
+      const generation = speechGeneration.current;
+      return speechQueue.enqueue({ eventId, phrase, locale: options.locale, priority }).then((played) => {
+        speechPending.current.delete(eventId);
+        if (generation !== speechGeneration.current) return false;
+        if (played) {
+          speechCompleted.current.add(eventId);
+          return true;
+        }
+        // Mobile autoplay/voice availability can fail transiently. Retry once
+        // without marking the navigation event as completed.
+        if (attempts + 1 < VOICE_MAX_ATTEMPTS && !speechRetryTimers.current.has(eventId)) {
+          const timer = setTimeout(() => {
+            speechRetryTimers.current.delete(eventId);
+            void announceRef.current(eventId, phrase, priority);
+          }, VOICE_RETRY_DELAY_MS);
+          speechRetryTimers.current.set(eventId, timer);
+        }
+        return false;
+      });
+    },
+    [options.locale, options.voiceEnabled, speechQueue],
+  );
+  announceRef.current = announce;
+
+  const clearSpeech = useCallback(() => {
+    speechGeneration.current += 1;
+    speechRetryTimers.current.forEach((timer) => clearTimeout(timer));
+    speechRetryTimers.current.clear();
+    speechCompleted.current.clear();
+    speechPending.current.clear();
+    speechAttempts.current.clear();
+    speechQueue.clear();
+  }, [speechQueue]);
 
   // 경로가 바뀌면 안내 이력을 비운다 — 재탐색 직후 옛 회전을 다시 예고하지 않게.
   useEffect(() => {
+    clearSpeech();
     setResult(null);
     setArrived(false);
     setSampleCount(0);
@@ -93,7 +136,29 @@ export function useNavigation(
     spokenState.current = "on_route";
     lastDriftSpokenMs.current = 0;
     announcedTurn.current = null;
-  }, [routeResponse]);
+    previousRerouting.current = options.rerouting ?? false;
+  }, [clearSpeech, routeResponse]);
+
+  useEffect(() => {
+    if (!options.voiceEnabled) clearSpeech();
+  }, [clearSpeech, options.voiceEnabled]);
+
+  useEffect(() => {
+    if (routeResponse && !hadRoute.current) {
+      void announce("navigation:start", speechForEvent(options.locale, "start"), "normal");
+    }
+    hadRoute.current = routeResponse !== null;
+  }, [announce, options.locale, routeResponse]);
+
+  useEffect(() => {
+    const rerouting = options.rerouting ?? false;
+    if (rerouting && !previousRerouting.current) {
+      void announce("navigation:rerouting", speechForEvent(options.locale, "rerouting"), "reroute");
+    } else if (!rerouting && previousRerouting.current && routeResponse) {
+      void announce("navigation:route-updated", speechForEvent(options.locale, "updated"), "normal");
+    }
+    previousRerouting.current = rerouting;
+  }, [announce, options.locale, options.rerouting, routeResponse]);
 
   useEffect(() => {
     if (!engine || !prepared || !routeResponse || !fix || arrived) return;
@@ -140,7 +205,7 @@ export function useNavigation(
       isArrivalAccuracyReliable(fix.accuracyMeters)
     ) {
       setArrived(true);
-      speak("목적지에 도착했습니다.", options.voiceEnabled);
+      void announce("navigation:arrived", speechForEvent(options.locale, "arrived"), "arrival");
       return;
     }
 
@@ -151,14 +216,18 @@ export function useNavigation(
       const state = next.state;
       if (state === "deviated" || state === "passed_turn") {
         if (spokenState.current !== state) {
-          spokenState.current = state;
-          speak(STATE_TEXT[state], options.voiceEnabled);
+          void announce(`navigation:state:${state}`, speechForState(options.locale, state), "deviation").then((played) => {
+            if (played) spokenState.current = state;
+          });
         }
       } else if (state === "drifting") {
         if (fix.timestampMs - lastDriftSpokenMs.current >= DRIFT_REPEAT_COOLDOWN_MS) {
-          lastDriftSpokenMs.current = fix.timestampMs;
-          spokenState.current = state;
-          speak(STATE_TEXT[state], options.voiceEnabled);
+          void announce(`navigation:state:${state}:${fix.timestampMs}`, speechForState(options.locale, state), "drift").then((played) => {
+            if (played) {
+              lastDriftSpokenMs.current = fix.timestampMs;
+              spokenState.current = state;
+            }
+          });
         }
       } else {
         spokenState.current = "on_route";
@@ -171,14 +240,14 @@ export function useNavigation(
         turn.distanceToTurnPointMeters <= TURN_ANNOUNCE_M &&
         announcedTurn.current !== turn.turnPoint.id
       ) {
-        announcedTurn.current = turn.turnPoint.id;
-        const spoken =
-          routeResponse.turnDescriptions[turn.turnPoint.id] ??
-          (turn.turnPoint.direction === "left" ? "좌회전입니다" : "우회전입니다");
-        speak(spoken, options.voiceEnabled);
+        const turnId = turn.turnPoint.id;
+        const spoken = speechForTurn(options.locale, turn.turnPoint.direction, routeResponse.turnDescriptions[turnId]);
+        void announce(`navigation:turn:${turnId}`, spoken, "normal").then((played) => {
+          if (played) announcedTurn.current = turnId;
+        });
       }
     }
-  }, [engine, prepared, routeResponse, fix, arrived, options.voiceEnabled]);
+  }, [announce, engine, prepared, routeResponse, fix, arrived, options.locale]);
 
   const nextTurn = useMemo(() => {
     if (!prepared || !result) return null;
@@ -199,10 +268,11 @@ export function useNavigation(
   }, [prepared, result]);
 
   const rawState = result?.state ?? "on_route";
+  const ui = getUiText(options.locale);
   const state = !lastFixReliable && (rawState === "deviated" || rawState === "passed_turn")
     ? "drifting"
     : rawState;
-  const banner = arrived ? "목적지에 도착했습니다" : STATE_TEXT[state];
+  const banner = arrived ? ui.arrived : ui.state(state);
 
   return {
     result,
