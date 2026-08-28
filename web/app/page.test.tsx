@@ -178,6 +178,18 @@ describe("TEST A — 목적지 선택은 어떤 geolocation API 도 부르지 �
   });
 });
 
+describe("TEST H — 언어 전환은 실제 화면의 향후 안내에 적용된다", () => {
+  it("홈 화면의 주 언어를 영어로 바꾸면 목적지 UI도 즉시 바뀐다", () => {
+    render(<Home />);
+
+    fireEvent.change(screen.getByLabelText("언어"), { target: { value: "en" } });
+
+    expect(screen.getByText("Where are you going?")).toBeTruthy();
+    expect(screen.getByLabelText("Destination")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Start walking" })).toBeTruthy();
+  });
+});
+
 describe("TEST B — '걷기' 클릭에서만 원샷 위치 조회, 성공해야만 navigating 진입", () => {
   it("route API 는 정확히 1회 호출되고, 그 이후에만 watchPosition 이 시작된다", async () => {
     mockGetCurrentPosition.mockImplementation((success: SuccessCb) => {
