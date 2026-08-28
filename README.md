@@ -359,4 +359,15 @@ npm run lint
 - 이번 직접 반영분에 대한 사후 코드 리뷰
 
 2026-07-29 기준으로 위 구현 변경, PR #80의 동등 패치, PR #83의 보완 수정은 전체 검증 후
+
+## K-Navi PoC의 랜드마크 사진 의존성
+
+K-Navi 웹 PoC의 목적지 식별 UX는 `web/components/RoadviewViewer.tsx`의 Kakao
+Roadview를 기본 경로로 사용합니다. 기존 Streamlit 랜드마크 모델·관리 화면·로컬
+사진 저장소는 보존하며, `streamlit_walk_engine/data/landmarks.local.json` 또는
+사진 자산을 새 Roadview 기능의 필수 의존성으로 만들지 않습니다.
+
+따라서 이번 PoC에서는 새 랜드마크 사진 DB를 구축하지 않습니다. 기존 사진 기능은
+향후 Roadview를 사용할 수 없는 환경의 fallback 후보로 남기고, 사용 여부를 확인하기
+전에 기존 자산을 삭제하지 않습니다.
 `main`에 반영했습니다. 원격 백업 브랜치 삭제와 ruleset 변경은 수행하지 않았습니다.
