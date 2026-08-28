@@ -234,7 +234,7 @@ dependency가 확인되면 실제 실행 순서는 조정할 수 있다.
 ## K-Navi 실제 Navigation 전체 흐름
 
 **Priority:** P0  
-**Status:** READY  
+**Status:** IMPLEMENTED
 **Type:** Integration / Product Core
 
 ### Goal
@@ -329,7 +329,7 @@ dependency가 확인되면 실제 실행 순서는 조정할 수 있다.
 ## 경로 추천·위치 추적·이동방향·경로이탈·재탐색 정확도
 
 **Priority:** P0  
-**Status:** READY  
+**Status:** IMPLEMENTED
 **Type:** Navigation Engine
 
 ### Goal
@@ -541,7 +541,7 @@ Deviated라고 판단되었다고 무조건 매 tick마다 reroute하지 않는�
 ## 실제 보행용 Navigation UI/UX
 
 **Priority:** P1  
-**Status:** READY  
+**Status:** IMPLEMENTED
 **Type:** Frontend / Navigation UX
 
 ### Goal
@@ -640,7 +640,7 @@ Arrived
 ## 다국어 화면·음성 길안내
 
 **Priority:** P1  
-**Status:** READY  
+**Status:** IMPLEMENTED
 **Type:** Localization / TTS
 
 ### Required languages
@@ -722,7 +722,7 @@ TTS 실패가 navigation 자체를 중단시키지 않는다.
 ## Kakao Roadview 기반 목적지 시각안내
 
 **Priority:** P1  
-**Status:** READY  
+**Status:** IMPLEMENTED
 **Type:** External API / Frontend Integration
 
 ### Goal
@@ -953,7 +953,7 @@ Next.js:
 ## 기존 랜드마크 사진 기능 정리
 
 **Priority:** P2  
-**Status:** READY  
+**Status:** IMPLEMENTED
 **Dependency:** KN-20260826-05
 
 ### Goal
@@ -1009,7 +1009,9 @@ Roadview 미지원 지역을 위한 자체 사진 fallback은 향후 필요할 �
 ## 통합 E2E · 회귀 · PoC Ready 판정
 
 **Priority:** Integration  
-**Status:** BLOCKED_BY_DEPENDENCIES
+**Status:** BLOCKED
+
+**Blocker:** FIELD_TEST_REQUIRED for real-device GPS/orientation/voice and credentialed provider E2E.
 
 Dependencies:
 
@@ -1629,7 +1631,7 @@ navigation core/state를 동시에 여러 branch에서 수정하는 병렬 작�
 
 `TASK_ID = KN-20260826-06`
 
-`STATUS = DONE`
+`STATUS = IMPLEMENTED`
 
 `BRANCH = task/kn-20260826-06-20260828`
 
