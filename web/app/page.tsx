@@ -261,6 +261,9 @@ export default function Home() {
   const startWalking = useCallback(
     async (target: Recent) => {
       primeSpeech(locale); // 모바일 브라우저가 사용자 제스처 뒤의 TTS를 허용하도록 예열한다
+      // iOS DeviceOrientation 권한은 비동기 위치/경로 요청 뒤에는 사용자 제스처로
+      // 간주되지 않을 수 있으므로, 첫 await 전에 요청한다.
+      requestCompass();
       const session = navigationSession.current + 1;
       navigationSession.current = session;
       setDest(target);
@@ -299,7 +302,6 @@ export default function Home() {
         setRouteResponse(body as RouteResponse);
         setOriginFix(origin);
         rememberRecent(target);
-        requestCompass();   // iOS 나침반 권한은 이 클릭(사용자 제스처) 안에서만 요청된다
         setPhase("navigating");   // 이 시점부터만 watchPosition 이 시작된다
       } catch {
         if (navigationSession.current !== session) return;

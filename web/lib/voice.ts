@@ -66,7 +66,8 @@ export function primeSpeech(locale: Locale): boolean {
  * A small serialized speech queue. The old implementation cancelled every
  * utterance before speaking, so a reroute/warning could silently discard a
  * turn instruction. Completion is reported only after SpeechSynthesis emits
- * start/end; an error leaves the caller free to retry the event.
+ * end; an error leaves the caller free to retry the event. The browser can
+ * emit start before audio output is actually stable, so start is not success.
  */
 export class SpeechQueue {
   private readonly synthesis: SpeechSynthesisLike | null;
@@ -124,9 +125,9 @@ export class SpeechQueue {
     try {
       const utterance = this.createUtterance(item.phrase);
       utterance.lang = localeToSpeechLanguage(item.locale);
-      utterance.onstart = () => {
-        settle(true);
-      };
+      // onstart only means the browser accepted the utterance. Audio focus or
+      // output can still fail afterwards, so resolve success on onend only.
+      utterance.onstart = () => undefined;
       utterance.onend = () => finish(true);
       utterance.onerror = () => finish(false);
       this.synthesis.resume?.();
