@@ -109,10 +109,10 @@ describe("getCurrentPositionOnce", () => {
 
 describe("useWatchPosition", () => {
   it("stale GPS fix는 최신 fix를 되돌리지 않는다", async () => {
-    let success: SuccessCb | null = null;
+    const callbacks: { success: SuccessCb | null } = { success: null };
     stubGeolocation({
       watchPosition: ((next: SuccessCb) => {
-        success = next;
+        callbacks.success = next;
         return 7;
       }) as Geolocation["watchPosition"],
       clearWatch: vi.fn(),
@@ -124,8 +124,8 @@ describe("useWatchPosition", () => {
     }
 
     render(createElement(Probe));
-    success?.(watchFix(2000));
-    success?.(watchFix(1000));
+    callbacks.success?.(watchFix(2000));
+    callbacks.success?.(watchFix(1000));
     await waitFor(() => expect(screen.getByTestId("timestamp").textContent).toBe("2000"));
   });
 });
