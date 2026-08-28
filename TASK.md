@@ -1625,6 +1625,36 @@ navigation core/state를 동시에 여러 branch에서 수정하는 병렬 작�
 
 다음 실행은 **Kakao Developers 설정 재수행이 아니라 repository 코드 감사부터 시작한다.**
 
+## TASK COMPLETION RECORD — KN-20260826-06
+
+`TASK_ID = KN-20260826-06`
+
+`STATUS = DONE`
+
+`BRANCH = task/kn-20260826-06-20260828`
+
+`BASE_COMMIT = 806bff088524be182b5e0be8d0ddb6ab8d96916e`
+
+`END_COMMIT = 8153638bf54fd8d557444af56cc9c268427cc76a`
+
+`FILES_CHANGED = README.md, TASK.md`
+
+`IMPLEMENTATION = Existing landmark model, approval workflow, local JSON store, photo upload path, and Landmark Admin are Streamlit-only. The web K-Navi flow has no landmark/photo import or runtime dependency; Kakao Roadview is the destination-identification path. Existing assets remain untouched.`
+
+`TEST_COMMANDS = rg -n -i landmark streamlit_walk_engine web README.md TASK.md; targeted landmark pytest suite`
+
+`TEST_RESULT = 32 passed (targeted landmark model/harvest/store/photo suite) with an explicit local basetemp; the default runner also collected all tests but hit the known Windows Public CreatorTemp cleanup permission error.`
+
+`RUNTIME_RESULT = No runtime code changed; web Roadview fallback is covered by KN-05.`
+
+`ACCEPTANCE = Dependency audited; no new photo DB dependency; no duplicate Roadview/landmark development; no destructive asset deletion; future fallback retained; decision documented in README.md.`
+
+`KNOWN_LIMITATIONS = Existing Streamlit landmark UI was not removed or migrated; field verification of Roadview remains required.`
+
+`NEW_TASKS = none`
+
+`PR = #116`
+
 ---
 
 # 18. INHERITED REPOSITORY TASK OPERATING CONTRACT
