@@ -282,7 +282,7 @@ describe("TEST G — 사용자 시야방향과 GPS 이동방향은 별도 데이
 
     await waitFor(() => expect(screen.getByText("내가 보는 방향 270°")).toBeTruthy());
     expect(screen.getByTestId("map-view").getAttribute("data-view-heading")).toBe("270");
-    expect(screen.getByTestId("map-view").getAttribute("data-movement-heading")).not.toBe("null");
+    await waitFor(() => expect(screen.getByTestId("map-view").getAttribute("data-movement-heading")).not.toBe("null"));
     expect(screen.getByTestId("map-view").getAttribute("data-movement-heading")).not.toBe("270");
   });
 });
