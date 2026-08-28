@@ -1909,17 +1909,17 @@ LEASE =
 
 `TASK_ID = K-NAVI-PRE-FIELD-TEST-HARDENING-20260829`
 
-`STATUS = IN_PROGRESS`
+`STATUS = VERIFIED`
 
 `BRANCH = fix/knavi-prefield-verifier-20260829`
 
 `BASE_COMMIT = 25ca20dbe3e4a06fd2a84667a2d75c9f4f5f3fee`
 
-`END_COMMIT = pending`
+`END_COMMIT = 46edd2b9d766d1f9030f0f74224fd4d4ed07820a`
 
 `FILES_CHANGED = TASK.md, web/app/page.tsx, web/app/page.test.tsx, web/lib/voice.ts, web/lib/voice.test.ts, web/lib/roadview.ts, web/lib/roadview.test.ts`
 
-`IMPLEMENTATION = The eight reported Streamlit AppTest failures were reproduced and classified individually: test_first_screen_is_prechecked_one_button_consent, test_navigation_page_renders_with_transit_toggle, test_deviation_confirmation_defaults_are_faster, test_recent_destinations_are_one_row_until_expanded, test_origin_editable_without_opening_more, test_first_screen_skips_heavy_panels, test_settings_sliders_survive_panel_close, and test_search_source_status_visible_and_never_leaks_keys. All eight stopped on the same missing runtime dependency path: plotly was absent from the ad-hoc global Python environment, so the page rendered its dependency error path and AppTest exposed no navigation widgets. The repository requirements already declare plotly and related Streamlit dependencies; no product code or test workaround was justified. With the documented repository virtual environment installed, all eight passed. Independent review identified three hardening gaps and they were fixed: requestCompass now runs before the first awaited location/route request; speech success is settled only on onend so post-start onerror remains retryable; Kakao SDK initialization and nearest-pano callbacks fail closed on bounded timeouts.`
+`IMPLEMENTATION = The eight reported Streamlit AppTest failures were reproduced and classified individually: test_first_screen_is_prechecked_one_button_consent, test_navigation_page_renders_with_transit_toggle, test_deviation_confirmation_defaults_are_faster, test_recent_destinations_are_one_row_until_expanded, test_origin_editable_without_opening_more, test_first_screen_skips_heavy_panels, test_settings_sliders_survive_panel_close, and test_search_source_status_visible_and_never_leaks_keys. All eight stopped on the same missing runtime dependency path: plotly was absent from the ad-hoc global Python environment, so the page rendered its dependency error path and AppTest exposed no navigation widgets. The repository requirements already declare plotly and related Streamlit dependencies; no product code or test workaround was justified. With the documented repository virtual environment installed, all eight passed. Independent review identified four hardening gaps and they were fixed: requestCompass now runs before the first awaited location/route request; speech success is settled only on onend, post-start onerror remains retryable, and cancelled-session callbacks cannot interrupt a new session; Kakao SDK initialization and nearest-pano callbacks fail closed on bounded timeouts.`
 
 `TEST_COMMANDS = .\\.venv\\Scripts\\python.exe -m pytest streamlit_walk_engine/tests streamlit_task_organizer/tests --basetemp=<local-temp> -q; npm run test:run; npm run typecheck --workspace web; npm run lint; npm run build --workspace @walk/route-engine; npm run build --workspace web; targeted trace/reroute tests; Streamlit runtime HTTP smoke`
 
@@ -1929,11 +1929,13 @@ LEASE =
 
 `ACCEPTANCE = No KN-01 through KN-07 product regression was found in the eight failures; no tests were deleted or skipped; navigation/reroute/session race, arrival/stop stale-response guards, heading separation, multilingual/TTS wiring, Roadview fallback, bounded external callback failure, and user-gesture compass permission timing remain covered by passing tests.`
 
-`KNOWN_LIMITATIONS = Real GPS, compass, mobile audio, outdoor deviation/reroute, and credentialed Kakao Roadview remain FIELD_TEST_REQUIRED. Independent verifier response is pending and this record must not be marked VERIFIED until a separate reviewer returns VERIFIED.`
+`KNOWN_LIMITATIONS = Real GPS, compass, mobile audio, outdoor deviation/reroute, and credentialed Kakao Roadview remain FIELD_TEST_REQUIRED. Connected-browser visual inspection timed out; jsdom lifecycle and HTTP runtime evidence passed.`
 
 `NEW_TASKS = none`
 
-`PR = pending`
+`INDEPENDENT_VERIFY = VERIFIED (Ptolemy, separate reviewer; commit 9ea6e4368a94ba51ee497ac94de520814b5c0d01)`
+
+`PR = #120, merged`
 
 ## TASK REGISTRATION — K-NAVI ROADVIEW FOLLOW-UP
 
