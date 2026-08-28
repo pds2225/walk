@@ -215,6 +215,8 @@ PoC에서는 자체 랜드마크 사진 DB를 새로 구축하지 않는다.
 3. `KN-20260826-03` — 실제 보행용 Navigation UI/UX
 4. `KN-20260826-04` — 다국어 화면·음성 안내
 5. `KN-20260826-05` — Kakao Roadview 목적지 시각안내
+6. `K-NAVI-RV-01` — Kakao Developers walk 앱 Roadview 운영설정 확인 (USER)
+7. `K-NAVI-RV-02` — 현재 Roadview 코드 감사 및 부족한 부분 보완 (v_up 자동개발, RV-01 의존)
 
 ## P2
 
@@ -1902,3 +1904,79 @@ LEASE =
 `NEW_TASKS = none`
 
 `PR = #117`
+
+## TASK COMPLETION RECORD — K-NAVI PRE-FIELD-TEST HARDENING (2026-08-29)
+
+`TASK_ID = K-NAVI-PRE-FIELD-TEST-HARDENING-20260829`
+
+`STATUS = IN_PROGRESS`
+
+`BRANCH = task/knavi-prefield-hardening-20260829`
+
+`BASE_COMMIT = 580eb417477ba6630da73b0e43919dd00159ad5e`
+
+`END_COMMIT = pending`
+
+`FILES_CHANGED = TASK.md`
+
+`IMPLEMENTATION = The eight reported Streamlit AppTest failures were reproduced and classified individually: test_first_screen_is_prechecked_one_button_consent, test_navigation_page_renders_with_transit_toggle, test_deviation_confirmation_defaults_are_faster, test_recent_destinations_are_one_row_until_expanded, test_origin_editable_without_opening_more, test_first_screen_skips_heavy_panels, test_settings_sliders_survive_panel_close, and test_search_source_status_visible_and_never_leaks_keys. All eight stopped on the same missing runtime dependency path: plotly was absent from the ad-hoc global Python environment, so the page rendered its dependency error path and AppTest exposed no navigation widgets. The repository requirements already declare plotly and related Streamlit dependencies; no product code or test workaround was justified. With the documented repository virtual environment installed, all eight passed.`
+
+`TEST_COMMANDS = .\\.venv\\Scripts\\python.exe -m pytest streamlit_walk_engine/tests streamlit_task_organizer/tests --basetemp=<local-temp> -q; npm run test:run; npm run typecheck --workspace web; npm run lint; npm run build --workspace @walk/route-engine; npm run build --workspace web; targeted trace/reroute tests; Streamlit runtime HTTP smoke`
+
+`TEST_RESULT = 600 Python tests passed including all Streamlit AppTest cases; 101 JavaScript tests passed; targeted Python navigation/trace/reroute suite 173 passed; typecheck, lint, both builds, and Streamlit HTTP smoke returned success. A parallel JavaScript run separately hit host memory OOM; the required checks were rerun sequentially and passed.`
+
+`RUNTIME_RESULT = Streamlit returned HTTP 200 on localhost:8502; Next production returned HTTP 200 for / and HTTP 400 for invalid route payloads. Browser visual DOM inspection timed out in the connected browser, so no visual pass is claimed.`
+
+`ACCEPTANCE = No KN-01 through KN-07 product regression was found in the eight failures; no tests were deleted or skipped; navigation/reroute/session race, arrival/stop stale-response guards, heading separation, multilingual/TTS wiring, and Roadview fallback remain covered by passing tests.`
+
+`KNOWN_LIMITATIONS = Real GPS, compass, mobile audio, outdoor deviation/reroute, and credentialed Kakao Roadview remain FIELD_TEST_REQUIRED. Independent verifier response is pending and this record must not be marked VERIFIED until a separate reviewer returns a verdict.`
+
+`NEW_TASKS = none`
+
+`PR = pending`
+
+## TASK REGISTRATION — K-NAVI ROADVIEW FOLLOW-UP
+
+# K-NAVI-RV-01
+
+`TASK_ID = K-NAVI-RV-01`
+
+`TYPE = external_setup`
+
+`PRIORITY = P1`
+
+`ASSIGNEE = USER`
+
+`STATUS = READY`
+
+`BLOCKS = K-NAVI-RV-02`
+
+`GOAL = 기존 Kakao Developers 앱 walk를 재사용하여 K-Navi Web Roadview에 필요한 JavaScript SDK 설정을 확인한다.`
+
+`CHECKS = 기존 앱 walk 사용; Kakao Map API 사용 가능; JavaScript Key 사용; REST/Admin Key 사용 금지; 개발 URL 확인; 배포 URL 확인; JavaScript SDK 허용 도메인 확인/등록; 키 하드코딩 금지; 환경변수명 KAKAO_JAVASCRIPT_KEY 유지`
+
+`DONE = JavaScript Key 종류 확인; 필요한 도메인 등록 완료; 코드에서 사용할 환경변수 구조 확정`
+
+`USER_ACTION_REQUIRED = Kakao Developers 로그인이 필요한 경우 사용자가 로그인한 뒤 설정을 확인한다.`
+
+# K-NAVI-RV-02
+
+`TASK_ID = K-NAVI-RV-02`
+
+`TYPE = code_integration`
+
+`PRIORITY = P1`
+
+`ASSIGNEE = v_up automatic development`
+
+`STATUS = BLOCKED`
+
+`DEPENDS = K-NAVI-RV-01`
+
+`GOAL = 현재 main에 이미 존재하는 지도/로드뷰 전환과 Kakao Roadview 연결 코드를 먼저 감사하고, 부족한 부분만 최소 범위로 보완한다. 처음부터 새 Roadview를 재구축하지 않는다.`
+
+`REQUIRED = 현재 main 감사; 기존 지도/로드뷰 전환 재사용; 기존 Kakao 연결 재사용; 부족한 연결·fallback·운영설정만 보완; navigation 지속성 유지; secret 하드코딩·출력 금지`
+
+`NOT_DONE = 기존 구현을 확인하지 않은 전면 재작성; 별도 지도/로드뷰 Provider로의 임의 교체; REST/Admin Key를 브라우저 SDK Key로 사용; 사용자 설정 없이 운영 완료 처리`
+
+`DONE = TASK acceptance와 기존 main 구조를 대조한 감사기록; 필요한 최소 코드 변경; targeted test; regression; runtime 검증; independent verifier; PR/CI/merge 완료`
