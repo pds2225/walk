@@ -66,7 +66,8 @@ export function primeSpeech(locale: Locale): boolean {
  * A small serialized speech queue. The old implementation cancelled every
  * utterance before speaking, so a reroute/warning could silently discard a
  * turn instruction. Completion is reported only after SpeechSynthesis emits
- * start/end; an error leaves the caller free to retry the event.
+ * end; an error leaves the caller free to retry the event. The browser can
+ * emit start before audio output is actually stable, so start is not success.
  */
 export class SpeechQueue {
   private readonly synthesis: SpeechSynthesisLike | null;
@@ -74,6 +75,7 @@ export class SpeechQueue {
   private readonly queue: QueuedSpeech[] = [];
   private active = false;
   private activeResolve: ((played: boolean) => void) | null = null;
+  private playbackGeneration = 0;
 
   constructor(
     synthesis?: SpeechSynthesisLike | null,
@@ -94,6 +96,9 @@ export class SpeechQueue {
   }
 
   clear(): void {
+    // A cancelled utterance may still deliver onend/onerror later. Invalidate
+    // its callbacks before allowing a subsequent navigation session to speak.
+    this.playbackGeneration += 1;
     while (this.queue.length) this.queue.shift()?.resolve(false);
     this.activeResolve?.(false);
     this.activeResolve = null;
@@ -108,6 +113,7 @@ export class SpeechQueue {
     const item = this.queue.shift();
     if (!item) return;
     this.active = true;
+    const playbackGeneration = ++this.playbackGeneration;
     let settled = false;
     const settle = (played: boolean) => {
       if (settled) return;
@@ -115,6 +121,7 @@ export class SpeechQueue {
       item.resolve(played);
     };
     const finish = (played: boolean) => {
+      if (this.playbackGeneration !== playbackGeneration) return;
       settle(played);
       this.activeResolve = null;
       this.active = false;
@@ -124,9 +131,9 @@ export class SpeechQueue {
     try {
       const utterance = this.createUtterance(item.phrase);
       utterance.lang = localeToSpeechLanguage(item.locale);
-      utterance.onstart = () => {
-        settle(true);
-      };
+      // onstart only means the browser accepted the utterance. Audio focus or
+      // output can still fail afterwards, so resolve success on onend only.
+      utterance.onstart = () => undefined;
       utterance.onend = () => finish(true);
       utterance.onerror = () => finish(false);
       this.synthesis.resume?.();

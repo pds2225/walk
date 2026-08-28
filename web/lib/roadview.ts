@@ -2,6 +2,8 @@ import type { Coordinate } from "./types";
 
 export const ROADVIEW_TRIGGER_DISTANCE_M = 50;
 export const ROADVIEW_SEARCH_RADII_M: readonly number[] = [50, 30];
+export const ROADVIEW_SDK_TIMEOUT_MS = 10_000;
+export const ROADVIEW_PANO_TIMEOUT_MS = 5_000;
 const KAKAO_SDK_ID = "kakao-maps-sdk-roadview";
 
 interface KakaoLatLng {
@@ -65,6 +67,22 @@ function javascriptKey(): string {
   return process.env.NEXT_PUBLIC_KAKAO_JAVASCRIPT_KEY?.trim() ?? "";
 }
 
+function withTimeout<T>(operation: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = window.setTimeout(() => reject(new RoadviewError("load_error", message)), timeoutMs);
+    operation.then(
+      (value) => {
+        window.clearTimeout(timer);
+        resolve(value);
+      },
+      (error: unknown) => {
+        window.clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
+
 export function kakaoRoadviewConfigured(): boolean {
   return javascriptKey().length > 0;
 }
@@ -86,10 +104,16 @@ function loadKakaoMaps(): Promise<KakaoMaps> {
     return Promise.reject(new RoadviewError("missing_key", "Kakao Roadview JavaScript 키가 설정되지 않았습니다."));
   }
   const existingMaps = kakaoWindow().kakao?.maps;
-  if (existingMaps?.load) return new Promise((resolve) => existingMaps.load(() => resolve(existingMaps)));
+  if (existingMaps?.load) {
+    return withTimeout(
+      new Promise((resolve) => existingMaps.load(() => resolve(existingMaps))),
+      ROADVIEW_SDK_TIMEOUT_MS,
+      "Kakao Maps SDK 초기화 응답이 지연되었습니다.",
+    );
+  }
   if (sdkPromise) return sdkPromise;
 
-  sdkPromise = new Promise<KakaoMaps>((resolve, reject) => {
+  const loadOperation = new Promise<KakaoMaps>((resolve, reject) => {
     let script = document.getElementById(KAKAO_SDK_ID) as HTMLScriptElement | null;
     const onReady = () => {
       const maps = kakaoWindow().kakao?.maps;
@@ -112,7 +136,12 @@ function loadKakaoMaps(): Promise<KakaoMaps> {
       script.addEventListener("load", onReady, { once: true });
       script.addEventListener("error", onError, { once: true });
     }
-  }).catch((error: unknown) => {
+  });
+  sdkPromise = withTimeout(
+    loadOperation,
+    ROADVIEW_SDK_TIMEOUT_MS,
+    "Kakao Maps SDK 로딩 응답이 지연되었습니다.",
+  ).catch((error: unknown) => {
     sdkPromise = null;
     throw error;
   });
@@ -120,9 +149,13 @@ function loadKakaoMaps(): Promise<KakaoMaps> {
 }
 
 function nearestPanoId(client: KakaoRoadviewClient, position: KakaoLatLng, radius: number): Promise<string | null> {
-  return new Promise((resolve) => {
-    client.getNearestPanoId(position, radius, (panoId) => resolve(panoId === null ? null : String(panoId)));
-  });
+  return withTimeout(
+    new Promise((resolve) => {
+      client.getNearestPanoId(position, radius, (panoId) => resolve(panoId === null ? null : String(panoId)));
+    }),
+    ROADVIEW_PANO_TIMEOUT_MS,
+    "Kakao Roadview 파노라마 응답이 지연되었습니다.",
+  );
 }
 
 export async function openKakaoRoadview(

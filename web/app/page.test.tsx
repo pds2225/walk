@@ -214,6 +214,31 @@ describe("TEST B — '걷기' 클릭에서만 원샷 위치 조회, 성공해야
     expect(mockWatchPosition).toHaveBeenCalledTimes(1);
   });
 
+  it("iOS 나침반 권한은 위치 조회보다 먼저 사용자 제스처 안에서 요청한다", async () => {
+    const order: string[] = [];
+    const requestPermission = vi.fn(() => {
+      order.push("compass");
+      return Promise.resolve("granted");
+    });
+    Object.defineProperty(window, "DeviceOrientationEvent", {
+      configurable: true,
+      value: { requestPermission },
+    });
+    mockGetCurrentPosition.mockImplementation(() => {
+      order.push("location");
+    });
+
+    try {
+      await pickDestination();
+      fireEvent.click(screen.getByRole("button", { name: "걷기" }));
+
+      await waitFor(() => expect(requestPermission).toHaveBeenCalledTimes(1));
+      expect(order.slice(0, 2)).toEqual(["compass", "location"]);
+    } finally {
+      delete (window as unknown as { DeviceOrientationEvent?: unknown }).DeviceOrientationEvent;
+    }
+  });
+
   it("원샷 위치 조회가 실패하면 route API 를 부르지 않고 목적지 선택 화면에 남는다", async () => {
     mockGetCurrentPosition.mockImplementation((_success: SuccessCb, error: ErrorCb) => {
       error({

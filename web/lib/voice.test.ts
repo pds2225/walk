@@ -24,7 +24,7 @@ function utteranceAt(utterances: SpeechUtteranceLike[], index: number): SpeechUt
 }
 
 describe("SpeechQueue", () => {
-  it("serializes announcements and reports success only after playback starts/ends", async () => {
+  it("serializes announcements and reports success only after playback ends", async () => {
     const fake = fakeVoice();
     const queue = new SpeechQueue(fake.synthesis, fake.createUtterance);
     const first = queue.enqueue({ eventId: "turn-1", phrase: "Turn left", locale: "en" });
@@ -33,10 +33,16 @@ describe("SpeechQueue", () => {
     expect(fake.utterances).toHaveLength(1);
     expect(utteranceAt(fake.utterances, 0).lang).toBe("en-US");
     utteranceAt(fake.utterances, 0).onstart?.();
-    expect(await first).toBe(true);
+    let firstSettled = false;
+    void first.then(() => {
+      firstSettled = true;
+    });
+    await Promise.resolve();
+    expect(firstSettled).toBe(false);
     expect(fake.utterances).toHaveLength(1);
 
     utteranceAt(fake.utterances, 0).onend?.();
+    expect(await first).toBe(true);
     expect(fake.utterances).toHaveLength(2);
     utteranceAt(fake.utterances, 1).onend?.();
     expect(await second).toBe(true);
@@ -57,13 +63,44 @@ describe("SpeechQueue", () => {
     expect(fake.synthesis.cancel).not.toHaveBeenCalled();
   });
 
-  it("does not leave a pending promise when a navigation session is cleared", async () => {
+  it("reports an error after start as failure so the event can be retried", async () => {
+    const fake = fakeVoice();
+    const queue = new SpeechQueue(fake.synthesis, fake.createUtterance);
+    const failed = queue.enqueue({ eventId: "deviation", phrase: "Check the route", locale: "en" });
+
+    utteranceAt(fake.utterances, 0).onstart?.();
+    utteranceAt(fake.utterances, 0).onerror?.();
+    expect(await failed).toBe(false);
+
+    const retried = queue.enqueue({ eventId: "deviation", phrase: "Check the route", locale: "en" });
+    expect(fake.utterances).toHaveLength(2);
+    utteranceAt(fake.utterances, 1).onstart?.();
+    utteranceAt(fake.utterances, 1).onend?.();
+    expect(await retried).toBe(true);
+  });
+
+  it("ignores late callbacks from a cancelled utterance after a new session starts", async () => {
     const fake = fakeVoice();
     const queue = new SpeechQueue(fake.synthesis, fake.createUtterance);
     const pending = queue.enqueue({ eventId: "arrival", phrase: "Arrived", locale: "en" });
+    const cancelled = utteranceAt(fake.utterances, 0);
     queue.clear();
 
     expect(await pending).toBe(false);
     expect(fake.synthesis.cancel).toHaveBeenCalledTimes(1);
+
+    const next = queue.enqueue({ eventId: "turn-2", phrase: "Turn right", locale: "en" });
+    expect(fake.utterances).toHaveLength(2);
+    cancelled.onend?.();
+    cancelled.onerror?.();
+    let nextSettled = false;
+    void next.then(() => {
+      nextSettled = true;
+    });
+    await Promise.resolve();
+    expect(nextSettled).toBe(false);
+
+    utteranceAt(fake.utterances, 1).onend?.();
+    expect(await next).toBe(true);
   });
 });
