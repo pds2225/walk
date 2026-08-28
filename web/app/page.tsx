@@ -8,6 +8,8 @@ import { useNavigation } from "../lib/useNavigation";
 import type { Coordinate, PlaceHit, RouteResponse } from "../lib/types";
 import { getUiText, LOCALE_OPTIONS, type Locale } from "../lib/i18n";
 import { primeSpeech } from "../lib/voice";
+import RoadviewViewer from "../components/RoadviewViewer";
+import { ROADVIEW_TRIGGER_DISTANCE_M } from "../lib/roadview";
 
 // maplibre 는 window 를 직접 만져 서버 렌더가 불가능하다 — 클라이언트에서만 불러온다.
 const MapView = dynamic(() => import("../components/MapView"), { ssr: false });
@@ -83,6 +85,7 @@ export default function Home() {
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [headingUp, setHeadingUp] = useState(true);
   const [locale, setLocale] = useState<Locale>("ko");
+  const [roadviewOpen, setRoadviewOpen] = useState(false);
   const [recents, setRecents] = useState<Recent[]>([]);
   const [recentsExpanded, setRecentsExpanded] = useState(false);
 
@@ -325,6 +328,7 @@ export default function Home() {
     setHits([]);
     setError(null);
     setRerouting(false);
+    setRoadviewOpen(false);
     rerouteAttemptedRoute.current = null;
     lastRerouteFixTimestamp.current = null;
     lastRerouteAtMs.current = null;
@@ -339,6 +343,7 @@ export default function Home() {
   // ── 안내 중 화면 ──────────────────────────────────────────────────────────
   if ((phase === "navigating" || phase === "arrived") && routeResponse) {
     const offRoute = nav.state === "deviated" || nav.state === "passed_turn";
+    const roadviewTrigger = nav.remainingMeters !== null && nav.remainingMeters <= ROADVIEW_TRIGGER_DISTANCE_M;
     const directionReadout = compass !== null
       ? ui.viewDirection(Math.round(compass))
       : nav.movementHeadingDegrees !== null
@@ -373,6 +378,22 @@ export default function Home() {
           headingUp={headingUp}
           offRoute={offRoute}
         />
+
+        {roadviewTrigger && dest ? (
+          <div className="roadview-entry">
+            {!roadviewOpen ? (
+              <button type="button" onClick={() => setRoadviewOpen(true)}>{ui.roadviewButton}</button>
+            ) : (
+              <RoadviewViewer
+                destination={dest.coordinate}
+                destinationName={dest.name}
+                approachOrigin={currentFix}
+                locale={locale}
+                onClose={() => setRoadviewOpen(false)}
+              />
+            )}
+          </div>
+        ) : null}
 
         <div className="nav-actions">
           <button type="button" onClick={() => setHeadingUp((v) => !v)}>
