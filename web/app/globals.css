@@ -125,6 +125,7 @@ html, body {
 }
 .banner strong { display: block; font-size: 20px; }
 .banner span { display: block; margin-top: 2px; color: var(--muted); font-size: 15px; }
+.banner .direction-readout { margin-top: 6px; color: var(--ink); font-size: 13px; }
 .banner-warn { background: #fff7e6; }
 .banner-off { background: #ffe9ed; }
 .banner-off strong { color: var(--danger); }

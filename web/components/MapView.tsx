@@ -25,9 +25,11 @@ const FALLBACK_STYLE: maplibregl.StyleSpecification = {
 export interface MapViewProps {
   readonly route: RouteModel | null;
   readonly here: Coordinate | null;
-  /** 지도를 돌릴 방위(도). null 이면 북쪽 고정. */
-  readonly headingDegrees: number | null;
-  /** true 면 진행 방향이 항상 위로 오게 지도를 돌린다(헤딩업). */
+  /** 휴대폰이 바라보는 방향. 지도 회전에만 사용한다. */
+  readonly viewHeadingDegrees: number | null;
+  /** GPS course/trajectory. 경로 추종용이며 화면 회전과 분리한다. */
+  readonly movementHeadingDegrees: number | null;
+  /** true 면 사용자가 보는 방향이 화면 위가 되도록 지도를 돌린다. */
   readonly headingUp: boolean;
   readonly offRoute: boolean;
 }
@@ -83,7 +85,14 @@ function fitRoute(instance: MapLibreMap, route: RouteModel | null): void {
  * 통째로 다시 만들어 화면이 끊기고 사용자가 움직인 시점·확대 배율도 초기화됐다.
  * 여기서는 지도 인스턴스를 한 번만 만들고, 이후에는 GeoJSON 소스의 데이터만 갈아끼운다.
  */
-export default function MapView({ route, here, headingDegrees, headingUp, offRoute }: MapViewProps) {
+export default function MapView({
+  route,
+  here,
+  viewHeadingDegrees,
+  movementHeadingDegrees,
+  headingUp,
+  offRoute,
+}: MapViewProps) {
   const container = useRef<HTMLDivElement | null>(null);
   const map = useRef<MapLibreMap | null>(null);
   const ready = useRef(false);
@@ -207,16 +216,17 @@ export default function MapView({ route, here, headingDegrees, headingUp, offRou
     } else {
       marker.current.setLngLat([here.longitude, here.latitude]);
     }
-    if (headingDegrees !== null) marker.current.setRotation(headingDegrees);
+    const markerHeading = movementHeadingDegrees ?? viewHeadingDegrees;
+    if (markerHeading !== null) marker.current.setRotation(markerHeading);
 
     if (!userMoved.current) {
       instance.easeTo({
         center: [here.longitude, here.latitude],
-        bearing: headingUp && headingDegrees !== null ? headingDegrees : 0,
+        bearing: headingUp && viewHeadingDegrees !== null ? viewHeadingDegrees : 0,
         duration: 400,
       });
     }
-  }, [here, headingDegrees, headingUp]);
+  }, [here, movementHeadingDegrees, viewHeadingDegrees, headingUp]);
 
   return (
     <div className="map-wrap">
