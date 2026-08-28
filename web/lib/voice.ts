@@ -75,6 +75,7 @@ export class SpeechQueue {
   private readonly queue: QueuedSpeech[] = [];
   private active = false;
   private activeResolve: ((played: boolean) => void) | null = null;
+  private playbackGeneration = 0;
 
   constructor(
     synthesis?: SpeechSynthesisLike | null,
@@ -95,6 +96,9 @@ export class SpeechQueue {
   }
 
   clear(): void {
+    // A cancelled utterance may still deliver onend/onerror later. Invalidate
+    // its callbacks before allowing a subsequent navigation session to speak.
+    this.playbackGeneration += 1;
     while (this.queue.length) this.queue.shift()?.resolve(false);
     this.activeResolve?.(false);
     this.activeResolve = null;
@@ -109,6 +113,7 @@ export class SpeechQueue {
     const item = this.queue.shift();
     if (!item) return;
     this.active = true;
+    const playbackGeneration = ++this.playbackGeneration;
     let settled = false;
     const settle = (played: boolean) => {
       if (settled) return;
@@ -116,6 +121,7 @@ export class SpeechQueue {
       item.resolve(played);
     };
     const finish = (played: boolean) => {
+      if (this.playbackGeneration !== playbackGeneration) return;
       settle(played);
       this.activeResolve = null;
       this.active = false;

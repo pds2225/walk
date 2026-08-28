@@ -79,13 +79,28 @@ describe("SpeechQueue", () => {
     expect(await retried).toBe(true);
   });
 
-  it("does not leave a pending promise when a navigation session is cleared", async () => {
+  it("ignores late callbacks from a cancelled utterance after a new session starts", async () => {
     const fake = fakeVoice();
     const queue = new SpeechQueue(fake.synthesis, fake.createUtterance);
     const pending = queue.enqueue({ eventId: "arrival", phrase: "Arrived", locale: "en" });
+    const cancelled = utteranceAt(fake.utterances, 0);
     queue.clear();
 
     expect(await pending).toBe(false);
     expect(fake.synthesis.cancel).toHaveBeenCalledTimes(1);
+
+    const next = queue.enqueue({ eventId: "turn-2", phrase: "Turn right", locale: "en" });
+    expect(fake.utterances).toHaveLength(2);
+    cancelled.onend?.();
+    cancelled.onerror?.();
+    let nextSettled = false;
+    void next.then(() => {
+      nextSettled = true;
+    });
+    await Promise.resolve();
+    expect(nextSettled).toBe(false);
+
+    utteranceAt(fake.utterances, 1).onend?.();
+    expect(await next).toBe(true);
   });
 });
