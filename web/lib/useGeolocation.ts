@@ -14,6 +14,9 @@ export interface Fix extends Coordinate {
 // 입력으로 쓰지 않고, 35m 초과 fix는 도착을 확정하지 않는다.
 export const USABLE_ACCURACY_M = 50;
 export const ARRIVAL_ACCURACY_M = 35;
+// 기존 navigation 경고/재탐색 gate. 이보다 나쁜 fix는 위치는 보관하되
+// hard deviation이나 reroute의 근거로 사용하지 않는다.
+export const DEVIATION_ACCURACY_M = 30;
 
 export function isFixUsable(accuracyMeters: number | null): boolean {
   return accuracyMeters === null || accuracyMeters <= USABLE_ACCURACY_M;
@@ -21,6 +24,10 @@ export function isFixUsable(accuracyMeters: number | null): boolean {
 
 export function isArrivalAccuracyReliable(accuracyMeters: number | null): boolean {
   return accuracyMeters === null || accuracyMeters <= ARRIVAL_ACCURACY_M;
+}
+
+export function isDeviationFixReliable(accuracyMeters: number | null): boolean {
+  return accuracyMeters === null || accuracyMeters <= DEVIATION_ACCURACY_M;
 }
 
 function toFix(pos: GeolocationPosition): Fix {
@@ -91,10 +98,13 @@ const GEO_ERROR_GRACE_MS = 3_000;
 export function useWatchPosition(enabled: boolean): WatchPositionState {
   const [fix, setFix] = useState<Fix | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const lastObservedTimestamp = useRef<number | null>(null);
 
   useEffect(() => {
     if (!enabled) {
+      setFix(null);
       setError(null);
+      lastObservedTimestamp.current = null;
       return;
     }
     if (typeof navigator === "undefined" || !navigator.geolocation) {
@@ -113,6 +123,8 @@ export function useWatchPosition(enabled: boolean): WatchPositionState {
       (pos) => {
         clearErrorTimer();
         const nextFix = toFix(pos);
+        if (lastObservedTimestamp.current !== null && nextFix.timestampMs <= lastObservedTimestamp.current) return;
+        lastObservedTimestamp.current = nextFix.timestampMs;
         if (!isFixUsable(nextFix.accuracyMeters)) {
           setError("위치 신호가 약해 현재 위치를 잠시 유지합니다.");
           return;

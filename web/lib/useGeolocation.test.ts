@@ -6,7 +6,9 @@
  * 쪽 lifecycle 계약은 web/app/page.test.tsx 에서 실제 컴포넌트를 통해 검증한다.
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getCurrentPositionOnce } from "./useGeolocation";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { createElement } from "react";
+import { getCurrentPositionOnce, useWatchPosition } from "./useGeolocation";
 
 type SuccessCb = (pos: GeolocationPosition) => void;
 type ErrorCb = (err: GeolocationPositionError) => void;
@@ -19,8 +21,24 @@ function stubGeolocation(value: Partial<Geolocation> | undefined) {
 }
 
 afterEach(() => {
+  cleanup();
   vi.restoreAllMocks();
 });
+
+function watchFix(timestampMs: number): GeolocationPosition {
+  return {
+    coords: {
+      latitude: 37.5,
+      longitude: 127.0,
+      accuracy: 5,
+      heading: null,
+      speed: null,
+      altitude: null,
+      altitudeAccuracy: null,
+    },
+    timestamp: timestampMs,
+  } as GeolocationPosition;
+}
 
 describe("getCurrentPositionOnce", () => {
   it("한 번 성공하면 Fix 를 돌려주고, watchPosition 은 건드리지 않는다", async () => {
@@ -86,5 +104,28 @@ describe("getCurrentPositionOnce", () => {
   it("geolocation 자체가 없으면 즉시 reject 한다", async () => {
     stubGeolocation(undefined);
     await expect(getCurrentPositionOnce()).rejects.toThrow("지원하지 않습니다");
+  });
+});
+
+describe("useWatchPosition", () => {
+  it("stale GPS fix는 최신 fix를 되돌리지 않는다", async () => {
+    let success: SuccessCb | null = null;
+    stubGeolocation({
+      watchPosition: ((next: SuccessCb) => {
+        success = next;
+        return 7;
+      }) as Geolocation["watchPosition"],
+      clearWatch: vi.fn(),
+    });
+
+    function Probe() {
+      const state = useWatchPosition(true);
+      return createElement("output", { "data-testid": "timestamp" }, state.fix?.timestampMs ?? "");
+    }
+
+    render(createElement(Probe));
+    success?.(watchFix(2000));
+    success?.(watchFix(1000));
+    await waitFor(() => expect(screen.getByTestId("timestamp").textContent).toBe("2000"));
   });
 });

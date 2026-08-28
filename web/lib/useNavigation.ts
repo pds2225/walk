@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createRouteDeviationEngine, distanceMeters, getNextTurnPoint, prepareRouteModel } from "@walk/route-engine";
 import type { DeviationState, EngineResult, PositionSample } from "@walk/route-engine";
-import { isArrivalAccuracyReliable } from "./useGeolocation";
+import { isArrivalAccuracyReliable, isDeviationFixReliable } from "./useGeolocation";
 import type { Fix } from "./useGeolocation";
 import type { RouteResponse } from "./types";
 
@@ -11,8 +11,6 @@ import type { RouteResponse } from "./types";
 const ARRIVAL_RADIUS_M = 20;
 /** 회전을 몇 m 앞에서 예고할지 — 보통 걸음으로 약 9초 전(파이썬판 실측값과 동일). */
 const TURN_ANNOUNCE_M = 10;
-/** 이보다 정확도가 나쁜 fix 로는 경고를 울리지 않는다(오탐 방지). */
-const ALERT_ACCURACY_GATE_M = 30;
 /** '벗어나기 시작' 경고 재발화 간격 — 같은 말을 계속 반복하지 않게. */
 const DRIFT_REPEAT_COOLDOWN_MS = 20_000;
 
@@ -58,6 +56,7 @@ export function useNavigation(
   const [arrived, setArrived] = useState(false);
   const [sampleCount, setSampleCount] = useState(0);
   const [elapsedSinceStartMs, setElapsedSinceStartMs] = useState(0);
+  const [lastFixReliable, setLastFixReliable] = useState(true);
 
   const engine = useMemo(
     () => (routeResponse ? createRouteDeviationEngine(routeResponse.route) : null),
@@ -82,6 +81,7 @@ export function useNavigation(
     setArrived(false);
     setSampleCount(0);
     setElapsedSinceStartMs(0);
+    setLastFixReliable(true);
     lastFixTs.current = null;
     firstFixTs.current = null;
     acceptedSampleCount.current = 0;
@@ -95,6 +95,7 @@ export function useNavigation(
     if (!engine || !prepared || !routeResponse || !fix || arrived) return;
     if (lastFixTs.current !== null && fix.timestampMs <= lastFixTs.current) return;   // stale/same fix 무시
     lastFixTs.current = fix.timestampMs;
+    setLastFixReliable(isDeviationFixReliable(fix.accuracyMeters));
 
     if (firstFixTs.current === null) firstFixTs.current = fix.timestampMs;
     acceptedSampleCount.current += 1;
@@ -139,7 +140,7 @@ export function useNavigation(
     }
 
     // 정확도가 나쁜 fix 로는 말하지 않는다 — GPS 가 튄 것을 이탈로 알리면 신뢰를 잃는다.
-    const accurate = fix.accuracyMeters === null || fix.accuracyMeters <= ALERT_ACCURACY_GATE_M;
+    const accurate = isDeviationFixReliable(fix.accuracyMeters);
 
     if (accurate) {
       const state = next.state;
@@ -192,7 +193,10 @@ export function useNavigation(
     return Math.max(0, Math.round(total - result.metrics.routeDistanceAlongMeters));
   }, [prepared, result]);
 
-  const state = result?.state ?? "on_route";
+  const rawState = result?.state ?? "on_route";
+  const state = !lastFixReliable && (rawState === "deviated" || rawState === "passed_turn")
+    ? "drifting"
+    : rawState;
   const banner = arrived ? "목적지에 도착했습니다" : STATE_TEXT[state];
 
   return { result, state, arrived, remainingMeters, nextTurn, banner, sampleCount, elapsedSinceStartMs };
