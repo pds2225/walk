@@ -1975,10 +1975,22 @@ LEASE =
 
 `DEPENDS = K-NAVI-RV-01`
 
+`BRANCH = feature/kakao-roadview (기존 Git/worktree 브랜치 규칙이 있으면 그 규칙이 우선한다)`
+
 `GOAL = 현재 main에 이미 존재하는 지도/로드뷰 전환과 Kakao Roadview 연결 코드를 먼저 감사하고, 부족한 부분만 최소 범위로 보완한다. 처음부터 새 Roadview를 재구축하지 않는다.`
+
+`AUDIT_FIRST = 구현 시작 전 반드시: (1) 현재 main 확인 (2) 기존 TASK.md 읽기 (3) Roadview 관련 기존 코드 검색 (web/lib/roadview.ts, RoadviewViewer.tsx 등 KN-20260826-05/pre-field hardening 산출물 포함) (4) 현재 구현된 기능/빠진 기능을 ALREADY_DONE·PARTIAL·NOT_IMPLEMENTED로 구분 (5) 필요한 최소 변경만 계획`
 
 `REQUIRED = 현재 main 감사; 기존 지도/로드뷰 전환 재사용; 기존 Kakao 연결 재사용; 부족한 연결·fallback·운영설정만 보완; navigation 지속성 유지; secret 하드코딩·출력 금지`
 
-`NOT_DONE = 기존 구현을 확인하지 않은 전면 재작성; 별도 지도/로드뷰 Provider로의 임의 교체; REST/Admin Key를 브라우저 SDK Key로 사용; 사용자 설정 없이 운영 완료 처리`
+`SCOPE = Unified Roadview Viewer 구조 정리; KakaoRoadviewAdapter 실제 구현/정리(기존 web/lib/roadview.ts·RoadviewViewer.tsx 재사용); NaverPanoramaAdapter stub; GoogleStreetViewAdapter stub(향후 확장 위치만 확보, 실제 API 연결 아님); 목적지 주변 Roadview 검색 및 목적지를 향하는 초기 시점; 목적지 표시; ROADVIEW_SEARCH_RADIUS_M/ROADVIEW_TRIGGER_DISTANCE_M 등 설정값 외부화(기본값은 기존 구현값 유지, 임의 변경 금지); 세션 시작 시 Provider 고정; KAKAO_JAVASCRIPT_KEY 기존 secrets/env 구조 재사용`
 
-`DONE = TASK acceptance와 기존 main 구조를 대조한 감사기록; 필요한 최소 코드 변경; targeted test; regression; runtime 검증; independent verifier; PR/CI/merge 완료`
+`EXCLUDE = 자체 랜드마크 사진 DB 신규 구축(이미 KN-20260826-06에서 정리 완료); 출입구 좌표 DB; AI 이미지 분석; NAVER 실제 API 연결; Google 실제 API 연결; 브라우저 렌더링 검증; E2E 테스트; 현장(outdoor field) 테스트 — 이 TASK의 DONE 조건에 포함하지 않는다(FIELD_TEST_REQUIRED로 남기는 것을 허용)`
+
+`FORBIDDEN = 경로 추천 알고리즘 변경; 경로 이탈 판정 로직 변경; 방향센서(heading/compass) 처리 변경; 음성안내(TTS) 로직 변경; TMAP/Valhalla 경로선정 로직 변경; Roadview와 무관한 리팩터링; 기존 구현을 확인하지 않은 전면 재작성; 별도 지도/로드뷰 Provider로 임의 교체; REST/Admin Key를 브라우저 SDK Key로 사용; 사용자 설정(K-NAVI-RV-01) 없이 운영 완료 처리`
+
+`NOT_DONE = 위 FORBIDDEN 항목을 건드리지 않고도, 감사 없이 새로 작성하거나 mock-only로 대체하면 완료로 보지 않는다`
+
+`VERIFY = 정적/단위 테스트 가능한 범위; 기존 관련 테스트(roadview.test.ts 등); 전체 regression; git diff --check; independent verifier — 이번 TASK에서는 브라우저 렌더링·E2E·현장검증을 DONE 조건에 포함하지 않는다`
+
+`DONE = 기존 Roadview 기능을 깨지 않고 요구 기능(SCOPE) 구현; Kakao Adapter 실제 연결 구조 완료; NAVER/Google adapter 확장 위치 확보; 설정값 외부화; 관련 테스트 PASS; independent verifier PASS; branch/commit/push/PR/Checks 완료; TASK 결과 기록 — 브라우저/E2E/현장검증 없이도 DONE 처리 가능`
