@@ -9,7 +9,9 @@ import type { Coordinate, PlaceHit, RouteResponse } from "../lib/types";
 import { getUiText, LOCALE_OPTIONS, type Locale } from "../lib/i18n";
 import { primeSpeech } from "../lib/voice";
 import RoadviewViewer from "../components/RoadviewViewer";
-import { ROADVIEW_TRIGGER_DISTANCE_M } from "../lib/roadview";
+import { roadviewTriggerDistanceM } from "../lib/roadview";
+import type { RoadviewProvider } from "../lib/roadview";
+import { selectRoadviewProvider } from "../lib/roadviewProviders";
 
 // maplibre 는 window 를 직접 만져 서버 렌더가 불가능하다 — 클라이언트에서만 불러온다.
 const MapView = dynamic(() => import("../components/MapView"), { ssr: false });
@@ -120,6 +122,9 @@ export default function Home() {
   // 비동기 route 응답이 안내 중지/새 세션 뒤에 도착해 현재 상태를 덮어쓰지
   // 않도록 세션과 최신 lifecycle 상태를 동기적으로 보관한다.
   const navigationSession = useRef(0);
+  // Roadview provider 는 안내 세션이 시작될 때 한 번만 고른다. 목적지에 가까워질
+  // 때마다 다시 고르면 뷰어를 닫았다 열 때 provider 가 바뀔 수 있다.
+  const roadviewProvider = useRef<RoadviewProvider | null>(null);
   const phaseRef = useRef<Phase>(phase);
   const arrivedRef = useRef(nav.arrived);
   phaseRef.current = phase;
@@ -266,6 +271,7 @@ export default function Home() {
       requestCompass();
       const session = navigationSession.current + 1;
       navigationSession.current = session;
+      roadviewProvider.current = selectRoadviewProvider();
       setDest(target);
       setQuery(target.name);
       setError(null);
@@ -331,6 +337,7 @@ export default function Home() {
     setError(null);
     setRerouting(false);
     setRoadviewOpen(false);
+    roadviewProvider.current = null;
     rerouteAttemptedRoute.current = null;
     lastRerouteFixTimestamp.current = null;
     lastRerouteAtMs.current = null;
@@ -345,7 +352,7 @@ export default function Home() {
   // ── 안내 중 화면 ──────────────────────────────────────────────────────────
   if ((phase === "navigating" || phase === "arrived") && routeResponse) {
     const offRoute = nav.state === "deviated" || nav.state === "passed_turn";
-    const roadviewTrigger = nav.remainingMeters !== null && nav.remainingMeters <= ROADVIEW_TRIGGER_DISTANCE_M;
+    const roadviewTrigger = nav.remainingMeters !== null && nav.remainingMeters <= roadviewTriggerDistanceM();
     const directionReadout = compass !== null
       ? ui.viewDirection(Math.round(compass))
       : nav.movementHeadingDegrees !== null
@@ -391,6 +398,7 @@ export default function Home() {
                 destinationName={dest.name}
                 approachOrigin={currentFix}
                 locale={locale}
+                provider={roadviewProvider.current}
                 onClose={() => setRoadviewOpen(false)}
               />
             )}

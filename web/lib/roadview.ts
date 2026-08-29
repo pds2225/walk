@@ -1,10 +1,39 @@
 import type { Coordinate } from "./types";
 
+/**
+ * 기본 설정값 — KN-20260826-05 에서 정한 값 그대로다. 아래 reader 가 환경변수를
+ * 읽지 못하면 항상 이 값으로 되돌아간다. 값을 바꾸려면 코드가 아니라 환경변수를
+ * 쓴다(`NEXT_PUBLIC_ROADVIEW_TRIGGER_DISTANCE_M`,
+ * `NEXT_PUBLIC_ROADVIEW_SEARCH_RADIUS_M`).
+ */
 export const ROADVIEW_TRIGGER_DISTANCE_M = 50;
 export const ROADVIEW_SEARCH_RADII_M: readonly number[] = [50, 30];
 export const ROADVIEW_SDK_TIMEOUT_MS = 10_000;
 export const ROADVIEW_PANO_TIMEOUT_MS = 5_000;
 const KAKAO_SDK_ID = "kakao-maps-sdk-roadview";
+
+/**
+ * 설정값을 하나로 읽는다. 잘못 적힌 값(음수·문자·빈칸)은 조용히 버리고 기본값을
+ * 쓴다 — Roadview 설정 오타가 navigation 자체를 멈추게 하면 안 된다.
+ */
+function meterList(raw: string | undefined): number[] {
+  return (raw ?? "")
+    .split(",")
+    .map((token) => Number(token.trim()))
+    .filter((value) => Number.isFinite(value) && value > 0);
+}
+
+/** 목적지까지 남은 거리가 이 값 이하일 때 Roadview 진입을 제안한다(m). */
+export function roadviewTriggerDistanceM(): number {
+  // Next.js 는 NEXT_PUBLIC_* 를 리터럴 참조에서만 인라인한다 — 동적으로 읽지 않는다.
+  return meterList(process.env.NEXT_PUBLIC_ROADVIEW_TRIGGER_DISTANCE_M)[0] ?? ROADVIEW_TRIGGER_DISTANCE_M;
+}
+
+/** 목적지 주변 pano 를 찾을 때 순서대로 시도할 반경(m). 예: `"50,30"`. */
+export function roadviewSearchRadiiM(): readonly number[] {
+  const configured = meterList(process.env.NEXT_PUBLIC_ROADVIEW_SEARCH_RADIUS_M);
+  return configured.length > 0 ? configured : ROADVIEW_SEARCH_RADII_M;
+}
 
 interface KakaoLatLng {
   readonly getLat?: () => number;
@@ -31,21 +60,35 @@ interface KakaoWindow {
   kakao?: { maps?: KakaoMaps };
 }
 
+/** 지금 쓰는 provider 와, 확장 자리만 잡아둔 provider. */
+export type RoadviewProviderId = "kakao" | "naver" | "google";
+
+/**
+ * 열려 있는 Roadview 한 세션.
+ *
+ * Provider SDK 객체(Kakao `Roadview` 등)를 밖으로 내보내지 않는다 — 공통 뷰어가
+ * Kakao 전용 타입에 묶이면 NAVER/Google adapter 를 같은 자리에 끼울 수 없다.
+ */
 export interface RoadviewSession {
+  readonly provider: RoadviewProviderId;
   readonly panoId: string;
-  readonly view: KakaoRoadview;
+  /** 지도 안내로 돌아갈 때 뷰어가 부른다. 실패해도 navigation 은 계속된다. */
+  readonly close: () => void;
 }
 
-/** Provider-neutral seam for future Naver/Google panorama adapters. */
+/** K-Navi 공통 뷰어와 Provider SDK 사이의 seam. */
 export interface RoadviewProvider {
-  open: (
+  readonly id: RoadviewProviderId;
+  /** 키·설정만 보고 판단한다(네트워크 호출 없음). 키 값 자체는 반환하지 않는다. */
+  readonly isConfigured: () => boolean;
+  readonly open: (
     container: HTMLElement,
     destination: Coordinate,
     approachOrigin?: Coordinate | null,
   ) => Promise<RoadviewSession>;
 }
 
-export type RoadviewFailure = "missing_key" | "sdk_error" | "no_pano" | "load_error";
+export type RoadviewFailure = "missing_key" | "sdk_error" | "no_pano" | "load_error" | "not_implemented";
 
 export class RoadviewError extends Error {
   readonly reason: RoadviewFailure;
@@ -174,7 +217,7 @@ export async function openKakaoRoadview(
   const position = new maps.LatLng(destination.latitude, destination.longitude);
   const client = new maps.RoadviewClient();
   let panoId: string | null = null;
-  for (const radius of ROADVIEW_SEARCH_RADII_M) {
+  for (const radius of roadviewSearchRadiiM()) {
     panoId = await nearestPanoId(client, position, radius);
     if (panoId) break;
   }
@@ -183,16 +226,29 @@ export async function openKakaoRoadview(
   try {
     const view = new maps.Roadview(container);
     view.setPanoId(panoId, position);
+    // 진입 시점을 목적지 방향으로 돌려둔다. 사용자의 수동 360° 탐색은 그대로 남는다.
     if (approachOrigin && view.setViewpoint) {
       view.setViewpoint({ pan: bearingDegrees(approachOrigin, destination), tilt: 0, zoom: 0 });
     }
-    return { panoId, view };
+    return {
+      provider: "kakao",
+      panoId,
+      // Kakao Roadview 는 destroy API 를 노출하지 않는다 — container 를 비우는 것이
+      // SDK 가 남긴 DOM 을 걷어내는 유일한 방법이다.
+      close: () => container.replaceChildren(),
+    };
   } catch {
     throw new RoadviewError("load_error", "Roadview 화면을 열지 못했습니다.");
   }
 }
 
 export class KakaoRoadviewAdapter implements RoadviewProvider {
+  readonly id = "kakao" as const;
+
+  isConfigured(): boolean {
+    return kakaoRoadviewConfigured();
+  }
+
   open(container: HTMLElement, destination: Coordinate, approachOrigin?: Coordinate | null): Promise<RoadviewSession> {
     return openKakaoRoadview(container, destination, approachOrigin);
   }
