@@ -1973,7 +1973,7 @@ LEASE =
 
 `ASSIGNEE = v_up automatic development`
 
-`STATUS = READY (K-NAVI-RV-01 완료로 unblocked, 2026-08-30)`
+`STATUS = IMPLEMENTED (2026-08-30, PR #124 merged)`
 
 `DEPENDS = K-NAVI-RV-01`
 
@@ -2028,3 +2028,31 @@ LEASE =
 `NEW_TASKS = none`
 
 `PR = 해당 없음 (코드 변경 없음, 필드 검증 결과 기록만)`
+
+## TASK COMPLETION RECORD — K-NAVI-RV-02 (2026-08-30)
+
+`TASK_ID = K-NAVI-RV-02`
+
+`STATUS = IMPLEMENTED`
+
+`BRANCH = feature/kakao-roadview-rv02-20260830`
+
+`BASE_COMMIT = 67c5e41`
+
+`END_COMMIT = 5043231`
+
+`AUDIT_RESULT = KakaoRoadviewAdapter 실제 구현·nearest-pano 검색·목적지 marker·기존 KAKAO_JAVASCRIPT_KEY 구조는 ALREADY_DONE(KN-20260826-05)이라 재사용. Unified viewer seam과 ROADVIEW_* 설정값은 PARTIAL(Kakao 전용 타입이 "중립" 인터페이스를 통해 새고 있었고, 설정값이 상수였지 실제 configuration은 아니었음). NaverPanoramaAdapter/GoogleStreetViewAdapter stub과 세션당 provider 고정은 NOT_IMPLEMENTED였음 — 이 세 가지만 최소 구현.`
+
+`FILES_CHANGED = web/lib/roadview.ts, web/lib/roadviewProviders.ts(신규), web/components/RoadviewViewer.tsx, web/app/page.tsx, web/.env.local.example, web/lib/roadview.test.ts, web/lib/roadviewProviders.test.ts(신규), web/components/RoadviewViewer.test.tsx(신규)`
+
+`IMPLEMENTATION = RoadviewSession에서 Kakao SDK 타입(view: KakaoRoadview)을 제거하고 provider/panoId/close()로 중립화; RoadviewProvider에 id/isConfigured() 추가; NaverPanoramaAdapter·GoogleStreetViewAdapter는 실제 API 호출 없이 not_implemented로 reject, isConfigured()는 항상 false; ROADVIEW_TRIGGER_DISTANCE_M/ROADVIEW_SEARCH_RADII_M을 NEXT_PUBLIC_ROADVIEW_TRIGGER_DISTANCE_M/NEXT_PUBLIC_ROADVIEW_SEARCH_RADIUS_M 환경변수로 읽는 함수로 전환(기본값 50/[50,30] 그대로, 잘못된 값은 조용히 기본값으로 fallback); page.tsx에 navigation 세션 시작 시 한 번만 provider를 고르는 useRef 추가, reset 시 clear.`
+
+`TEST_RESULT = 변경 전 105 passed(13 files) → 변경 후 122 passed(15 files), 0 failed; typecheck/lint/build(web workspace) 전부 pass; git diff --check clean.`
+
+`INDEPENDENT_VERIFY = PASS — 8개 항목(diff 범위, page.tsx 최소성, roadview.ts/roadviewProviders.ts 코드 직접 대조, 사전 존재하던 typecheck 빌드순서 이슈와의 분리, git diff --check, 테스트 실효성(mutation 방식 확인), TASK.md 미변경, EXCLUDE 위반 없음) 전부 PASS로 재현·확인됨. 별도 verifier agent가 자체적으로 npm run test:run 등을 재실행해 확인.`
+
+`FORBIDDEN_SCOPE_CHECK = 경로/이탈/방향센서/음성/TMAP-Valhalla 관련 파일 변경 없음(diff stat으로 확인). page.tsx는 Roadview 관련 4줄만 추가·1줄 교체.`
+
+`NEW_TASKS = none`
+
+`PR = #124, merged (commit 9638549)`
