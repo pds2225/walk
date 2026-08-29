@@ -1011,9 +1011,9 @@ Roadview 미지원 지역을 위한 자체 사진 fallback은 향후 필요할 �
 ## 통합 E2E · 회귀 · PoC Ready 판정
 
 **Priority:** Integration  
-**Status:** BLOCKED
+**Status:** FIELD_VERIFIED (user-reported, 2026-08-30)
 
-**Blocker:** FIELD_TEST_REQUIRED for real-device GPS/orientation/voice and credentialed provider E2E.
+**Blocker (해소):** FIELD_TEST_REQUIRED for real-device GPS/orientation/voice and credentialed provider E2E — 사용자가 실제 실외 보행 필드 테스트를 수행하고 정상 동작을 보고함(사용자 원문: "정상동작"). 시나리오 A~G 개별 세부결과는 사용자가 별도로 항목화하지 않았으므로, 아래 TASK COMPLETION RECORD에 종합 결과로만 기록한다.
 
 Dependencies:
 
@@ -1949,9 +1949,11 @@ LEASE =
 
 `ASSIGNEE = USER`
 
-`STATUS = READY`
+`STATUS = DONE (user-reported, 2026-08-30)`
 
 `BLOCKS = K-NAVI-RV-02`
+
+`COMPLETION_NOTE = 사용자가 Kakao Developers 콘솔에서 실제 배포 도메인(k-navi.vercel.app)을 JavaScript SDK 허용 도메인에 추가 등록했다고 보고함(2026-08-30, 사용자 원문: "도메인등록했음"). AI가 브라우저/API로 Kakao Developers 콘솔을 직접 열어 독립 검증하지는 못함(Chrome 확장 미연결) — 이 TASK는 ASSIGNEE=USER이므로 사용자 보고를 완료 근거로 인정한다.`
 
 `GOAL = 기존 Kakao Developers 앱 walk를 재사용하여 K-Navi Web Roadview에 필요한 JavaScript SDK 설정을 확인한다.`
 
@@ -1971,7 +1973,7 @@ LEASE =
 
 `ASSIGNEE = v_up automatic development`
 
-`STATUS = BLOCKED`
+`STATUS = READY (K-NAVI-RV-01 완료로 unblocked, 2026-08-30)`
 
 `DEPENDS = K-NAVI-RV-01`
 
@@ -1994,3 +1996,35 @@ LEASE =
 `VERIFY = 정적/단위 테스트 가능한 범위; 기존 관련 테스트(roadview.test.ts 등); 전체 regression; git diff --check; independent verifier — 이번 TASK에서는 브라우저 렌더링·E2E·현장검증을 DONE 조건에 포함하지 않는다`
 
 `DONE = 기존 Roadview 기능을 깨지 않고 요구 기능(SCOPE) 구현; Kakao Adapter 실제 연결 구조 완료; NAVER/Google adapter 확장 위치 확보; 설정값 외부화; 관련 테스트 PASS; independent verifier PASS; branch/commit/push/PR/Checks 완료; TASK 결과 기록 — 브라우저/E2E/현장검증 없이도 DONE 처리 가능`
+
+## TASK COMPLETION RECORD — K-NAVI-RV-01 (2026-08-30)
+
+`TASK_ID = K-NAVI-RV-01`
+
+`STATUS = DONE`
+
+`EVIDENCE = 사용자가 Kakao Developers 콘솔에서 실제 배포 도메인(k-navi.vercel.app)을 JavaScript SDK 허용 도메인 목록에 추가 등록했다고 직접 보고함(사용자 원문: "도메인등록했음"). 기존 Streamlit용 도메인(localhost:8501 등)은 그대로 유지된 것으로 간주.`
+
+`VERIFICATION_METHOD = USER_REPORTED — AI가 Chrome 확장 미연결로 Kakao Developers 콘솔 또는 실제 배포 사이트를 직접 열어 독립 검증하지 못함. ASSIGNEE=USER TASK이므로 사용자 보고를 완료 근거로 인정.`
+
+`NEW_TASKS = none`
+
+`PR = 해당 없음 (외부 설정 변경, 저장소 코드 변경 없음)`
+
+## TASK COMPLETION RECORD — KN-20260826-07 (2026-08-30, field test)
+
+`TASK_ID = KN-20260826-07`
+
+`STATUS = FIELD_VERIFIED`
+
+`EVIDENCE = 사용자가 실제 실외 보행 필드 테스트를 수행하고 정상 동작을 보고함(사용자 원문: "정상동작"). Scenario A~G 개별 세부결과, POC READY DEFINITION 12개 항목의 항목별 체크는 사용자가 별도로 제공하지 않음 — 종합 결과만 기록.`
+
+`VERIFICATION_METHOD = USER_REPORTED (실외 GPS/센서/네트워크 조건은 AI가 재현·독립검증 불가능한 영역)`
+
+`KNOWN_LIMITATIONS = 시나리오별(A~G) 개별 결과가 항목화되지 않았으므로, 특정 시나리오(예: Scenario D GNSS jitter, Scenario B 초기 방향 오류)에서 발생할 수 있는 세부 결함은 이 기록만으로 배제할 수 없다. 문제가 재현되면 별도 TASK로 분리한다.`
+
+`K_NAVI_POC_READY = YES (사용자 필드 테스트 종합 보고 기준)`
+
+`NEW_TASKS = none`
+
+`PR = 해당 없음 (코드 변경 없음, 필드 검증 결과 기록만)`
