@@ -14,7 +14,11 @@ walk 앱(`D:\walk`)의 Production `Ready` 상태와 `k-walk.vercel.app` 도메�
 - [x] Vercel CLI `54.7.1` 설치를 확인했다.
 - [!] `vercel whoami`에서 기존 인증 토큰이 무효로 확인되어 사용자 로그인이 필요하다. 로그인 전에는 프로젝트 생성·배포를 진행하지 않는다.
 - [x] 사용자가 `vercel login`을 완료했고 계정 `ekth3691-8902`, 활성 팀 `ekth3691-8902s-projects`를 확인했다. 이전 무효 토큰 문제는 해소됐다.
-- [ ] 다음 액션: 최신 원격 `main` 기반 격리 작업 트리에서 `k-navi` Vercel 프로젝트를 연결하고 Production 배포한다.
+- [x] 최신 원격 `main` 기반 격리 worktree `D:\walk\.worktrees\k-navi-production`과 `deploy/k-navi-production` 브랜치를 만들었다.
+- [x] Vercel 프로젝트 `k-navi`를 생성하고 `pds2225/walk` GitHub 저장소 및 Production 브랜치 `main`에 연결했다. 자동 배포는 활성화 상태다.
+- [x] 프로젝트 설정을 Next.js / Root `.` / `npm run next:build` / `web/.next` / `npm install`로 명시했다.
+- [x] 최신 코드의 `npm install`, `npm run next:build`, `npm run lint`, `npm run typecheck`, `npm run test:run` 검증을 통과했다.
+- [!] `k-navi` Vercel 환경변수는 현재 0개다. 핵심 경로 탐색에 `TMAP_APP_KEY`가 필요하므로 사용자 입력 후 Production 배포를 진행한다.
 
 ## 1. 빠른 재개 (복붙용)
 ```powershell
