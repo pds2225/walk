@@ -13,7 +13,8 @@ walk 앱(`D:\walk`)의 Production `Ready` 상태와 `k-walk.vercel.app` 도메�
 - [x] 원격 `main`을 fetch해 최신 기준을 `a1fe2de`로 확인했다. 로컬 checkout과 기존 변경은 보존 중이다.
 - [x] Vercel CLI `54.7.1` 설치를 확인했다.
 - [!] `vercel whoami`에서 기존 인증 토큰이 무효로 확인되어 사용자 로그인이 필요하다. 로그인 전에는 프로젝트 생성·배포를 진행하지 않는다.
-- [ ] 현재 대기: full access는 확인했지만 Vercel 기존 토큰이 무효다. 사용자가 Vercel 브라우저 로그인을 완료하면 프로젝트 생성·배포를 이어서 진행한다.
+- [x] 사용자가 `vercel login`을 완료했고 계정 `ekth3691-8902`, 활성 팀 `ekth3691-8902s-projects`를 확인했다. 이전 무효 토큰 문제는 해소됐다.
+- [ ] 다음 액션: 최신 원격 `main` 기반 격리 작업 트리에서 `k-navi` Vercel 프로젝트를 연결하고 Production 배포한다.
 
 ## 1. 빠른 재개 (복붙용)
 ```powershell
