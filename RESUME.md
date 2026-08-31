@@ -1,10 +1,19 @@
 # RESUME.md — 세션 재시작 시 이어하기 진입점
 
-> 새 세션을 시작하면 이 파일을 가장 먼저 읽어라. (최종 갱신: 2026-08-27)
+> 새 세션을 시작하면 이 파일을 가장 먼저 읽어라. (최종 갱신: 2026-08-31)
 > Secret/API Key/.env 값 금지. 세부는 링크만.
 
 ## 0. 30초 컨텍스트
 walk 앱(`D:\walk`)의 Production `Ready` 상태와 `k-walk.vercel.app` 도메인을 재확인 완료했다. Vercel의 `Deployment Settings`는 Root Directory `.`, Next.js, `npm run next:build`, Output `web/.next`, Install `npm install`, Node 24.x로 확인됐고 현재 배포와 일치한다. `4 Recommendations`는 연결·분석·성능 관련 선택형 운영 권고이며 오류가 아니다. `To update your Production Deployment, push to the main branch.`도 현재 Production을 갱신하려면 `main` 브랜치에 변경사항을 push하라는 일반 안내다. Vercel의 `github/pds2225`는 연결된 GitHub 저장소 소유자/조직 표기이고, `Source`의 `main`은 기본 배포 브랜치, `5e2cfff`는 배포에 사용된 Git 커밋 식별자다. 커밋 제목 `feat(web): wire deviation reroute into navigation`은 웹 앱에 경로 이탈 시 재탐색 기능을 연결한 변경을 뜻한다. `6h ago by pds2225`는 배포 생성 시각·생성 주체이며 오류가 아니다. Preview 실패는 `backup/WIN-K20QOC29TOB` 브랜치의 별도 빌드 문제로 Production에는 영향이 없다. 로컬 `main=83aa91c`, 실제 원격·배포 기준 `main=5e2cfff`이며 동기화·리셋은 하지 않았다.
+
+## 현재 요청 (2026-08-31)
+- [ ] 기존 Streamlit은 레거시로 유지하고 `web/` Next.js 앱을 새 Vercel 프로젝트 `k-navi`의 Production 서비스로 전환한다.
+- [ ] 저장소 `pds2225/walk`, 모노레포 구조, `@walk/route-engine` workspace 의존성을 유지한다.
+- [x] 현재 git 상태·프로젝트 구조와 `vercel.json`, 루트 `package.json`, `web/package.json`을 분석했다.
+- [x] 원격 `main`을 fetch해 최신 기준을 `a1fe2de`로 확인했다. 로컬 checkout과 기존 변경은 보존 중이다.
+- [x] Vercel CLI `54.7.1` 설치를 확인했다.
+- [!] `vercel whoami`에서 기존 인증 토큰이 무효로 확인되어 사용자 로그인이 필요하다. 로그인 전에는 프로젝트 생성·배포를 진행하지 않는다.
+- [ ] 현재 대기: full access는 확인했지만 Vercel 기존 토큰이 무효다. 사용자가 Vercel 브라우저 로그인을 완료하면 프로젝트 생성·배포를 이어서 진행한다.
 
 ## 1. 빠른 재개 (복붙용)
 ```powershell
