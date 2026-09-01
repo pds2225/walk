@@ -18,7 +18,11 @@ walk 앱(`D:\walk`)의 Production `Ready` 상태와 `k-walk.vercel.app` 도메�
 - [x] Vercel 프로젝트 `k-navi`를 생성하고 `pds2225/walk` GitHub 저장소 및 Production 브랜치 `main`에 연결했다. 자동 배포는 활성화 상태다.
 - [x] 프로젝트 설정을 Next.js / Root `.` / `npm run next:build` / `web/.next` / `npm install`로 명시했다.
 - [x] 최신 코드의 `npm install`, `npm run next:build`, `npm run lint`, `npm run typecheck`, `npm run test:run` 검증을 통과했다.
-- [!] `k-navi` Vercel 환경변수는 현재 0개다. 핵심 경로 탐색에 `TMAP_APP_KEY`가 필요하므로 사용자 입력 후 Production 배포를 진행한다.
+- [x] 로컬 `D:\walk\.streamlit\secrets.toml`에서 `TMAP_APP_KEY`를 값 노출 없이 읽어 `k-navi` Production 환경변수로 등록했다.
+- [x] `k-navi` 프로젝트의 GitHub 연결은 `pds2225/walk`, Production 브랜치 `main`, 자동 배포 활성화로 확인했다.
+- [x] 격리 브랜치 `deploy/k-navi-production`을 GitHub에 push했다. `main`은 건드리지 않았다.
+- [x] 최신 코드의 설치·Next.js 빌드·lint·typecheck·122개 테스트를 통과했다.
+- [!] Production 배포와 자동 Preview 배포가 Vercel 일일 한도 초과(`more than 100`, 24시간 제한)로 생성되지 않았다. 코드·빌드 오류가 아니다.
 
 ## 1. 빠른 재개 (복붙용)
 ```powershell
