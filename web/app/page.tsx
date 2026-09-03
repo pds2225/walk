@@ -9,7 +9,6 @@ import type { Coordinate, PlaceHit, RouteResponse } from "../lib/types";
 import { getUiText, LOCALE_OPTIONS, type Locale } from "../lib/i18n";
 import { primeSpeech } from "../lib/voice";
 import RoadviewViewer from "../components/RoadviewViewer";
-import { roadviewTriggerDistanceM } from "../lib/roadview";
 import type { RoadviewProvider } from "../lib/roadview";
 import { selectRoadviewProvider } from "../lib/roadviewProviders";
 
@@ -352,7 +351,6 @@ export default function Home() {
   // ── 안내 중 화면 ──────────────────────────────────────────────────────────
   if ((phase === "navigating" || phase === "arrived") && routeResponse) {
     const offRoute = nav.state === "deviated" || nav.state === "passed_turn";
-    const roadviewTrigger = nav.remainingMeters !== null && nav.remainingMeters <= roadviewTriggerDistanceM();
     const directionReadout = compass !== null
       ? ui.viewDirection(Math.round(compass))
       : nav.movementHeadingDegrees !== null
@@ -388,7 +386,7 @@ export default function Home() {
           offRoute={offRoute}
         />
 
-        {roadviewTrigger && dest ? (
+        {dest ? (
           <div className="roadview-entry">
             {!roadviewOpen ? (
               <button type="button" onClick={() => setRoadviewOpen(true)}>{ui.roadviewButton}</button>
