@@ -1,6 +1,6 @@
 # RESUME.md — 세션 재시작 시 이어하기 진입점
 
-> 새 세션을 시작하면 이 파일을 가장 먼저 읽어라. (최종 갱신: 2026-08-31)
+> 새 세션을 시작하면 이 파일을 가장 먼저 읽어라. (최종 갱신: 2026-09-02)
 > Secret/API Key/.env 값 금지. 세부는 링크만.
 
 ## 0. 30초 컨텍스트
@@ -22,7 +22,11 @@ walk 앱(`D:\walk`)의 Production `Ready` 상태와 `k-walk.vercel.app` 도메�
 - [x] `k-navi` 프로젝트의 GitHub 연결은 `pds2225/walk`, Production 브랜치 `main`, 자동 배포 활성화로 확인했다.
 - [x] 격리 브랜치 `deploy/k-navi-production`을 GitHub에 push했다. `main`은 건드리지 않았다.
 - [x] 최신 코드의 설치·Next.js 빌드·lint·typecheck·122개 테스트를 통과했다.
-- [!] Production 배포와 자동 Preview 배포가 Vercel 일일 한도 초과(`more than 100`, 24시간 제한)로 생성되지 않았다. 코드·빌드 오류가 아니다.
+- [x] 2026-09-02 재개: Vercel 배포 한도가 해제되어 `k-navi` Production 재배포를 완료했다.
+- [x] Production 배포 `dpl_D9kmTFB7mPhyhubUZGEpcEXj3AuA`는 `READY`이며 `https://k-navi-eight.vercel.app`에서 실제 화면·장소검색·도보경로 API를 확인했다.
+- [x] GitHub 검증 커밋 `115e690`을 `deploy/k-navi-production`에 push했고 Vercel Preview가 자동 생성되어 `READY`가 됐다.
+- [x] 배포 로그에서 Next.js 감지, `npm install`, `npm run next:build`, `icn1` 함수 생성까지 확인했다.
+- [!] 기존 프로젝트 `walk`가 `https://k-navi.vercel.app` alias를 보유하고 있어 새 `k-navi` 프로젝트의 공개 Production alias는 `https://k-navi-eight.vercel.app`이다. 기존 alias 이전은 별도 결정 사항이다.
 
 ## 1. 빠른 재개 (복붙용)
 ```powershell
