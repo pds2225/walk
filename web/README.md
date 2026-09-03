@@ -35,6 +35,10 @@ npm run next:dev
 | `TMAP_APP_KEY` | **경로 탐색 불가** (앱이 동작하지 않음) | [openapi.sk.com](https://openapi.sk.com/) |
 | `KAKAO_REST_API_KEY` | 가게·상호 이름 검색 안 됨 | 카카오 developers → 앱 키 → **REST API 키** |
 | `NAVER_SEARCH_CLIENT_ID` / `_SECRET` | 네이버쪽 상호 검색만 빠짐 | developers.naver.com |
+| `NEXT_PUBLIC_KAKAO_JAVASCRIPT_KEY` | Kakao Roadview 안 열림 | Kakao Developers **JavaScript 키** |
+| `NEXT_PUBLIC_NAVER_MAP_CLIENT_ID` | NAVER 거리뷰 안 열림 | 네이버 클라우드 Maps **Client ID** (검색 키 아님) |
+| `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` | Google Street View 안 열림 | Google Cloud Maps JavaScript API |
+| `NEXT_PUBLIC_ROADVIEW_PROVIDER` | Kakao 키가 있으면 항상 Kakao | `kakao` / `naver` / `google` |
 
 상호 검색(카카오·네이버)은 **둘 중 하나만 있어도** 됩니다 — 둘 다 넣으면 한쪽이 못
 찾는 가게를 다른 쪽이 찾습니다. 둘 다 없으면 주소·큰 장소만 검색됩니다.
@@ -52,8 +56,12 @@ npm run next:dev
 Git 을 나중에 연결하면 **그 시점의 커밋은 소급 배포되지 않습니다** — 다음 push 부터
 자동 배포됩니다. 바로 올리려면 대시보드에서 Redeploy 를 누르세요.
 
-키는 서버(API 라우트)에서만 읽습니다. 브라우저 번들에 들어가지 않으므로
+경로·검색 키는 서버(API 라우트)에서만 읽습니다. 브라우저 번들에 들어가지 않으므로
 `NEXT_PUBLIC_` 접두어를 붙이면 **안 됩니다**.
+
+Roadview SDK 키만 예외입니다. Kakao/NAVER/Google 거리뷰는 브라우저에서 SDK를 로드하므로
+`NEXT_PUBLIC_KAKAO_JAVASCRIPT_KEY`, `NEXT_PUBLIC_NAVER_MAP_CLIENT_ID`,
+`NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` 를 씁니다. NAVER **Client Secret** 은 여기에 넣지 않습니다.
 
 ## 구조
 

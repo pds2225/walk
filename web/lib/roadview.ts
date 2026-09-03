@@ -11,6 +11,8 @@ export const ROADVIEW_SEARCH_RADII_M: readonly number[] = [50, 30];
 export const ROADVIEW_SDK_TIMEOUT_MS = 10_000;
 export const ROADVIEW_PANO_TIMEOUT_MS = 5_000;
 const KAKAO_SDK_ID = "kakao-maps-sdk-roadview";
+const NAVER_SDK_ID = "naver-maps-sdk-roadview";
+const GOOGLE_SDK_ID = "google-maps-sdk-streetview";
 
 /**
  * 설정값을 하나로 읽는다. 잘못 적힌 값(음수·문자·빈칸)은 조용히 버리고 기본값을
@@ -60,7 +62,7 @@ interface KakaoWindow {
   kakao?: { maps?: KakaoMaps };
 }
 
-/** 지금 쓰는 provider 와, 확장 자리만 잡아둔 provider. */
+/** Roadview provider. Kakao가 기본이고, NAVER/Google은 키가 있을 때 같은 뷰어에 연결된다. */
 export type RoadviewProviderId = "kakao" | "naver" | "google";
 
 /**
@@ -251,5 +253,373 @@ export class KakaoRoadviewAdapter implements RoadviewProvider {
 
   open(container: HTMLElement, destination: Coordinate, approachOrigin?: Coordinate | null): Promise<RoadviewSession> {
     return openKakaoRoadview(container, destination, approachOrigin);
+  }
+}
+
+interface NaverLatLng {
+  readonly lat?: () => number;
+  readonly lng?: () => number;
+}
+
+interface NaverPanoramaView {
+  getPanoId?: () => string | number | null;
+  setPov?: (pov: { pan: number; tilt: number; fov?: number }) => void;
+  setVisible?: (visible: boolean) => void;
+}
+
+interface NaverMaps {
+  LatLng: new (latitude: number, longitude: number) => NaverLatLng;
+  Panorama: new (
+    container: HTMLElement | string,
+    options: {
+      position?: NaverLatLng;
+      pov?: { pan: number; tilt: number; fov?: number };
+    },
+  ) => NaverPanoramaView;
+  Event: {
+    addListener: (target: NaverPanoramaView, eventName: string, handler: (status: string) => void) => void;
+  };
+  onJSContentLoaded?: () => void;
+}
+
+interface NaverWindow {
+  naver?: { maps?: NaverMaps };
+}
+
+interface GoogleLatLngLiteral {
+  lat: number;
+  lng: number;
+}
+
+interface GoogleStreetViewPanoramaData {
+  readonly location?: { readonly pano?: string | null };
+}
+
+interface GoogleStreetViewResponse {
+  readonly data?: GoogleStreetViewPanoramaData;
+}
+
+interface GoogleStreetViewPanoramaView {
+  setPano?: (panoId: string) => void;
+  setPov?: (pov: { heading: number; pitch: number }) => void;
+  setVisible?: (visible: boolean) => void;
+}
+
+interface GoogleStreetViewService {
+  getPanorama: (
+    request: { location: GoogleLatLngLiteral; radius: number },
+    callback?: (data: GoogleStreetViewPanoramaData | null, status: string) => void,
+  ) => Promise<GoogleStreetViewResponse> | void;
+}
+
+interface GoogleMaps {
+  StreetViewService: new () => GoogleStreetViewService;
+  StreetViewPanorama: new (
+    container: HTMLElement,
+    options?: {
+      pano?: string;
+      pov?: { heading: number; pitch: number };
+      visible?: boolean;
+      enableCloseButton?: boolean;
+    },
+  ) => GoogleStreetViewPanoramaView;
+}
+
+interface GoogleWindow {
+  google?: { maps?: GoogleMaps };
+}
+
+let naverSdkPromise: Promise<NaverMaps> | null = null;
+let googleSdkPromise: Promise<GoogleMaps> | null = null;
+
+function naverWindow(): NaverWindow {
+  return window as unknown as NaverWindow;
+}
+
+function googleWindow(): GoogleWindow {
+  return window as unknown as GoogleWindow;
+}
+
+function naverClientId(): string {
+  return process.env.NEXT_PUBLIC_NAVER_MAP_CLIENT_ID?.trim() ?? "";
+}
+
+function googleMapsApiKey(): string {
+  return process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY?.trim() ?? "";
+}
+
+export function naverPanoramaConfigured(): boolean {
+  return naverClientId().length > 0;
+}
+
+export function googleStreetViewConfigured(): boolean {
+  return googleMapsApiKey().length > 0;
+}
+
+function currentNaverMaps(): NaverMaps | null {
+  const maps = naverWindow().naver?.maps;
+  return maps?.Panorama && maps.Event ? maps : null;
+}
+
+function currentGoogleMaps(): GoogleMaps | null {
+  const maps = googleWindow().google?.maps;
+  return maps?.StreetViewService && maps.StreetViewPanorama ? maps : null;
+}
+
+function closeRoadviewContainer(container: HTMLElement, hide?: () => void): void {
+  try {
+    hide?.();
+  } catch {
+    /* SDK 정리 실패가 지도 안내 복귀를 막으면 안 된다. */
+  }
+  container.replaceChildren();
+}
+
+function loadNaverMaps(): Promise<NaverMaps> {
+  if (typeof window === "undefined" || typeof document === "undefined") {
+    return Promise.reject(new RoadviewError("sdk_error", "Roadview는 브라우저에서만 사용할 수 있습니다."));
+  }
+  if (!naverClientId()) {
+    return Promise.reject(new RoadviewError("missing_key", "NAVER 지도 Client ID가 설정되지 않았습니다."));
+  }
+  const existing = currentNaverMaps();
+  if (existing) return Promise.resolve(existing);
+  if (naverSdkPromise) return naverSdkPromise;
+
+  const loadOperation = new Promise<NaverMaps>((resolve, reject) => {
+    const finish = () => {
+      const maps = currentNaverMaps();
+      if (maps) {
+        resolve(maps);
+        return true;
+      }
+      return false;
+    };
+    const waitForPanoramaModule = () => {
+      script?.setAttribute("data-loaded", "true");
+      if (finish()) return;
+      const maps = naverWindow().naver?.maps;
+      if (!maps) {
+        reject(new RoadviewError("sdk_error", "NAVER Maps SDK를 초기화하지 못했습니다."));
+        return;
+      }
+      maps.onJSContentLoaded = () => {
+        if (!finish()) reject(new RoadviewError("sdk_error", "NAVER 파노라마 모듈을 초기화하지 못했습니다."));
+      };
+    };
+    let script = document.getElementById(NAVER_SDK_ID) as HTMLScriptElement | null;
+    const onError = () => reject(new RoadviewError("sdk_error", "NAVER Maps SDK를 불러오지 못했습니다."));
+    if (!script) {
+      script = document.createElement("script");
+      script.id = NAVER_SDK_ID;
+      script.async = true;
+      script.src = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${encodeURIComponent(naverClientId())}&submodules=panorama`;
+      script.addEventListener("load", waitForPanoramaModule, { once: true });
+      script.addEventListener("error", onError, { once: true });
+      document.head.appendChild(script);
+    } else if (script.getAttribute("data-loaded") === "true") {
+      waitForPanoramaModule();
+    } else {
+      script.addEventListener("load", waitForPanoramaModule, { once: true });
+      script.addEventListener("error", onError, { once: true });
+    }
+  });
+  naverSdkPromise = withTimeout(
+    loadOperation,
+    ROADVIEW_SDK_TIMEOUT_MS,
+    "NAVER Maps SDK 로딩 응답이 지연되었습니다.",
+  ).catch((error: unknown) => {
+    naverSdkPromise = null;
+    throw error;
+  });
+  return naverSdkPromise;
+}
+
+function loadGoogleMaps(): Promise<GoogleMaps> {
+  if (typeof window === "undefined" || typeof document === "undefined") {
+    return Promise.reject(new RoadviewError("sdk_error", "Roadview는 브라우저에서만 사용할 수 있습니다."));
+  }
+  if (!googleMapsApiKey()) {
+    return Promise.reject(new RoadviewError("missing_key", "Google Maps API 키가 설정되지 않았습니다."));
+  }
+  const existing = currentGoogleMaps();
+  if (existing) return Promise.resolve(existing);
+  if (googleSdkPromise) return googleSdkPromise;
+
+  const loadOperation = new Promise<GoogleMaps>((resolve, reject) => {
+    const finish = () => {
+      const maps = currentGoogleMaps();
+      if (!maps) {
+        reject(new RoadviewError("sdk_error", "Google Maps SDK를 초기화하지 못했습니다."));
+        return;
+      }
+      resolve(maps);
+    };
+    let script = document.getElementById(GOOGLE_SDK_ID) as HTMLScriptElement | null;
+    const onError = () => reject(new RoadviewError("sdk_error", "Google Maps SDK를 불러오지 못했습니다."));
+    if (!script) {
+      script = document.createElement("script");
+      script.id = GOOGLE_SDK_ID;
+      script.async = true;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(googleMapsApiKey())}`;
+      script.addEventListener("load", finish, { once: true });
+      script.addEventListener("error", onError, { once: true });
+      document.head.appendChild(script);
+    } else {
+      script.addEventListener("load", finish, { once: true });
+      script.addEventListener("error", onError, { once: true });
+    }
+  });
+  googleSdkPromise = withTimeout(
+    loadOperation,
+    ROADVIEW_SDK_TIMEOUT_MS,
+    "Google Maps SDK 로딩 응답이 지연되었습니다.",
+  ).catch((error: unknown) => {
+    googleSdkPromise = null;
+    throw error;
+  });
+  return googleSdkPromise;
+}
+
+function nearestGooglePanoId(
+  service: GoogleStreetViewService,
+  location: GoogleLatLngLiteral,
+  radius: number,
+): Promise<string | null> {
+  return withTimeout(
+    new Promise<string | null>((resolve) => {
+      const fromData = (data: GoogleStreetViewPanoramaData | null | undefined): string | null => {
+        const panoId = data?.location?.pano;
+        return panoId ? String(panoId) : null;
+      };
+      const result = service.getPanorama({ location, radius }, (data, status) => {
+        if (status === "OK") resolve(fromData(data));
+        else resolve(null);
+      });
+      if (result && typeof result.then === "function") {
+        result.then(
+          (response) => resolve(fromData(response.data)),
+          () => resolve(null),
+        );
+      }
+    }),
+    ROADVIEW_PANO_TIMEOUT_MS,
+    "Google Street View 파노라마 응답이 지연되었습니다.",
+  );
+}
+
+export async function openNaverPanorama(
+  container: HTMLElement,
+  destination: Coordinate,
+  approachOrigin?: Coordinate | null,
+): Promise<RoadviewSession> {
+  let maps: NaverMaps;
+  try {
+    maps = await loadNaverMaps();
+  } catch (error) {
+    if (error instanceof RoadviewError) throw error;
+    throw new RoadviewError("sdk_error", "NAVER 파노라마를 초기화하지 못했습니다.");
+  }
+
+  const position = new maps.LatLng(destination.latitude, destination.longitude);
+  const options: {
+    position: NaverLatLng;
+    pov?: { pan: number; tilt: number; fov: number };
+  } = { position };
+  if (approachOrigin) {
+    options.pov = { pan: bearingDegrees(approachOrigin, destination), tilt: 0, fov: 100 };
+  }
+
+  try {
+    const view = new maps.Panorama(container, options);
+    const session = await withTimeout(
+      new Promise<RoadviewSession>((resolve, reject) => {
+        maps.Event.addListener(view, "pano_status", (status) => {
+          if (status === "OK") {
+            if (options.pov && view.setPov) view.setPov(options.pov);
+            resolve({
+              provider: "naver",
+              panoId: String(view.getPanoId?.() ?? "naver"),
+              close: () => closeRoadviewContainer(container, () => view.setVisible?.(false)),
+            });
+            return;
+          }
+          closeRoadviewContainer(container, () => view.setVisible?.(false));
+          reject(new RoadviewError("no_pano", "목적지 주변에 네이버 거리뷰가 없습니다."));
+        });
+      }),
+      ROADVIEW_PANO_TIMEOUT_MS,
+      "NAVER 파노라마 응답이 지연되었습니다.",
+    );
+    return session;
+  } catch (error) {
+    if (error instanceof RoadviewError) throw error;
+    throw new RoadviewError("load_error", "NAVER 거리뷰 화면을 열지 못했습니다.");
+  }
+}
+
+export async function openGoogleStreetView(
+  container: HTMLElement,
+  destination: Coordinate,
+  approachOrigin?: Coordinate | null,
+): Promise<RoadviewSession> {
+  let maps: GoogleMaps;
+  try {
+    maps = await loadGoogleMaps();
+  } catch (error) {
+    if (error instanceof RoadviewError) throw error;
+    throw new RoadviewError("sdk_error", "Google Street View를 초기화하지 못했습니다.");
+  }
+
+  const location = { lat: destination.latitude, lng: destination.longitude };
+  const service = new maps.StreetViewService();
+  let panoId: string | null = null;
+  for (const radius of roadviewSearchRadiiM()) {
+    panoId = await nearestGooglePanoId(service, location, radius);
+    if (panoId) break;
+  }
+  if (!panoId) throw new RoadviewError("no_pano", "목적지 주변에 Street View가 없습니다.");
+
+  try {
+    const heading = approachOrigin ? bearingDegrees(approachOrigin, destination) : 0;
+    const view = new maps.StreetViewPanorama(container, {
+      pano: panoId,
+      pov: { heading, pitch: 0 },
+      visible: true,
+      enableCloseButton: false,
+    });
+    view.setPano?.(panoId);
+    view.setPov?.({ heading, pitch: 0 });
+    return {
+      provider: "google",
+      panoId,
+      close: () => closeRoadviewContainer(container, () => view.setVisible?.(false)),
+    };
+  } catch {
+    throw new RoadviewError("load_error", "Street View 화면을 열지 못했습니다.");
+  }
+}
+
+export class NaverPanoramaAdapter implements RoadviewProvider {
+  readonly id = "naver" as const;
+
+  isConfigured(): boolean {
+    return naverPanoramaConfigured();
+  }
+
+  open(container: HTMLElement, destination: Coordinate, approachOrigin?: Coordinate | null): Promise<RoadviewSession> {
+    return openNaverPanorama(container, destination, approachOrigin);
+  }
+}
+
+export class GoogleStreetViewAdapter implements RoadviewProvider {
+  readonly id = "google" as const;
+
+  isConfigured(): boolean {
+    return googleStreetViewConfigured();
+  }
+
+  open(container: HTMLElement, destination: Coordinate, approachOrigin?: Coordinate | null): Promise<RoadviewSession> {
+    return openGoogleStreetView(container, destination, approachOrigin);
   }
 }

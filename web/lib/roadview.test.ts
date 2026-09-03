@@ -4,7 +4,9 @@ import type { Coordinate } from "./types";
 import {
   bearingDegrees,
   KakaoRoadviewAdapter,
+  openGoogleStreetView,
   openKakaoRoadview,
+  openNaverPanorama,
   RoadviewError,
   ROADVIEW_PANO_TIMEOUT_MS,
   ROADVIEW_SEARCH_RADII_M,
@@ -18,6 +20,8 @@ const SEOUL: Coordinate = { latitude: 37.5665, longitude: 126.978 };
 
 afterEach(() => {
   delete (window as unknown as { kakao?: unknown }).kakao;
+  delete (window as unknown as { naver?: unknown }).naver;
+  delete (window as unknown as { google?: unknown }).google;
   vi.unstubAllEnvs();
 });
 
@@ -215,5 +219,140 @@ describe("Kakao Roadview failure handling", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe("NAVER panorama adapter", () => {
+  const APPROACH: Coordinate = { latitude: SEOUL.latitude - 0.001, longitude: SEOUL.longitude };
+
+  function installNaver(status: string, panoId = "n-pano"): { setPov: ReturnType<typeof vi.fn> } {
+    const setPov = vi.fn();
+    class LatLng {
+      constructor(readonly latitude: number, readonly longitude: number) {}
+    }
+    class Panorama {
+      constructor(container: HTMLElement) {
+        container.appendChild(document.createElement("canvas"));
+      }
+      getPanoId = () => panoId;
+      setPov = setPov;
+      setVisible = vi.fn();
+    }
+    const maps = {
+      LatLng,
+      Panorama,
+      Event: {
+        addListener: (_target: unknown, eventName: string, handler: (value: string) => void) => {
+          if (eventName === "pano_status") handler(status);
+        },
+      },
+    };
+    (window as unknown as { naver: { maps: typeof maps } }).naver = { maps };
+    return { setPov };
+  }
+
+  it("opens the panorama and points the camera at the destination", async () => {
+    vi.stubEnv("NEXT_PUBLIC_NAVER_MAP_CLIENT_ID", "ncp-test");
+    const { setPov } = installNaver("OK");
+    const result = await openNaverPanorama(document.createElement("div"), SEOUL, APPROACH);
+    expect(result.provider).toBe("naver");
+    expect(result.panoId).toBe("n-pano");
+    expect(setPov).toHaveBeenCalledWith(expect.objectContaining({ tilt: 0, fov: 100 }));
+  });
+
+  it("closes through the session so leftover SDK DOM is removed", async () => {
+    vi.stubEnv("NEXT_PUBLIC_NAVER_MAP_CLIENT_ID", "ncp-test");
+    installNaver("OK");
+    const container = document.createElement("div");
+    const session = await openNaverPanorama(container, SEOUL);
+    expect(container.childElementCount).toBe(1);
+    session.close();
+    expect(container.childElementCount).toBe(0);
+  });
+
+  it("returns a non-fatal no-pano error when the SDK reports ERROR", async () => {
+    vi.stubEnv("NEXT_PUBLIC_NAVER_MAP_CLIENT_ID", "ncp-test");
+    installNaver("ERROR");
+    await expect(openNaverPanorama(document.createElement("div"), SEOUL)).rejects.toMatchObject({
+      reason: "no_pano",
+    } satisfies Partial<RoadviewError>);
+  });
+});
+
+describe("Google Street View adapter", () => {
+  const APPROACH: Coordinate = { latitude: SEOUL.latitude - 0.001, longitude: SEOUL.longitude };
+
+  function installGoogle(options: {
+    panoByRadius?: Record<number, string | null>;
+  } = {}) {
+    const searchedRadii: number[] = [];
+    const view = {
+      setPano: vi.fn(),
+      setPov: vi.fn(),
+      setVisible: vi.fn(),
+    };
+    class StreetViewService {
+      getPanorama(
+        request: { location: { lat: number; lng: number }; radius: number },
+        callback?: (data: { location: { pano: string } } | null, status: string) => void,
+      ) {
+        searchedRadii.push(request.radius);
+        const pano = options.panoByRadius && request.radius in options.panoByRadius
+          ? options.panoByRadius[request.radius]
+          : "g-pano";
+        const data = pano ? { location: { pano } } : null;
+        const status = pano ? "OK" : "ZERO_RESULTS";
+        callback?.(data, status);
+      }
+    }
+    class StreetViewPanorama {
+      constructor(container: HTMLElement) {
+        container.appendChild(document.createElement("canvas"));
+      }
+      setPano = view.setPano;
+      setPov = view.setPov;
+      setVisible = view.setVisible;
+    }
+    const maps = { StreetViewService, StreetViewPanorama };
+    (window as unknown as { google: { maps: typeof maps } }).google = { maps };
+    return { searchedRadii, view };
+  }
+
+  it("searches configured radii and opens Street View toward the destination", async () => {
+    vi.stubEnv("NEXT_PUBLIC_GOOGLE_MAPS_API_KEY", "gmaps-test");
+    const primary = ROADVIEW_SEARCH_RADII_M[0] ?? 50;
+    const fallback = ROADVIEW_SEARCH_RADII_M[1] ?? 30;
+    const { searchedRadii, view } = installGoogle({
+      panoByRadius: { [primary]: null, [fallback]: "g-pano-2" },
+    });
+    const result = await openGoogleStreetView(document.createElement("div"), SEOUL, APPROACH);
+    expect(searchedRadii).toEqual([...ROADVIEW_SEARCH_RADII_M]);
+    expect(result.provider).toBe("google");
+    expect(result.panoId).toBe("g-pano-2");
+    expect(view.setPov).toHaveBeenCalledWith(expect.objectContaining({ pitch: 0 }));
+  });
+
+  it("closes through the session so leftover SDK DOM is removed", async () => {
+    vi.stubEnv("NEXT_PUBLIC_GOOGLE_MAPS_API_KEY", "gmaps-test");
+    installGoogle();
+    const container = document.createElement("div");
+    const session = await openGoogleStreetView(container, SEOUL);
+    expect(container.childElementCount).toBe(1);
+    session.close();
+    expect(container.childElementCount).toBe(0);
+  });
+
+  it("returns a non-fatal no-pano error when every radius is empty", async () => {
+    vi.stubEnv("NEXT_PUBLIC_GOOGLE_MAPS_API_KEY", "gmaps-test");
+    const { searchedRadii } = installGoogle({
+      panoByRadius: {
+        [ROADVIEW_SEARCH_RADII_M[0] ?? 50]: null,
+        [ROADVIEW_SEARCH_RADII_M[1] ?? 30]: null,
+      },
+    });
+    await expect(openGoogleStreetView(document.createElement("div"), SEOUL)).rejects.toMatchObject({
+      reason: "no_pano",
+    } satisfies Partial<RoadviewError>);
+    expect(searchedRadii).toEqual([...ROADVIEW_SEARCH_RADII_M]);
   });
 });

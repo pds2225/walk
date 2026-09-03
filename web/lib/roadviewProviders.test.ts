@@ -2,23 +2,21 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Coordinate } from "./types";
 import { RoadviewError } from "./roadview";
-import type { RoadviewProvider, RoadviewProviderId } from "./roadview";
 import {
   createRoadviewProvider,
   GoogleStreetViewAdapter,
   NaverPanoramaAdapter,
+  requestedRoadviewProviderId,
   ROADVIEW_PROVIDER_ORDER,
   selectRoadviewProvider,
 } from "./roadviewProviders";
-
-const SEOUL: Coordinate = { latitude: 37.5665, longitude: 126.978 };
 
 afterEach(() => {
   vi.unstubAllEnvs();
 });
 
 describe("Roadview provider registry", () => {
-  it("keeps Kakao first and reserves the NAVER/Google extension slots", () => {
+  it("keeps Kakao first and uses the NAVER/Google adapter classes", () => {
     expect([...ROADVIEW_PROVIDER_ORDER]).toEqual(["kakao", "naver", "google"]);
     expect(createRoadviewProvider("kakao").id).toBe("kakao");
     expect(createRoadviewProvider("naver")).toBeInstanceOf(NaverPanoramaAdapter);
@@ -29,38 +27,70 @@ describe("Roadview provider registry", () => {
     vi.stubEnv("NEXT_PUBLIC_KAKAO_JAVASCRIPT_KEY", "test");
     const pinned = selectRoadviewProvider();
     expect(pinned.id).toBe("kakao");
-    // 매번 새 인스턴스를 만든다 — 그래서 세션을 소유한 화면이 한 번 고른 것을
-    // 붙들고 있어야 하고, 뷰어가 열릴 때마다 다시 고르면 안 된다.
     expect(selectRoadviewProvider()).not.toBe(pinned);
     expect(selectRoadviewProvider().id).toBe(pinned.id);
   });
 
   it("still returns the default provider when no key is configured", () => {
-    // 키가 없어도 selection 이 던지지 않는다 — 실패는 뷰어의 fallback 이 처리한다.
+    expect(selectRoadviewProvider().id).toBe("kakao");
+  });
+
+  it("selects NAVER when only the NAVER map client id is configured", () => {
+    vi.stubEnv("NEXT_PUBLIC_NAVER_MAP_CLIENT_ID", "ncp-test");
+    expect(selectRoadviewProvider().id).toBe("naver");
+  });
+
+  it("selects Google when only the Google Maps key is configured", () => {
+    vi.stubEnv("NEXT_PUBLIC_GOOGLE_MAPS_API_KEY", "gmaps-test");
+    expect(selectRoadviewProvider().id).toBe("google");
+  });
+
+  it("keeps Kakao when Kakao and NAVER are both configured", () => {
+    vi.stubEnv("NEXT_PUBLIC_KAKAO_JAVASCRIPT_KEY", "kakao-test");
+    vi.stubEnv("NEXT_PUBLIC_NAVER_MAP_CLIENT_ID", "ncp-test");
+    expect(selectRoadviewProvider().id).toBe("kakao");
+  });
+
+  it("honors NEXT_PUBLIC_ROADVIEW_PROVIDER when that provider has a key", () => {
+    vi.stubEnv("NEXT_PUBLIC_KAKAO_JAVASCRIPT_KEY", "kakao-test");
+    vi.stubEnv("NEXT_PUBLIC_NAVER_MAP_CLIENT_ID", "ncp-test");
+    vi.stubEnv("NEXT_PUBLIC_ROADVIEW_PROVIDER", "naver");
+    expect(requestedRoadviewProviderId()).toBe("naver");
+    expect(selectRoadviewProvider().id).toBe("naver");
+  });
+
+  it("ignores an unusable provider pin and falls back to the configured order", () => {
+    vi.stubEnv("NEXT_PUBLIC_KAKAO_JAVASCRIPT_KEY", "kakao-test");
+    vi.stubEnv("NEXT_PUBLIC_ROADVIEW_PROVIDER", "naver");
+    expect(selectRoadviewProvider().id).toBe("kakao");
+  });
+
+  it("ignores an invalid provider pin", () => {
+    vi.stubEnv("NEXT_PUBLIC_KAKAO_JAVASCRIPT_KEY", "kakao-test");
+    vi.stubEnv("NEXT_PUBLIC_ROADVIEW_PROVIDER", "tmap");
+    expect(requestedRoadviewProviderId()).toBeNull();
     expect(selectRoadviewProvider().id).toBe("kakao");
   });
 });
 
-describe("NAVER/Google stubs", () => {
-  const stubs: readonly (readonly [RoadviewProviderId, RoadviewProvider])[] = [
-    ["naver", new NaverPanoramaAdapter()],
-    ["google", new GoogleStreetViewAdapter()],
-  ];
-
-  it.each(stubs)("%s reports itself as not configured and never calls a real API", async (id, adapter) => {
-    expect(adapter.id).toBe(id);
+describe("NAVER/Google configuration", () => {
+  it("reports NAVER as unconfigured without a map client id and fails closed on missing_key", async () => {
+    const adapter = new NaverPanoramaAdapter();
     expect(adapter.isConfigured()).toBe(false);
-
     const rejection: unknown = await adapter
-      .open(document.createElement("div"), SEOUL, null)
+      .open(document.createElement("div"), { latitude: 37.5665, longitude: 126.978 }, null)
       .then(() => null, (error: unknown) => error);
-
     expect(rejection).toBeInstanceOf(RoadviewError);
-    expect((rejection as RoadviewError).reason).toBe("not_implemented");
+    expect((rejection as RoadviewError).reason).toBe("missing_key");
   });
 
-  it("never wins provider selection while it is only a stub", () => {
-    expect(selectRoadviewProvider().id).not.toBe("naver");
-    expect(selectRoadviewProvider().id).not.toBe("google");
+  it("reports Google as unconfigured without an API key and fails closed on missing_key", async () => {
+    const adapter = new GoogleStreetViewAdapter();
+    expect(adapter.isConfigured()).toBe(false);
+    const rejection: unknown = await adapter
+      .open(document.createElement("div"), { latitude: 37.5665, longitude: 126.978 }, null)
+      .then(() => null, (error: unknown) => error);
+    expect(rejection).toBeInstanceOf(RoadviewError);
+    expect((rejection as RoadviewError).reason).toBe("missing_key");
   });
 });
