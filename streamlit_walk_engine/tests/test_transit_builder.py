@@ -150,6 +150,76 @@ class TestParseOdsayTransit:
             transit_builder.parse_odsay_transit({"result": {"path": []}})
 
 
+class TestEndLabelPolicy:
+    """결정 2-1: 중간 구간은 다음 start명, 마지막만 '도착'."""
+
+    def test_tmap_missing_end_name_fills_from_next_start(self):
+        payload = _tmap_payload()
+        # 첫 도보 구간 endName 제거 → 다음 레그 start '시청역'으로 채워야 함
+        payload["metaData"]["plan"]["itineraries"][0]["legs"][0]["end"] = {
+            "lat": 37.5650, "lon": 126.9770,
+        }
+        # 지하철 구간도 end 비움 → 다음 start '을지로입구역'
+        payload["metaData"]["plan"]["itineraries"][0]["legs"][1]["end"] = {
+            "lat": 37.5660, "lon": 126.9820,
+        }
+        # 마지막 도보도 end name 비움 → '도착'
+        payload["metaData"]["plan"]["itineraries"][0]["legs"][2]["end"] = {
+            "lat": 37.5700, "lon": 126.9820,
+        }
+
+        journey = transit_builder.parse_tmap_transit(payload)
+        assert journey.legs[0].end_label == "시청역"
+        assert journey.legs[1].end_label == "을지로입구역"
+        assert journey.legs[1].transit is not None
+        assert journey.legs[1].transit.alight_station == "을지로입구역"
+        assert journey.legs[2].end_label == "도착"
+        assert all(leg.end_label != "도착" for leg in journey.legs[:-1])
+
+    def test_tmap_fake_arrival_on_middle_replaced(self):
+        payload = _tmap_payload()
+        # API가 중간 구간에 잘못 "도착"을 준 경우 → 다음 start로 덮음
+        payload["metaData"]["plan"]["itineraries"][0]["legs"][0]["end"]["name"] = "도착"
+
+        journey = transit_builder.parse_tmap_transit(payload)
+        assert journey.legs[0].end_label == "시청역"
+        assert journey.legs[-1].end_label == "도착"
+
+    def test_odsay_missing_end_name_fills_from_next_start(self):
+        payload = _odsay_payload()
+        del payload["result"]["path"][0]["subPath"][0]["endName"]
+        del payload["result"]["path"][0]["subPath"][1]["endName"]
+        del payload["result"]["path"][0]["subPath"][2]["endName"]
+
+        journey = transit_builder.parse_odsay_transit(payload)
+        assert journey.legs[0].end_label == "합정역"
+        assert journey.legs[1].end_label == "홍대입구"
+        assert journey.legs[1].transit is not None
+        assert journey.legs[1].transit.alight_station == "홍대입구"
+        assert journey.legs[2].end_label == "도착"
+        assert all(leg.end_label != "도착" for leg in journey.legs[:-1])
+
+    def test_single_leg_empty_end_becomes_arrival(self):
+        payload = {
+            "metaData": {
+                "plan": {
+                    "itineraries": [{
+                        "legs": [{
+                            "mode": "WALK",
+                            "start": {"name": "출발", "lat": 37.5665, "lon": 126.9780},
+                            "end": {"lat": 37.5700, "lon": 126.9820},
+                            "distance": 500,
+                            "sectionTime": 300,
+                        }],
+                    }]
+                }
+            }
+        }
+        journey = transit_builder.parse_tmap_transit(payload)
+        assert len(journey.legs) == 1
+        assert journey.legs[0].end_label == "도착"
+
+
 class TestHydrateWalkLegs:
     def test_hydrates_walk_legs_only(self, monkeypatch):
         journey = transit_builder.parse_tmap_transit(_tmap_payload())

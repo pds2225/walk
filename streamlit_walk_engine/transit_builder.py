@@ -153,16 +153,38 @@ def _line_name_from_lane(value: Any) -> str:
     return "대중교통"
 
 
+def _with_end_label(leg: JourneyLeg, end_label: str) -> JourneyLeg:
+    """end_label을 바꾸고, 대중교통 구간이면 alight_station도 맞춘다."""
+    transit = leg.transit
+    if transit is not None and transit.alight_station != end_label:
+        transit = replace(transit, alight_station=end_label)
+    return replace(leg, end_label=end_label, transit=transit)
+
+
 def _journey_with_default_labels(journey: Journey) -> Journey:
+    """구간 라벨 정리: 중간은 다음 start, 마지막만 '도착'.
+
+    파서가 endName 없을 때 '도착'으로 두지 않도록(빈 문자열) 한 뒤 여기서 채운다.
+    이미 잘못 '도착'이 들어온 중간 구간도 다음 start_label로 덮는다.
+    """
     if not journey.legs:
         return journey
     legs = list(journey.legs)
-    first = legs[0]
-    last = legs[-1]
-    if first.start_label == "":
-        legs[0] = replace(first, start_label="출발")
-    if last.end_label == "":
-        legs[-1] = replace(last, end_label="도착")
+    n = len(legs)
+
+    if legs[0].start_label == "":
+        legs[0] = replace(legs[0], start_label="출발")
+
+    for i in range(n - 1):
+        end = legs[i].end_label
+        if end == "" or end == "도착":
+            nxt = legs[i + 1].start_label
+            if nxt:
+                legs[i] = _with_end_label(legs[i], nxt)
+
+    if legs[-1].end_label == "":
+        legs[-1] = _with_end_label(legs[-1], "도착")
+
     return replace(journey, legs=tuple(legs))
 
 
@@ -202,7 +224,8 @@ def parse_tmap_transit(payload: dict[str, Any]) -> Journey:
             raise ValueError("TMAP 대중교통 좌표가 없습니다.")
 
         start_label = _label(start_data.get("name") or raw_leg.get("startName"), "출발" if index == 0 else "")
-        end_label = _label(end_data.get("name") or raw_leg.get("endName"), "도착")
+        # endName 없을 때 중간 구간을 "도착"으로 두지 않음 — _journey_with_default_labels가 채움
+        end_label = _label(end_data.get("name") or raw_leg.get("endName"), "")
         distance = _as_int(raw_leg.get("distance") or raw_leg.get("sectionDistance"))
         time_seconds = _seconds(raw_leg.get("time") or raw_leg.get("sectionTime") or raw_leg.get("duration"))
 
@@ -314,7 +337,8 @@ def parse_odsay_transit(
             raise ValueError("ODsay 대중교통 좌표가 없습니다.")
 
         start_label = _label(raw_leg.get("startName"), "출발" if index == 0 else "")
-        end_label = _label(raw_leg.get("endName"), "도착")
+        # endName 없을 때 중간 구간을 "도착"으로 두지 않음 — _journey_with_default_labels가 채움
+        end_label = _label(raw_leg.get("endName"), "")
         distance = _as_int(raw_leg.get("distance"))
         time_seconds = _minutes_to_seconds(raw_leg.get("sectionTime"))
 
