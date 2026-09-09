@@ -212,6 +212,31 @@ export function useNavigation(
     // 정확도가 나쁜 fix 로는 말하지 않는다 — GPS 가 튄 것을 이탈로 알리면 신뢰를 잃는다.
     const accurate = isDeviationFixReliable(fix.accuracyMeters);
 
+    // 진단용: 매 판정의 실제 근거 수치를 콘솔에 남긴다. "미세한 차이로 이탈했다" 같은
+    // 사후 신고를 검증할 방법이 지금까지 전혀 없었다(웹앱 쪽엔 로그가 없었음).
+    // 콘솔에서 "[walk:tick]"으로 검색하면 해당 판정의 거리/정확도/임계값을 볼 수 있다.
+    // (Streamlit 데모의 walk_diag.py tick 레코드와 같은 목적, 같은 필드명 계열.)
+    const cfg = engine.getConfig();
+    console.info("[walk:tick]", {
+      t: fix.timestampMs,
+      state: next.state,
+      score: next.score,
+      reasons: next.reasons,
+      distFromRouteM: next.metrics.distanceFromRouteMeters,
+      headingDiffDeg: next.metrics.headingDifferenceDegrees,
+      speedMps: sample.speedMetersPerSecond,
+      accuracyM: fix.accuracyMeters,
+      fixReliable: accurate,
+      consecutiveBreaches: next.metrics.consecutiveThresholdBreaches,
+      driftDurationMs: next.metrics.driftDurationMs,
+      thresholds: {
+        driftM: cfg.routeDriftDistanceThresholdMeters,
+        deviationM: cfg.routeDeviationDistanceThresholdMeters,
+        strongM: cfg.strongDeviationDistanceThresholdMeters,
+        headingDeg: cfg.headingDifferenceThresholdDegrees,
+      },
+    });
+
     if (accurate) {
       const state = next.state;
       if (state === "deviated" || state === "passed_turn") {
