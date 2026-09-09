@@ -2061,13 +2061,13 @@ LEASE =
 
 # v_up STANDARD TASKS
 
-- [ ] **TASK-001 — 지하철 승·하차 시 목적지 기준 최적 출입구 자동 선택**
+- [x] **TASK-001 — 지하철 승·하차 시 목적지 기준 최적 출입구 자동 선택** (IMPLEMENTED, PR #132 merged — FIELD_TEST_REQUIRED, 아래 TASK COMPLETION RECORD 참고)
 
 ## TASK-001 — 지하철 승·하차 시 목적지 기준 최적 출입구 자동 선택
 
 `TASK_ID = TASK-001`
 
-`STATUS = READY`
+`STATUS = IMPLEMENTED (2026-09-09, PR #132 merged) — FIELD_TEST_REQUIRED`
 
 `TYPE = defect_fix`
 
@@ -2103,7 +2103,7 @@ LEASE =
 
 `DONE = 구현만으로 완료하지 않는다. Acceptance 전항목, targeted tests, 전체 regression, 실제 entrypoint 연결 확인, independent verification, branch/commit/push/PR/checks, TASK completion record까지 완료되어야 한다. 현장 실기기에서 실제 역 1곳 이상 승·하차 경로를 확인하지 못한 경우 구현 상태와 현장검증 상태를 분리 기록한다.`
 
-`REQUEST_SOLVED = NO`
+`REQUEST_SOLVED = PARTIAL — 구현·테스트·PR·병합 완료. 현장 실기기 승·하차 검증만 남음(FIELD_TEST_REQUIRED). 상세는 아래 TASK COMPLETION RECORD — TASK-001 참고.`
 
 ---
 
@@ -2142,3 +2142,39 @@ LEASE =
 `NEW_TASKS = none (KNOWN_LIMITATIONS의 (2)(3)은 사용자 요청 시 별도 TASK로 등록 가능, 현재는 아이디어 단계라 미등록)`
 
 `PR = #129, merged (commit 523e666)`
+
+---
+
+## TASK COMPLETION RECORD — TASK-001 (2026-09-09)
+
+`TASK_ID = TASK-001`
+
+`STATUS = IMPLEMENTED — FIELD_TEST_REQUIRED`
+
+`BRANCH = feature/kn-task-001-subway-exit-selection-20260909`
+
+`BASE_COMMIT = 523e666`
+
+`END_COMMIT = 2421cbd (squash merge)`
+
+`FILES_CHANGED = streamlit_walk_engine/route_builder.py, streamlit_walk_engine/transit_builder.py, streamlit_walk_engine/tests/test_route_builder.py, streamlit_walk_engine/tests/test_transit_builder.py`
+
+`AUDIT_RESULT = 등록 시점 EVIDENCE 그대로 확인됨 — transit_builder.py의 _hydrate_walk_legs()가 Provider(TMAP/ODsay)의 역 좌표를 그대로 fetch_walking_route_with_engine()에 넘기고, 출입구 후보 수집·비교·선택 단계는 NOT_IMPLEMENTED였음. route_builder.py의 _subway_candidates()는 사용자가 직접 "역명 N번출구"를 입력했을 때의 검색어 변형 생성기일 뿐, 여러 출구를 자동 비교하는 로직이 아니었음(REQUIRED대로 기존 검색/보행경로 함수는 재사용, 새 지도엔진 없음).`
+
+`IMPLEMENTATION = route_builder.subway_exit_candidates(station_name, near, limit=4) 추가 — 기존 _tmap_poi_results()를 재사용해 "역명 N번출구"로 명시된 POI만 후보로 인정(정규식 매칭), 좌표 중복 제거. route_builder.select_nearest_exit(candidates, target) 추가 — 각 후보의 실제 도보경로(fetch_walking_route_with_engine)를 조회해 최단 거리 후보 선택, RANKING_RULE대로 실제 도보거리가 하나라도 있으면 그것만으로 결정하고 전량 실패 시에만 직선거리로 대체. transit_builder._resolve_subway_exits(journey) 추가 — 승차 전 도보구간(다음 leg가 subway)은 사용자 위치 기준으로 leg.end를, 하차 후 도보구간(이전 leg가 subway)은 다음 목적지 기준으로 leg.start를 위 두 함수로 교체. _hydrate_walk_legs() 이전에 실행되도록 fetch_transit_journey()의 TMAP/ODsay 성공 경로 양쪽에 배선(2곳, 각 2줄)해, 실제 내비게이션에 쓰이는 좌표 자체가 보정되게 함. 환승 도보구간(지하철-도보-지하철)은 승차 보정(leg.end)을 먼저 적용한 뒤 하차 보정(leg.start)이 그 보정된 좌표를 target으로 쓰도록 순서를 의도적으로 고정(주석에 근거 기록) — 환승 총 도보거리가 더 정확해짐.`
+
+`TEST_COMMANDS = python -m pytest streamlit_walk_engine/tests -q; python -m py_compile streamlit_walk_engine/transit_builder.py streamlit_walk_engine/route_builder.py`
+
+`TEST_RESULT = 584 passed(변경 전) → 598 passed(변경 후, 0 failed) — 신규 14개: subway_exit_candidates 4개(빈 역명 시 네트워크 미호출, 출구번호 없는 POI 제외, 좌표 중복 제거, limit 상한), select_nearest_exit 4개(빈 후보, 직선거리보다 실제 도보거리가 짧은 후보 선택 — RANKING_RULE 핵심 검증, 전량 실패 시 직선거리 대체, 부분 실패 시 성공한 후보 중에서만 선택), _resolve_subway_exits 6개(승차 leg.end 교체, 하차 leg.start 교체, 후보 없음 시 미변경, 조회 실패 시 journey 안 깨짐 — FAILURE_BEHAVIOR 검증, subway leg 자체는 미변경, 환승 도보구간 양쪽 교체).`
+
+`RUNTIME_RESULT = 미검증 — 실제 지하철역에서 TMAP POI가 "역명 N번출구" 형태로 개별 POI를 반환하는지, 실제 승·하차 시 올바른 출구로 안내되는지는 현장에서만 확인 가능. TMAP 앱키가 없거나 POI 검색이 출구를 개별 POI로 주지 않는 지역/역에서는 후보가 0개가 되어 기존 역좌표 방식으로 안전하게 fallback한다(단위테스트로 확인, 실기기 미확인).`
+
+`ACCEPTANCE = [x] 실제 대중교통 journey에서 지하철 승·하차역을 식별한다(단위테스트); [x] 역별 유효 출입구 후보 좌표를 수집한다(subway_exit_candidates); [x] 승차역은 사용자 위치 기준 actual walking distance 최솟값을 선택한다(단위테스트); [x] 하차역은 다음 목적지 기준 actual walking distance 최솟값을 선택한다(단위테스트); [x] actual walking distance가 있으면 straight-line distance보다 우선한다(단위테스트로 직선거리 역전 케이스 검증); [x] 선택 출구 좌표가 실제 walking leg와 사용자 안내에 반영된다(_hydrate_walk_legs가 보정된 leg.start/end로 실제 경로 생성); [x] 화면에서 역명과 출구번호를 확인할 수 있다(_render_journey가 leg.start_label/end_label을 그대로 표시 — 코드 변경 불필요, 기존 렌더 경로 확인); [x] 후보 없음/API 실패 시 기존 경로가 계속 동작한다(단위테스트); [x] 호출량이 후보 상한(limit=4)으로 제한된다; [x] 특정 역 하드코딩 없이 일반화되어 있다(정규식·POI 검색 기반, 특정 역명 없음); [ ] 기존 navigation/deviation/reroute/TTS/Roadview 회귀가 없다 — 전체 회귀 테스트(598 passed)로 코드 레벨은 확인, 실기기 종단 확인은 FIELD_TEST_REQUIRED로 남김.`
+
+`FORBIDDEN_SCOPE_CHECK = diff는 route_builder.py/transit_builder.py에 함수 3개 추가 + 최소 배선(fetch_transit_journey 2곳, 각 1줄→2줄 변경) + 테스트 파일뿐. 경로이탈 state machine·GNSS/Heading·TTS·Roadview·TMAP/ODsay 파서 전체·출입구 DB·특정 역 하드코딩 미변경(diff stat로 확인).`
+
+`KNOWN_LIMITATIONS = (1) 실기기 현장검증 미완료(FIELD_TEST_REQUIRED) — 실제 TMAP POI 응답이 역마다 출구를 개별 POI로 주는지 편차가 있을 수 있음, 없으면 자동으로 기존 역좌표 fallback. (2) 후보당 실제 도보경로 조회가 추가돼(최대 4회) 지하철 인접 도보구간의 지연이 소폭 늘 수 있음(TASK 요구대로 상한으로 제한, 별도 캐시는 미구현 — 필요 시 후속 TASK). (3) 진단 로깅(station/candidate_count/selected_exit/walking_distance_m)은 logging 모듈로만 남기며 UI 노출은 없음.`
+
+`NEW_TASKS = none (KNOWN_LIMITATIONS (2)의 캐시는 성능 이슈가 실측되면 별도 TASK로 등록)`
+
+`PR = #132, merged (commit 2421cbd)`
