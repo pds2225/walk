@@ -527,6 +527,132 @@ class TestAdvanceLeg:
         assert transit_builder.advance_leg(journey, 0, MID, 10.0) == 0
 
 
+class TestResolveSubwayExits:
+    """TASK-001: 지하철 승·하차 도보구간의 출입구를 실제 도보거리 기준으로 보정한다."""
+
+    def _leg(self, mode, start, end, start_label="", end_label="", transit=None):
+        return transit_builder.JourneyLeg(
+            mode=mode, start=start, end=end, start_label=start_label, end_label=end_label,
+            transit=transit,
+        )
+
+    def _subway_leg(self, start, end, board, alight):
+        return self._leg(
+            "subway", start, end, start_label=board, end_label=alight,
+            transit=transit_builder.TransitInfo(
+                mode="subway", line_name="2호선", board_station=board,
+                alight_station=alight, station_count=1,
+                distance_meters=None, time_seconds=None,
+            ),
+        )
+
+    def test_boarding_leg_end_replaced_by_nearest_exit(self, monkeypatch):
+        walk_leg = self._leg("walk", ORIGIN, MID, start_label="출발", end_label="강남역")
+        subway_leg = self._subway_leg(MID, DEST, "강남역", "역삼역")
+        journey = transit_builder.Journey(legs=(walk_leg, subway_leg), source="test")
+
+        exit_coord = Coordinate(latitude=37.4981, longitude=127.0281)
+        monkeypatch.setattr(
+            transit_builder.route_builder, "subway_exit_candidates",
+            lambda station, near: [(exit_coord, "강남역 3번출구")],
+        )
+        monkeypatch.setattr(
+            transit_builder.route_builder, "select_nearest_exit",
+            lambda candidates, target: (exit_coord, "강남역 3번출구", 120),
+        )
+
+        resolved = transit_builder._resolve_subway_exits(journey)
+        assert resolved.legs[0].end == exit_coord
+        assert resolved.legs[0].end_label == "강남역 3번출구"
+        assert resolved.legs[0].start == ORIGIN  # 시작점은 안 건드림
+        assert resolved.legs[1] is subway_leg  # 지하철 leg 자체는 손대지 않음
+
+    def test_alighting_leg_start_replaced_by_nearest_exit(self, monkeypatch):
+        subway_leg = self._subway_leg(ORIGIN, MID, "강남역", "역삼역")
+        walk_leg = self._leg("walk", MID, DEST, start_label="역삼역", end_label="도착")
+        journey = transit_builder.Journey(legs=(subway_leg, walk_leg), source="test")
+
+        exit_coord = Coordinate(latitude=37.5006, longitude=127.0365)
+        monkeypatch.setattr(
+            transit_builder.route_builder, "subway_exit_candidates",
+            lambda station, near: [(exit_coord, "역삼역 5번출구")],
+        )
+        monkeypatch.setattr(
+            transit_builder.route_builder, "select_nearest_exit",
+            lambda candidates, target: (exit_coord, "역삼역 5번출구", 80),
+        )
+
+        resolved = transit_builder._resolve_subway_exits(journey)
+        assert resolved.legs[1].start == exit_coord
+        assert resolved.legs[1].start_label == "역삼역 5번출구"
+        assert resolved.legs[1].end == DEST  # 도착점은 안 건드림
+
+    def test_no_candidates_leaves_leg_unchanged(self, monkeypatch):
+        walk_leg = self._leg("walk", ORIGIN, MID, start_label="출발", end_label="강남역")
+        subway_leg = self._subway_leg(MID, DEST, "강남역", "역삼역")
+        journey = transit_builder.Journey(legs=(walk_leg, subway_leg), source="test")
+
+        monkeypatch.setattr(
+            transit_builder.route_builder, "subway_exit_candidates", lambda station, near: [])
+        monkeypatch.setattr(
+            transit_builder.route_builder, "select_nearest_exit", lambda candidates, target: None)
+
+        resolved = transit_builder._resolve_subway_exits(journey)
+        assert resolved.legs[0] == walk_leg  # 변경 없음 — 기존 역좌표 그대로
+
+    def test_resolver_failure_does_not_break_journey(self, monkeypatch):
+        # FAILURE_BEHAVIOR: 후보 조회가 예외를 던져도(네트워크 등) journey 생성 자체는
+        # 실패하지 않고 기존 좌표를 그대로 쓴다.
+        walk_leg = self._leg("walk", ORIGIN, MID, start_label="출발", end_label="강남역")
+        subway_leg = self._subway_leg(MID, DEST, "강남역", "역삼역")
+        journey = transit_builder.Journey(legs=(walk_leg, subway_leg), source="test")
+
+        def _boom(*a, **k):
+            raise ValueError("network down")
+        monkeypatch.setattr(transit_builder.route_builder, "subway_exit_candidates", _boom)
+
+        resolved = transit_builder._resolve_subway_exits(journey)
+        assert resolved.legs[0] == walk_leg
+
+    def test_non_walk_leg_untouched(self, monkeypatch):
+        # 대중교통 leg 자체(walk 가 아닌)는 출구 보정 대상이 아니다.
+        subway_leg = self._subway_leg(ORIGIN, DEST, "강남역", "역삼역")
+        journey = transit_builder.Journey(legs=(subway_leg,), source="test")
+
+        def _boom(*a, **k):
+            raise AssertionError("walk 가 아닌 leg 에서는 출구 후보를 조회하면 안 됨")
+        monkeypatch.setattr(transit_builder.route_builder, "subway_exit_candidates", _boom)
+
+        resolved = transit_builder._resolve_subway_exits(journey)
+        assert resolved.legs[0] is subway_leg
+
+    def test_transfer_leg_between_two_subways_resolves_both_ends(self, monkeypatch):
+        subway_a = self._subway_leg(ORIGIN, MID, "강남역", "종합운동장역")
+        transfer_walk = self._leg("walk", MID, MID, start_label="종합운동장역", end_label="종합운동장역")
+        subway_b = self._subway_leg(MID, DEST, "종합운동장역", "잠실역")
+        journey = transit_builder.Journey(legs=(subway_a, transfer_walk, subway_b), source="test")
+
+        alight_exit = Coordinate(latitude=37.51, longitude=127.07)
+        board_exit = Coordinate(latitude=37.511, longitude=127.071)
+        # 호출 순서: boarding(leg.end 보정)이 먼저, alighting(leg.start 보정)이 다음.
+        results = iter([
+            (board_exit, "종합운동장역 6번출구", 60),
+            (alight_exit, "종합운동장역 4번출구", 50),
+        ])
+        monkeypatch.setattr(
+            transit_builder.route_builder, "subway_exit_candidates",
+            lambda station, near: [(alight_exit, "dummy")],
+        )
+        monkeypatch.setattr(
+            transit_builder.route_builder, "select_nearest_exit",
+            lambda candidates, target: next(results),
+        )
+
+        resolved = transit_builder._resolve_subway_exits(journey)
+        assert resolved.legs[1].start == alight_exit
+        assert resolved.legs[1].end == board_exit
+
+
 class TestExternalMapDeepLinks:
     """대중교통 데이터는 TMAP/ODsay가 없어(공개 API 부재) 네이버/카카오 앱으로 보내는
     딥링크만 가능하다 — URL 형식(좌표 순서·이름 인코딩)이 깨지지 않는지만 검증한다."""
