@@ -2056,3 +2056,51 @@ LEASE =
 `NEW_TASKS = none`
 
 `PR = #124, merged (commit 9638549)`
+
+---
+
+# v_up STANDARD TASKS
+
+- [ ] **TASK-001 — 지하철 승·하차 시 목적지 기준 최적 출입구 자동 선택**
+
+## TASK-001 — 지하철 승·하차 시 목적지 기준 최적 출입구 자동 선택
+
+`TASK_ID = TASK-001`
+
+`STATUS = READY`
+
+`TYPE = defect_fix`
+
+`ASSIGNEE = v_up automatic development`
+
+`REGISTERED = 2026-09-09`
+
+`REPRODUCTION = 대중교통 경로에서 지하철역을 이용할 때, 사용자 또는 다음 목적지에서 가까운 출입구가 아니라 역의 대표 좌표/먼 출입구 쪽으로 도보 경로가 연결되어 불필요한 우회가 발생한다.`
+
+`EVIDENCE = streamlit_walk_engine/transit_builder.py의 대중교통 파싱은 역 start/end 좌표를 JourneyLeg에 넣고, _hydrate_walk_legs()가 해당 leg.start/leg.end를 그대로 fetch_walking_route_with_engine()에 전달한다. 현재 자동 출입구 후보 수집·비교·선택 단계가 없다. route_builder.py의 지하철 출구 처리는 사용자가 '강남역 10번출구'처럼 특정 출구를 직접 입력했을 때 검색 변형을 만드는 기능이며, 역의 여러 출입구를 자동 비교하는 로직은 아니다.`
+
+`EXPECTED = 지하철 승차 시에는 현재 위치에서 실제 도보경로가 가장 짧은 역 출입구를 선택하고, 하차 시에는 다음 도보 목적지 또는 최종 목적지까지 실제 도보경로가 가장 짧은 출구를 선택한다. 선택된 출입구 좌표가 실제 walking leg의 endpoint/startpoint가 되고 화면에는 역명과 출구번호가 표시된다.`
+
+`ACTUAL = 대중교통 Provider가 반환한 역 좌표를 그대로 도보구간 시작/종료 좌표로 사용하므로 목적지와 반대편 또는 먼 쪽으로 우회할 수 있다.`
+
+`SEVERITY = HIGH — 경로이탈 판정 이전의 route construction 결함으로, 잘못된 출입구를 선택하면 이후 위치추적·재안내가 정상이어도 사용자에게 불필요한 우회 경로를 안내한다.`
+
+`AUDIT_FIRST = 최신 main 동기화 → TASK.md pinning → transit_builder.py/route_builder.py/1_Navigation.py 및 관련 테스트 확인 → 현재 TMAP/ODsay 응답에서 역명·역좌표·출입구 정보가 어디까지 제공되는지 확인 → 기존 장소검색/geocode_suggestions/_subway_candidates/fetch_walking_route_with_engine 재사용 가능 여부를 분류하고 최소 수정 계획을 세운다.`
+
+`REQUIRED = 기존 대중교통 파서와 보행경로 생성기를 재사용한다. 별도 지도엔진을 새로 만들지 않는다. 출입구 후보는 역명과 번호가 식별되는 좌표만 사용한다. 실제 보행경로 거리 산출이 가능한 후보는 직선거리보다 실제 도보거리로 최종 순위를 결정한다. API 호출량은 후보 상한·캐시·조기중단 등으로 제한한다.`
+
+`SCOPE = (1) subway station exit candidate resolver (2) 승차역: 현재 위치→각 출입구 actual walking distance 비교 (3) 하차역: 각 출구→다음 walking target/최종 destination actual walking distance 비교 (4) 최소 actual walking distance 출입구 선택 (5) 선택 출입구 좌표로 해당 walking leg start/end 치환 또는 hydration 입력 보정 (6) UI에 '○○역 N번 출구' 표시 (7) 후보 없음·Provider 오류·routing 실패 시 기존 역좌표 방식으로 안전 fallback (8) 선택 근거를 진단 가능한 구조화 데이터로 남김(station, candidate_count, selected_exit, walking_distance_m).`
+
+`RANKING_RULE = actual pedestrian route distance가 하나 이상 계산되면 그 값을 최우선으로 사용한다. 직선거리는 후보 사전필터/동률 보조에만 사용할 수 있으며, 실제 보행거리 결과가 있는 후보를 직선거리만으로 뒤집지 않는다.`
+
+`FORBIDDEN = 경로이탈 state machine 변경; GNSS/Heading/Movement Bearing 로직 변경; TTS 로직 변경; Roadview 구조 변경; TMAP/ODsay 전체 파서 재작성; 출입구 DB 대규모 구축; 하드코딩된 특정 역/특정 출구 예외처리; mock-only 구현으로 완료 처리.`
+
+`FAILURE_BEHAVIOR = 출입구 후보가 없거나 후보별 walking route 계산이 모두 실패하면 transit journey 생성을 실패시키지 않고 기존 station coordinate를 사용한다. 부분 성공이면 계산 성공한 후보 중에서 선택한다.`
+
+`ACCEPTANCE = [ ] 실제 대중교통 journey에서 지하철 승·하차역을 식별한다; [ ] 역별 유효 출입구 후보 좌표를 수집한다; [ ] 승차역은 사용자 위치 기준 actual walking distance 최솟값을 선택한다; [ ] 하차역은 다음 목적지 기준 actual walking distance 최솟값을 선택한다; [ ] actual walking distance가 있으면 straight-line distance보다 우선한다; [ ] 선택 출구 좌표가 실제 walking leg와 사용자 안내에 반영된다; [ ] 화면에서 역명과 출구번호를 확인할 수 있다; [ ] 후보 없음/API 실패 시 기존 경로가 계속 동작한다; [ ] 호출량이 후보 상한/캐시 등으로 제한된다; [ ] 특정 역 하드코딩 없이 일반화되어 있다; [ ] 기존 navigation/deviation/reroute/TTS/Roadview 회귀가 없다.`
+
+`TESTS = 출입구 후보 3개 중 직선거리는 가깝지만 실제 보행거리가 긴 후보가 존재하는 fixture; actual walking distance가 가장 짧은 후보 선택 unit test; 승차역/하차역 각각의 integration test; 후보 없음 fallback test; 일부 routing 실패 partial-success test; 선택된 exit label/coordinate가 JourneyLeg와 UI까지 전달되는 test; 전체 repository 기준 npm run test:run 및 관련 Python test suite.`
+
+`DONE = 구현만으로 완료하지 않는다. Acceptance 전항목, targeted tests, 전체 regression, 실제 entrypoint 연결 확인, independent verification, branch/commit/push/PR/checks, TASK completion record까지 완료되어야 한다. 현장 실기기에서 실제 역 1곳 이상 승·하차 경로를 확인하지 못한 경우 구현 상태와 현장검증 상태를 분리 기록한다.`
+
+`REQUEST_SOLVED = NO`
