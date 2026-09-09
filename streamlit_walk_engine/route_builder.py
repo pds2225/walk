@@ -593,6 +593,71 @@ def search_places_near(center: Coordinate, keyword: str,
     return out
 
 
+# ── 지하철 출입구 자동 선택 (TASK-001) ────────────────────────────────────────
+# TMAP POI 통합검색이 지하철 출입구를 역과 별개 POI(예: '강남역 3번출구')로 갖고
+# 있는 경우가 많아 그대로 재사용한다(REQUIRED: 별도 지도엔진 신규 구축 금지).
+_EXIT_NUM_RE = re.compile(r"(\d+)\s*번?\s*출구")
+
+
+def subway_exit_candidates(
+    station_name: str, near: Coordinate, limit: int = 4,
+) -> list[tuple[Coordinate, str]]:
+    """'역명 N번출구' POI 후보를 모은다. 출구 번호가 명시된 결과만 후보로 인정한다
+
+    (역 대표좌표 자체는 이미 기존 경로의 fallback이므로 후보에서 제외해 중복
+    선택을 막는다). 앱키 없음·결과 없음이면 빈 리스트 — 호출부가 기존 역좌표로
+    안전하게 fallback한다. limit은 이후 각 후보마다 실제 도보경로를 조회하는
+    비용을 억제하기 위한 상한이다.
+    """
+    name = (station_name or "").strip()
+    if not name:
+        return []
+    hits = _tmap_poi_results(name, limit=limit * 3, center=near)
+    out: list[tuple[Coordinate, str]] = []
+    seen: set[tuple[float, float]] = set()
+    for coord, display in hits:
+        if not _EXIT_NUM_RE.search(display):
+            continue
+        key = (round(coord.latitude, 6), round(coord.longitude, 6))
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append((coord, display))
+        if len(out) >= limit:
+            break
+    return out
+
+
+def select_nearest_exit(
+    candidates: list[tuple[Coordinate, str]], target: Coordinate,
+) -> tuple[Coordinate, str, int | None] | None:
+    """실제 도보경로 거리 기준으로 target에 가장 가까운 출구 후보를 고른다.
+
+    RANKING_RULE: actual walking distance가 하나라도 계산되면 그 값을 최우선으로
+    쓰고, 계산 성공한 후보 중에서만 고른다(직선거리로 뒤집지 않는다). 후보 전원의
+    walking route 조회가 실패하면(네트워크 등) 직선거리로 대체 — 후보가 있는데도
+    아무것도 못 고르는 상황을 피하는 안전한 마지막 수단이다. 후보가 비어 있으면
+    None(호출부가 기존 좌표를 그대로 쓴다).
+
+    반환: (좌표, 표시 라벨, 실제 도보거리m 또는 직선거리 fallback이면 None).
+    """
+    if not candidates:
+        return None
+    best: tuple[Coordinate, str, int] | None = None
+    for coord, display in candidates:
+        try:
+            _, _, info = fetch_walking_route_with_engine(coord, target)
+            dist = info.total_distance_meters
+        except Exception:
+            dist = None
+        if dist is not None and (best is None or dist < best[2]):
+            best = (coord, display, dist)
+    if best is not None:
+        return best
+    coord, display = min(candidates, key=lambda c: distance_meters(c[0], target))
+    return (coord, display, None)
+
+
 def _tmap_addr_results(query: str, limit: int = 5) -> list[tuple[Coordinate, str]]:
     """TMAP 주소 지오코딩(fullAddrGeo) — 도로명·지번 '주소' 검색어를 좌표로 변환.
 

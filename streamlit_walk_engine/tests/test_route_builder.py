@@ -901,6 +901,103 @@ class TestTmapPoiResults:
         assert [d for _, d in out] == ["정상"]
 
 
+class TestSubwayExitCandidates:
+    """TASK-001: '역명 N번출구' POI만 후보로 인정 — 출구 번호 없는 결과는 제외."""
+
+    def test_empty_station_name_returns_empty_without_network(self, monkeypatch):
+        def _boom(*a, **k):
+            raise AssertionError("빈 역명이면 네트워크를 호출하면 안 됨")
+        monkeypatch.setattr(route_builder, "_tmap_poi_results", _boom)
+        assert route_builder.subway_exit_candidates("", near=Coordinate(37.5, 127.0)) == []
+
+    def test_filters_out_results_without_exit_number(self, monkeypatch):
+        near = Coordinate(latitude=37.5, longitude=127.0)
+        hits = [
+            (Coordinate(latitude=37.501, longitude=127.001), "강남역"),  # 출구 번호 없음 → 제외
+            (Coordinate(latitude=37.502, longitude=127.002), "강남역 1번출구"),
+            (Coordinate(latitude=37.503, longitude=127.003), "강남역 맛집"),  # 출구 아님 → 제외
+        ]
+        monkeypatch.setattr(route_builder, "_tmap_poi_results", lambda *a, **k: hits)
+        out = route_builder.subway_exit_candidates("강남역", near=near)
+        assert [d for _, d in out] == ["강남역 1번출구"]
+
+    def test_deduplicates_same_coordinate(self, monkeypatch):
+        near = Coordinate(latitude=37.5, longitude=127.0)
+        hits = [
+            (Coordinate(latitude=37.501, longitude=127.001), "강남역 1번출구"),
+            (Coordinate(latitude=37.501, longitude=127.001), "강남역 1번 출구"),  # 같은 좌표 중복
+        ]
+        monkeypatch.setattr(route_builder, "_tmap_poi_results", lambda *a, **k: hits)
+        out = route_builder.subway_exit_candidates("강남역", near=near)
+        assert len(out) == 1
+
+    def test_respects_limit(self, monkeypatch):
+        near = Coordinate(latitude=37.5, longitude=127.0)
+        hits = [
+            (Coordinate(latitude=37.5 + i * 0.001, longitude=127.0), f"강남역 {i}번출구")
+            for i in range(1, 10)
+        ]
+        monkeypatch.setattr(route_builder, "_tmap_poi_results", lambda *a, **k: hits)
+        out = route_builder.subway_exit_candidates("강남역", near=near, limit=3)
+        assert len(out) == 3
+
+
+class TestSelectNearestExit:
+    """TASK-001: 실제 도보거리 최소 후보 선택 — 직선거리와 뒤바뀔 수 있는 케이스가 핵심."""
+
+    def _route_info(self, meters):
+        return (None, "engine", RouteInfo(total_distance_meters=meters))
+
+    def test_empty_candidates_returns_none(self):
+        assert route_builder.select_nearest_exit([], Coordinate(37.5, 127.0)) is None
+
+    def test_picks_shorter_actual_walking_distance_even_if_farther_straight_line(self, monkeypatch):
+        # 후보 1: 직선거리는 가깝지만 실제 보행거리가 김(우회 도로)
+        # 후보 2: 직선거리는 멀지만 실제 보행거리가 짧음(직선 도로) → 이게 선택돼야 함
+        near_straight = Coordinate(latitude=37.5001, longitude=127.0)
+        far_straight = Coordinate(latitude=37.51, longitude=127.0)
+        target = Coordinate(latitude=37.5, longitude=127.0)
+
+        def _fake_fetch(origin, dest):
+            if origin is near_straight:
+                return self._route_info(900)  # 직선은 가깝지만 실제로는 우회
+            return self._route_info(200)
+
+        monkeypatch.setattr(route_builder, "fetch_walking_route_with_engine", _fake_fetch)
+        candidates = [(near_straight, "1번출구"), (far_straight, "2번출구")]
+        picked = route_builder.select_nearest_exit(candidates, target)
+        assert picked == (far_straight, "2번출구", 200)
+
+    def test_falls_back_to_straight_line_when_all_walking_routes_fail(self, monkeypatch):
+        near = Coordinate(latitude=37.5001, longitude=127.0)
+        far = Coordinate(latitude=37.51, longitude=127.0)
+        target = Coordinate(latitude=37.5, longitude=127.0)
+
+        def _boom(origin, dest):
+            raise ValueError("network down")
+
+        monkeypatch.setattr(route_builder, "fetch_walking_route_with_engine", _boom)
+        candidates = [(far, "2번출구"), (near, "1번출구")]
+        picked = route_builder.select_nearest_exit(candidates, target)
+        assert picked[0] is near  # 직선거리로 대체 — 가까운 쪽 선택
+        assert picked[2] is None  # 실제 도보거리 계산은 실패했음을 표시
+
+    def test_partial_failure_picks_from_successful_candidates_only(self, monkeypatch):
+        ok = Coordinate(latitude=37.5001, longitude=127.0)
+        broken = Coordinate(latitude=37.5002, longitude=127.0)
+        target = Coordinate(latitude=37.5, longitude=127.0)
+
+        def _fake_fetch(origin, dest):
+            if origin is broken:
+                raise ValueError("no route")
+            return self._route_info(150)
+
+        monkeypatch.setattr(route_builder, "fetch_walking_route_with_engine", _fake_fetch)
+        candidates = [(broken, "1번출구"), (ok, "2번출구")]
+        picked = route_builder.select_nearest_exit(candidates, target)
+        assert picked == (ok, "2번출구", 150)
+
+
 class TestTmapReverse:
     """TMAP Reverse Geocoding — 키 없으면 None, 성공 시 fullAddress."""
 
