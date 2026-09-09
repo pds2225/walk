@@ -2104,3 +2104,41 @@ LEASE =
 `DONE = 구현만으로 완료하지 않는다. Acceptance 전항목, targeted tests, 전체 regression, 실제 entrypoint 연결 확인, independent verification, branch/commit/push/PR/checks, TASK completion record까지 완료되어야 한다. 현장 실기기에서 실제 역 1곳 이상 승·하차 경로를 확인하지 못한 경우 구현 상태와 현장검증 상태를 분리 기록한다.`
 
 `REQUEST_SOLVED = NO`
+
+---
+
+## TASK COMPLETION RECORD — K-NAVI-TRANSIT-01 (2026-09-09)
+
+`TASK_ID = K-NAVI-TRANSIT-01`
+
+`STATUS = DONE`
+
+`SOURCE = 사용자 채팅 직접 지시 (TASK.md 사전등록 없이 진행됨) — 사용자 원문: "대중교통 플러스 걷기는 대중교통은 네이버지도 혹은 카카오맵 도보로 걷기는 티맵 이렇게 돼야 돼 데이터 기준이"`
+
+`REQUIREMENT = 대중교통+도보 여정에서 대중교통 구간 데이터 기준은 네이버지도 또는 카카오맵, 도보 구간 데이터 기준은 TMAP.`
+
+`CONSTRAINT_FOUND = 네이버지도(NCP)·카카오맵 모두 대중교통 경로탐색을 공개 REST API로 제공하지 않는다(지오코딩·장소검색·자동차 길찾기만 공개, 대중교통은 자사 앱 전용). 서버가 두 회사 대중교통 데이터를 직접 호출하는 것은 불가능 — AskUserQuestion으로 사용자에게 확인 후, 대안으로 딥링크 방식에 합의(사용자 원문: "없으면그냥딥링크로해").`
+
+`BRANCH = claude/transit-walking-data-criteria-8q0o3l`
+
+`BASE_COMMIT = 6a71f40`
+
+`END_COMMIT = 523e666 (squash merge)`
+
+`FILES_CHANGED = streamlit_walk_engine/transit_builder.py, streamlit_walk_engine/pages/1_Navigation.py, streamlit_walk_engine/tests/test_transit_builder.py`
+
+`IMPLEMENTATION = transit_builder.py에 naver_map_transit_url()/kakao_map_transit_url() 추가(좌표·장소명을 URL 인코딩해 네이버지도·카카오맵 길찾기 웹 링크 생성). pages/1_Navigation.py의 대중교통 여정 요약 아래에 "네이버지도로 보기"/"카카오맵으로 보기" st.link_button 2개 추가. 기존 내부 대중교통 엔진(TMAP 대중교통 → ODsay → 도보 강등)과 도보 엔진(TMAP 보행자 API, route_builder.py)은 변경하지 않음 — 앱 내 이탈/도착 추적(navigation state)은 계속 이 엔진에 의존하므로 보존. 도보 구간이 이미 TMAP 기준이라는 요구사항은 기존 코드와 일치 확인됨(변경 불필요).`
+
+`TEST_COMMANDS = python -m pytest streamlit_walk_engine/tests/test_transit_builder.py -q; python -m pytest streamlit_walk_engine/tests/test_navigation_smoke.py -q; python -m pytest streamlit_walk_engine/tests -q; python -m py_compile streamlit_walk_engine/pages/1_Navigation.py streamlit_walk_engine/transit_builder.py`
+
+`TEST_RESULT = test_transit_builder.py 36 passed(신규 딥링크 URL 테스트 4개 포함: 좌표순서, 콤마 포함 장소명 인코딩, 빈 이름 기본값); test_navigation_smoke.py 37 passed(회귀 없음); 전체 streamlit_walk_engine/tests 584 passed; py_compile 통과.`
+
+`RUNTIME_RESULT = 실기기 미검증 — 실제 휴대폰에서 딥링크 버튼이 정확한 좌표로 네이버지도/카카오맵 앱 또는 모바일 웹을 여는지는 사용자 확인 필요.`
+
+`ACCEPTANCE = [x] 대중교통 구간에서 네이버지도/카카오맵 데이터 접근 경로 제공(딥링크); [x] 도보 구간 TMAP 기준 유지(기존과 동일); [x] 기존 내부 여정(이탈/도착 추적) 회귀 없음(전체 테스트 통과); [ ] 실기기에서 딥링크 실제 동작 확인(FIELD_TEST_REQUIRED).`
+
+`KNOWN_LIMITATIONS = (1) 네이버/카카오 공개 API 부재로 앱이 대중교통 데이터를 직접 조회·저장·표시할 수 없음 — 딥링크로 외부 앱 이동만 가능, 이 앱 안에서는 여전히 TMAP/ODsay 결과가 표시됨. (2) 카카오맵 링크는 URL만으로 "대중교통" 수단을 강제 지정할 수 없어(공개 스킴 없음) 사용자가 앱/웹이 열린 뒤 직접 탭 선택 필요. (3) 도보 강등(대중교통 조회 실패) 상태에서는 딥링크 버튼이 노출되지 않음(대중교통 여정이 만들어진 경우에만 노출) — 후속 개선 후보로 남김.`
+
+`NEW_TASKS = none (KNOWN_LIMITATIONS의 (2)(3)은 사용자 요청 시 별도 TASK로 등록 가능, 현재는 아이디어 단계라 미등록)`
+
+`PR = #129, merged (commit 523e666)`
