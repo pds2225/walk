@@ -1,5 +1,6 @@
 import os
 import sys
+from urllib.parse import quote
 
 import pytest
 
@@ -524,3 +525,37 @@ class TestAdvanceLeg:
         journey = transit_builder.Journey(legs=(first, second), source="test")
 
         assert transit_builder.advance_leg(journey, 0, MID, 10.0) == 0
+
+
+class TestExternalMapDeepLinks:
+    """대중교통 데이터는 TMAP/ODsay가 없어(공개 API 부재) 네이버/카카오 앱으로 보내는
+    딥링크만 가능하다 — URL 형식(좌표 순서·이름 인코딩)이 깨지지 않는지만 검증한다."""
+
+    def test_naver_url_has_lng_before_lat_and_transit_suffix(self):
+        url = transit_builder.naver_map_transit_url(ORIGIN, "출발", DEST, "도착")
+        assert url.startswith("https://map.naver.com/p/directions/")
+        assert f"{ORIGIN.longitude:.7f},{ORIGIN.latitude:.7f}" in url
+        assert f"{DEST.longitude:.7f},{DEST.latitude:.7f}" in url
+        assert url.endswith("/-/transit")
+
+    def test_kakao_url_has_lat_before_lng(self):
+        url = transit_builder.kakao_map_transit_url(ORIGIN, "출발", DEST, "도착")
+        assert url.startswith("https://map.kakao.com/link/from/")
+        assert f"{ORIGIN.latitude:.7f},{ORIGIN.longitude:.7f}" in url
+        assert f"{DEST.latitude:.7f},{DEST.longitude:.7f}" in url
+
+    def test_place_name_with_comma_is_percent_encoded(self):
+        # 장소명에 콤마가 들어가면 URL 경로 구분자(,)와 섞여 좌표 파싱이 깨진다 —
+        # safe="" 로 콤마까지 인코딩해야 한다.
+        name = "강남역, 2번출구"
+        url = transit_builder.naver_map_transit_url(ORIGIN, name, DEST, "도착")
+        assert quote(name, safe="") in url
+        assert name not in url
+
+    def test_empty_names_fall_back_to_default_labels(self):
+        naver_url = transit_builder.naver_map_transit_url(ORIGIN, "", DEST, "")
+        kakao_url = transit_builder.kakao_map_transit_url(ORIGIN, "", DEST, "")
+        assert quote("출발", safe="") in naver_url
+        assert quote("도착", safe="") in naver_url
+        assert quote("출발", safe="") in kakao_url
+        assert quote("도착", safe="") in kakao_url

@@ -3638,6 +3638,31 @@ def _render_action_buttons() -> None:
             jsummary = " · ".join(b for b in bits if b)
             if jsummary:
                 st.caption(f"🧭 전체 여정 {jsummary} · 구간별 안내는 아래 카드")
+            # 대중교통 구간 데이터는 TMAP/ODsay(내부 엔진) 기준 — 네이버지도/카카오맵은
+            # 대중교통 길찾기를 공개 API로 제공하지 않아 직접 조회는 불가능하다(사용자 확인
+            # 완료, 2026-09-09). 대신 실제 노선 정보가 필요하면 두 지도 앱으로 보내는
+            # 딥링크를 제공한다 — 내부 여정(도착판정·이탈추적)은 그대로 유지된다.
+            link_col1, link_col2 = st.columns(2)
+            with link_col1:
+                st.link_button(
+                    "네이버지도로 보기",
+                    transit_builder.naver_map_transit_url(
+                        journey_now.legs[0].start, "출발",
+                        journey_now.legs[-1].end,
+                        st.session_state.get("nav_dest_display") or "도착",
+                    ),
+                    width="stretch",
+                )
+            with link_col2:
+                st.link_button(
+                    "카카오맵으로 보기",
+                    transit_builder.kakao_map_transit_url(
+                        journey_now.legs[0].start, "출발",
+                        journey_now.legs[-1].end,
+                        st.session_state.get("nav_dest_display") or "도착",
+                    ),
+                    width="stretch",
+                )
         else:
             summary = _route_summary_text()
             if summary:

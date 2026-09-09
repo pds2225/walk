@@ -12,6 +12,7 @@ import sys
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Literal
+from urllib.parse import quote
 
 import requests
 
@@ -28,6 +29,47 @@ _TMAP_TRANSIT = "https://apis.openapi.sk.com/transit/routes"
 _ODSAY_TRANSIT = "https://api.odsay.com/v1/api/searchPubTransPathT"
 _ENV_SHARED = Path(r"D:\_secure\.env.shared")
 _TIMEOUT = 8
+
+# 네이버지도/카카오맵은 대중교통 경로탐색을 공개 REST API로 제공하지 않는다(2026-09 기준
+# 두 회사 모두 지오코딩·장소검색·자동차 길찾기만 공개, 대중교통은 자사 앱 전용). 그래서
+# 이 앱이 서버에서 직접 대중교통 데이터를 받아올 수 없고, 사용자를 네이버지도/카카오맵
+# 앱(또는 모바일 웹)으로 보내는 딥링크만 가능하다. 두 링크 모두 앱이 설치돼 있으면
+# OS가 유니버설 링크로 가로채 앱을 열고, 없으면 모바일 웹으로 열린다.
+_NAVER_MAP_TRANSIT_URL = (
+    "https://map.naver.com/p/directions/{slng},{slat},{sname},,/"
+    "{elng},{elat},{ename},,/-/transit"
+)
+_KAKAO_MAP_TRANSIT_URL = (
+    "https://map.kakao.com/link/from/{sname},{slat},{slng}/to/{ename},{elat},{elng}"
+)
+
+
+def naver_map_transit_url(
+    origin: Coordinate, origin_name: str, dest: Coordinate, dest_name: str,
+) -> str:
+    """네이버지도 대중교통 길찾기로 이동하는 딥링크(웹 링크)를 만든다."""
+    return _NAVER_MAP_TRANSIT_URL.format(
+        slng=f"{origin.longitude:.7f}", slat=f"{origin.latitude:.7f}",
+        sname=quote(origin_name or "출발", safe=""),
+        elng=f"{dest.longitude:.7f}", elat=f"{dest.latitude:.7f}",
+        ename=quote(dest_name or "도착", safe=""),
+    )
+
+
+def kakao_map_transit_url(
+    origin: Coordinate, origin_name: str, dest: Coordinate, dest_name: str,
+) -> str:
+    """카카오맵 길찾기로 이동하는 딥링크(웹 링크)를 만든다.
+
+    카카오맵은 URL만으로 '대중교통' 수단을 강제 지정할 수 없어(공개 스킴 미제공),
+    앱/웹이 열린 뒤 사용자가 대중교통 탭을 선택해야 한다.
+    """
+    return _KAKAO_MAP_TRANSIT_URL.format(
+        sname=quote(origin_name or "출발", safe=""),
+        slat=f"{origin.latitude:.7f}", slng=f"{origin.longitude:.7f}",
+        ename=quote(dest_name or "도착", safe=""),
+        elat=f"{dest.latitude:.7f}", elng=f"{dest.longitude:.7f}",
+    )
 
 
 @dataclass(frozen=True)
