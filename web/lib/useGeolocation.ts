@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { distanceMeters } from "@walk/route-engine";
 import type { Coordinate } from "./types";
 
 export interface Fix extends Coordinate {
@@ -145,6 +146,77 @@ export function useWatchPosition(enabled: boolean): WatchPositionState {
   }, [enabled]);
 
   return { fix, error };
+}
+
+// 전통시장 골목처럼 지붕·간판·건물에 위성신호가 반사되는 곳에서는 accuracy 가
+// 괜찮아도(≤50m) 연속된 fix 사이에서 좌표가 몇 m씩 튄다. 이걸 하드웨어 이상으로
+// 없앨 수는 없지만(SBAS/KASS 급 보정은 범위 밖), 화면에 표시하는 좌표만 이전
+// 위치와 accuracy 가중 평균으로 부드럽게 만들면 튐이 줄어든다. 판정용 fix(useNavigation
+// 입력)는 절대 이걸 거치지 않는다 — 스무딩이 이탈/도착 판정에 섞이면 판정이 스무딩
+// 지연(수 초)만큼 늦어진다(Streamlit 데모 gps_filter.accuracy_weighted_blend와 동일
+// 원리·동일 이유의 이원화).
+const SMOOTH_SKIP_MOVE_M = 8; // 이탈 drift 임계(10m)보다 작게 유지 — 실제 이동을 지연시키지 않는다.
+
+function blendPositionByAccuracy(
+  prevLatitude: number,
+  prevLongitude: number,
+  prevAccuracyMeters: number | null,
+  nextLatitude: number,
+  nextLongitude: number,
+  nextAccuracyMeters: number | null,
+): { latitude: number; longitude: number } {
+  if (prevAccuracyMeters === null || nextAccuracyMeters === null) {
+    return { latitude: nextLatitude, longitude: nextLongitude };
+  }
+  const total = prevAccuracyMeters + nextAccuracyMeters;
+  if (total <= 0) {
+    return { latitude: nextLatitude, longitude: nextLongitude };
+  }
+  // 정확도가 더 나쁜(숫자가 큰) 쪽일수록 그 fix의 가중치는 작아진다.
+  const nextWeight = prevAccuracyMeters / total;
+  const prevWeight = 1 - nextWeight;
+  return {
+    latitude: prevLatitude * prevWeight + nextLatitude * nextWeight,
+    longitude: prevLongitude * prevWeight + nextLongitude * nextWeight,
+  };
+}
+
+/**
+ * 지도에 표시할 '현재 위치' 좌표만 부드럽게 만든다 — 판정용 fix는 그대로 둔다.
+ * 8m 이상 한 번에 움직였다면 실제 이동이거나 신호 재획득 직후의 큰 보정으로 보고
+ * 스무딩 없이 그대로 반영한다(그렇지 않으면 화면 핀이 실제 이동을 뒤늦게 따라간다).
+ */
+export function useSmoothedFix(fix: Fix | null): Fix | null {
+  const [smoothed, setSmoothed] = useState<Fix | null>(null);
+  const prevRef = useRef<{ latitude: number; longitude: number; accuracyMeters: number | null } | null>(null);
+  const lastTimestampRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!fix) {
+      prevRef.current = null;
+      lastTimestampRef.current = null;
+      setSmoothed(null);
+      return;
+    }
+    if (lastTimestampRef.current === fix.timestampMs) return; // 같은 fix 재처리 방지
+    lastTimestampRef.current = fix.timestampMs;
+
+    const prev = prevRef.current;
+    let latitude = fix.latitude;
+    let longitude = fix.longitude;
+    if (prev && distanceMeters(prev, fix) < SMOOTH_SKIP_MOVE_M) {
+      const blended = blendPositionByAccuracy(
+        prev.latitude, prev.longitude, prev.accuracyMeters,
+        fix.latitude, fix.longitude, fix.accuracyMeters,
+      );
+      latitude = blended.latitude;
+      longitude = blended.longitude;
+    }
+    prevRef.current = { latitude, longitude, accuracyMeters: fix.accuracyMeters };
+    setSmoothed({ ...fix, latitude, longitude });
+  }, [fix]);
+
+  return smoothed;
 }
 
 /**
