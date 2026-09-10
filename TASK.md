@@ -1,54 +1,69 @@
-# K-Navi PoC Active Tasks
+# K-Navi / 케이네비 — Active Development TASK
 
 > Repository: `pds2225/walk`  
 > Product name: **K-Navi / 케이네비**  
-> Task series: `KN-20260826-*`  
-> Created: 2026-08-26  
-> Status: ACTIVE
+> Canonical task file: **repository root `TASK.md` only**  
+> Updated: **2026-09-10**  
+> Status: **ACTIVE**
 
 ---
 
-## 0. TASK GOVERNANCE
+# 0. TASK GOVERNANCE — SINGLE SOURCE OF TRUTH
 
-이 섹션은 기존 `TASK.md`의 Git 안전규칙, TASK PINNING, lease, worktree, branch, PR, CI, 상태관리 규칙을 **대체하지 않는다**.
+이 repository의 개발 할 일·후속작업·결함·검증·완료기록은 **루트 `TASK.md` 하나만** 기준으로 관리한다.
 
-기존 규칙을 모두 유지하고, 본 섹션은 K-Navi의 현재 개발 요구사항과 Acceptance Criteria를 정의한다.
+사용자가 `TASK 읽어`, `task 봐`, `할 일 뭐야`라고 하면 **현재 작업 중인 repository의 루트 `TASK.md`를 가장 먼저 읽는다.**
 
-### Source of truth
+다음 파일을 별도 기준 문서로 새로 만들지 않는다.
 
-내용 충돌 시 다음 순서로 판단한다.
+- `TASK_DATA_COLLECTION.md`
+- `CURRENT_TASK.md`
+- `NEW_TASK.md`
+- `NEXT_TASK.md`
+- `TODO.md`
+- 기능별 별도 TASK 문서
 
-1. 현재 TASK.md의 명시적 사용자 요구사항
-2. 현재 repository의 실제 코드 및 테스트
-3. 최신 사용자 승인사항
-4. 최신 프로젝트 문서
-5. 과거 사업계획서·발표자료
-6. 추론
+새 할 일이 생기면 반드시 이 파일에 추가한다.
 
-과거 명칭인:
+## Source of truth
 
-- K-Walk
-- 케이워크
-- 도보네비
-- K-네비
+내용 충돌 시:
 
-가 코드·문서에 존재할 수 있으나 신규 사용자 노출 명칭은 **K-Navi / 케이네비**를 사용한다.
+1. 현재 대화에서 사용자가 명시적으로 확정한 최신 지시
+2. 현재 repository 루트 `TASK.md`
+3. 현재 repository의 실제 코드·테스트·배포 상태
+4. 최신 현장 테스트/재현 결과
+5. 최신 프로젝트 자료
+6. 과거 사업계획서·발표자료
+7. 추론
 
-단, 코드 내부 identifier를 서비스명 변경만을 이유로 대규모 rename하지 않는다.
+과거 명칭 `K-Walk`, `케이워크`, `도보네비`, `K-네비`가 코드·과거 문서에 남아 있을 수 있으나 신규 사용자 노출 명칭은 **K-Navi / 케이네비**로 통일한다.
+
+서비스명 변경만을 이유로 코드 identifier를 대규모 rename하지 않는다.
+
+## 개발 원칙
+
+`AUDIT → REUSE → FIX → EXTEND → NEW → TEST`
+
+- 기존 구현을 먼저 조사한다.
+- 같은 기능을 다른 이름으로 중복 구현하지 않는다.
+- 기존 정상 기능을 이유 없이 제거하지 않는다.
+- `1 기능 = 1 TASK = 1 검증`을 기본으로 한다.
+- build/unit test 성공만으로 DONE 처리하지 않는다.
+- 실제 사용자 흐름과 Acceptance Criteria를 기준으로 완료 판단한다.
 
 ---
 
 # 1. CURRENT PRODUCT GOAL
 
-이번 개발 사이클의 목표는:
+K-Navi를 실제 사용자가 휴대폰을 들고 이동하면서 테스트할 수 있는 도보 내비게이션 PoC 수준으로 유지·고도화하고, 동시에 그 이동과 관광행동을 익명 Journey 데이터로 축적한다.
 
-> **K-Navi를 실제 사용자가 휴대폰을 들고 이동하면서 테스트할 수 있는 도보 내비게이션 PoC 수준으로 만든다.**
+핵심 사용자 흐름:
 
-단순 기능 존재 여부가 아니라 아래 흐름이 실제 navigation state로 연결되어야 한다.
-
-`출발지/목적지 결정`
+`장소 탐색`
+→ `목적지 선택`
 → `목적지 좌표 확정`
-→ `도보 경로 생성`
+→ `길안내 시작`
 → `현재 위치 수신`
 → `위치 신뢰도 판단`
 → `실제 이동방향 판단`
@@ -58,80 +73,67 @@
 → `목적지 접근`
 → `Roadview 보조 안내`
 → `도착`
+→ `체류`
+→ `다음 장소 선택`
 
-각 컴포넌트가 따로 존재하는 것만으로 PoC READY 또는 TASK DONE 처리하지 않는다.
+동시에 같은 익명 `session_id`로:
+
+`탐색 → 선택 → 이동 → 이탈 → 재안내 → 접근 → 도착 → 체류 → 콘텐츠 조회 → 다음 이동`
+
+을 시간순으로 재구성할 수 있어야 한다.
 
 ---
 
-# 2. CURRENT VERIFIED ENVIRONMENT
+# 2. CURRENT VERIFIED / RECORDED STATUS
 
-## Kakao Maps
+아래는 기존 TASK completion record와 사용자 보고를 기준으로 정리한 현재 상태다. 과거 `CURRENT INITIAL STATUS`의 `TODO` 값은 더 이상 최신 상태로 사용하지 않는다.
 
-Kakao Developers 사전 설정은 완료된 상태다.
+| Capability / TASK | 현재 상태 | 근거 |
+|---|---|---|
+| `KN-20260826-01` Navigation 전체 흐름 | **IMPLEMENTED** | PR #110 merged |
+| `KN-20260826-02` 경로·위치·이탈·재탐색 | **IMPLEMENTED** | PR #111/#112 merged |
+| `KN-20260826-03` 실제 보행 UI/방향 분리 | **IMPLEMENTED** | PR #113 merged |
+| `KN-20260826-04` 4개 언어 + TTS | **IMPLEMENTED** | PR #114 merged |
+| `KN-20260826-05` Kakao Roadview | **IMPLEMENTED** | PR #115 merged |
+| `KN-20260826-06` 랜드마크 사진 의존성 정리 | **IMPLEMENTED** | PR #116 |
+| `KN-20260826-07` 통합 E2E | **FIELD_VERIFIED** | 2026-08-30 사용자 실외 테스트 종합 보고 |
+| Pre-field hardening | **VERIFIED** | PR #120 merged |
+| `K-NAVI-RV-01` Kakao 운영설정 | **DONE — USER_REPORTED** | 2026-08-30 배포 도메인 등록 보고 |
+| `K-NAVI-RV-02` Roadview follow-up | **IMPLEMENTED** | PR #124 merged |
+| `K-NAVI-TRANSIT-01` 대중교통 딥링크 + 도보 TMAP 유지 | **DONE** | PR #129 merged |
+| `TASK-001` 지하철 승·하차 최적 출입구 선택 | **IMPLEMENTED — FIELD_TEST_REQUIRED** | PR #132 merged |
 
-### Existing Kakao application
+## Current status normalization
 
-- Application: `walk`
-- App ID: `1508720`
-- Category: 지도/내비게이션
-- 신규 Kakao App 생성 금지
-- Kakao Map API: ON
-- 해당 앱이 현재 Kakao Maps 일간 무료 쿼터 대상 앱
+`KAKAO_DEVELOPER_APP = DONE`
 
-### Web SDK
+`KAKAO_MAP_API = ENABLED`
 
-Roadview에는 Kakao JavaScript SDK를 사용한다.
+`KAKAO_JS_DOMAINS = CONFIGURED (USER_REPORTED)`
 
-사용 Key 종류:
+`KAKAO_ROADVIEW_CODE = IMPLEMENTED`
 
-`Default JS Key`
+`NAVIGATION_CORE = IMPLEMENTED`
 
-다음 키와 혼동 금지:
+`DESTINATION_COORDINATE_FLOW = IMPLEMENTED`
 
-- Admin Key
-- REST API Key
-- Native App Key
+`NAVIGATION_UI = IMPLEMENTED`
 
-기존 `KAKAO_REST_API_KEY`는 장소검색 등 REST API 용도이며 Roadview SDK Key로 대체하지 않는다.
+`MULTILINGUAL_TTS = IMPLEMENTED`
 
-### Registered JavaScript SDK origins
+`LANDMARK_PHOTO_DEPENDENCY = AUDITED / PRIMARY FLOW EXCLUDED`
 
-- `http://localhost:8501`
-- `http://127.0.0.1:8501`
-- `http://localhost:3000`
-- `https://walknavi.streamlit.app`
+`FULL_NAVIGATION_E2E = FIELD_VERIFIED (USER_REPORTED, 2026-08-30)`
 
-경로(path)가 아니라 origin 기준이다.
+`SUBWAY_EXIT_AUTO_SELECTION = IMPLEMENTED / FIELD_TEST_REQUIRED`
 
-### Environment variables
+`DATA_COLLECTION_PIPELINE = NOT_YET_AUDITED`
 
-Streamlit:
+`JOURNEY_RECONSTRUCTION = NOT_YET_IMPLEMENTED`
 
-`KAKAO_JAVASCRIPT_KEY`
+## Important limitation
 
-Next.js/browser:
-
-`NEXT_PUBLIC_KAKAO_JAVASCRIPT_KEY`
-
-### Secret policy
-
-- 실제 Key 값을 TASK.md에 기록하지 않는다.
-- source code 하드코딩 금지.
-- git commit 금지.
-- console/log/test output에 full key 노출 금지.
-- 기존 secret file을 임의 삭제·교체 금지.
-
-### Current Roadview status
-
-Kakao Developers 콘솔 설정:
-
-**DONE**
-
-실제 앱 코드 Roadview 연동:
-
-**NOT YET VERIFIED**
-
-따라서 콘솔 설정을 반복 수행하지 않는다.
+`KN-20260826-07`의 FIELD_VERIFIED는 사용자의 종합 보고를 근거로 한다. Scenario A~G 개별 결과가 모두 항목화된 것은 아니므로, 향후 재현되는 결함은 새 TASK로 등록한다.
 
 ---
 
@@ -139,9 +141,9 @@ Kakao Developers 콘솔 설정:
 
 ## 3.1 Navigation 판단
 
-단일 GPS 좌표 또는 단말 Heading 하나만으로 경로이탈을 판단하지 않는다.
+단일 GPS 좌표나 단말 Heading 하나만으로 경로이탈을 판단하지 않는다.
 
-가능한 기존 구현을 우선 조사하고 다음 신호를 활용한다.
+사용 신호:
 
 - GNSS Accuracy
 - 위치 history
@@ -152,1052 +154,531 @@ Kakao Developers 콘솔 설정:
 - 이동거리
 - 시간 연속성
 - route geometry
-- 현재 navigation state
-
-기본 판정 개념:
-
-`On-route`
-→ 정상 이동
-
-`Drifting`
-→ 이상신호가 있으나 실제 이탈 확정 불가
-
-`Deviated`
-→ 복수 신호가 지속적으로 실제 이탈을 나타냄
-
-Heading은 보조 신호로만 취급한다.
-
-순간적인 GPS 튐이나 Heading 회전을 실제 경로이탈로 즉시 판단하지 않는다.
-
----
-
-## 3.2 Reuse-first
-
-모든 TASK에서:
-
-`REUSE → FIX → EXTEND → NEW`
-
-순서를 따른다.
-
-기존 구현을 조사하지 않고 동일 기능을 새 모듈로 중복 구현하지 않는다.
-
----
-
-## 3.3 Roadview principle
-
-PoC에서는 자체 랜드마크 사진 DB를 새로 구축하지 않는다.
-
-우선:
-
-**Kakao Roadview**
-
-를 사용한다.
-
-장기 확장을 고려한 Provider 구조는:
-
-`Kakao`
-→ `NAVER`
-→ `Google`
-
-순서를 염두에 두되, 이번 TASK에서 NAVER/Google 실제 API 연결은 필수가 아니다.
-
----
-
-# 4. TASK PRIORITY
-
-## P0
-
-1. `KN-20260826-01` — Navigation 전체 실사용 흐름
-2. `KN-20260826-02` — 경로·위치·방향·이탈·재탐색 정확도
-
-## P1
-
-3. `KN-20260826-03` — 실제 보행용 Navigation UI/UX
-4. `KN-20260826-04` — 다국어 화면·음성 안내
-5. `KN-20260826-05` — Kakao Roadview 목적지 시각안내
-6. `K-NAVI-RV-01` — Kakao Developers walk 앱 Roadview 운영설정 확인 (USER)
-7. `K-NAVI-RV-02` — 현재 Roadview 코드 감사 및 부족한 부분 보완 (v_up 자동개발, RV-01 의존)
-
-## P2
-
-6. `KN-20260826-06` — 랜드마크 사진 기능 정리
-
-## Integration
-
-7. `KN-20260826-07` — 통합 E2E·회귀·PoC Ready 판정
-
-dependency가 확인되면 실제 실행 순서는 조정할 수 있다.
-
-단순 구현 편의를 이유로 P0보다 P2를 먼저 완료하지 않는다.
-
----
-
-# KN-20260826-01
-## K-Navi 실제 Navigation 전체 흐름
-
-**Priority:** P0  
-**Status:** IMPLEMENTED
-**Type:** Integration / Product Core
-
-### Goal
-
-기존 기능들을 실제 하나의 navigation session으로 연결한다.
-
-### Required user flow
-
-1. 목적지 선택
-2. 목적지 좌표 결정
-3. 현재 위치 확보
-4. 도보 경로 생성
-5. navigation 시작
-6. 실시간 또는 주기적 위치 update
-7. 현재 이동상태 update
-8. 다음 행동 안내
-9. 경로이탈 발생 시 상태변경
-10. 필요 시 reroute
-11. 새 경로 안내
-12. 목적지 접근
-13. 도착
-
-### Audit first
-
-먼저 실제 repository에서 다음을 찾는다.
-
-- application entrypoint
-- Streamlit app
-- Next.js/web app
-- Navigation page
-- routing provider
-- route model
-- GPS/geolocation
 - navigation state
-- deviation engine
-- reroute
-- arrival
-- tests
-- fixtures
-- simulation/replay
-- logging
 
-각 요소를:
+상태 개념:
 
-- `ALREADY_DONE`
-- `PARTIAL`
-- `BROKEN`
-- `NOT_IMPLEMENTED`
+`On-route → Drifting → Deviated`
 
-중 하나로 분류한다.
+- `Drifting`: 실제 이탈인지 불확실한 중간 상태. 사용자 음성 경고를 즉시 발생시키지 않는다.
+- `Deviated`: 복수 신호가 실제 이탈을 지지할 때 확정.
 
-### Acceptance Criteria
+Heading은 보조 신호로만 사용한다.
 
-- [ ] 실제 목적지가 navigation session에 전달된다.
-- [ ] route가 navigation state와 연결된다.
-- [ ] current position update가 navigation state에 반영된다.
-- [ ] 이동에 따라 route progress가 변경된다.
-- [ ] navigation 상태가 화면에 반영된다.
-- [ ] deviation 결과가 사용자 흐름에 연결된다.
-- [ ] reroute 결과가 실제 active route를 갱신한다.
-- [ ] arrival 상태가 navigation 종료와 연결된다.
-- [ ] mock-only 흐름이 아니다.
-- [ ] 기존 정상 기능을 불필요하게 제거하지 않는다.
+## 3.2 방향값 분리
 
-### NOT DONE
+- **Map Bearing**: DeviceOrientation 기반, 사용자가 휴대폰으로 보는 방향
+- **Movement Bearing**: 실제 GNSS 이동궤적 기반 이동방향
+- **Route Bearing**: active route의 진행방향
 
-다음만으로 완료 처리하지 않는다.
+세 값을 같은 값처럼 사용하지 않는다.
 
-- route polyline만 화면에 표시
-- navigation state class만 생성
-- backend 함수만 존재
-- mock 위치 1개만 성공
-- build 성공
-- unit test 성공
-- UI만 연결
-- API만 연결
+## 3.3 Roadview
 
-### Evidence required
+PoC primary provider는 **Kakao Roadview**.
 
-완료 기록에는 최소 다음을 남긴다.
+장기 구조는:
 
-- 주요 entrypoint
-- 핵심 수정파일
-- 사용자 flow 연결 위치
-- 실행 또는 test command
-- 결과
-- 남은 제한사항
+`Kakao → NAVER → Google`
+
+을 고려하되, NAVER/Google 실제 연동은 현재 필수 범위가 아니다.
+
+별도 대규모 랜드마크 사진 DB를 신규 구축하지 않는다.
+
+Roadview 실패 시 navigation은 계속되어야 한다.
+
+## 3.4 SBAS / KASS
+
+구현·검증 증거 없이 다음을 완료처럼 기록하지 않는다.
+
+- KASS 정밀 보정 완료
+- SBAS 적용 완료
+- m/cm급 정확도
+- 기존 지도 대비 정확도 우월
+
+현재 핵심은 GNSS 위치 신뢰도, 실제 이동궤적, 경로이탈 판단, reroute, 사용자 안내다.
 
 ---
 
-# KN-20260826-02
-## 경로 추천·위치 추적·이동방향·경로이탈·재탐색 정확도
+# 4. CURRENT ACTIVE QUEUE
 
-**Priority:** P0  
-**Status:** IMPLEMENTED
-**Type:** Navigation Engine
+## P0 — 현장검증 잔여
 
-### Goal
+### [ ] TASK-001-FIELD — 지하철 승·하차 최적 출입구 실기기 현장검증
 
-GPS/GNSS 흔들림 때문에 정상 사용자를 이탈자로 오판하지 않으면서 실제 잘못된 이동은 감지한다.
+`SOURCE = TASK-001 completion record`
 
----
+`STATUS = FIELD_TEST_REQUIRED`
 
-## 02-A. Destination coordinate reliability
+**Goal**
 
-목적지 좌표가 잘못되면:
+실제 지하철역 1곳 이상에서 승차·하차 각각 선택된 출입구가 실제 보행 관점에서 적절한지 확인한다.
 
-- route
-- arrival
-- Roadview
-- 거리 계산
+**Acceptance**
 
-이 모두 잘못되므로 경로 엔진의 선행 입력으로 취급한다.
-
-### Audit
-
-현재 장소검색이 어떤 Provider와 좌표를 사용하는지 확인한다.
-
-확인 대상:
-
-- query → place result
-- place result → lat/lng
-- 표시 좌표
-- 실제 route destination
-- arrival destination
-- Roadview destination
-
-가능하면 동일 canonical destination coordinate를 사용한다.
-
-### Acceptance
-
-- [ ] 화면에서 선택한 목적지와 route destination이 일치한다.
-- [ ] route destination과 arrival 판단 좌표가 일치한다.
-- [ ] Roadview도 동일 canonical destination을 받을 수 있다.
-- [ ] 다른 Provider 좌표를 혼용해 destination drift가 발생하지 않는다.
-- [ ] 검색결과 ambiguity 처리 방식이 존재한다.
-
-복수 지도 API 교차검증은 현재 코드와 API 가용성을 조사한 뒤 필요할 경우 후속 TASK로 분리한다.
+- [ ] 실제 역에서 승차 출입구 선택 확인
+- [ ] 실제 역에서 하차 출구 선택 확인
+- [ ] 출구번호 UI 확인
+- [ ] 후보 없음 시 기존 역좌표 fallback 확인
+- [ ] 기존 deviation/reroute/TTS 흐름 회귀 없음 확인
 
 ---
 
-## 02-B. GNSS accuracy
+# 5. DATA COLLECTION — NEW ACTIVE TASKS
 
-확인:
+## 공통 아키텍처
 
-- latitude
-- longitude
-- accuracy
-- timestamp
+사용자 행동 이벤트와 GNSS 이동 샘플을 별도 저장하되 **동일한 익명 `session_id`로 연결**한다.
 
-위치 정확도가 나쁜 샘플을 고신뢰 deviation 증거로 사용하지 않는다.
+### Session
 
----
+세션 시작 시 1회 생성/확정:
 
-## 02-C. Movement Bearing
+- `session_id`
+- `session_started_at`
+- `language`
 
-직전 한 점과 현재 한 점만으로 방향을 과신하지 않는다.
+`session_id`는 매 이벤트마다 새로 생성하지 않는다. 단, 각 event/movement row는 동일 세션을 연결하기 위해 같은 `session_id`를 참조한다.
 
-조사 대상:
+### Event common fields
 
-- 최소 이동거리
-- sample history
-- jitter filtering
-- stationary 상태
-- stale location
+- `session_id`
+- `event_timestamp`
+- `event_type`
+- `poi_id` nullable
+- `route_id` nullable
+- `payload_json` nullable
 
-Movement Bearing 기존 구현이 있으면 재사용한다.
+### Movement sample
 
----
+- `session_id`
+- `sample_timestamp`
+- `route_id`
+- `latitude`
+- `longitude`
+- `gnss_accuracy`
+- `speed`
+- `movement_bearing`
+- `route_progress`
+- `cross_track_distance`
+- `navigation_state`
 
-## 02-D. Route Bearing
+### Target event set
 
-현재 route segment 또는 앞으로 진행할 segment의 진행방향과 실제 이동방향을 비교한다.
+P0:
 
-route geometry가 복잡한 곡선·교차로에서 잘못된 segment를 선택하지 않는지 확인한다.
+- `route_start`
+- `route_deviation`
+- `reroute`
+- `poi_approach`
+- `arrival`
+- `dwell`
 
----
+P1:
 
-## 02-E. Route Progress
+- `place_view`
+- `place_select`
+- `menu_view`
+- `next_place_select`
 
-시간에 따라:
+P2:
 
-- 진행 중
-- 정체
-- 역행
+- `coupon_click`
+- `coupon_use`
 
-을 구분할 수 있는지 확인한다.
-
-단일 위치 update로 역행을 확정하지 않는다.
-
----
-
-## 02-F. Cross-track Distance
-
-사용자 위치와 active route 간 횡방향 이격을 계산한다.
-
-GNSS Accuracy와 함께 해석한다.
-
-예:
-
-정확도 ±10m인데 route에서 7m 떨어진 좌표
-
-→ 강한 이탈 증거로 간주하지 않음.
-
----
-
-## 02-G. State machine
-
-현재 실제 state model을 우선한다.
-
-가능하면 의미상 다음 세 상태를 유지한다.
-
-### On-route
-
-정상적인 route progression.
-
-### Drifting
-
-일부 이상신호가 존재하나 이탈 불확실.
-
-사용자에게 즉시 경고하지 않는다.
-
-### Deviated
-
-복수 이상신호가 시간/횟수 기준 이상 지속.
-
-reroute 또는 re-guidance 가능.
+구매 여부를 GNSS만으로 추정하지 않는다. 실제 소비전환은 쿠폰/주문/결제/POS 등 별도 데이터가 있어야 한다.
 
 ---
 
-## 02-H. False Positive suppression
+## [ ] TASK-002 — 데이터 수집 capability audit
 
-반드시 고려:
+`PRIORITY = P0`
 
-- GNSS 순간 jump
-- accuracy 악화
-- 휴대폰 회전
-- 일시 정지
-- 횡단보도 대기
-- 교차로
-- route segment 전환
-- 좁은 평행도로
-- 건물 밀집구간
-- 위치 update 지연
+`STATUS = READY`
+
+**Goal**
+
+현재 repository에서 이미 생성·저장 가능한 데이터와 신규 Gap을 먼저 확정한다.
+
+**Audit 대상**
+
+- session/client state
+- geolocation / watchPosition
+- GNSS accuracy
+- speed
+- movement bearing
+- route progress
+- cross-track distance
+- navigation state
+- deviation/reroute lifecycle
+- arrival lifecycle
+- POI/destination model
+- place/menu UI
+- backend/API
+- DB/storage
+- existing analytics/logging
+- 위치정보 동의/권한 UI
+
+**Acceptance**
+
+- [ ] 각 항목을 `ALREADY_DONE / PARTIAL / BROKEN / NOT_IMPLEMENTED / NOT_APPLICABLE`로 분류
+- [ ] 재사용할 파일/module 근거 기록
+- [ ] 새 DB 도입이 필요한지 여부 판정
+- [ ] 기존 기능 중 재작성 금지 대상 명시
+- [ ] 별도 Audit 문서 생성 금지 — 결과는 이 `TASK.md` completion record에 기록
 
 ---
 
-## 02-I. Reroute
+## [ ] TASK-003 — 익명 Session foundation
 
-Deviated라고 판단되었다고 무조건 매 tick마다 reroute하지 않는다.
+`PRIORITY = P0`
 
-확인:
+`STATUS = READY`
 
-- reroute cooldown
-- 중복 요청 억제
-- pending state
-- 동일 route 반복 생성
-- network failure
-- fallback behavior
+`DEPENDS = TASK-002`
+
+**Goal**
+
+익명 session을 1회 생성하고 같은 관광 Journey 전체에서 유지한다.
+
+**Acceptance**
+
+- [ ] session 시작 시 `session_id` 1회 생성
+- [ ] rerender로 session_id 변경되지 않음
+- [ ] 같은 Journey 내 다음 장소 이동까지 동일 session 유지
+- [ ] language / session_started_at 연결
+- [ ] 실명·전화번호·이메일을 session key로 사용하지 않음
+- [ ] 테스트로 동일 session 유지 검증
 
 ---
 
-## 02-J. Arrival
+## [ ] TASK-004 — Event Tracker + `event_log`
 
-목적지 접근 판정은 단일 좌표 거리만 보지 말고 현재 코드 구조에 맞춰 안정적으로 처리한다.
+`PRIORITY = P0`
+
+`STATUS = READY`
+
+`DEPENDS = TASK-003`
+
+**Goal**
+
+사용자 행동과 navigation 상태 이벤트를 공통 형식으로 서버에 저장한다.
+
+권장 시작 구조:
+
+`event_log`
+
+```text
+id
+session_id
+event_timestamp
+event_type
+poi_id
+route_id
+payload_json
+created_at
+```
+
+기존 DB/ORM이 있으면 재사용한다. Audit 전에 Supabase/Prisma/Drizzle 등 새 스택을 임의 확정하지 않는다.
+
+**Acceptance**
+
+- [ ] 공통 `trackEvent()` 또는 동등한 capability 존재
+- [ ] timestamp/type 자동 기록
+- [ ] poi_id/route_id/payload 선택적 저장
+- [ ] 중복 이벤트 억제
+- [ ] 저장 실패가 navigation fatal error로 이어지지 않음
+- [ ] 실제 서버 저장 검증
+- [ ] 직접 식별정보와 raw movement를 결합하지 않음
+
+---
+
+## [ ] TASK-005 — GNSS `movement_log`
+
+`PRIORITY = P0`
+
+`STATUS = READY`
+
+`DEPENDS = TASK-002, TASK-003`
+
+**Goal**
+
+navigation 중 실제 이동데이터와 K-Navi 분석값을 시계열로 저장한다.
+
+권장 구조:
+
+```text
+id
+session_id
+sample_timestamp
+route_id
+latitude
+longitude
+gnss_accuracy
+speed
+movement_bearing
+route_progress
+cross_track_distance
+navigation_state
+created_at
+```
+
+**Acceptance**
+
+- [ ] 기존 geolocation/navigation 계산값 재사용
+- [ ] Device Heading을 Movement Bearing으로 저장하지 않음
+- [ ] navigation 활성 구간에서만 합리적 cadence로 저장
+- [ ] sample timestamp + route_id 연결
+- [ ] 동일 값 무한 중복 저장 방지
+- [ ] UI/navigation 성능저하 여부 검증
+- [ ] 실제 서버 저장 확인
+
+Sampling 주기나 거리 기준은 PoC에서 조정 가능한 설정값으로 둔다. 근거 없이 확정 성능값처럼 고정하지 않는다.
+
+---
+
+## [ ] TASK-006 — `route_deviation` / `reroute` 이벤트 연결
+
+`PRIORITY = P0`
+
+`STATUS = READY`
+
+`DEPENDS = TASK-004, TASK-005`
+
+**Goal**
+
+기존 navigation state machine을 그대로 활용해 경로이탈·재안내 이벤트를 자동 생성한다.
+
+**Acceptance**
+
+- [ ] `Deviated` 확정 시 `route_deviation` 1회 기록
+- [ ] `Drifting`에서는 `route_deviation` 생성 금지
+- [ ] 실제 reroute 실행 시 `reroute` 기록
+- [ ] duplicate reroute 이벤트 억제
+- [ ] deviation 확정부터 정상복귀/새 경로 진입까지 recovery time 산출 가능
+- [ ] replay test로 event sequence 검증
+
+---
+
+## [ ] TASK-007 — POI 접근·도착·체류 자동 판정
+
+`PRIORITY = P0`
+
+`STATUS = READY`
+
+`DEPENDS = TASK-004, TASK-005`
+
+**Goal**
+
+클릭이 아니라 실제 공간행동인 `poi_approach → arrival → dwell`을 측정한다.
+
+### `poi_approach`
+
+목적지 좌표와 현재 위치 거리로 자동 판정.
+
+초기 예시 20m는 **PoC 조정값 / 확정 성능값 아님**.
+
+### `arrival`
+
+단순 거리 1개로 판정하지 않는다.
 
 최소 고려:
 
 - destination distance
-- GNSS Accuracy
-- 이동상태
-- arrival threshold
-- repeated arrival event suppression
+- route progress
+- GNSS accuracy
+- repeated samples / temporal stability
+- navigation state
+
+### `dwell`
+
+POI 반경 내 연속 체류시간 계산.
+
+예시 3분 역시 **PoC 조정값 / 확정값 아님**.
+
+**Acceptance**
+
+- [ ] `distance_to_poi` 계산
+- [ ] approach threshold configurable
+- [ ] jitter로 approach 이벤트 반복 폭증 없음
+- [ ] `NEAR_DESTINATION`과 실제 `arrival` 분리
+- [ ] arrival 1회만 기록
+- [ ] 조기 arrival false positive 테스트
+- [ ] dwell_seconds 계산
+- [ ] GPS jitter로 체류가 과도하게 끊기지 않음
+- [ ] visibility/background 변화 처리방식 기록
 
 ---
 
-### Acceptance Criteria
+## [ ] TASK-008 — 관광행동 이벤트 연결
 
-- [ ] 정상 route trace에서 false deviation이 불필요하게 반복되지 않는다.
-- [ ] 실제 route 이탈 trace에서 Deviated로 전환된다.
-- [ ] Heading 단독으로 Deviated가 발생하지 않는다.
-- [ ] GPS accuracy 저하가 판단 신뢰도에 반영된다.
-- [ ] progress가 navigation state에 실제 사용된다.
-- [ ] cross-track 정보가 실제 판정에 사용되거나, 미사용 시 이유가 기록된다.
-- [ ] reroute storm 방지 로직이 존재한다.
-- [ ] arrival 중복 이벤트가 억제된다.
-- [ ] threshold를 변경했다면 변경 전/후 결과를 비교한다.
+`PRIORITY = P1`
 
-### Threshold rule
+`STATUS = READY`
 
-기존 threshold를 근거 없이 임의 조정하지 않는다.
+`DEPENDS = TASK-004`
 
-변경 시 반드시 기록:
+**Goal**
 
-`OLD`
-→ `NEW`
-→ `WHY`
-→ `BEFORE RESULT`
-→ `AFTER RESULT`
+사용자가 무엇을 보고, 무엇을 선택하고, 다음 어디로 가려 했는지 실제 이동데이터와 연결한다.
 
----
+필수:
 
-# KN-20260826-03
-## 실제 보행용 Navigation UI/UX
+- `place_view`
+- `place_select`
+- `menu_view`
+- `next_place_select`
 
-**Priority:** P1  
-**Status:** IMPLEMENTED
-**Type:** Frontend / Navigation UX
+**Acceptance**
 
-### Goal
-
-개발자 테스트 화면이 아니라 걷는 사용자가 한눈에 다음 행동을 이해할 수 있는 화면을 만든다.
-
-### Information priority
-
-화면 우선순위:
-
-1. 다음 행동
-2. 현재 위치/진행방향
-3. 추천 경로
-4. 목적지/남은 상태
-5. deviation/reroute
-6. secondary information
-7. debug information
-
-### Must show
-
-- 현재 위치
-- 목적지
-- route
-- 현재 이동방향 또는 사용자 방향 표현
-- 다음 행동
-- 남은 거리 또는 진행 상태
-- 정상/주의/이탈 상태
-- rerouting 상태
-- arrival
-
-### Mobile-first
-
-주요 테스트 viewport는 모바일이다.
-
-확인:
-
-- 지도와 안내 카드 충돌
-- 작은 글씨
-- 버튼 터치영역
-- 화면 하단 브라우저 UI 간섭
-- 세로 viewport
-- 지도 controls 중복
-- 화면 스크롤 필요 여부
-
-### Debug separation
-
-다음 값은 개발자용 영역으로 분리한다.
-
-예:
-
-- raw lat/lng
-- accuracy
-- bearing raw values
-- cross-track raw
-- threshold
-- internal state counters
-- API response
-
-최종 navigation primary UI를 차지하지 않는다.
-
-### Navigation state binding
-
-UI는 mock 문구가 아니라 실제 navigation state에 연결한다.
-
-예:
-
-정상
-→ normal guidance
-
-Drifting
-→ 필요하면 내부/약한 UI
-
-Deviated
-→ 명확한 재안내
-
-Rerouting
-→ 재탐색 중
-
-Arrived
-→ 도착
-
-### Acceptance Criteria
-
-- [ ] navigation core state와 UI가 실제 연결됨.
-- [ ] 실제 destination/route가 표시됨.
-- [ ] 다음 행동을 우선적으로 읽을 수 있음.
-- [ ] mobile viewport에서 핵심정보가 한 화면에 들어옴.
-- [ ] debug 값이 primary UI를 방해하지 않음.
-- [ ] reroute 중 사용자에게 현재 상태가 보임.
-- [ ] arrival UI 존재.
-- [ ] navigation이 없는 상태/오류 상태도 처리.
+- [ ] 기존 UI에 tracker를 최소 침습으로 연결
+- [ ] 관련 poi/content ID 연결
+- [ ] rerender로 `place_view` 중복 폭증 방지
+- [ ] `next_place_select` 후 새 `route_start`와 동일 session으로 연결
+- [ ] 언어 변경이 session을 끊지 않음
 
 ---
 
-# KN-20260826-04
-## 다국어 화면·음성 길안내
+## [ ] TASK-009 — Journey reconstruction + export
 
-**Priority:** P1  
-**Status:** IMPLEMENTED
-**Type:** Localization / TTS
+`PRIORITY = P1`
 
-### Required languages
+`STATUS = READY`
 
-- Korean
-- English
-- Japanese
-- Chinese
+`DEPENDS = TASK-003 ~ TASK-008`
 
-현재 프로젝트에 존재하는 locale scheme을 우선 사용한다.
+**Goal**
 
-중국어는 기존 코드가 Simplified/Traditional을 구분하고 있다면 기존 정책 유지.
+한 익명 사용자의 Journey를 시간순으로 재구성한다.
 
----
+목표 sequence:
 
-## Navigation events
+`place_view`
+→ `place_select`
+→ `route_start`
+→ `movement`
+→ `route_deviation`
+→ `reroute`
+→ `poi_approach`
+→ `arrival`
+→ `dwell`
+→ `menu_view`
+→ `next_place_select`
+→ `new route_start`
 
-현재 코드의 실제 event/state 이름을 먼저 확인한다.
+**Acceptance**
 
-개념적으로 최소 다음 상황을 음성안내와 연결한다.
-
-- navigation start
-- 다음 행동
-- 방향 전환
-- wrong direction
-- deviation
-- rerouting
-- route updated
-- destination approaching
-- arrival
-
-없는 event를 프롬프트 문구만 보고 억지로 추가하지 않는다.
-
----
-
-## TTS
-
-기존 TTS 모듈이 있으면 재사용한다.
-
-확인:
-
-- browser speech API
-- server TTS
-- external provider
-- existing abstraction
-
-### Duplicate suppression
-
-같은 상태 update마다 동일 문장을 반복 재생하지 않는다.
-
-필요한 경우:
-
-- event id
-- utterance hash
-- cooldown
-- state transition
-
-등 현재 architecture와 맞는 방식으로 방지한다.
-
-### Failure behavior
-
-TTS 실패가 navigation 자체를 중단시키지 않는다.
-
-음성이 없어도 화면 안내는 계속되어야 한다.
-
-### Acceptance Criteria
-
-- [ ] 4개 언어 resource가 navigation UI에 실제 적용됨.
-- [ ] TTS와 navigation event가 실제 연결됨.
-- [ ] 동일 안내 무한 반복 없음.
-- [ ] 언어 변경 후 이후 안내가 선택 언어로 나옴.
-- [ ] TTS 실패 시 navigation 유지.
-- [ ] untranslated key가 primary UI에 그대로 노출되지 않음.
-- [ ] mock 버튼만 존재하는 상태로 DONE 금지.
+- [ ] session_id 기준 event + movement 조회
+- [ ] timestamp 순 정렬
+- [ ] route 변경 구분
+- [ ] 주요 이벤트와 이동구간 연결
+- [ ] 최소 CSV 또는 JSON export 제공
+- [ ] 대형 BI dashboard는 이번 TASK에서 만들지 않음
+- [ ] 실제 sample Journey 재구성 검증
 
 ---
 
-# KN-20260826-05
-## Kakao Roadview 기반 목적지 시각안내
+## [ ] TASK-010 — Data-enabled PoC E2E
 
-**Priority:** P1  
-**Status:** IMPLEMENTED
-**Type:** External API / Frontend Integration
+`PRIORITY = P1 / Integration`
 
-### Goal
+`STATUS = READY`
 
-목적지에 가까워진 사용자가 실제 주변 도로·건물 외관을 보고 목적지를 식별할 수 있도록 한다.
+`DEPENDS = TASK-003 ~ TASK-009`
 
-Roadview는 navigation을 대체하지 않는다.
+**Goal**
 
-**목적지 확인 보조 기능**이다.
+실제 한 사용자 Journey가 처음부터 끝까지 저장·재구성되는지 종단 검증한다.
 
----
+필수 시나리오:
 
-## Trigger
+`session_start`
+→ `place_view`
+→ `place_select`
+→ `route_start`
+→ `movement samples`
+→ `route_deviation`
+→ `reroute`
+→ `poi_approach`
+→ `arrival`
+→ `dwell`
+→ `menu_view`
+→ `next_place_select`
+→ `new route_start`
 
-Roadview를 navigation 시작부터 계속 표시하지 않는다.
+**Acceptance**
 
-목적지 접근 시점 또는 사용자의 명시적 요청에 의해 표시한다.
-
-기본 접근 조건 예시:
-
-`distanceToDestination <= ROADVIEW_TRIGGER_DISTANCE`
-
-초기 default 후보:
-
-`50m`
-
-단 실제 코드 구조에 맞게 configurable constant로 둔다.
-
-하드코딩된 magic number를 여러 위치에 복제하지 않는다.
-
----
-
-## Canonical destination
-
-Roadview는 KN-02에서 사용되는 동일 destination coordinate를 사용한다.
-
-별도 좌표를 다시 검색해 서로 다른 목적지로 표시하지 않는다.
-
----
-
-## Kakao Roadview flow
-
-`destination coordinate`
-→ `RoadviewClient`
-→ `nearest pano search`
-→ `Roadview available`
-→ `Roadview load`
-→ `destination direction`
-→ `destination marker/overlay`
-→ `K-Navi viewer`
-
-목적지 주변 검색반경은 configurable하게 한다.
-
-초기 후보:
-
-- 30m
-- 50m
-
-필요한 경우 단계적 fallback radius를 설계할 수 있다.
+- [ ] session_id 중간 변경 없음
+- [ ] GNSS raw sample 저장
+- [ ] Movement Bearing / Route Progress / Cross-track / Navigation State 저장
+- [ ] false route_deviation 억제
+- [ ] arrival 1회
+- [ ] dwell 계산
+- [ ] 다음 장소 이동 연결
+- [ ] Journey 완전 재구성
+- [ ] 데이터 저장 실패 시 navigation 계속
+- [ ] 직접 식별정보와 raw movement 미결합
+- [ ] 기존 navigation 실사용 흐름 회귀 없음
 
 ---
 
-## Camera
+## [ ] TASK-011 — 쿠폰/소비전환 event hook
 
-가능하면 Roadview 초기 진입 시 destination 방향이 보이도록 한다.
+`PRIORITY = P2`
 
-Kakao API가 제공하는 viewpoint / coordinate 관련 기능을 활용한다.
+`STATUS = READY — CONDITIONAL`
 
-사용자가 수동으로 360° 탐색하는 기능은 유지한다.
+**Goal**
 
----
+향후 `coupon_click`, `coupon_use`를 방문 Journey와 연결할 수 있도록 실제 쿠폰 기능이 존재할 때만 hook을 추가한다.
 
-## Destination identification
+**Acceptance**
 
-로드뷰에서 사용자가 최소한:
-
-> “어느 방향/어느 건물이 목적지인가”
-
-를 알 수 있어야 한다.
-
-가능한 방법:
-
-- marker
-- custom overlay
-- K-Navi 상단 안내
-- destination name
-- 방향 정보
+- [ ] 실제 쿠폰 UI/기능이 존재할 때만 이벤트 연결
+- [ ] 존재하지 않으면 이번 cycle에서 구현하지 않아도 됨
+- [ ] 구매 발생을 GNSS 위치만으로 추정하지 않음
+- [ ] POS/결제 연동은 별도 후속 TASK
 
 ---
 
-# Unified Roadview architecture
+# 6. ACTIVE TASK EXECUTION ORDER
 
-K-Navi 공통 UI와 Provider SDK를 분리한다.
+기본 순서:
 
-개념:
+`Repository sync`
+→ `TASK.md 확인`
+→ `git status`
+→ `TASK-002 Audit`
+→ `TASK-003 Session`
+→ `TASK-004 Event Log`
+→ `TASK-005 Movement Log`
+→ `TASK-006 Deviation/Reroute Event`
+→ `TASK-007 Approach/Arrival/Dwell`
+→ `TASK-008 Tourism Events`
+→ `TASK-009 Journey Reconstruction`
+→ `TASK-010 Data E2E`
+→ 필요 시 `TASK-011`
 
-`UnifiedRoadviewViewer`
+`TASK-001-FIELD`는 실제 현장 테스트가 가능한 시점에 수행한다.
 
-`RoadviewProvider`
-
-`KakaoRoadviewAdapter`
-
-향후:
-
-`NaverPanoramaAdapter`
-
-`GoogleStreetViewAdapter`
-
-공통 interface 후보:
-
-- `isAvailable(destination)`
-- `open(destination)`
-- `lookAt(destination)`
-- `setView(...)`
-- `close()`
-
-실제 repository architecture에 더 자연스러운 interface가 있으면 그것을 우선한다.
+Audit에서 이미 구현된 capability는 새로 만들지 않고 검증 후 넘어간다.
 
 ---
 
-## Provider scope
+# 7. DATA PRIVACY / COLLECTION BOUNDARY
 
-이번 TASK:
-
-### REQUIRED
-
-Kakao 실제 연결.
-
-### OPTIONAL STRUCTURAL PREPARATION
-
-NAVER/Google adapter interface 또는 placeholder.
-
-### NOT REQUIRED
-
-NAVER 실제 API 호출.
-
-Google 실제 API 호출.
+- 이동데이터는 **익명 session 단위**를 기본으로 한다.
+- raw 위치는 navigation 또는 사용자가 명시적으로 동의한 수집구간에서만 수집한다.
+- navigation 종료, arrival 완료, 명시적 stop, timeout 등에서 tracking을 종료한다.
+- 실명·전화번호·이메일 등 직접 식별정보를 raw movement row와 직접 결합하지 않는다.
+- 위치권한 거부 시 navigation이 가능한 범위에서 명확한 fallback을 제공한다.
+- 개인별 장기 이동이력 계정화는 현재 cycle의 범위가 아니다.
 
 ---
 
-## One-session provider
+# 8. DEVELOPMENT AUDIT MATRIX
 
-향후 multi-provider가 구현되더라도:
-
-> 하나의 destination navigation session에서는 가능하면 동일 Provider 유지.
-
-이 원칙을 architecture에 반영할 수 있으면 반영한다.
-
----
-
-## Failure cases
-
-반드시 처리:
-
-- JavaScript Key 없음
-- SDK loading 실패
-- unauthorized domain
-- destination coordinate 없음
-- 주변 pano 없음
-- timeout/network error
-- Roadview load error
-- marker failure
-
-### Critical rule
-
-Roadview 실패가 navigation session 전체를 죽이면 안 된다.
-
-실패 시:
-
-`Roadview unavailable`
-→ 기존 지도 navigation 계속
-
----
-
-## Attribution
-
-지도 Provider가 요구하는:
-
-- logo
-- copyright
-- attribution
-
-을 임의 제거하거나 가리지 않는다.
-
----
-
-## Secrets
-
-사용:
-
-Streamlit:
-`KAKAO_JAVASCRIPT_KEY`
-
-Next.js:
-`NEXT_PUBLIC_KAKAO_JAVASCRIPT_KEY`
-
-실제 architecture에서 어느 UI가 Roadview를 담당하는지 조사한 뒤 필요한 환경변수만 사용한다.
-
----
-
-### Acceptance Criteria
-
-- [ ] Kakao JavaScript SDK가 환경변수 기반으로 load됨.
-- [ ] destination coordinate가 Roadview module로 전달됨.
-- [ ] 주변 pano 검색 가능.
-- [ ] pano 없음 상태 처리.
-- [ ] 실제 Roadview container가 열림.
-- [ ] 목적지를 식별할 수 있는 marker/overlay/UI 존재.
-- [ ] 목적지 방향을 초기 view로 설정 가능한 범위까지 구현.
-- [ ] mobile 화면을 고려한 container.
-- [ ] Roadview 닫기/지도 복귀 가능.
-- [ ] Roadview 실패 시 navigation 정상 유지.
-- [ ] key가 source/git/log에 노출되지 않음.
-
-### NOT DONE
-
-- 빈 Roadview component만 생성
-- Kakao SDK import만 성공
-- API wrapper만 작성
-- mock panorama
-- 정적 screenshot
-- hard-coded 테스트 위치 하나만 표시
-- destination과 연결되지 않은 Roadview
-
----
-
-# KN-20260826-06
-## 기존 랜드마크 사진 기능 정리
-
-**Priority:** P2  
-**Status:** IMPLEMENTED
-**Dependency:** KN-20260826-05
-
-### Goal
-
-PoC 핵심 흐름에서 Roadview로 대체 가능한 자체 랜드마크 사진 기능을 정리한다.
-
-### Important
-
-기존 관련 코드와 asset을 즉시 삭제하지 않는다.
-
-먼저 dependency를 조사한다.
-
-확인:
-
-- route instruction에서 사진 사용 여부
-- navigation state dependency
-- UI dependency
-- fixtures/tests
-- external data
-- user-upload
-- production asset
-
-### Decision
-
-Roadview가 목적지 식별 UX를 담당할 수 있으면 PoC primary flow에서 랜드마크 사진 DB 신규 구축을 제외한다.
-
-기존 구현은 상황에 따라:
-
-- 유지
-- feature flag off
-- deprecated
-- fallback
-- PoC flow 제외
-
-중 가장 안전한 방식을 선택한다.
-
-### Fallback
-
-Roadview 미지원 지역을 위한 자체 사진 fallback은 향후 필요할 수 있으므로 기존 유용한 기능을 이유 없이 파괴하지 않는다.
-
-### Acceptance Criteria
-
-- [ ] 기존 사진 기능의 실제 dependency 파악.
-- [ ] PoC primary flow에 새 사진 DB 구축 dependency 없음.
-- [ ] Roadview와 중복되는 불필요한 새 개발 없음.
-- [ ] 기존 자산 파괴적 삭제 없음.
-- [ ] 향후 fallback 가능성 유지.
-- [ ] 변경 이유 기록.
-
----
-
-# KN-20260826-07
-## 통합 E2E · 회귀 · PoC Ready 판정
-
-**Priority:** Integration  
-**Status:** FIELD_VERIFIED (user-reported, 2026-08-30)
-
-**Blocker (해소):** FIELD_TEST_REQUIRED for real-device GPS/orientation/voice and credentialed provider E2E — 사용자가 실제 실외 보행 필드 테스트를 수행하고 정상 동작을 보고함(사용자 원문: "정상동작"). 시나리오 A~G 개별 세부결과는 사용자가 별도로 항목화하지 않았으므로, 아래 TASK COMPLETION RECORD에 종합 결과로만 기록한다.
-
-Dependencies:
-
-- KN-01
-- KN-02
-- KN-03
-- KN-04
-- KN-05
-
-KN-06은 필수 dependency가 아니다.
-
----
-
-## Scenario A — Normal navigation
-
-`목적지 선택`
-→ `route`
-→ `navigation start`
-→ `위치 update`
-→ `정상 진행`
-→ `다음 행동 안내`
-→ `목적지 접근`
-→ `Roadview`
-→ `도착`
-
-Expected:
-
-- 불필요한 deviation 없음.
-- 안내 progression 정상.
-- 도착 이벤트 1회.
-- Roadview 실패 시에도 도착 가능.
-
----
-
-## Scenario B — Wrong initial direction
-
-`navigation start`
-→ `route 반대 방향 이동`
-
-Expected:
-
-- 단말 Heading만으로 즉시 오판하지 않음.
-- 실제 이동 trace가 반대방향이면 상태 변화.
-- 필요 시 사용자 재안내.
-
----
-
-## Scenario C — Route deviation
-
-`정상 진행`
-→ `route에서 실제 이탈`
-→ `Drifting 또는 대응 상태`
-→ `Deviated`
-→ `rerouting`
-→ `new route`
-→ `navigation continues`
-
-Expected:
-
-- reroute 완료 후 active route 갱신.
-- old route가 계속 UI에 남지 않음.
-- reroute loop 없음.
-
----
-
-## Scenario D — GNSS jitter
-
-정상 route에서 GPS 좌표를 일시적으로 흔든다.
-
-Expected:
-
-- 단일 위치 jump로 즉시 Deviated 처리하지 않음.
-- accuracy가 낮은 위치는 신뢰도가 낮게 취급됨.
-- 실제 이동이 정상이라면 On-route 복귀.
-
----
-
-## Scenario E — Multilingual
-
-각 언어를 선택하고 navigation을 수행한다.
-
-Expected:
-
-- UI 언어 정상.
-- 핵심 navigation event TTS 정상.
-- 반복 음성 없음.
-
----
-
-## Scenario F — Roadview unavailable
-
-pano가 없는 destination 또는 failure fixture 사용.
-
-Expected:
-
-- 사용자에게 Roadview 미지원 상태 표시.
-- navigation 자체는 정상.
-- fatal exception 없음.
-
----
-
-## Scenario G — Roadview destination
-
-Roadview 지원 destination.
-
-Expected:
-
-- destination 근처 pano.
-- 목적지 marker/식별 표시.
-- 지도 navigation으로 복귀 가능.
-
----
-
-# TRACE REPLAY
-
-가능하면 repository에 존재하는 실제 위치 trace 또는 fixture를 사용한다.
-
-새 trace를 만들 때는 목적을 명확하게 한다.
-
-필수 관찰값:
-
-- false deviation count
-- state transition
-- time/update count to deviation
-- reroute count
-- duplicated reroute
-- arrival count
-- error
-
-기존 로그 format이 있으면 재사용한다.
-
----
-
-# REGRESSION
-
-최소 확인:
-
-- destination search
-- route generation
-- current location
-- navigation start/stop
-- deviation
-- reroute
-- localization
-- TTS
-- Roadview
-- arrival
-
-Roadview 추가 때문에 기존 navigation이 깨지지 않아야 한다.
-
----
-
-# POC READY DEFINITION
-
-`K_NAVI_POC_READY = YES`
-
-는 다음이 모두 충족될 때만 가능하다.
-
-- [ ] 실제 목적지 선택 가능
-- [ ] 실제 route 생성 가능
-- [ ] 위치 update가 navigation에 연결
-- [ ] 실제 진행상태 반영
-- [ ] 방향 착오/이탈 판단 작동
-- [ ] reroute 작동
-- [ ] mobile navigation UI 사용 가능
-- [ ] 핵심 4개 언어 화면안내 작동
-- [ ] 핵심 navigation event 음성 연결
-- [ ] 목적지 접근 시 Roadview 또는 명시적 fallback 작동
-- [ ] arrival 작동
-- [ ] fatal P0 defect 없음
-
-일부만 충족:
-
-`K_NAVI_POC_READY = PARTIAL`
-
-핵심 navigation 흐름 불가:
-
-`K_NAVI_POC_READY = NO`
-
----
-
-# 5. DEVELOPMENT AUDIT MATRIX
-
-개발 시작 전에 아래 상태표를 실제 코드 근거로 채운다.
+TASK-002 수행 시 실제 코드 근거로 갱신한다.
 
 | Component | Status | Evidence | Main file/module | Gap |
 |---|---|---|---|---|
@@ -1210,478 +691,75 @@ Roadview 추가 때문에 기존 navigation이 깨지지 않아야 한다.
 | Route Bearing | TBD | | | |
 | Route Progress | TBD | | | |
 | Cross-track Distance | TBD | | | |
-| On-route State | TBD | | | |
-| Drifting State | TBD | | | |
-| Deviated State | TBD | | | |
+| On-route / Drifting / Deviated | TBD | | | |
 | Reroute | TBD | | | |
 | Arrival | TBD | | | |
-| Mobile Navigation UI | TBD | | | |
-| Localization KO | TBD | | | |
-| Localization EN | TBD | | | |
-| Localization JA | TBD | | | |
-| Localization ZH | TBD | | | |
-| TTS | TBD | | | |
 | Kakao Roadview | TBD | | | |
-| Landmark Photo | TBD | | | |
-| Trace Replay | TBD | | | |
-| E2E | TBD | | | |
+| Localization / TTS | TBD | | | |
+| Session Manager | TBD | | | |
+| Event Tracker | TBD | | | |
+| Event Log Storage | TBD | | | |
+| Movement Log Storage | TBD | | | |
+| POI Approach | TBD | | | |
+| Dwell | TBD | | | |
+| Tourism Behavior Events | TBD | | | |
+| Journey Reconstruction | TBD | | | |
+| Export | TBD | | | |
+| Data E2E | TBD | | | |
 
-Allowed status:
+Allowed audit status:
 
 - `ALREADY_DONE`
 - `PARTIAL`
 - `BROKEN`
 - `NOT_IMPLEMENTED`
 - `NOT_APPLICABLE`
+- `BLOCKED_EXTERNAL`
 
-코드를 확인하지 않고 상태를 추측하지 않는다.
-
----
-
-# 6. TASK STATUS RULES
-
-각 TASK 상태는 다음만 사용한다.
-
-`READY`
-
-작업 가능.
-
-`PINNED`
-
-현재 agent가 수행 대상으로 고정.
-
-`IN_PROGRESS`
-
-실제 변경 진행 중.
-
-`BLOCKED`
-
-외부 조치 또는 dependency 때문에 진행 불가.
-
-`IMPLEMENTED`
-
-코드 구현 완료. 아직 검증 완료 아님.
-
-`VERIFIED`
-
-Acceptance Criteria와 필요한 검증 완료.
-
-`DONE`
-
-기존 repository workflow상 필요한 merge/record까지 끝난 최종 상태.
-
-`SUPERSEDED`
-
-다른 TASK로 대체.
+코드를 확인하지 않고 추측해서 채우지 않는다.
 
 ---
 
-# 7. FALSE DONE POLICY
+# 9. FALSE DONE POLICY
 
-다음 상태만으로 TASK 완료 금지.
+다음만으로 완료 처리하지 않는다.
 
 - process exit code 0
 - build success
 - lint success
 - unit test success
 - component 생성
-- API client 생성
+- API route 생성
+- DB table 생성
+- tracker 함수 생성
+- mock data 저장
 - 화면 렌더
-- mock success
 - AGENT_DONE
-- provider success message
-- code review 통과
 
-각 TASK의 실제 Acceptance Criteria를 만족해야 한다.
+실제 Acceptance Criteria + regression + 필요한 runtime/E2E + completion record가 기준이다.
 
 ---
 
-# 8. EXTERNAL ACTION POLICY
-
-다음은 사용자 조치가 필요할 수 있다.
-
-- API key 신규 발급
-- 외부 콘솔 본인인증
-- 결제수단 등록
-- production 배포 승인
-- 외부 서비스 약관 승인
-
-다만 한 TASK가 `USER_ACTION_REQUIRED`라고 해서 다른 독립 TASK까지 중단하지 않는다.
-
-현재 Kakao Developers:
-
-**설정 완료**
-
-따라서 Kakao 앱 생성/Map 활성화/도메인 등록을 다시 요청하지 않는다.
-
----
-
-# 9. GIT SAFETY
-
-기존 TASK.md의 Git 정책이 우선한다.
-
-추가 금지:
-
-- `git reset --hard`
-- `git clean -fd`
-- force push
-- main history rewrite
-- 사용자 미커밋 변경 삭제
-- 다른 agent branch 변경
-- unrelated file 대량수정
-- secret commit
-
-`git add -A`는 사용하지 않는다.
-
-작업한 파일만 명시적으로 stage한다.
-
-기존 사용자 변경을 발견하면 보존한다.
-
----
-
-# 10. CHANGE SCOPE
-
-기능 구현을 이유로 다음을 임의 수정하지 않는다.
-
-- 사업계획서
-- IR
-- 서비스 BM
-- KCT 제안내용
-- 서비스의 최종 한 줄 정의
-- 관광 특화 여부
-- 마케팅 페이지 전체
-- 관련 없는 디자인
-- repository 대규모 구조
-
-현재 K-Navi의 관광 중심 포지셔닝은 별도 사업 의사결정 사항이며 이번 개발 TASK가 임의 확정하지 않는다.
-
----
-
-# 11. SBAS / KASS SCOPE
-
-현재 구현 증거가 없는 경우 다음을 개발 완료처럼 취급하지 않는다.
-
-- KASS 정밀 보정 완료
-- SBAS 적용 완료
-- m/cm급 정확도
-- 기존 지도 대비 정확도 우월
-
-이번 PoC 핵심은 우선:
-
-- GNSS 위치 신뢰도
-- 실제 이동궤적
-- 경로이탈 판단
-- reroute
-- 사용자 안내
-
-이다.
-
-SBAS/KASS 신규 구현은 별도 TASK 승인이 없는 한 본 TASK 범위 밖이다.
-
----
-
-# 12. NON-GOALS FOR THIS CYCLE
-
-이번 cycle에서 기본적으로 하지 않는다.
-
-- 자체 지도 구축
-- 자체 Roadview 촬영
-- 대규모 랜드마크 사진 DB 구축
-- NAVER Panorama 실제 통합
-- Google Street View 실제 통합
-- 건물 출입구 DB 대규모 구축
-- AR navigation
-- computer vision 기반 출입구 자동인식
-- native Android/iOS 앱 전면 재개발
-- 신규 BM 개발
-- KCT 전용 production deployment
-- SBAS/KASS 상용 위치보정 구현
-
-실제 P0 해결에 필수로 판명되면 신규 TASK로 근거와 함께 등록한다.
-
----
-
-# 13. NEW DEFECT RULE
-
-작업 중 결함 발견 시:
-
-### 현재 TASK 완료에 직접 필요
-
-현재 TASK scope에서 수정 가능.
-
-### 독립 결함
-
-신규 TASK 등록.
-
-신규 TASK에는 반드시:
-
-- reproduction
-- evidence
-- expected
-- actual
-- severity
-- acceptance criteria
-
-가 있어야 한다.
-
-아이디어만으로 무한 TASK 생성 금지.
-
----
-
-# 14. NIGHT DEVELOPMENT EXECUTION ORDER
-
-기본 순서:
-
-`Repository sync`
-→ `TASK.md 확인`
-→ `git 상태 확인`
-→ `코드 감사`
-→ `Audit Matrix 작성`
-→ `KN-01`
-→ `KN-02`
-→ `KN-03`
-→ `KN-04`
-→ `KN-05`
-→ `KN-06`
-→ `KN-07`
-
-dependency상 필요한 경우 순서를 변경할 수 있다.
-
-예:
-
-KN-02의 destination canonicalization이 Roadview보다 먼저 필요하면 선행한다.
-
-독립성이 명확한 작업만 병렬화한다.
-
-navigation core/state를 동시에 여러 branch에서 수정하는 병렬 작업은 피한다.
-
----
-
-# 15. TASK COMPLETION RECORD
-
-각 TASK 완료 시 TASK.md 또는 기존 task history 규칙에 다음을 기록한다.
-
-## Required record
-
-`TASK_ID =`
-
-`STATUS =`
-
-`BRANCH =`
-
-`BASE_COMMIT =`
-
-`END_COMMIT =`
-
-`FILES_CHANGED =`
-
-`IMPLEMENTATION =`
-
-`TEST_COMMANDS =`
-
-`TEST_RESULT =`
-
-`RUNTIME_RESULT =`
-
-`ACCEPTANCE =`
-
-`KNOWN_LIMITATIONS =`
-
-`NEW_TASKS =`
-
-`PR =`
-
----
-
-# 16. MORNING RESULT
-
-최종 보고 형식:
-
-`K_NAVI_OVERNIGHT_RESULT = SUCCESS | PARTIAL | BLOCKED`
-
-`START_MAIN =`
-
-`END_MAIN =`
-
-`TASK_ATTEMPTED =`
-
-`TASK_VERIFIED =`
-
-`TASK_BLOCKED =`
-
-`PR_CREATED =`
-
-`PR_MERGED =`
-
-## Tasks
-
-`KN-20260826-01 =`
-
-`KN-20260826-02 =`
-
-`KN-20260826-03 =`
-
-`KN-20260826-04 =`
-
-`KN-20260826-05 =`
-
-`KN-20260826-06 =`
-
-`KN-20260826-07 =`
-
-## Core capability
-
-`DESTINATION_COORDINATE =`
-
-`ROUTE =`
-
-`LOCATION_TRACKING =`
-
-`GNSS_ACCURACY =`
-
-`MOVEMENT_BEARING =`
-
-`ROUTE_PROGRESS =`
-
-`CROSS_TRACK =`
-
-`DEVIATION =`
-
-`REROUTE =`
-
-`NAVIGATION_UI =`
-
-`LOCALIZATION =`
-
-`MULTILINGUAL_TTS =`
-
-`ROADVIEW =`
-
-`ARRIVAL =`
-
-## Verification
-
-`UNIT =`
-
-`INTEGRATION =`
-
-`REGRESSION =`
-
-`TRACE_REPLAY =`
-
-`MOBILE_UI =`
-
-`REAL_E2E =`
-
-`INDEPENDENT_VERIFY =`
-
-## PoC judgement
-
-`K_NAVI_POC_READY = YES | PARTIAL | NO`
-
-## USER_ACTION_REQUIRED
-
-없으면:
-
-`NONE`
-
-있으면 사용자가 직접 수행해야 하는 항목만 번호로 작성한다.
-
-## Remaining P0/P1
-
--
-
-## PR to review
-
--
-
-## Next task
-
--
-
----
-
-# 17. CURRENT INITIAL STATUS
-
-현재 사용자 승인 기준:
-
-`KAKAO_DEVELOPER_APP = DONE`
-
-`KAKAO_MAP_API = ENABLED`
-
-`KAKAO_JS_DOMAINS = CONFIGURED`
-
-`KAKAO_JS_KEY_TYPE = CONFIRMED`
-
-`KAKAO_ROADVIEW_CODE = NOT_YET_VERIFIED`
-
-`NAVIGATION_CORE_AUDIT = TODO`
-
-`DESTINATION_COORDINATE_AUDIT = TODO`
-
-`NAVIGATION_UI_AUDIT = TODO`
-
-`MULTILINGUAL_TTS_AUDIT = TODO`
-
-`LANDMARK_PHOTO_DEPENDENCY_AUDIT = TODO`
-
-`FULL_E2E = TODO`
-
-다음 실행은 **Kakao Developers 설정 재수행이 아니라 repository 코드 감사부터 시작한다.**
-
-## TASK COMPLETION RECORD — KN-20260826-06
-
-`TASK_ID = KN-20260826-06`
-
-`STATUS = IMPLEMENTED`
-
-`BRANCH = task/kn-20260826-06-20260828`
-
-`BASE_COMMIT = 806bff088524be182b5e0be8d0ddb6ab8d96916e`
-
-`END_COMMIT = 8153638bf54fd8d557444af56cc9c268427cc76a`
-
-`FILES_CHANGED = README.md, TASK.md`
-
-`IMPLEMENTATION = Existing landmark model, approval workflow, local JSON store, photo upload path, and Landmark Admin are Streamlit-only. The web K-Navi flow has no landmark/photo import or runtime dependency; Kakao Roadview is the destination-identification path. Existing assets remain untouched.`
-
-`TEST_COMMANDS = rg -n -i landmark streamlit_walk_engine web README.md TASK.md; targeted landmark pytest suite`
-
-`TEST_RESULT = 32 passed (targeted landmark model/harvest/store/photo suite) with an explicit local basetemp; the default runner also collected all tests but hit the known Windows Public CreatorTemp cleanup permission error.`
-
-`RUNTIME_RESULT = No runtime code changed; web Roadview fallback is covered by KN-05.`
-
-`ACCEPTANCE = Dependency audited; no new photo DB dependency; no duplicate Roadview/landmark development; no destructive asset deletion; future fallback retained; decision documented in README.md.`
-
-`KNOWN_LIMITATIONS = Existing Streamlit landmark UI was not removed or migrated; field verification of Roadview remains required.`
-
-`NEW_TASKS = none`
-
-`PR = #116`
-
----
-
-# 18. INHERITED REPOSITORY TASK OPERATING CONTRACT
-
-이 절은 `origin/main`의 기존 TASK 운영계약을 보존하기 위한 것이다. 앞선 K-Navi 요구사항과 충돌하는 경우에는 이 파일의 명시적 사용자 요구사항을 우선하고, 그 외의 Git·작업 안전규칙은 계속 적용한다.
-
-## 18.1 작업지시 출처와 분리
-
-- repository의 정본 작업지시는 `TASK.md` 하나뿐이다.
-- `CURRENT_TASK.md`, `NEW_TASK.md`, `NEXT_TASK.md`, 다른 repository의 TASK, 과거 채팅, Google Tasks를 임의로 실행하지 않는다.
-- Google Tasks는 이 개발 TASK 시스템과 완전히 분리하며 조회·복사·등록·상태 동기화를 하지 않는다.
-
-## 18.2 Git 동기화와 사용자 변경 보호
-
-- 작업 시작·완료 전 `git fetch --all --prune` 후 최신 `origin/main`과 현재 branch를 다시 확인한다.
-- `behind`면 최신 base에서 재시작하고, `ahead`면 현재 작업 branch의 PR/원격 상태를 확인하며, `diverged`면 임의 reset 없이 분리 worktree에서 충돌을 조사한다.
-- dirty working tree를 발견하면 파일별 소유 범위를 확인하고 사용자·다른 agent 변경을 보존한다. 필요하면 최신 `origin/main` 기반의 독립 worktree를 사용한다.
-- `git reset --hard`, `git clean -fd`, history rewrite, force push, 사용자 변경 삭제, 다른 agent branch/PR 수정, 무관 파일 대량수정, 실패 check를 무시하는 admin merge를 하지 않는다.
-- `git add -A`를 사용하지 않고 작업 파일만 명시적으로 stage한다. 충돌을 무조건 `ours`/`theirs`로 해결하지 않는다.
-
-## 18.3 TASK PINNING과 lease
-
-TASK를 시작할 때 다음을 작업 기록에 고정한다.
+# 10. GIT / WORK SAFETY
+
+기존 repository 운영계약을 유지한다.
+
+- 작업 시작 전 최신 `origin/main` 확인
+- 사용자/다른 agent의 dirty change 보존
+- 기능 변경은 독립 branch/worktree 사용
+- `git reset --hard` 금지
+- `git clean -fd` 금지
+- force push 금지
+- main history rewrite 금지
+- 사용자 변경 삭제 금지
+- unrelated 파일 대량수정 금지
+- secret commit 금지
+- `git add -A` 금지
+- 작업 파일만 명시적으로 stage
+- CI 실패 상태로 merge 금지
+- 문서 변경도 repository의 `docs-gate`를 통과해야 함
+
+TASK pinning 시 최소:
 
 ```text
 TASK_ID =
@@ -1692,489 +770,146 @@ WORK_BRANCH =
 LEASE =
 ```
 
-- 한 시점에 navigation core/state를 동시에 수정하는 active TASK는 하나만 둔다.
-- 작업 중 TASK.md가 변경되어도 현재 TASK의 목적과 acceptance는 pinning snapshot을 기준으로 수행한다. 사용자의 명시적인 cancel/stop 또는 P0 안전중단 요구만 즉시 중단 사유다.
-- 독립 READY TASK를 병렬 처리할 때도 TASK·lease·worktree·branch·Provider를 각각 분리하고, 동일 파일군·state contract·public API·선행 dependency는 병렬 처리하지 않는다.
-
-## 18.4 Branch, worktree, PR, CI
-
-- `main`에서 직접 기능 변경하지 않는다. 각 논리적 TASK는 최신 base에서 독립 branch/worktree로 수행한다.
-- TASK 완료는 구현만을 뜻하지 않는다. targeted test, integration/regression, runtime 또는 trace replay, independent verification, 명시적 commit/push, PR 및 completion record가 필요하다.
-- PR 전 최신 main과 충돌·변경범위·secret·금지범위를 확인한다.
-- CI가 실패한 상태로 merge하지 않는다. 문서만 변경된 경우에도 repository가 정한 docs-gate가 초록인지 확인한다.
-- merge 후에는 반드시 fetch하고 최신 `origin/main`, 최신 TASK.md, dependency, READY, lease를 다시 계산한다.
-
-## 18.5 검증과 상태 기록
-
-- build/lint/unit/component/mock 하나만 통과한 상태를 DONE으로 기록하지 않는다.
-- 실제 entrypoint 연결, 사용자 flow, regression, runtime/E2E 및 independent verifier 결과를 기록한다.
-- 상태는 `READY`, `PINNED`, `IN_PROGRESS`, `IMPLEMENTED`, `VERIFIED`, `DONE`, `BLOCKED`, `SUPERSEDED` 중 실제 상태에 맞게 사용한다. 외부 조치가 필요한 경우에도 독립 TASK를 계속 수행한다.
-- TASK를 수정·삭제·취소할 때에는 해당 목록과 상세 정의가 모두 있는 구조라면 양쪽을 함께 갱신하고, ID 중복·목록/상세 불일치를 허용하지 않는다.
-- 완료 기록에는 최소 `TASK_ID`, `STATUS`, `BASE_COMMIT`, `END_COMMIT`, `FILES_CHANGED`, `TEST_COMMANDS`, `TEST_RESULT`, `RUNTIME_RESULT`, `ACCEPTANCE`, `KNOWN_LIMITATIONS`, `PR`을 남긴다.
-
-## 18.6 종료 조건
-
-다음 중 하나일 때만 해당 overnight 실행을 종료한다.
-
-- 실행 가능한 READY TASK가 모두 완료됨
-- 남은 TASK가 모두 dependency wait, BLOCKED, FIELD_TEST_REQUIRED 또는 USER_ACTION_REQUIRED임
-- 더 진행하면 사용자 데이터·Git 안전을 해칠 위험이 있음
-- 최신 cancel/stop 지시가 확인됨
-
-단일 TASK의 BLOCKED는 전체 종료 사유가 아니다.
-
-## TASK COMPLETION RECORDS — 2026-08-28 AUTONOMOUS RUN
-
-### KN-20260826-01
-
-`TASK_ID = KN-20260826-01`
-
-`STATUS = IMPLEMENTED`
-
-`BRANCH = task/kn-20260826-01-20260827`
-
-`BASE_COMMIT = 3a08483cb40162e6371823746ac2cc9b5bcf1e64`
-
-`END_COMMIT = de31c96c84b458c1743e7a3dcc758faf0350717e`
-
-`FILES_CHANGED = web/app/page.tsx, web/app/page.test.tsx, vitest.setup.ts`
-
-`IMPLEMENTATION = Connected active-route rerouting and arrival lifecycle to the web navigation entrypoint with session guards; a stale reroute response cannot overwrite a stopped or arrived session.`
-
-`TEST_COMMANDS = npm run test:run; npm run typecheck --workspace web; npm run lint; npm run build --workspace web; runtime HTTP smoke`
-
-`TEST_RESULT = CI and local JavaScript/typecheck/lint/build passed; later KN-02 accuracy/session follow-up covers the identified stale-response edge.`
-
-`RUNTIME_RESULT = Next production entrypoint returned 200; invalid route payload returned 400.`
-
-`ACCEPTANCE = Navigation start, active reroute, arrival, and reroute failure fallback are wired; no route-loop repetition guard is bypassed.`
-
-`KNOWN_LIMITATIONS = Independent verifier initially found a stale-session race and missing accuracy evidence; KN-02 follow-up fixed those shared lifecycle issues. A dedicated re-review was not returned.`
-
-`NEW_TASKS = none`
-
-`PR = #110, merged`
-
-### KN-20260826-02
-
-`TASK_ID = KN-20260826-02`
-
-`STATUS = IMPLEMENTED`
-
-`BRANCH = task/kn-20260826-02-fix-20260828`
-
-`BASE_COMMIT = 72432bb`
-
-`END_COMMIT = 6a4d311afc8a9c806d9444365d0d27df2c858a9b`
-
-`FILES_CHANGED = web/lib/useGeolocation.ts, web/lib/useNavigation.ts, web/app/page.tsx, web/app/page.test.tsx, Python GPS regression tests`
-
-`IMPLEMENTATION = Added accuracy gates for usable/arrival/deviation fixes, stale timestamp rejection, navigation session validation for initial route and reroute responses, reroute warmup/cooldown/fingerprint protection, and low-confidence drift handling.`
-
-`TEST_COMMANDS = npm run test:run; npm run typecheck --workspace web; npm run lint; npm run build --workspace web; targeted Python GPS suite; full Python suite with explicit basetemp`
-
-`TEST_RESULT = 89 local JavaScript tests and targeted GPS tests passed; full Python run had 592 passed and 8 pre-existing Streamlit AppTest bare-mode failures.`
-
-`RUNTIME_RESULT = Next production HTTP smoke passed; invalid route payload rejected; trace/engine regression passed.`
-
-`ACCEPTANCE = Heading alone never causes deviation; unreliable/stale fixes do not trigger reroute; active session cannot be overwritten by stale async responses; reroute storm controls retained.`
-
-`KNOWN_LIMITATIONS = Independent follow-up review was requested but not returned at report time; outdoor GNSS field test remains required.`
-
-`NEW_TASKS = none`
-
-`PR = #111 original plus #112 follow-up, both merged`
-
-### KN-20260826-03
-
-`TASK_ID = KN-20260826-03`
-
-`STATUS = IMPLEMENTED`
-
-`BRANCH = task/kn-20260826-03-20260828`
-
-`BASE_COMMIT = 3e5e3677639ba5c3125e13eb91409a7b67ed2fe6`
-
-`END_COMMIT = 38186766175afe37cc659024b08d6acc0c63080b`
-
-`FILES_CHANGED = web/lib/useNavigation.ts, web/components/MapView.tsx, web/app/page.tsx, web/app/globals.css, web/app/page.test.tsx`
-
-`IMPLEMENTATION = Separated device/view heading from GPS movement heading. Map bearing uses the phone orientation only; movement course/trajectory is used for marker/path direction and route-following evidence. The UI exposes both values and the no-signal state.`
-
-`TEST_COMMANDS = npm run test:run; npm run typecheck --workspace web; npm run lint; npm run build --workspace web; runtime HTTP smoke`
-
-`TEST_RESULT = 90 local JavaScript tests passed; typecheck/lint/build passed; page test covers independent orientation and movement values.`
-
-`RUNTIME_RESULT = Next production entrypoint returned 200 and invalid route returned 400.`
-
-`ACCEPTANCE = Mobile navigation UI is bound to live navigation state and keeps view direction separate from movement direction; no GPS heading is used as map bearing fallback.`
-
-`KNOWN_LIMITATIONS = Device orientation permission and outdoor movement require field testing; independent verifier response was pending at record time.`
-
-`NEW_TASKS = none`
-
-`PR = #113, merged`
-
-### KN-20260826-04
-
-`TASK_ID = KN-20260826-04`
-
-`STATUS = IMPLEMENTED`
-
-`BRANCH = task/kn-20260826-04-20260828`
-
-`BASE_COMMIT = 25b21121e4abb63dffe535d96e73b2a46a64a696`
-
-`END_COMMIT = c77000dda4ed7af486a29dc4f18dff3676893a89`
-
-`FILES_CHANGED = web/lib/voice.ts, web/lib/voice.test.ts, web/lib/i18n.ts, web/lib/i18n.test.ts, web/lib/useNavigation.ts, web/app/page.tsx, web/app/page.test.tsx, web/app/globals.css`
-
-`IMPLEMENTATION = Replaced per-event speechSynthesis.cancel behavior with a serialized priority queue. Turn/state completion is recorded only after start/end playback evidence; failed speech is retried once, navigation continues on TTS failure, and user-gesture speech warmup is performed. Added Korean/English/Japanese/Chinese UI and event speech resources with language persistence.`
-
-`TEST_COMMANDS = npm run test:run; npm run typecheck --workspace web; npm run lint; npm run build --workspace web; runtime HTTP smoke`
-
-`TEST_RESULT = 97 local JavaScript tests passed; voice queue covers serialization, priority-ready requests, failure/retry, and session clear; typecheck/lint/build passed; CI test/docs-gate/Vercel/Cursor checks passed.`
-
-`RUNTIME_RESULT = Next production entrypoint returned 200 and invalid route returned 400; Browser extension DOM/screenshot path timed out, so rendered fallback evidence is from jsdom page flow and HTTP smoke.`
-
-`ACCEPTANCE = Start/turn/deviation/reroute/arrival event wiring, duplicate suppression, retry, four-language UI/TTS locale mapping, and non-fatal TTS failure are implemented.`
-
-`KNOWN_LIMITATIONS = Real mobile speech synthesis and outdoor device voice playback require field testing; independent verifier response was pending at record time.`
-
-`NEW_TASKS = none`
-
-`PR = #114, merged`
-
-### KN-20260826-05
-
-`TASK_ID = KN-20260826-05`
-
-`STATUS = IMPLEMENTED`
-
-`BRANCH = task/kn-20260826-05-20260828`
-
-`BASE_COMMIT = 6fc0d3e62a6c5c26362178888548c78269ebd5c9`
-
-`END_COMMIT = 260524580f7a5aeb003c6c9eb10baeaa59321284`
-
-`FILES_CHANGED = web/lib/roadview.ts, web/lib/roadview.test.ts, web/components/RoadviewViewer.tsx, web/app/page.tsx, web/app/page.test.tsx, web/app/globals.css, web/lib/i18n.ts, web/.env.local.example`
-
-`IMPLEMENTATION = Added a provider-neutral Roadview seam with KakaoRoadviewAdapter, environment-based NEXT_PUBLIC_KAKAO_JAVASCRIPT_KEY loading, configurable 50m then 30m nearest-pano search, destination identification overlay, optional approach bearing, mobile container, close/map return, and non-fatal no-key/no-pano/SDK failure fallback. Roadview opens only near the canonical destination and does not replace navigation.`
-
-`TEST_COMMANDS = npm run test:run; npm run typecheck --workspace web; npm run lint; npm run build --workspace web; runtime HTTP smoke`
-
-`TEST_RESULT = 101 local JavaScript tests passed; Roadview adapter and no-pano fallback tests passed; typecheck/lint/build passed; CI test/docs-gate/Vercel/Cursor checks passed.`
-
-`RUNTIME_RESULT = Next production entrypoint returned 200 and invalid route returned 400; real Kakao pano was not called because no local browser key was exposed.`
-
-`ACCEPTANCE = SDK key is environment based with no value in source/logs; canonical destination flows to nearest-pano search; real container, marker/UI, mobile sizing, close path, and navigation fallback are connected.`
-
-`KNOWN_LIMITATIONS = Real Kakao authorization/domain/pano and outdoor mobile verification require the configured deployment and field test.`
-
-`NEW_TASKS = none`
-
-`PR = #115, merged`
-
-### KN-20260826-07
-
-`TASK_ID = KN-20260826-07`
-
-`STATUS = BLOCKED`
-
-`BRANCH = task/kn-20260826-07-20260828`
-
-`BASE_COMMIT = b6427f0ed41fe889ceadb947ebbb5adf056a70e4`
-
-`END_COMMIT = b313d68f6ca979374ef3067ceca56dc20dc502ef`
-
-`FILES_CHANGED = none`
-
-`IMPLEMENTATION = Integration audit executed against latest main after KN-01 through KN-06 merges. Canonical task dependencies are present; no additional code change was justified.`
-
-`TEST_COMMANDS = npm run test:run; npm run typecheck --workspace web; npm run lint; npm run build --workspace web; full Python regression with explicit basetemp; Next HTTP runtime smoke`
-
-`TEST_RESULT = 101 JavaScript tests passed; web typecheck/lint/build passed; Python 592 passed and 8 existing Streamlit AppTest bare-mode tests failed; HTTP root 200 and invalid route 400.`
-
-`RUNTIME_RESULT = Production Next entrypoint and route validation responded correctly; real TMAP/Kakao credentialed route/Roadview and real outdoor GPS/voice cannot be completed in this unattended environment.`
-
-`ACCEPTANCE = Simulation/unit/integration evidence is green for route engine, location gates, reroute lifecycle, heading separation, localization/TTS queue, Roadview fallback, and arrival. Full real-device/provider E2E is not claimed.`
-
-`KNOWN_LIMITATIONS = FIELD_TEST_REQUIRED for outdoor GPS, device orientation, mobile speech playback, and credentialed Kakao/TMAP Roadview/route flow. Independent verifier response was pending at record time.`
-
-`NEW_TASKS = none`
-
-`PR = #117`
-
-## TASK COMPLETION RECORD — K-NAVI PRE-FIELD-TEST HARDENING (2026-08-29)
-
-`TASK_ID = K-NAVI-PRE-FIELD-TEST-HARDENING-20260829`
-
-`STATUS = VERIFIED`
-
-`BRANCH = fix/knavi-prefield-verifier-20260829`
-
-`BASE_COMMIT = 25ca20dbe3e4a06fd2a84667a2d75c9f4f5f3fee`
-
-`END_COMMIT = 46edd2b9d766d1f9030f0f74224fd4d4ed07820a`
-
-`FILES_CHANGED = TASK.md, web/app/page.tsx, web/app/page.test.tsx, web/lib/voice.ts, web/lib/voice.test.ts, web/lib/roadview.ts, web/lib/roadview.test.ts`
-
-`IMPLEMENTATION = The eight reported Streamlit AppTest failures were reproduced and classified individually: test_first_screen_is_prechecked_one_button_consent, test_navigation_page_renders_with_transit_toggle, test_deviation_confirmation_defaults_are_faster, test_recent_destinations_are_one_row_until_expanded, test_origin_editable_without_opening_more, test_first_screen_skips_heavy_panels, test_settings_sliders_survive_panel_close, and test_search_source_status_visible_and_never_leaks_keys. All eight stopped on the same missing runtime dependency path: plotly was absent from the ad-hoc global Python environment, so the page rendered its dependency error path and AppTest exposed no navigation widgets. The repository requirements already declare plotly and related Streamlit dependencies; no product code or test workaround was justified. With the documented repository virtual environment installed, all eight passed. Independent review identified four hardening gaps and they were fixed: requestCompass now runs before the first awaited location/route request; speech success is settled only on onend, post-start onerror remains retryable, and cancelled-session callbacks cannot interrupt a new session; Kakao SDK initialization and nearest-pano callbacks fail closed on bounded timeouts.`
-
-`TEST_COMMANDS = .\\.venv\\Scripts\\python.exe -m pytest streamlit_walk_engine/tests streamlit_task_organizer/tests --basetemp=<local-temp> -q; npm run test:run; npm run typecheck --workspace web; npm run lint; npm run build --workspace @walk/route-engine; npm run build --workspace web; targeted trace/reroute tests; Streamlit runtime HTTP smoke`
-
-`TEST_RESULT = 600 Python tests passed including all Streamlit AppTest cases; 105 JavaScript tests passed including new compass, speech post-start failure, and Roadview timeout coverage; targeted Python navigation/trace/reroute suite 173 passed; typecheck, lint, both builds, and Streamlit HTTP smoke returned success. A parallel JavaScript run separately hit host memory OOM; the required checks were rerun sequentially and passed.`
-
-`RUNTIME_RESULT = Streamlit returned HTTP 200 on localhost:8502; Next production returned HTTP 200 for / and HTTP 400 for invalid route payloads. Browser visual DOM inspection timed out in the connected browser, so no visual pass is claimed.`
-
-`ACCEPTANCE = No KN-01 through KN-07 product regression was found in the eight failures; no tests were deleted or skipped; navigation/reroute/session race, arrival/stop stale-response guards, heading separation, multilingual/TTS wiring, Roadview fallback, bounded external callback failure, and user-gesture compass permission timing remain covered by passing tests.`
-
-`KNOWN_LIMITATIONS = Real GPS, compass, mobile audio, outdoor deviation/reroute, and credentialed Kakao Roadview remain FIELD_TEST_REQUIRED. Connected-browser visual inspection timed out; jsdom lifecycle and HTTP runtime evidence passed.`
-
-`NEW_TASKS = none`
-
-`INDEPENDENT_VERIFY = VERIFIED (Ptolemy, separate reviewer; commit 9ea6e4368a94ba51ee497ac94de520814b5c0d01)`
-
-`PR = #120, merged`
-
-## TASK REGISTRATION — K-NAVI ROADVIEW FOLLOW-UP
-
-# K-NAVI-RV-01
-
-`TASK_ID = K-NAVI-RV-01`
-
-`TYPE = external_setup`
-
-`PRIORITY = P1`
-
-`ASSIGNEE = USER`
-
-`STATUS = DONE (user-reported, 2026-08-30)`
-
-`BLOCKS = K-NAVI-RV-02`
-
-`COMPLETION_NOTE = 사용자가 Kakao Developers 콘솔에서 실제 배포 도메인(k-navi.vercel.app)을 JavaScript SDK 허용 도메인에 추가 등록했다고 보고함(2026-08-30, 사용자 원문: "도메인등록했음"). AI가 브라우저/API로 Kakao Developers 콘솔을 직접 열어 독립 검증하지는 못함(Chrome 확장 미연결) — 이 TASK는 ASSIGNEE=USER이므로 사용자 보고를 완료 근거로 인정한다.`
-
-`GOAL = 기존 Kakao Developers 앱 walk를 재사용하여 K-Navi Web Roadview에 필요한 JavaScript SDK 설정을 확인한다.`
-
-`CHECKS = 기존 앱 walk 사용; Kakao Map API 사용 가능; JavaScript Key 사용; REST/Admin Key 사용 금지; 개발 URL 확인; 배포 URL 확인; JavaScript SDK 허용 도메인 확인/등록; 키 하드코딩 금지; 환경변수명 KAKAO_JAVASCRIPT_KEY 유지`
-
-`DONE = JavaScript Key 종류 확인; 필요한 도메인 등록 완료; 코드에서 사용할 환경변수 구조 확정`
-
-`USER_ACTION_REQUIRED = Kakao Developers 로그인이 필요한 경우 사용자가 로그인한 뒤 설정을 확인한다.`
-
-# K-NAVI-RV-02
-
-`TASK_ID = K-NAVI-RV-02`
-
-`TYPE = code_integration`
-
-`PRIORITY = P1`
-
-`ASSIGNEE = v_up automatic development`
-
-`STATUS = IMPLEMENTED (2026-08-30, PR #124 merged)`
-
-`DEPENDS = K-NAVI-RV-01`
-
-`BRANCH = feature/kakao-roadview (기존 Git/worktree 브랜치 규칙이 있으면 그 규칙이 우선한다)`
-
-`GOAL = 현재 main에 이미 존재하는 지도/로드뷰 전환과 Kakao Roadview 연결 코드를 먼저 감사하고, 부족한 부분만 최소 범위로 보완한다. 처음부터 새 Roadview를 재구축하지 않는다.`
-
-`AUDIT_FIRST = 구현 시작 전 반드시: (1) 현재 main 확인 (2) 기존 TASK.md 읽기 (3) Roadview 관련 기존 코드 검색 (web/lib/roadview.ts, RoadviewViewer.tsx 등 KN-20260826-05/pre-field hardening 산출물 포함) (4) 현재 구현된 기능/빠진 기능을 ALREADY_DONE·PARTIAL·NOT_IMPLEMENTED로 구분 (5) 필요한 최소 변경만 계획`
-
-`REQUIRED = 현재 main 감사; 기존 지도/로드뷰 전환 재사용; 기존 Kakao 연결 재사용; 부족한 연결·fallback·운영설정만 보완; navigation 지속성 유지; secret 하드코딩·출력 금지`
-
-`SCOPE = Unified Roadview Viewer 구조 정리; KakaoRoadviewAdapter 실제 구현/정리(기존 web/lib/roadview.ts·RoadviewViewer.tsx 재사용); NaverPanoramaAdapter stub; GoogleStreetViewAdapter stub(향후 확장 위치만 확보, 실제 API 연결 아님); 목적지 주변 Roadview 검색 및 목적지를 향하는 초기 시점; 목적지 표시; ROADVIEW_SEARCH_RADIUS_M/ROADVIEW_TRIGGER_DISTANCE_M 등 설정값 외부화(기본값은 기존 구현값 유지, 임의 변경 금지); 세션 시작 시 Provider 고정; KAKAO_JAVASCRIPT_KEY 기존 secrets/env 구조 재사용`
-
-`EXCLUDE = 자체 랜드마크 사진 DB 신규 구축(이미 KN-20260826-06에서 정리 완료); 출입구 좌표 DB; AI 이미지 분석; NAVER 실제 API 연결; Google 실제 API 연결; 브라우저 렌더링 검증; E2E 테스트; 현장(outdoor field) 테스트 — 이 TASK의 DONE 조건에 포함하지 않는다(FIELD_TEST_REQUIRED로 남기는 것을 허용)`
-
-`FORBIDDEN = 경로 추천 알고리즘 변경; 경로 이탈 판정 로직 변경; 방향센서(heading/compass) 처리 변경; 음성안내(TTS) 로직 변경; TMAP/Valhalla 경로선정 로직 변경; Roadview와 무관한 리팩터링; 기존 구현을 확인하지 않은 전면 재작성; 별도 지도/로드뷰 Provider로 임의 교체; REST/Admin Key를 브라우저 SDK Key로 사용; 사용자 설정(K-NAVI-RV-01) 없이 운영 완료 처리`
-
-`NOT_DONE = 위 FORBIDDEN 항목을 건드리지 않고도, 감사 없이 새로 작성하거나 mock-only로 대체하면 완료로 보지 않는다`
-
-`VERIFY = 정적/단위 테스트 가능한 범위; 기존 관련 테스트(roadview.test.ts 등); 전체 regression; git diff --check; independent verifier — 이번 TASK에서는 브라우저 렌더링·E2E·현장검증을 DONE 조건에 포함하지 않는다`
-
-`DONE = 기존 Roadview 기능을 깨지 않고 요구 기능(SCOPE) 구현; Kakao Adapter 실제 연결 구조 완료; NAVER/Google adapter 확장 위치 확보; 설정값 외부화; 관련 테스트 PASS; independent verifier PASS; branch/commit/push/PR/Checks 완료; TASK 결과 기록 — 브라우저/E2E/현장검증 없이도 DONE 처리 가능`
-
-## TASK COMPLETION RECORD — K-NAVI-RV-01 (2026-08-30)
-
-`TASK_ID = K-NAVI-RV-01`
-
-`STATUS = DONE`
-
-`EVIDENCE = 사용자가 Kakao Developers 콘솔에서 실제 배포 도메인(k-navi.vercel.app)을 JavaScript SDK 허용 도메인 목록에 추가 등록했다고 직접 보고함(사용자 원문: "도메인등록했음"). 기존 Streamlit용 도메인(localhost:8501 등)은 그대로 유지된 것으로 간주.`
-
-`VERIFICATION_METHOD = USER_REPORTED — AI가 Chrome 확장 미연결로 Kakao Developers 콘솔 또는 실제 배포 사이트를 직접 열어 독립 검증하지 못함. ASSIGNEE=USER TASK이므로 사용자 보고를 완료 근거로 인정.`
-
-`NEW_TASKS = none`
-
-`PR = 해당 없음 (외부 설정 변경, 저장소 코드 변경 없음)`
-
-## TASK COMPLETION RECORD — KN-20260826-07 (2026-08-30, field test)
-
-`TASK_ID = KN-20260826-07`
-
-`STATUS = FIELD_VERIFIED`
-
-`EVIDENCE = 사용자가 실제 실외 보행 필드 테스트를 수행하고 정상 동작을 보고함(사용자 원문: "정상동작"). Scenario A~G 개별 세부결과, POC READY DEFINITION 12개 항목의 항목별 체크는 사용자가 별도로 제공하지 않음 — 종합 결과만 기록.`
-
-`VERIFICATION_METHOD = USER_REPORTED (실외 GPS/센서/네트워크 조건은 AI가 재현·독립검증 불가능한 영역)`
-
-`KNOWN_LIMITATIONS = 시나리오별(A~G) 개별 결과가 항목화되지 않았으므로, 특정 시나리오(예: Scenario D GNSS jitter, Scenario B 초기 방향 오류)에서 발생할 수 있는 세부 결함은 이 기록만으로 배제할 수 없다. 문제가 재현되면 별도 TASK로 분리한다.`
-
-`K_NAVI_POC_READY = YES (사용자 필드 테스트 종합 보고 기준)`
-
-`NEW_TASKS = none`
-
-`PR = 해당 없음 (코드 변경 없음, 필드 검증 결과 기록만)`
-
-## TASK COMPLETION RECORD — K-NAVI-RV-02 (2026-08-30)
-
-`TASK_ID = K-NAVI-RV-02`
-
-`STATUS = IMPLEMENTED`
-
-`BRANCH = feature/kakao-roadview-rv02-20260830`
-
-`BASE_COMMIT = 67c5e41`
-
-`END_COMMIT = 5043231`
-
-`AUDIT_RESULT = KakaoRoadviewAdapter 실제 구현·nearest-pano 검색·목적지 marker·기존 KAKAO_JAVASCRIPT_KEY 구조는 ALREADY_DONE(KN-20260826-05)이라 재사용. Unified viewer seam과 ROADVIEW_* 설정값은 PARTIAL(Kakao 전용 타입이 "중립" 인터페이스를 통해 새고 있었고, 설정값이 상수였지 실제 configuration은 아니었음). NaverPanoramaAdapter/GoogleStreetViewAdapter stub과 세션당 provider 고정은 NOT_IMPLEMENTED였음 — 이 세 가지만 최소 구현.`
-
-`FILES_CHANGED = web/lib/roadview.ts, web/lib/roadviewProviders.ts(신규), web/components/RoadviewViewer.tsx, web/app/page.tsx, web/.env.local.example, web/lib/roadview.test.ts, web/lib/roadviewProviders.test.ts(신규), web/components/RoadviewViewer.test.tsx(신규)`
-
-`IMPLEMENTATION = RoadviewSession에서 Kakao SDK 타입(view: KakaoRoadview)을 제거하고 provider/panoId/close()로 중립화; RoadviewProvider에 id/isConfigured() 추가; NaverPanoramaAdapter·GoogleStreetViewAdapter는 실제 API 호출 없이 not_implemented로 reject, isConfigured()는 항상 false; ROADVIEW_TRIGGER_DISTANCE_M/ROADVIEW_SEARCH_RADII_M을 NEXT_PUBLIC_ROADVIEW_TRIGGER_DISTANCE_M/NEXT_PUBLIC_ROADVIEW_SEARCH_RADIUS_M 환경변수로 읽는 함수로 전환(기본값 50/[50,30] 그대로, 잘못된 값은 조용히 기본값으로 fallback); page.tsx에 navigation 세션 시작 시 한 번만 provider를 고르는 useRef 추가, reset 시 clear.`
-
-`TEST_RESULT = 변경 전 105 passed(13 files) → 변경 후 122 passed(15 files), 0 failed; typecheck/lint/build(web workspace) 전부 pass; git diff --check clean.`
-
-`INDEPENDENT_VERIFY = PASS — 8개 항목(diff 범위, page.tsx 최소성, roadview.ts/roadviewProviders.ts 코드 직접 대조, 사전 존재하던 typecheck 빌드순서 이슈와의 분리, git diff --check, 테스트 실효성(mutation 방식 확인), TASK.md 미변경, EXCLUDE 위반 없음) 전부 PASS로 재현·확인됨. 별도 verifier agent가 자체적으로 npm run test:run 등을 재실행해 확인.`
-
-`FORBIDDEN_SCOPE_CHECK = 경로/이탈/방향센서/음성/TMAP-Valhalla 관련 파일 변경 없음(diff stat으로 확인). page.tsx는 Roadview 관련 4줄만 추가·1줄 교체.`
-
-`NEW_TASKS = none`
-
-`PR = #124, merged (commit 9638549)`
+---
+
+# 11. NON-GOALS THIS CYCLE
+
+- 자체 지도 구축
+- 자체 Roadview 촬영
+- 대규모 랜드마크 사진 DB 신규 구축
+- NAVER Panorama 실제 연동
+- Google Street View 실제 연동
+- 대규모 출입구 DB 구축
+- AR navigation
+- computer vision 출입구 자동인식
+- native Android/iOS 전면 재개발
+- SBAS/KASS 상용 정밀보정 구현
+- 대형 BI dashboard
+- 개인 계정 기반 장기 이동이력
+- POS/결제 연동
+- 광고/CPA 과금
+
+필요성이 실제 PoC에서 확인되면 이 `TASK.md`에 신규 TASK로 등록한다.
 
 ---
 
-# v_up STANDARD TASKS
+# 12. TASK STATUS RULES
 
-- [x] **TASK-001 — 지하철 승·하차 시 목적지 기준 최적 출입구 자동 선택** (IMPLEMENTED, PR #132 merged — FIELD_TEST_REQUIRED, 아래 TASK COMPLETION RECORD 참고)
+사용 상태:
 
-## TASK-001 — 지하철 승·하차 시 목적지 기준 최적 출입구 자동 선택
-
-`TASK_ID = TASK-001`
-
-`STATUS = IMPLEMENTED (2026-09-09, PR #132 merged) — FIELD_TEST_REQUIRED`
-
-`TYPE = defect_fix`
-
-`ASSIGNEE = v_up automatic development`
-
-`REGISTERED = 2026-09-09`
-
-`REPRODUCTION = 대중교통 경로에서 지하철역을 이용할 때, 사용자 또는 다음 목적지에서 가까운 출입구가 아니라 역의 대표 좌표/먼 출입구 쪽으로 도보 경로가 연결되어 불필요한 우회가 발생한다.`
-
-`EVIDENCE = streamlit_walk_engine/transit_builder.py의 대중교통 파싱은 역 start/end 좌표를 JourneyLeg에 넣고, _hydrate_walk_legs()가 해당 leg.start/leg.end를 그대로 fetch_walking_route_with_engine()에 전달한다. 현재 자동 출입구 후보 수집·비교·선택 단계가 없다. route_builder.py의 지하철 출구 처리는 사용자가 '강남역 10번출구'처럼 특정 출구를 직접 입력했을 때 검색 변형을 만드는 기능이며, 역의 여러 출입구를 자동 비교하는 로직은 아니다.`
-
-`EXPECTED = 지하철 승차 시에는 현재 위치에서 실제 도보경로가 가장 짧은 역 출입구를 선택하고, 하차 시에는 다음 도보 목적지 또는 최종 목적지까지 실제 도보경로가 가장 짧은 출구를 선택한다. 선택된 출입구 좌표가 실제 walking leg의 endpoint/startpoint가 되고 화면에는 역명과 출구번호가 표시된다.`
-
-`ACTUAL = 대중교통 Provider가 반환한 역 좌표를 그대로 도보구간 시작/종료 좌표로 사용하므로 목적지와 반대편 또는 먼 쪽으로 우회할 수 있다.`
-
-`SEVERITY = HIGH — 경로이탈 판정 이전의 route construction 결함으로, 잘못된 출입구를 선택하면 이후 위치추적·재안내가 정상이어도 사용자에게 불필요한 우회 경로를 안내한다.`
-
-`AUDIT_FIRST = 최신 main 동기화 → TASK.md pinning → transit_builder.py/route_builder.py/1_Navigation.py 및 관련 테스트 확인 → 현재 TMAP/ODsay 응답에서 역명·역좌표·출입구 정보가 어디까지 제공되는지 확인 → 기존 장소검색/geocode_suggestions/_subway_candidates/fetch_walking_route_with_engine 재사용 가능 여부를 분류하고 최소 수정 계획을 세운다.`
-
-`REQUIRED = 기존 대중교통 파서와 보행경로 생성기를 재사용한다. 별도 지도엔진을 새로 만들지 않는다. 출입구 후보는 역명과 번호가 식별되는 좌표만 사용한다. 실제 보행경로 거리 산출이 가능한 후보는 직선거리보다 실제 도보거리로 최종 순위를 결정한다. API 호출량은 후보 상한·캐시·조기중단 등으로 제한한다.`
-
-`SCOPE = (1) subway station exit candidate resolver (2) 승차역: 현재 위치→각 출입구 actual walking distance 비교 (3) 하차역: 각 출구→다음 walking target/최종 destination actual walking distance 비교 (4) 최소 actual walking distance 출입구 선택 (5) 선택 출입구 좌표로 해당 walking leg start/end 치환 또는 hydration 입력 보정 (6) UI에 '○○역 N번 출구' 표시 (7) 후보 없음·Provider 오류·routing 실패 시 기존 역좌표 방식으로 안전 fallback (8) 선택 근거를 진단 가능한 구조화 데이터로 남김(station, candidate_count, selected_exit, walking_distance_m).`
-
-`RANKING_RULE = actual pedestrian route distance가 하나 이상 계산되면 그 값을 최우선으로 사용한다. 직선거리는 후보 사전필터/동률 보조에만 사용할 수 있으며, 실제 보행거리 결과가 있는 후보를 직선거리만으로 뒤집지 않는다.`
-
-`FORBIDDEN = 경로이탈 state machine 변경; GNSS/Heading/Movement Bearing 로직 변경; TTS 로직 변경; Roadview 구조 변경; TMAP/ODsay 전체 파서 재작성; 출입구 DB 대규모 구축; 하드코딩된 특정 역/특정 출구 예외처리; mock-only 구현으로 완료 처리.`
-
-`FAILURE_BEHAVIOR = 출입구 후보가 없거나 후보별 walking route 계산이 모두 실패하면 transit journey 생성을 실패시키지 않고 기존 station coordinate를 사용한다. 부분 성공이면 계산 성공한 후보 중에서 선택한다.`
-
-`ACCEPTANCE = [ ] 실제 대중교통 journey에서 지하철 승·하차역을 식별한다; [ ] 역별 유효 출입구 후보 좌표를 수집한다; [ ] 승차역은 사용자 위치 기준 actual walking distance 최솟값을 선택한다; [ ] 하차역은 다음 목적지 기준 actual walking distance 최솟값을 선택한다; [ ] actual walking distance가 있으면 straight-line distance보다 우선한다; [ ] 선택 출구 좌표가 실제 walking leg와 사용자 안내에 반영된다; [ ] 화면에서 역명과 출구번호를 확인할 수 있다; [ ] 후보 없음/API 실패 시 기존 경로가 계속 동작한다; [ ] 호출량이 후보 상한/캐시 등으로 제한된다; [ ] 특정 역 하드코딩 없이 일반화되어 있다; [ ] 기존 navigation/deviation/reroute/TTS/Roadview 회귀가 없다.`
-
-`TESTS = 출입구 후보 3개 중 직선거리는 가깝지만 실제 보행거리가 긴 후보가 존재하는 fixture; actual walking distance가 가장 짧은 후보 선택 unit test; 승차역/하차역 각각의 integration test; 후보 없음 fallback test; 일부 routing 실패 partial-success test; 선택된 exit label/coordinate가 JourneyLeg와 UI까지 전달되는 test; 전체 repository 기준 npm run test:run 및 관련 Python test suite.`
-
-`DONE = 구현만으로 완료하지 않는다. Acceptance 전항목, targeted tests, 전체 regression, 실제 entrypoint 연결 확인, independent verification, branch/commit/push/PR/checks, TASK completion record까지 완료되어야 한다. 현장 실기기에서 실제 역 1곳 이상 승·하차 경로를 확인하지 못한 경우 구현 상태와 현장검증 상태를 분리 기록한다.`
-
-`REQUEST_SOLVED = PARTIAL — 구현·테스트·PR·병합 완료. 현장 실기기 승·하차 검증만 남음(FIELD_TEST_REQUIRED). 상세는 아래 TASK COMPLETION RECORD — TASK-001 참고.`
+- `READY`
+- `PINNED`
+- `IN_PROGRESS`
+- `BLOCKED`
+- `IMPLEMENTED`
+- `VERIFIED`
+- `DONE`
+- `SUPERSEDED`
+- `FIELD_TEST_REQUIRED` — 구현과 현장 실기기 검증을 분리 표시할 때 보조 표기
 
 ---
 
-## TASK COMPLETION RECORD — K-NAVI-TRANSIT-01 (2026-09-09)
+# 13. TASK COMPLETION RECORD TEMPLATE
 
-`TASK_ID = K-NAVI-TRANSIT-01`
+각 TASK 완료 시 이 `TASK.md`에 기록한다.
 
-`STATUS = DONE`
-
-`SOURCE = 사용자 채팅 직접 지시 (TASK.md 사전등록 없이 진행됨) — 사용자 원문: "대중교통 플러스 걷기는 대중교통은 네이버지도 혹은 카카오맵 도보로 걷기는 티맵 이렇게 돼야 돼 데이터 기준이"`
-
-`REQUIREMENT = 대중교통+도보 여정에서 대중교통 구간 데이터 기준은 네이버지도 또는 카카오맵, 도보 구간 데이터 기준은 TMAP.`
-
-`CONSTRAINT_FOUND = 네이버지도(NCP)·카카오맵 모두 대중교통 경로탐색을 공개 REST API로 제공하지 않는다(지오코딩·장소검색·자동차 길찾기만 공개, 대중교통은 자사 앱 전용). 서버가 두 회사 대중교통 데이터를 직접 호출하는 것은 불가능 — AskUserQuestion으로 사용자에게 확인 후, 대안으로 딥링크 방식에 합의(사용자 원문: "없으면그냥딥링크로해").`
-
-`BRANCH = claude/transit-walking-data-criteria-8q0o3l`
-
-`BASE_COMMIT = 6a71f40`
-
-`END_COMMIT = 523e666 (squash merge)`
-
-`FILES_CHANGED = streamlit_walk_engine/transit_builder.py, streamlit_walk_engine/pages/1_Navigation.py, streamlit_walk_engine/tests/test_transit_builder.py`
-
-`IMPLEMENTATION = transit_builder.py에 naver_map_transit_url()/kakao_map_transit_url() 추가(좌표·장소명을 URL 인코딩해 네이버지도·카카오맵 길찾기 웹 링크 생성). pages/1_Navigation.py의 대중교통 여정 요약 아래에 "네이버지도로 보기"/"카카오맵으로 보기" st.link_button 2개 추가. 기존 내부 대중교통 엔진(TMAP 대중교통 → ODsay → 도보 강등)과 도보 엔진(TMAP 보행자 API, route_builder.py)은 변경하지 않음 — 앱 내 이탈/도착 추적(navigation state)은 계속 이 엔진에 의존하므로 보존. 도보 구간이 이미 TMAP 기준이라는 요구사항은 기존 코드와 일치 확인됨(변경 불필요).`
-
-`TEST_COMMANDS = python -m pytest streamlit_walk_engine/tests/test_transit_builder.py -q; python -m pytest streamlit_walk_engine/tests/test_navigation_smoke.py -q; python -m pytest streamlit_walk_engine/tests -q; python -m py_compile streamlit_walk_engine/pages/1_Navigation.py streamlit_walk_engine/transit_builder.py`
-
-`TEST_RESULT = test_transit_builder.py 36 passed(신규 딥링크 URL 테스트 4개 포함: 좌표순서, 콤마 포함 장소명 인코딩, 빈 이름 기본값); test_navigation_smoke.py 37 passed(회귀 없음); 전체 streamlit_walk_engine/tests 584 passed; py_compile 통과.`
-
-`RUNTIME_RESULT = 실기기 미검증 — 실제 휴대폰에서 딥링크 버튼이 정확한 좌표로 네이버지도/카카오맵 앱 또는 모바일 웹을 여는지는 사용자 확인 필요.`
-
-`ACCEPTANCE = [x] 대중교통 구간에서 네이버지도/카카오맵 데이터 접근 경로 제공(딥링크); [x] 도보 구간 TMAP 기준 유지(기존과 동일); [x] 기존 내부 여정(이탈/도착 추적) 회귀 없음(전체 테스트 통과); [ ] 실기기에서 딥링크 실제 동작 확인(FIELD_TEST_REQUIRED).`
-
-`KNOWN_LIMITATIONS = (1) 네이버/카카오 공개 API 부재로 앱이 대중교통 데이터를 직접 조회·저장·표시할 수 없음 — 딥링크로 외부 앱 이동만 가능, 이 앱 안에서는 여전히 TMAP/ODsay 결과가 표시됨. (2) 카카오맵 링크는 URL만으로 "대중교통" 수단을 강제 지정할 수 없어(공개 스킴 없음) 사용자가 앱/웹이 열린 뒤 직접 탭 선택 필요. (3) 도보 강등(대중교통 조회 실패) 상태에서는 딥링크 버튼이 노출되지 않음(대중교통 여정이 만들어진 경우에만 노출) — 후속 개선 후보로 남김.`
-
-`NEW_TASKS = none (KNOWN_LIMITATIONS의 (2)(3)은 사용자 요청 시 별도 TASK로 등록 가능, 현재는 아이디어 단계라 미등록)`
-
-`PR = #129, merged (commit 523e666)`
+```text
+TASK_ID =
+STATUS =
+BRANCH =
+BASE_COMMIT =
+END_COMMIT =
+FILES_CHANGED =
+AUDIT_RESULT =
+IMPLEMENTATION =
+TEST_COMMANDS =
+TEST_RESULT =
+RUNTIME_RESULT =
+MOBILE_RESULT =
+DATA_RESULT =
+ACCEPTANCE =
+KNOWN_LIMITATIONS =
+NEW_TASKS =
+INDEPENDENT_VERIFY =
+PR =
+```
 
 ---
 
-## TASK COMPLETION RECORD — TASK-001 (2026-09-09)
+# 14. CURRENT POC READY DEFINITION
 
-`TASK_ID = TASK-001`
+기존 navigation PoC는 사용자 종합 field-test 보고 기준으로 `K_NAVI_POC_READY = YES`가 기록되어 있다.
 
-`STATUS = IMPLEMENTED — FIELD_TEST_REQUIRED`
+그러나 **데이터 수집형 PoC**는 별도로 아래가 충족되어야 한다.
 
-`BRANCH = feature/kn-task-001-subway-exit-selection-20260909`
+`K_NAVI_DATA_POC_READY = YES`
 
-`BASE_COMMIT = 523e666`
+조건:
 
-`END_COMMIT = 2421cbd (squash merge)`
+- [ ] 익명 session 생성/유지
+- [ ] `event_log` 실제 저장
+- [ ] `movement_log` 실제 저장
+- [ ] `route_start`
+- [ ] `route_deviation`
+- [ ] `reroute`
+- [ ] `poi_approach`
+- [ ] `arrival`
+- [ ] `dwell`
+- [ ] `place_view`
+- [ ] `place_select`
+- [ ] `menu_view`
+- [ ] `next_place_select`
+- [ ] 한 session Journey 재구성
+- [ ] CSV 또는 JSON export
+- [ ] 기존 navigation flow 회귀 없음
+- [ ] 데이터 저장 실패가 navigation을 중단하지 않음
+- [ ] 직접 식별정보와 raw movement 미결합
 
-`FILES_CHANGED = streamlit_walk_engine/route_builder.py, streamlit_walk_engine/transit_builder.py, streamlit_walk_engine/tests/test_route_builder.py, streamlit_walk_engine/tests/test_transit_builder.py`
+일부만 충족:
 
-`AUDIT_RESULT = 등록 시점 EVIDENCE 그대로 확인됨 — transit_builder.py의 _hydrate_walk_legs()가 Provider(TMAP/ODsay)의 역 좌표를 그대로 fetch_walking_route_with_engine()에 넘기고, 출입구 후보 수집·비교·선택 단계는 NOT_IMPLEMENTED였음. route_builder.py의 _subway_candidates()는 사용자가 직접 "역명 N번출구"를 입력했을 때의 검색어 변형 생성기일 뿐, 여러 출구를 자동 비교하는 로직이 아니었음(REQUIRED대로 기존 검색/보행경로 함수는 재사용, 새 지도엔진 없음).`
+`K_NAVI_DATA_POC_READY = PARTIAL`
 
-`IMPLEMENTATION = route_builder.subway_exit_candidates(station_name, near, limit=4) 추가 — 기존 _tmap_poi_results()를 재사용해 "역명 N번출구"로 명시된 POI만 후보로 인정(정규식 매칭), 좌표 중복 제거. route_builder.select_nearest_exit(candidates, target) 추가 — 각 후보의 실제 도보경로(fetch_walking_route_with_engine)를 조회해 최단 거리 후보 선택, RANKING_RULE대로 실제 도보거리가 하나라도 있으면 그것만으로 결정하고 전량 실패 시에만 직선거리로 대체. transit_builder._resolve_subway_exits(journey) 추가 — 승차 전 도보구간(다음 leg가 subway)은 사용자 위치 기준으로 leg.end를, 하차 후 도보구간(이전 leg가 subway)은 다음 목적지 기준으로 leg.start를 위 두 함수로 교체. _hydrate_walk_legs() 이전에 실행되도록 fetch_transit_journey()의 TMAP/ODsay 성공 경로 양쪽에 배선(2곳, 각 2줄)해, 실제 내비게이션에 쓰이는 좌표 자체가 보정되게 함. 환승 도보구간(지하철-도보-지하철)은 승차 보정(leg.end)을 먼저 적용한 뒤 하차 보정(leg.start)이 그 보정된 좌표를 target으로 쓰도록 순서를 의도적으로 고정(주석에 근거 기록) — 환승 총 도보거리가 더 정확해짐.`
+핵심 데이터 flow 불가:
 
-`TEST_COMMANDS = python -m pytest streamlit_walk_engine/tests -q; python -m py_compile streamlit_walk_engine/transit_builder.py streamlit_walk_engine/route_builder.py`
+`K_NAVI_DATA_POC_READY = NO`
 
-`TEST_RESULT = 584 passed(변경 전) → 598 passed(변경 후, 0 failed) — 신규 14개: subway_exit_candidates 4개(빈 역명 시 네트워크 미호출, 출구번호 없는 POI 제외, 좌표 중복 제거, limit 상한), select_nearest_exit 4개(빈 후보, 직선거리보다 실제 도보거리가 짧은 후보 선택 — RANKING_RULE 핵심 검증, 전량 실패 시 직선거리 대체, 부분 실패 시 성공한 후보 중에서만 선택), _resolve_subway_exits 6개(승차 leg.end 교체, 하차 leg.start 교체, 후보 없음 시 미변경, 조회 실패 시 journey 안 깨짐 — FAILURE_BEHAVIOR 검증, subway leg 자체는 미변경, 환승 도보구간 양쪽 교체).`
+---
 
-`RUNTIME_RESULT = 미검증 — 실제 지하철역에서 TMAP POI가 "역명 N번출구" 형태로 개별 POI를 반환하는지, 실제 승·하차 시 올바른 출구로 안내되는지는 현장에서만 확인 가능. TMAP 앱키가 없거나 POI 검색이 출구를 개별 POI로 주지 않는 지역/역에서는 후보가 0개가 되어 기존 역좌표 방식으로 안전하게 fallback한다(단위테스트로 확인, 실기기 미확인).`
+# 15. CURRENT TASK SUMMARY
 
-`ACCEPTANCE = [x] 실제 대중교통 journey에서 지하철 승·하차역을 식별한다(단위테스트); [x] 역별 유효 출입구 후보 좌표를 수집한다(subway_exit_candidates); [x] 승차역은 사용자 위치 기준 actual walking distance 최솟값을 선택한다(단위테스트); [x] 하차역은 다음 목적지 기준 actual walking distance 최솟값을 선택한다(단위테스트); [x] actual walking distance가 있으면 straight-line distance보다 우선한다(단위테스트로 직선거리 역전 케이스 검증); [x] 선택 출구 좌표가 실제 walking leg와 사용자 안내에 반영된다(_hydrate_walk_legs가 보정된 leg.start/end로 실제 경로 생성); [x] 화면에서 역명과 출구번호를 확인할 수 있다(_render_journey가 leg.start_label/end_label을 그대로 표시 — 코드 변경 불필요, 기존 렌더 경로 확인); [x] 후보 없음/API 실패 시 기존 경로가 계속 동작한다(단위테스트); [x] 호출량이 후보 상한(limit=4)으로 제한된다; [x] 특정 역 하드코딩 없이 일반화되어 있다(정규식·POI 검색 기반, 특정 역명 없음); [ ] 기존 navigation/deviation/reroute/TTS/Roadview 회귀가 없다 — 전체 회귀 테스트(598 passed)로 코드 레벨은 확인, 실기기 종단 확인은 FIELD_TEST_REQUIRED로 남김.`
+## Completed / implemented
 
-`FORBIDDEN_SCOPE_CHECK = diff는 route_builder.py/transit_builder.py에 함수 3개 추가 + 최소 배선(fetch_transit_journey 2곳, 각 1줄→2줄 변경) + 테스트 파일뿐. 경로이탈 state machine·GNSS/Heading·TTS·Roadview·TMAP/ODsay 파서 전체·출입구 DB·특정 역 하드코딩 미변경(diff stat로 확인).`
+- `KN-20260826-01 ~ 06`
+- `KN-20260826-07` — FIELD_VERIFIED, user-reported
+- `K-NAVI-RV-01`
+- `K-NAVI-RV-02`
+- `K-NAVI-TRANSIT-01`
+- `TASK-001` — code implemented, field verification pending
 
-`KNOWN_LIMITATIONS = (1) 실기기 현장검증 미완료(FIELD_TEST_REQUIRED) — 실제 TMAP POI 응답이 역마다 출구를 개별 POI로 주는지 편차가 있을 수 있음, 없으면 자동으로 기존 역좌표 fallback. (2) 후보당 실제 도보경로 조회가 추가돼(최대 4회) 지하철 인접 도보구간의 지연이 소폭 늘 수 있음(TASK 요구대로 상한으로 제한, 별도 캐시는 미구현 — 필요 시 후속 TASK). (3) 진단 로깅(station/candidate_count/selected_exit/walking_distance_m)은 logging 모듈로만 남기며 UI 노출은 없음.`
+## Active
 
-`NEW_TASKS = none (KNOWN_LIMITATIONS (2)의 캐시는 성능 이슈가 실측되면 별도 TASK로 등록)`
+1. `TASK-001-FIELD` — 지하철 출입구 실기기 현장검증
+2. `TASK-002` — Data capability audit
+3. `TASK-003` — Anonymous session
+4. `TASK-004` — Event log
+5. `TASK-005` — Movement log
+6. `TASK-006` — Deviation/Reroute events
+7. `TASK-007` — Approach/Arrival/Dwell
+8. `TASK-008` — Tourism behavior events
+9. `TASK-009` — Journey reconstruction/export
+10. `TASK-010` — Data-enabled E2E
+11. `TASK-011` — Coupon hooks, conditional P2
 
-`PR = #132, merged (commit 2421cbd)`
+## Next auto task
+
+**`TASK-002 — 데이터 수집 capability audit`**
+
+별도 TASK 문서를 만들지 말고 이 파일에 Audit 결과와 후속 상태를 계속 기록한다.
+
+---
+
+# 16. HISTORICAL NOTE
+
+2026-08-26~2026-09-09의 상세 구현·테스트·PR 기록은 Git commit/PR history에 남아 있다. 이 파일은 **현재 실행할 할 일과 현재 상태를 빠르게 읽을 수 있는 active source of truth**로 유지한다.
+
+과거 상세 기록이 필요하면 해당 PR/commit을 조회한다. 완료된 과거 TASK의 장문 로그를 다시 이 파일에 중복 누적하지 않는다.
