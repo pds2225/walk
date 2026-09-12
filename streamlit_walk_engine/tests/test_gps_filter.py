@@ -4,7 +4,7 @@ Unit tests for gps_filter.py — accuracy 기반 3단계 알림 게이팅 순수
 커버 범위:
   accuracy_quality  → 경계값 (≤15 good / ≤35 fair / 초과 poor / None unknown)
   alert_level       → full/weak/mute 분기 + drifting 사각지대(의도적 mute) + 커스텀 게이트
-  decide_alert      → 상태 전이 게이트, mute 미갱신(회복-재발화), weak 쿨다운, alert_enabled OFF 보존
+  decide_alert      → 상태 전이 게이트, mute 동기화/미갱신, weak 쿨다운, alert_enabled OFF 보존
   is_arrival        → 도착 반경/accuracy 경계, poor accuracy 억제, 커스텀 반경
   in_reroute_warmup → 시작 직후 재경로 금지 구간 (샘플 수/경과 시간 동시 조건)
 """
@@ -117,6 +117,16 @@ class TestAlertLevel:
     def test_poor_accuracy_passed_turn_is_weak(self):
         assert alert_level(40, "passed_turn") == "weak"
 
+    # (f) 제자리 흔들림·왕복 중에는 미확정 상태를 알리지 않는다(정확도와 무관)
+    def test_wandering_mutes_unconfirmed_states(self):
+        for state in ("on_route", "drifting"):
+            assert alert_level(5, state, wandering=True) == "mute"
+
+    # (g) 왕복 중이어도 확정 이탈은 그대로 알린다 — 진짜 이탈을 놓치면 안 된다
+    def test_wandering_does_not_mute_confirmed_deviation(self):
+        assert alert_level(5, "deviated", wandering=True) == "full"
+        assert alert_level(40, "passed_turn", wandering=True) == "weak"
+
     # (e2) 나쁜 정확도 + drifting → mute (heading 사각지대 — 의도된 설계 결정 고정)
     def test_poor_accuracy_drifting_is_mute(self):
         assert alert_level(40, "drifting") == "mute"
@@ -167,6 +177,94 @@ class TestDecideAlertMute:
         )
         assert decision.fire_full is True
         assert decision.new_last_alerted == "deviated"
+
+    def test_muted_recovery_from_confirmed_deviation_syncs_state(self):
+        for state in ("on_route", "drifting"):
+            for last_alerted in ("deviated", "passed_turn"):
+                decision = decide_alert(
+                    state=state,
+                    last_alerted=last_alerted,
+                    level="mute",
+                    now_ms=T,
+                    last_weak_ts_ms=12345,
+                    alert_enabled=True,
+                )
+                assert decision.fire_full is False
+                assert decision.fire_weak_toast is False
+                assert decision.new_last_alerted == state
+                assert decision.new_last_weak_ts_ms == 12345
+
+
+class TestDecideAlertDriftCooldown:
+    """임계선 근처 보행에서 '벗어나기 시작' 경고가 반복되지 않아야 한다."""
+
+    def test_first_drift_fires_and_records_ts(self):
+        decision = decide_alert(
+            state="drifting",
+            last_alerted="on_route",
+            level="full",
+            now_ms=T,
+            last_weak_ts_ms=None,
+            alert_enabled=True,
+            last_drift_alert_ts_ms=None,
+        )
+        assert decision.fire_full is True
+        assert decision.new_last_drift_alert_ts_ms == T
+
+    def test_repeat_drift_within_cooldown_is_silent_but_consumes_transition(self):
+        decision = decide_alert(
+            state="drifting",
+            last_alerted="on_route",
+            level="full",
+            now_ms=T + 5_000,
+            last_weak_ts_ms=None,
+            alert_enabled=True,
+            last_drift_alert_ts_ms=T,
+        )
+        assert decision.fire_full is False
+        assert decision.new_last_alerted == "drifting"       # 전이는 소비
+        assert decision.new_last_drift_alert_ts_ms == T      # 기준 시각은 그대로
+
+    def test_drift_refires_after_cooldown(self):
+        decision = decide_alert(
+            state="drifting",
+            last_alerted="on_route",
+            level="full",
+            now_ms=T + 25_000,
+            last_weak_ts_ms=None,
+            alert_enabled=True,
+            last_drift_alert_ts_ms=T,
+        )
+        assert decision.fire_full is True
+        assert decision.new_last_drift_alert_ts_ms == T + 25_000
+
+    def test_confirmed_deviation_ignores_drift_cooldown(self):
+        # 진짜 이탈은 직전에 drift 경고가 있었어도 즉시 알린다. 기준 시각도 건드리지 않는다.
+        for state in ("deviated", "passed_turn"):
+            decision = decide_alert(
+                state=state,
+                last_alerted="drifting",
+                level="full",
+                now_ms=T + 1_000,
+                last_weak_ts_ms=None,
+                alert_enabled=True,
+                last_drift_alert_ts_ms=T,
+            )
+            assert decision.fire_full is True
+            assert decision.new_last_drift_alert_ts_ms == T
+
+    def test_return_to_on_route_does_not_reset_cooldown(self):
+        # on_route 복귀는 소리가 없으므로 '마지막 발화 시각'을 앞당기면 안 된다.
+        decision = decide_alert(
+            state="on_route",
+            last_alerted="drifting",
+            level="full",
+            now_ms=T + 3_000,
+            last_weak_ts_ms=None,
+            alert_enabled=True,
+            last_drift_alert_ts_ms=T,
+        )
+        assert decision.new_last_drift_alert_ts_ms == T
 
 
 class TestDecideAlertWeakCooldown:
@@ -599,3 +697,47 @@ class TestSmoothHeading:
     def test_output_normalized_range(self):
         for out in (smooth_heading([359.0, 1.0]), smooth_heading([270.0, 350.0])):
             assert 0.0 <= out < 360.0
+
+
+class TestSuppressionReason:
+    """억제된 판정도 진단 로그에 남길 수 있도록 사유를 돌려준다."""
+
+    def test_no_transition_has_no_reason(self):
+        # 전이가 없는 대부분의 표본까지 남기면 로그가 무의미한 기록으로 덮인다.
+        decision = decide_alert(
+            state="drifting", last_alerted="drifting", level="full",
+            now_ms=T, last_weak_ts_ms=None, alert_enabled=True,
+        )
+        assert decision.suppressed_reason is None
+
+    def test_fired_alert_has_no_reason(self):
+        decision = decide_alert(
+            state="deviated", last_alerted="on_route", level="full",
+            now_ms=T, last_weak_ts_ms=None, alert_enabled=True,
+        )
+        assert decision.fire_full is True
+        assert decision.suppressed_reason is None
+
+    def test_reasons_cover_each_suppression_path(self):
+        disabled = decide_alert(
+            state="deviated", last_alerted="on_route", level="full",
+            now_ms=T, last_weak_ts_ms=None, alert_enabled=False,
+        )
+        muted = decide_alert(
+            state="drifting", last_alerted="on_route", level="mute",
+            now_ms=T, last_weak_ts_ms=None, alert_enabled=True,
+        )
+        drift_cd = decide_alert(
+            state="drifting", last_alerted="on_route", level="full",
+            now_ms=T + 1_000, last_weak_ts_ms=None, alert_enabled=True,
+            last_drift_alert_ts_ms=T,
+        )
+        weak_cd = decide_alert(
+            state="deviated", last_alerted="on_route", level="weak",
+            now_ms=T + 1_000, last_weak_ts_ms=T, alert_enabled=True,
+        )
+
+        assert disabled.suppressed_reason == "disabled"
+        assert muted.suppressed_reason == "mute"
+        assert drift_cd.suppressed_reason == "drift_cooldown"
+        assert weak_cd.suppressed_reason == "weak_cooldown"

@@ -7,13 +7,17 @@ not reliable enough for route-deviation alerts.
 
 from __future__ import annotations
 
+import logging
 import os
 import sys
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Literal
+from urllib.parse import quote
 
 import requests
+
+_log = logging.getLogger(__name__)
 
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -28,6 +32,47 @@ _TMAP_TRANSIT = "https://apis.openapi.sk.com/transit/routes"
 _ODSAY_TRANSIT = "https://api.odsay.com/v1/api/searchPubTransPathT"
 _ENV_SHARED = Path(r"D:\_secure\.env.shared")
 _TIMEOUT = 8
+
+# 네이버지도/카카오맵은 대중교통 경로탐색을 공개 REST API로 제공하지 않는다(2026-09 기준
+# 두 회사 모두 지오코딩·장소검색·자동차 길찾기만 공개, 대중교통은 자사 앱 전용). 그래서
+# 이 앱이 서버에서 직접 대중교통 데이터를 받아올 수 없고, 사용자를 네이버지도/카카오맵
+# 앱(또는 모바일 웹)으로 보내는 딥링크만 가능하다. 두 링크 모두 앱이 설치돼 있으면
+# OS가 유니버설 링크로 가로채 앱을 열고, 없으면 모바일 웹으로 열린다.
+_NAVER_MAP_TRANSIT_URL = (
+    "https://map.naver.com/p/directions/{slng},{slat},{sname},,/"
+    "{elng},{elat},{ename},,/-/transit"
+)
+_KAKAO_MAP_TRANSIT_URL = (
+    "https://map.kakao.com/link/from/{sname},{slat},{slng}/to/{ename},{elat},{elng}"
+)
+
+
+def naver_map_transit_url(
+    origin: Coordinate, origin_name: str, dest: Coordinate, dest_name: str,
+) -> str:
+    """네이버지도 대중교통 길찾기로 이동하는 딥링크(웹 링크)를 만든다."""
+    return _NAVER_MAP_TRANSIT_URL.format(
+        slng=f"{origin.longitude:.7f}", slat=f"{origin.latitude:.7f}",
+        sname=quote(origin_name or "출발", safe=""),
+        elng=f"{dest.longitude:.7f}", elat=f"{dest.latitude:.7f}",
+        ename=quote(dest_name or "도착", safe=""),
+    )
+
+
+def kakao_map_transit_url(
+    origin: Coordinate, origin_name: str, dest: Coordinate, dest_name: str,
+) -> str:
+    """카카오맵 길찾기로 이동하는 딥링크(웹 링크)를 만든다.
+
+    카카오맵은 URL만으로 '대중교통' 수단을 강제 지정할 수 없어(공개 스킴 미제공),
+    앱/웹이 열린 뒤 사용자가 대중교통 탭을 선택해야 한다.
+    """
+    return _KAKAO_MAP_TRANSIT_URL.format(
+        sname=quote(origin_name or "출발", safe=""),
+        slat=f"{origin.latitude:.7f}", slng=f"{origin.longitude:.7f}",
+        ename=quote(dest_name or "도착", safe=""),
+        elat=f"{dest.latitude:.7f}", elng=f"{dest.longitude:.7f}",
+    )
 
 
 @dataclass(frozen=True)
@@ -430,6 +475,71 @@ def build_walking_only_journey(
     )
 
 
+def _resolve_subway_exits(journey: Journey) -> Journey:
+    """지하철 승·하차 도보구간의 시작/종료 좌표를 실제 최적 출입구로 보정한다(TASK-001).
+
+    Provider(TMAP/ODsay)가 반환한 역 좌표를 그대로 쓰면 목적지와 반대편/먼 출구로
+    걷게 될 수 있다. 승차 전 도보구간(다음이 지하철)은 '탈 역' 출구 중 사용자 위치
+    (leg.start)에서 실제 도보거리가 가장 짧은 곳으로 leg.end를, 하차 후 도보구간
+    (이전이 지하철)은 '내린 역' 출구 중 다음 목적지(leg.end)에서 가장 가까운 곳으로
+    leg.start를 바꾼다. 두 지하철 사이 환승 도보구간은 양쪽 다 적용될 수 있다.
+
+    FAILURE_BEHAVIOR: 후보가 없거나 조회가 실패하면(app key 없음, 네트워크 등)
+    해당 leg는 건드리지 않고 기존 Provider 좌표를 그대로 쓴다 — journey 생성을
+    절대 실패시키지 않는다.
+
+    두 지하철 사이 환승 도보구간은 boarding 처리(leg.end 보정)를 alighting 처리
+    (leg.start 보정)보다 먼저 한다 — 이 순서가 의도적이다. alighting 쪽 target을
+    leg.end로 구하는데, boarding이 먼저 leg.end를 실제 승차 출구로 바꿔두면
+    alighting 출구 선택이 '원래 역 좌표'가 아니라 '실제로 걸어갈 승차 출구'까지의
+    도보거리로 이뤄져 환승 총 도보거리가 더 정확해진다. 두 if를 elif로 합치거나
+    순서를 바꾸지 않는다.
+    """
+    legs = list(journey.legs)
+    n = len(legs)
+    for i, leg in enumerate(legs):
+        if leg.mode != "walk":
+            continue
+        next_leg = legs[i + 1] if i + 1 < n else None
+        prev_leg = legs[i - 1] if i > 0 else None
+        current = legs[i]
+
+        if next_leg is not None and next_leg.mode == "subway":
+            station = (next_leg.transit.board_station if next_leg.transit
+                       else next_leg.start_label)
+            try:
+                candidates = route_builder.subway_exit_candidates(station, near=current.start)
+                picked = route_builder.select_nearest_exit(candidates, current.start)
+            except Exception:
+                candidates, picked = [], None
+            _log.info(
+                "subway_exit_boarding station=%r candidate_count=%d selected=%r walking_distance_m=%s",
+                station, len(candidates), picked[1] if picked else None,
+                picked[2] if picked else None,
+            )
+            if picked is not None:
+                current = replace(current, end=picked[0], end_label=picked[1])
+
+        if prev_leg is not None and prev_leg.mode == "subway":
+            station = (prev_leg.transit.alight_station if prev_leg.transit
+                       else prev_leg.end_label)
+            try:
+                candidates = route_builder.subway_exit_candidates(station, near=current.end)
+                picked = route_builder.select_nearest_exit(candidates, current.end)
+            except Exception:
+                candidates, picked = [], None
+            _log.info(
+                "subway_exit_alighting station=%r candidate_count=%d selected=%r walking_distance_m=%s",
+                station, len(candidates), picked[1] if picked else None,
+                picked[2] if picked else None,
+            )
+            if picked is not None:
+                current = replace(current, start=picked[0], start_label=picked[1])
+
+        legs[i] = current
+    return replace(journey, legs=tuple(legs))
+
+
 def _hydrate_walk_legs(journey: Journey) -> Journey:
     hydrated: list[JourneyLeg] = []
     total_distance = journey.total_distance_meters
@@ -472,7 +582,8 @@ def fetch_transit_journey(origin: Coordinate, dest: Coordinate) -> Journey:
 
     if app_key:
         try:
-            return _hydrate_walk_legs(parse_tmap_transit(_fetch_tmap_transit_raw(origin, dest, app_key)))
+            journey = parse_tmap_transit(_fetch_tmap_transit_raw(origin, dest, app_key))
+            return _hydrate_walk_legs(_resolve_subway_exits(journey))
         except Exception:
             pass
 
@@ -482,7 +593,8 @@ def fetch_transit_journey(origin: Coordinate, dest: Coordinate) -> Journey:
         try:
             # origin/dest 를 넘겨 좌표 없는 도보 구간을 보간한다(ODsay 실제 응답 대응).
             raw = _fetch_odsay_transit_raw(origin, dest, odsay_key)
-            return _hydrate_walk_legs(parse_odsay_transit(raw, origin=origin, dest=dest))
+            journey = parse_odsay_transit(raw, origin=origin, dest=dest)
+            return _hydrate_walk_legs(_resolve_subway_exits(journey))
         except Exception:
             pass
 

@@ -34,12 +34,14 @@ function roundScore(score: number): number {
 function createSessionState(
   consecutiveThresholdBreaches: number,
   driftStartTimestampMs: number | undefined,
-  activeApproachTurnId: string | undefined
+  activeApproachTurnId: string | undefined,
+  previousState: DeviationState
 ): EngineSessionState {
   return {
     consecutiveThresholdBreaches,
     ...(driftStartTimestampMs !== undefined ? { driftStartTimestampMs } : {}),
     ...(activeApproachTurnId !== undefined ? { activeApproachTurnId } : {}),
+    previousState,
   };
 }
 
@@ -190,21 +192,29 @@ export function evaluateDeviationStep(input: {
     activeApproachTurnId
   );
 
+  // 슈미트 트리거: 이미 벗어난 상태에서는 더 안쪽까지 들어와야 '경로 위'로 돌아온다.
+  // 임계선 위를 걸을 때 한 표본의 GPS 지터로 상태가 매번 뒤집히지 않는다.
+  const wasOffRoute =
+    (input.sessionState.previousState ?? "on_route") !== "on_route";
+  const driftThresholdMeters =
+    input.config.routeDriftDistanceThresholdMeters *
+    (wasOffRoute ? input.config.driftExitHysteresisRatio : 1);
   const driftDistanceBreach =
-    nearestSegment.distanceMeters >= input.config.routeDriftDistanceThresholdMeters;
+    nearestSegment.distanceMeters >= driftThresholdMeters;
   const deviationDistanceBreach =
     nearestSegment.distanceMeters >=
     input.config.routeDeviationDistanceThresholdMeters;
   const strongDistanceBreach =
     nearestSegment.distanceMeters >=
     input.config.strongDeviationDistanceThresholdMeters;
+  // 저속(제자리·서성임)에서는 heading 이 GPS 노이즈라 방향 충돌로 보지 않는다.
   const headingConflict =
-    headingDifferenceDegrees >= input.config.headingDifferenceThresholdDegrees;
+    headingDifferenceDegrees >= input.config.headingDifferenceThresholdDegrees &&
+    input.sample.speedMetersPerSecond >=
+      input.config.headingConflictMinimumSpeedMps;
   const thresholdBreach =
     driftDistanceBreach ||
-    (headingConflict &&
-      nearestSegment.distanceMeters >=
-        input.config.routeDriftDistanceThresholdMeters * 0.6);
+    (headingConflict && nearestSegment.distanceMeters >= driftThresholdMeters * 0.6);
 
   const consecutiveThresholdBreaches = thresholdBreach
     ? input.sessionState.consecutiveThresholdBreaches + 1
@@ -273,10 +283,12 @@ export function evaluateDeviationStep(input: {
     input.config.minimumConsecutiveSamplesForDeviation;
   const sustainedDriftDuration =
     driftDurationMs >= input.config.minimumDriftDurationMs;
+  // 이탈 확정은 '실제로 경로에서 멀어진 거리'로만 결정한다. 방향만 어긋난 경우
+  // (직진길에서 뒤돌아보거나 왔다갔다)는 거리 기준을 넘지 않으면 drifting 까지만 간다.
   const deviated =
     !passedTurn &&
     (persistentThresholdBreach || sustainedDriftDuration) &&
-    (deviationDistanceBreach || strongDistanceBreach || (driftDistanceBreach && headingConflict));
+    (deviationDistanceBreach || strongDistanceBreach);
   const drifting = !passedTurn && !deviated && thresholdBreach;
 
   let state: DeviationState = "on_route";
@@ -381,7 +393,8 @@ export function evaluateDeviationStep(input: {
     nextSessionState: createSessionState(
       consecutiveThresholdBreaches,
       driftStartTimestampMs,
-      activeApproachTurnId
+      activeApproachTurnId,
+      state
     ),
   };
 }

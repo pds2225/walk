@@ -19,5 +19,7 @@
     "skipLibCheck": true,
     "rootDir": "."
   },
-  "include": ["packages/**/*.ts"]
+  "include": ["packages/**/*.ts"],
+  "//": "dist 는 이 설정으로 만든 산출물이라 다시 타입체크하면 중복 선언으로 잡힌다.",
+  "exclude": ["**/dist/**", "web/**"]
 }

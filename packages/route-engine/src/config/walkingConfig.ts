@@ -9,11 +9,20 @@ export const DEFAULT_WALKING_ENGINE_CONFIG: EngineConfig = Object.freeze({
   turnApproachDistanceThresholdMeters: 12,
   minimumConsecutiveSamplesForDeviation: 3,
   minimumDriftDurationMs: 4_000,
+  headingConflictMinimumSpeedMps: 0.7,
+  driftExitHysteresisRatio: 0.8,
 });
 
 function assertPositiveNumber(name: string, value: number): void {
   if (!Number.isFinite(value) || value <= 0) {
     throw new RangeError(`${name} must be a positive finite number.`);
+  }
+}
+
+/** 0 은 '속도 게이트 끄기'라는 의미라 허용한다. */
+function assertNonNegativeNumber(name: string, value: number): void {
+  if (!Number.isFinite(value) || value < 0) {
+    throw new RangeError(`${name} must be a non-negative finite number.`);
   }
 }
 
@@ -47,6 +56,14 @@ export function validateEngineConfig(config: EngineConfig): EngineConfig {
     config.minimumConsecutiveSamplesForDeviation
   );
   assertPositiveNumber("minimumDriftDurationMs", config.minimumDriftDurationMs);
+  assertNonNegativeNumber(
+    "headingConflictMinimumSpeedMps",
+    config.headingConflictMinimumSpeedMps
+  );
+  assertPositiveNumber(
+    "driftExitHysteresisRatio",
+    config.driftExitHysteresisRatio
+  );
 
   if (
     config.routeDeviationDistanceThresholdMeters <

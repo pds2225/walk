@@ -50,6 +50,16 @@ export interface EngineConfig {
   readonly turnApproachDistanceThresholdMeters: number;
   readonly minimumConsecutiveSamplesForDeviation: number;
   readonly minimumDriftDurationMs: number;
+  /**
+   * 이 속도 미만에서는 진행 방향을 신뢰하지 않는다. 제자리에서 서성이거나 직진길에서
+   * 왔다갔다 할 때 heading 이 뒤집혀 이탈로 오판되는 것을 막는다.
+   */
+  readonly headingConflictMinimumSpeedMps: number;
+  /**
+   * 한 번 벗어난 뒤 '경로 위'로 돌아오는 판정에 쓰는 임계 비율(슈미트 트리거).
+   * 들어갈 때는 drift 임계, 나올 때는 그 비율만큼 안쪽. 1.0 이면 히스테리시스 없음.
+   */
+  readonly driftExitHysteresisRatio: number;
 }
 
 export interface EngineMetrics {
@@ -80,4 +90,6 @@ export interface EngineSessionState {
   readonly consecutiveThresholdBreaches: number;
   readonly driftStartTimestampMs?: number;
   readonly activeApproachTurnId?: string;
+  /** 직전 표본의 판정 — 복귀 임계(히스테리시스)를 적용할지 결정한다. */
+  readonly previousState?: DeviationState;
 }

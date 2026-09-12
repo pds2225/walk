@@ -7,17 +7,39 @@ from streamlit.testing.v1 import AppTest
 PAGE = Path(__file__).resolve().parents[1] / "pages" / "1_Navigation.py"
 
 
+def _run_past_consent(app: AppTest) -> AppTest:
+    """첫 화면인 개인정보 동의를 [동의] 한 번으로 통과시키고 본 화면을 반환한다."""
+    app.run(timeout=30)
+    agree = [b for b in app.button if b.label == "✅ 동의"]
+    if agree:
+        agree[0].click().run(timeout=30)
+    return app
+
+
+def test_first_screen_is_prechecked_one_button_consent():
+    """첫 화면은 동의만 — 항목이 미리 체크돼 있고 버튼은 동의/거부 2개뿐이다.
+    목적지 입력·경로 화면과 섞이면 스크롤에 밀려 닫히므로 단독 렌더가 계약이다."""
+    app = AppTest.from_file(str(PAGE))
+    app.run(timeout=30)
+
+    assert not app.exception
+    assert [b.label for b in app.button] == ["✅ 동의", "동의하지 않고 시작"]
+    assert app.checkbox                                  # 수집 항목 체크박스가 있고
+    assert all(c.value for c in app.checkbox)            # 전부 미리 체크돼 있다
+
+
 def test_navigation_page_renders_with_transit_toggle():
     app = AppTest.from_file(str(PAGE))
     # 페이지 렌더가 환경(네트워크·컴포넌트)에 따라 3~12초로 출렁여 timeout=10은
     # 간헐적으로 터진다. 행(hang) 감지 목적은 유지하되 여유를 둔다.
-    app.run(timeout=30)
+    _run_past_consent(app)
 
     assert not app.exception
     # '대중교통 포함' 토글은 출발 버튼 2개(걷기/대중교통+걷기)로 대체됐다.
     labels = [b.label for b in app.button]
-    assert any("🚶 걷기" in lb for lb in labels)
-    assert any("대중교통+걷기" in lb for lb in labels)
+    # 아이콘 없이 글씨만 — 첫 화면의 주인공 버튼 2개(실기기 요청).
+    assert "걷기" in labels
+    assert "대중교통+걷기" in labels
 
 
 def test_navigation_source_clears_journey_for_non_journey_flows():
@@ -29,26 +51,57 @@ def test_navigation_source_clears_journey_for_non_journey_flows():
     assert "transit_builder.fetch_transit_journey" in source
 
 
-def test_deviation_confirmation_defaults_are_faster():
-    """이탈 확정을 더 빨리 알리도록 기본 연속 2샘플·지속 2초로 설정한다.
-    (deviated = 연속샘플 OR 지속시간 둘 중 먼저 충족되므로 둘 다 낮춰야 체감이 빨라진다.)"""
+def test_dest_reset_a_hardening():
+    """A안 잔여 결함 5종 보강(리뷰 반영) 배선 확인:
+    ① 첫 글자 잔여 리셋: IP-지오 강제 rerun 은 입력 중이면 안 하고, 첫 fix 는 입력 버퍼가
+       있으면 단일측정으로 받는다. ② 예약 목적지 고정(picked) + ③ 취소/자동취소/타임아웃
+       ④ 폴백 입력창 억제 ⑤ '경로만 보기' 예약 성공메시지 분기."""
     source = PAGE.read_text(encoding="utf-8")
+    # ① 첫 글자 잔여 리셋 완화
+    assert "not _dest_entry_active()" in source                       # IP-지오 rerun 가드
+    assert "is None and not _dest_buffered" in source                 # 입력 버퍼 시 단일측정
+    # ② 예약에 목적지 고정
+    assert '"picked": st.session_state.get("nav_dest_picked")' in source
+    assert 'st.session_state["nav_dest_picked"] = pending_act.get("picked")' in source
+    # ③ 취소·자동취소·타임아웃
+    assert 'key="cancel_pending_activation"' in source
+    assert 'pending_act["tries"]' in source
+    assert "_cur_dest != (pending_act.get" in source                  # 목적지 편집 시 자동취소
+    # ④ 폴백 입력창도 억제(nav_dest_input 기반)
+    assert 'st.session_state.get("nav_dest_input") or ""' in source
+    # ⑤ 예약 성공메시지: start_now 분기
+    assert "if _start_now:" in source
 
-    assert '"연속 감지 횟수", 1, 5, 3' in source           # 1초 샘플링 × 3회 ≈ 3초 확정
-    assert "minimum_drift_duration_ms=2000" in source       # 지속시간 경로도 3번째 표본과 일치
-    # 안내 중 1초 폴링(사용자 지정) — 첫 fix·대략위치 승격 대기는 5초, 예약 유휴는 10초
-    assert '1000 if st.session_state["nav_running"]' in source
+
+def test_deviation_confirmation_defaults_are_faster():
+    """이탈 확정을 더 빨리 알리도록 기본 연속 3샘플·지속 2초로 설정한다.
+    (deviated = 연속샘플 OR 지속시간 둘 중 먼저 충족되므로 둘 다 낮춰야 체감이 빨라진다.)
+
+    민감도 슬라이더는 '더보기'를 열었을 때만 렌더되므로, 소스 문자열이 아니라 실제
+    세션 기본값(nav_config)으로 고정한다 — 한 번도 열지 않은 사용자가 엔진 기본값
+    (4초)으로 떨어지던 회귀를 막는다."""
+    app = AppTest.from_file(str(PAGE))
+    _run_past_consent(app)
+
+    cfg = app.session_state["nav_config"]
+    assert cfg.minimum_consecutive_samples_for_deviation == 3   # 1초 샘플링 × 3회 ≈ 3초 확정
+    assert cfg.minimum_drift_duration_ms == 2000                # 지속시간 경로도 3번째 표본과 일치
+    assert cfg.route_drift_distance_threshold_meters == 10.0
+    assert cfg.route_deviation_distance_threshold_meters == 15.0
+
+    source = PAGE.read_text(encoding="utf-8")
+    # 안내 중·'출발' 예약 중 1초 폴링 — 첫 fix·대략위치 승격 대기는 5초, 예약 유휴는 10초
+    assert '1000 if (st.session_state["nav_running"] or _pending_act)' in source
     assert "else 5_000 if _needs_idle_fix else 10_000" in source
 
 
 def test_dest_entry_pauses_periodic_reruns():
-    """목적지 입력 중 화면 리셋('두 번 입력'·'화면 뜨자마자 입력 시 리셋') 근본수정:
-    GPS 재폴링(약 1초)·autorefresh 가 만드는 주기적 rerun 이 st_searchbox 입력 도중
-    끼어들면 드롭다운·포커스가 끊겨 검색어가 사라진다. 입력 중(_dest_entry_active)에는
-    이 주기적 rerun 을 멈춘다 — 단 '위치가 이미 잡혔을 때만'(origin_present). 첫 위치
-    미취득이면 입력 중이어도 폴링을 유지해 위치를 취득하되(자동완성 0건 시 위치가 영영
-    안 잡히는 dead-end 방지), 입력 리셋은 첫 취득을 단일 측정(multi=False)으로 받아 완화한다.
-    폴링 판정 로직·회귀는 test_nav_session.TestGpsPollNeeded 가 고정한다."""
+    """목적지 입력 중 화면 리셋('두 번 입력'·'화면 뜨자마자 입력 시 리셋') 근본수정(A안):
+    입력 중(_dest_entry_active)에는 GPS 폴링·autorefresh 를 모두 멈춰, 첫 GPS fix 가
+    타이핑 중 도착해 화면을 재생성하며 검색어를 지우던 것을 원천 차단한다. 위치가 영영
+    안 잡히는 dead-end 는 '출발' 버튼이 막는다 — 위치가 없어도 버튼을 누를 수 있고, 누르면
+    활성화를 예약(nav_pending_activation)해 그동안만 폴링을 재개(pending_activation)해서
+    위치를 확보한 뒤 경로를 만든다. 폴링 판정 로직·회귀는 TestGpsPollNeeded 가 고정한다."""
     source = PAGE.read_text(encoding="utf-8")
 
     # 판정 헬퍼: 실시간 검색어가 있고 아직 후보 미선택일 때만 True
@@ -60,19 +113,22 @@ def test_dest_entry_pauses_periodic_reruns():
     assert 'if st.session_state.get("nav_running"):' in active_block
 
     # GPS 재폴링 게이트: 순수 함수 nav_session.gps_poll_needed 로 판정하며, 페이지는
-    # dest_entry_active(입력 중 여부)를 넘겨 배선한다. '위치 있을 때만 입력 중 폴링 중단·
-    # 첫 fix 는 막지 않음' 동작은 TestGpsPollNeeded 가 검증 — 여기선 배선만 확인.
+    # dest_entry_active(입력 중)와 pending_activation('출발' 예약)을 넘겨 배선한다.
     assert "nav_session.gps_poll_needed(" in source
     gate = source.index("nav_session.gps_poll_needed(")
     call = source[gate:gate + 700]
     assert "dest_entry_active=_dest_entry_active()" in call
+    assert "pending_activation=" in call
 
-    # 입력 중 첫 취득은 blocking 다중측정 대신 단일 측정(multi=False)으로 받아 입력 리셋 완화
-    assert "multi=(_first_fix and not _dest_entry_active())" in source
+    # dead-end 탈출 배선: 위치 없어도 '출발' 시 활성화를 예약하고, 위치 확보 후 실행한다.
+    assert "def _activate_or_defer(" in source
+    assert '"nav_pending_activation"' in source
+    assert "_activate_or_defer(dest_text, origin" in source  # 버튼이 이 경로를 쓴다
 
-    # autorefresh 게이트: 예약·첫fix 유휴 refresh 는 입력 중이면 등록하지 않는다
+    # autorefresh 게이트: 입력 중엔 멈추되, '출발' 예약(_pending_act) 중엔 위치 확보 위해 유지
     assert "(_booking_armed or _needs_idle_fix)" in source
     assert "and not _dest_entry_active()" in source
+    assert "or _pending_act" in source
 
 
 def test_maplibre_smooth_headingup_component():
@@ -149,6 +205,124 @@ def test_compass_heading_collected_and_used():
     assert "def _render_compass_enable()" in source
 
 
+def test_heading_debug_falls_back_from_stale_or_uncalibrated_sensor():
+    """방향 진단 패널도 앱 본체와 같은 센서 생존·정확도 규칙을 따른다."""
+    source = PAGE.read_text(encoding="utf-8")
+    debug = source[source.index('_HEADING_DEBUG_HTML = """'):]
+    debug = debug[:debug.index("def _render_heading_debug()")]
+
+    assert "webkitCompassAccuracy<0)W.h=null" in debug
+    assert "function stale(slot)" in debug
+    assert "stale(A)&&P.t>A.t" in debug
+    assert "기울기+화면회전(+) 보정" in debug
+    assert "기울기+화면회전(-) 보정" in debug
+
+
+def test_heading_shown_as_arrow_not_only_words():
+    """'남'이라는 글자만으로는 어느 쪽인지 모르겠다는 실기기 피드백 — 방위 한글 옆에
+    같은 방향의 화살표를, 큰 표시에는 나침반 그림을 함께 그린다."""
+    source = PAGE.read_text(encoding="utf-8")
+
+    # 파이썬쪽: 8방위 인덱스 하나로 한글·화살표를 함께 만든다(두 표기가 어긋나지 않게)
+    assert "def _deg8_index(" in source
+    assert 'return ("↑", "↗", "→", "↘", "↓", "↙", "←", "↖")[i]' in source
+    assert "_deg8_arrow(map_val)" in source and "_deg8_arrow(app_val)" in source
+
+    debug = source[source.index('_HEADING_DEBUG_HTML = """'):]
+    debug = debug[:debug.index("def _deg8_index(")]
+    # iframe 쪽도 같은 화살표 표(한글/화살표가 따로 놀지 않게)
+    assert 'var ARROWS=["↑","↗","→","↘","↓","↙","←","↖"];' in debug
+    assert "function arw(d)" in debug
+    # 나침반 그림: 눈금판은 -방위각으로 돌리되, 글자는 뒤집히지 않게 위치만 옮긴다
+    assert 'document.getElementById("rose").setAttribute("transform","rotate("+(-h)' in debug
+    assert '[["lbN",0],["lbE",90],["lbS",180],["lbW",270]]' in debug
+    assert "내 정면" in debug
+
+
+def test_recent_destinations_are_one_row_until_expanded():
+    """최근 목적지 칩이 여러 줄로 쌓이면 목적지 입력·출발 버튼이 밀려 내려간다.
+    기본은 가로 한 줄(3개)만, 나머지는 '＋'를 눌렀을 때만 펼친다(실기기 요청)."""
+    source = PAGE.read_text(encoding="utf-8")
+
+    assert "_RECENT_CHIP_ROW = 3" in source
+    assert "def _render_recent_chips()" in source
+    assert 'st.button("−" if expanded else "＋"' in source
+
+    app = AppTest.from_file(str(PAGE))
+    _run_past_consent(app)
+    app.session_state["nav_search_history"] = [
+        {"query": f"장소{i}", "display_name": f"장소{i}", "lat": 37.5 + i / 1000, "lon": 127.0}
+        for i in range(5)
+    ]
+    app.run(timeout=30)
+
+    chips = [b.label for b in app.button if b.label.startswith("🕐")]
+    assert len(chips) == 3                                   # 한 줄만 — 5개 있어도 3개
+    more = [b for b in app.button if b.label == "＋"]
+    assert more                                              # 더 볼 게 있으면 '＋'가 뜬다
+
+    more[0].click().run(timeout=30)
+    assert len([b.label for b in app.button if b.label.startswith("🕐")]) == 5
+    assert [b for b in app.button if b.label == "−"]          # 다시 접을 수 있다
+
+
+def test_origin_editable_without_opening_more():
+    """출발지는 '더보기'를 열지 않아도 바꿀 수 있어야 한다(실기기 요청).
+    본문에서 직접 렌더하므로 더보기 묶음에서는 빠져야 한다 — 위젯 키 중복 방지."""
+    source = PAGE.read_text(encoding="utf-8")
+    more = source[source.index("def _render_more_panel("):]
+    more = more[:more.index("def _render_more_toggle(")]
+    assert "_render_origin_override_body" not in more
+
+    app = AppTest.from_file(str(PAGE))
+    _run_past_consent(app)
+
+    assert not app.exception
+    assert [e.label for e in app.expander] == ["출발지 바꾸기 (기본: 현재 위치)"]
+
+
+def test_first_screen_skips_heavy_panels():
+    """첫 로딩·검색 반응 속도: Streamlit 은 '접힌' expander 안의 코드도 매 rerun 전부
+    실행한다. 진단 요약·JSON 직렬화, 방향 진단 iframe(250ms 타이머), 예약·랜드마크
+    패널이 첫 화면에서 매번 돌던 것을 버튼 토글로 바꿔 열기 전까지 실행하지 않는다."""
+    app = AppTest.from_file(str(PAGE))
+    _run_past_consent(app)
+
+    assert not app.exception
+    # 첫 화면에는 출발 버튼 2개 + 더보기만 — 무거운 패널의 위젯이 하나도 없어야 한다
+    assert [b.label for b in app.button] == ["걷기", "대중교통+걷기", "⋯ 더보기"]
+    assert not app.slider and not app.toggle and not app.checkbox
+
+    # 열면 그때 전부 나온다
+    [b for b in app.button if b.label == "⋯ 더보기"][0].click().run(timeout=30)
+    assert not app.exception
+    assert "🧭 방향(나침반) 진단 열기" in [t.label for t in app.toggle]
+    assert "연속 감지 횟수" in [s.label for s in app.slider]
+    assert "⋯ 접기" in [b.label for b in app.button]
+
+
+def test_settings_sliders_survive_panel_close():
+    """민감도 슬라이더는 '더보기'를 닫으면 언마운트된다. 기본값을 상수로 두면 다시 열
+    때마다 사용자가 조정한 값이 되돌아가므로, 세션의 현재 설정에서 읽어야 한다."""
+    source = PAGE.read_text(encoding="utf-8")
+    assert 'cfg = st.session_state["nav_config"]' in source
+    assert "int(cfg.route_drift_distance_threshold_meters)" in source
+    assert "int(cfg.minimum_consecutive_samples_for_deviation)" in source
+
+    app = AppTest.from_file(str(PAGE))
+    _run_past_consent(app)
+    [b for b in app.button if b.label == "⋯ 더보기"][0].click().run(timeout=30)
+    [s for s in app.slider if s.label == "연속 감지 횟수"][0].set_value(5).run(timeout=30)
+    assert app.session_state["nav_config"].minimum_consecutive_samples_for_deviation == 5
+
+    [b for b in app.button if b.label == "⋯ 접기"][0].click().run(timeout=30)
+    # 닫혀 있어도 설정은 유지되고(엔진이 그대로 쓴다)
+    assert app.session_state["nav_config"].minimum_consecutive_samples_for_deviation == 5
+    # 다시 열면 그 값이 슬라이더 기본값으로 복원된다
+    [b for b in app.button if b.label == "⋯ 더보기"][0].click().run(timeout=30)
+    assert [s for s in app.slider if s.label == "연속 감지 횟수"][0].value == 5
+
+
 def test_searchbox_debounce_wired():
     """검색창 debounce 배선(2026-07-17 '도착지 검색 느림') — 키 입력마다 검색 API
     콜백이 돌던 것을 입력 멈춤 후 1회로 축소. 미지원 구버전엔 미전달(TypeError 방지)."""
@@ -167,6 +341,136 @@ def test_gps_poll_bucket_splits_running_vs_idle():
     assert "_GPS_POLL_BUCKET_RUNNING_SEC = 1" in source
     assert "_GPS_POLL_BUCKET_IDLE_SEC = 5" in source
     assert "time.time() // _gps_poll_bucket_sec()" in source
+
+
+def test_wandering_mutes_drift_alert():
+    """직진길 왕복·제자리 흔들림에서 on_route↔drifting 반복 전이로 '벗어나기 시작'
+    경고가 계속 울리던 문제 — 재탐색만이 아니라 알림 게이팅에도 같은 판정을 건다.
+    부수효과(Mapbox 호출·세션 갱신) 없는 읽기 전용 헬퍼로 분리해야 한다."""
+    source = PAGE.read_text(encoding="utf-8")
+
+    assert "def _wandering_now(" in source
+    assert "wandering = (" in source                      # alert_level 에 실제 배선
+    assert "and _wandering_now(" in source
+    helper = source[source.index("def _wandering_now("):]
+    helper = helper[:helper.index("def _reroute_suppressed(")]
+    assert "snap_router.STATIONARY" in helper
+    assert "st.session_state[" not in helper              # 읽기 전용(쓰기 금지)
+    assert "_mapbox_confirms_deviation" not in helper     # 알림 경로에서 유료 호출 금지
+
+    # 확정 이탈·알림 OFF 틱에서는 판정 자체를 돌리지 않는다(핫패스 + 재탐색 억제와 중복 제거).
+    gate = source[source.index("wandering = ("):]
+    gate = gate[:gate.index("lvl = gps_filter.alert_level(")]
+    assert 'st.session_state["nav_alert_enabled"]' in gate
+    assert "not in gps_filter.CONFIRMED_DEVIATION_STATES" in gate
+
+    # 윈도 생성·classify 는 한 곳(_snap_classify)에서만 — 알림·재탐색이 같은 판정을 쓴다.
+    assert source.count("snap_router.classify(") == 1
+    assert source.count("= _build_snap_window(") == 1     # 정의 제외, 호출은 1곳
+
+
+def test_drift_alert_repeat_cooldown_wired():
+    """임계선 근처 보행에서 '벗어나기 시작' 경고가 반복되지 않도록 재발화 쿨다운을
+    쓴다. 기준 시각은 세션에 보관하고, 안내 시작·재탐색 때 함께 초기화해야 한다."""
+    source = PAGE.read_text(encoding="utf-8")
+
+    assert source.count('"nav_last_drift_alert_ts_ms"') >= 5   # 기본값·리셋 2곳·전달·저장
+    assert "last_drift_alert_ts_ms=st.session_state" in source
+    assert "decision.new_last_drift_alert_ts_ms" in source
+
+
+def test_suppressed_decisions_are_logged():
+    """울린 경고·실행된 재탐색만 기록하면 억제가 과한지 로그로 알 수 없다 —
+    억제된 판정도 사유와 함께 남겨야 임계값·쿨다운을 데이터로 조정할 수 있다."""
+    source = PAGE.read_text(encoding="utf-8")
+
+    assert 'if decision.suppressed_reason:' in source
+    assert '_diag("alert_muted"' in source
+    assert 'why=decision.suppressed_reason' in source
+    assert 'wander=bool(wandering)' in source                 # 사유 구분에 필요
+    # 재탐색 억제 3경로(제자리·Mapbox 경로 위·저정확도)도 각각 사유를 남긴다
+    assert source.count('_diag("reroute_muted"') == 3
+    for why in ("stationary", "mapbox_on_route", "low_accuracy"):
+        assert f'why="{why}"' in source
+
+
+def test_secondary_panels_are_grouped_into_three():
+    """폰 화면이 접힌 패널 줄로 뒤덮이지 않도록 보조 기능은 세 묶음으로만 접는다:
+    ⚙️ 설정(알림·음성 테스트·민감도·방향 진단) / ⭐ 자주 가는 길(즐겨찾기·예약) /
+    🔒 개인정보·진단. Streamlit 은 expander 중첩이 불가하므로 묶음 안의 하위 패널은
+    expander 가 아니라 소제목으로 렌더해야 한다(중첩 시 런타임 예외)."""
+    source = PAGE.read_text(encoding="utf-8")
+
+    for label in ("⚙️ 설정 (알림·음성·민감도)",
+                  "⭐ 자주 가는 길 (즐겨찾기·예약)"):
+        assert f'st.expander("{label}"' in source
+    # 개인정보·진단은 expander 가 아니라 버튼 토글이다 — 접힌 expander 도 매 rerun
+    # 실행되는 탓에 안내 중 1초마다 진단 요약·JSON 직렬화가 함께 돌았다.
+    assert 'st.button("🔒 개인정보·진단 로그"' in source
+
+    # 묶음에 흡수된 개별 패널은 더 이상 자기 expander 를 열지 않는다
+    for gone in ("🔧 고급 설정", "🔔 소리·음성 테스트 (걷기 전 확인)\", expanded",
+                 "즐겨찾기 관리\", expanded", "🗓️ 예약 경로",
+                 "🔒 개인정보와 브라우저 저장", "🧪 도보 진단 로그 (문제 진단용)\", expanded"):
+        assert f'st.expander("{gone}' not in source
+
+    # 개인정보·진단은 경로가 없어도 접근 가능해야 한다 → 두 분기 모두에서 호출
+    assert source.count("_render_side_panels()") >= 3   # 정의 1 + 호출 2
+
+
+def test_first_screen_is_input_and_two_buttons():
+    """첫 화면(안내 전·경로 없음)은 목적지 입력과 걷기/대중교통+걷기 만 남긴다.
+    보조 동작(초기화·경로만 보기)·개발자 캡션·빈 지도는 숨기고, 나머지 기능은
+    '⋯ 더보기' 한 묶음으로 접는다. 지팡이 사용자가 한 손으로 쓰는 화면이라
+    핵심 동선 외에는 보이지 않아야 한다(docs/product-notes.md)."""
+    source = PAGE.read_text(encoding="utf-8")
+
+    assert "def _simple_screen()" in source
+    # '더보기'는 expander 가 아니라 버튼 토글 — 열기 전까지 무거운 패널을 아예 실행하지
+    # 않아야 첫 화면이 빨리 뜬다(Streamlit 은 접힌 expander 안도 매 rerun 실행한다).
+    assert 'st.button("⋯ 접기" if is_open else "⋯ 더보기"' in source
+    assert "def _render_more_panel(" in source
+    # 보조 버튼·개발자 캡션은 첫 화면에서 감춘다
+    assert '(not _simple_screen()) and st.button("↺ 초기화"' in source
+    assert "(not has_plan) and (not _simple_screen())" in source
+    assert "if not _simple_screen():\n        st.caption(f\"경로 엔진:" in source
+    # 빈 지도·안내문도 띄우지 않는다
+    assert "if simple_screen:\n            return" in source
+    # 헬퍼 iframe(streamlit_js_eval)이 첫 화면 위쪽을 비워 두지 않게 흐름에서 뺀다
+    assert 'iframe[title^="streamlit_js_eval"]' in source
+
+
+def test_landmark_candidate_harvest_wired():
+    """랜드마크 후보 자동 수집(반자동): POI 로 회전점 주변 후보를 모으되 항상 draft 로
+    저장하고, 자동 출처라 현장 확인 전에는 승인·안내에 쓰이지 않아야 한다."""
+    source = PAGE.read_text(encoding="utf-8")
+
+    assert "import landmark_harvest" in source
+    assert "landmark_harvest.harvest_candidates(" in source
+    assert "route_builder.search_places_near" in source      # 거리순 POI 검색 주입
+    assert 'actor="poi_auto_harvest"' in source              # 이력에 자동 수집 표시
+    # 이미 등록된 것은 draft 로 되돌리지 않는다
+    assert "existing_ids=existing" in source
+    # 수집 패널은 본 화면이 아니라 접힌 묶음 안에서만 노출된다
+    assert "_render_landmark_harvest_panel()" in source
+    assert 'st.button("🔎 이 경로 주변 후보 자동 수집"' in source
+
+    harvest = (PAGE.parent.parent / "landmark_harvest.py").read_text(encoding="utf-8")
+    assert 'status="draft"' in harvest                       # 자동 승인 금지
+    assert "AUTO_SOURCE" in harvest
+    assert 'direction not in ("left", "right")' in harvest   # 직진 지점은 건너뜀
+
+
+def test_diag_summary_is_copyable_without_download():
+    """원본 로그(최대 3000레코드)는 붙여넣기엔 크다 — 분포·횟수만 담은 요약 블록을
+    진단 패널에 직접 렌더해, 내려받기 없이 복사만으로 넘길 수 있어야 한다.
+    현재 임계값도 함께 실어 '어떤 설정에서 나온 분포인지'가 남게 한다."""
+    source = PAGE.read_text(encoding="utf-8")
+
+    assert "diag_report" in source
+    assert 'st.code(report, language="text")' in source
+    for key in ("drift_m", "dev_m", "consec", "hold_ms", "hyst", "drift_cooldown_ms"):
+        assert f'"{key}"' in source
 
 
 def test_reroute_cooldown_is_three_seconds():
@@ -234,7 +538,7 @@ def test_booking_rearms_only_after_leaving_start_radius():
     assert "outside = distance_meters(origin, start)" in block
     assert 'if outside:\n                st.session_state["nav_active_booking_id"] = None' in block
     # 초기화 핸들러는 id 를 지우지 않아야 한다(루프 방지).
-    reset_at = source.index('if st.button("↺ 초기화"')
+    reset_at = source.index('st.button("↺ 초기화"')
     reset_block = source[reset_at:reset_at + 700]
     assert 'st.session_state["nav_active_booking_id"] = None' not in reset_block
 
@@ -328,3 +632,38 @@ def test_map_zoom_persists_across_reruns():
     assert 'key="nav_map"' in source                        # 차트 컴포넌트 identity 고정
     assert "route-{st.session_state['nav_reroute_count']}" in source  # 재탐색 시에만 리셋
     assert 'uirevision="nav-placeholder"' in source         # 경로 전 지도도 유지
+
+
+def test_voice_test_button_and_gps_accuracy_shown():
+    """음성 재확인용 '음성 테스트' 버튼 + 안내 중 GPS 정확도 표시(위치 품질 인지)."""
+    source = PAGE.read_text(encoding="utf-8")
+    # 음성 테스트: gTTS MP3 우선(st.audio) → speechSynthesis 폴백
+    assert "🔊 음성 테스트" in source
+    assert "_mp3 = _tts_mp3(_phrase)" in source
+    # GPS 정확도 표시: 판정 패널에 ±Nm + 품질(양호/보통/낮음)
+    assert "GPS 정확도 ±" in source
+    assert "_acc = _gating_accuracy()" in source
+    assert "트인 곳으로 이동 권장" in source  # 정확도 낮을 때 행동 유도
+
+
+def test_search_source_status_visible_and_never_leaks_keys():
+    """'네이버 키가 들어가 있는지' 를 앱 안에서 확인할 수 있어야 한다.
+
+    사용자는 폰으로만 앱을 쓰므로 서버 환경변수를 들여다볼 방법이 없다. 그런데 소스가
+    꺼져 있으면 검색이 조용히 비기만 해서 '네이버엔 있는데 여긴 없다'가 반복됐다.
+    상태는 보여주되 키 값은 절대 화면에 넣지 않는다."""
+    source = PAGE.read_text(encoding="utf-8")
+    assert "def _render_search_source_panel()" in source
+    assert "route_builder.search_source_status()" in source
+
+    app = AppTest.from_file(str(PAGE))
+    _run_past_consent(app)
+    [b for b in app.button if b.label == "⋯ 더보기"][0].click().run(timeout=30)
+
+    assert not app.exception
+    shown = "\n".join(str(m.value) for m in app.markdown)
+    shown += "\n".join(str(c.value) for c in app.caption)
+    assert "검색 소스 상태" in shown
+    assert "네이버 지역검색" in shown
+    # 상태는 ✅/❌ 로만 — 키 이름은 안내하되 값은 어디에도 넣지 않는다
+    assert "✅" in shown or "❌" in shown

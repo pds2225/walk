@@ -39,9 +39,14 @@ ALERT_ACCURACY_GATE_M = 15.0
 USABLE_ACCURACY_M = 50.0
 # weak toast 재발화 쿨다운
 WEAK_TOAST_COOLDOWN_MS = 15_000
+# '벗어나기 시작'(drifting) 경고 재발화 쿨다운 — 경로 옆 임계선(기본 10m) 근처를 걸으면
+# on_route↔drifting 이 몇 초 간격으로 반복 전이돼 같은 경고가 계속 울린다. 미확정 경고는
+# 이 간격 안에서 한 번만 낸다. 확정 이탈(deviated/passed_turn)은 이 쿨다운을 쓰지 않는다.
+DRIFT_REPEAT_COOLDOWN_MS = 20_000
 
-# 확정 이탈로 간주하는 엔진 상태 (engine.DeviationState 부분집합)
-_CONFIRMED_DEVIATION_STATES = ("deviated", "passed_turn")
+# 확정 이탈로 간주하는 엔진 상태 (engine.DeviationState 부분집합).
+# 호출측(페이지)도 '확정 이탈이라 억제 대상이 아님'을 같은 기준으로 판단하도록 공개한다.
+CONFIRMED_DEVIATION_STATES = ("deviated", "passed_turn")
 
 # 도착 판정 반경 — 이 거리 이내 + accuracy 신뢰 가능 시 도착 처리
 ARRIVAL_RADIUS_M = 20.0
@@ -71,6 +76,15 @@ class AlertDecision(NamedTuple):
     fire_weak_toast: bool
     new_last_alerted: str
     new_last_weak_ts_ms: Optional[int]
+    # 마지막으로 실제 발화한 drifting 경고 시각(재발화 쿨다운용). 호출부가 그대로 보관한다.
+    new_last_drift_alert_ts_ms: Optional[int] = None
+    # 상태 전이가 있었는데 알리지 않은 이유(진단 로그용). 전이가 없으면 None —
+    # 매 표본 남기면 로그가 전이 없는 기록으로 뒤덮인다.
+    #   "disabled"      알림 토글 OFF
+    #   "mute"          알림 강도 mute(저정확도 또는 제자리·왕복)
+    #   "drift_cooldown"  같은 '벗어나기 시작' 경고 재발화 쿨다운
+    #   "weak_cooldown"   약경고 재발화 쿨다운
+    suppressed_reason: Optional[str] = None
 
 
 def accuracy_quality(accuracy_m: Optional[float]) -> AccuracyQuality:
@@ -132,20 +146,28 @@ def alert_level(
     accuracy_m: Optional[float],
     engine_state: DeviationState,
     accuracy_gate_m: float = ALERT_ACCURACY_GATE_M,
+    *,
+    wandering: bool = False,
 ) -> AlertLevel:
     """accuracy와 엔진 상태로 알림 강도(full/weak/mute)를 결정한다.
 
+    - wandering(제자리 흔들림·왕복) + 미확정(on_route/drifting) → "mute".
+      직진길에서 왔다갔다 하면 on_route↔drifting 이 반복 전이돼 '벗어나기 시작' 경고가
+      계속 울린다. 방향성이 낮은 구간에서는 미확정 상태를 알리지 않는다. 확정 이탈
+      (deviated/passed_turn)은 이 억제를 적용하지 않는다(진짜 이탈을 놓치면 안 됨).
     - accuracy 미보고(None, 수동 입력 등) → "full" (기존 동작 보존).
     - accuracy ≤ gate(양호) → "full".
     - accuracy > gate(나쁨) + 확정 이탈(deviated/passed_turn) → "weak".
     - accuracy > gate(나쁨) + on_route/drifting → "mute".
       (drifting을 mute로 두는 것은 의도된 결정 — 모듈 docstring 참조.)
     """
+    if wandering and engine_state not in CONFIRMED_DEVIATION_STATES:
+        return "mute"
     if accuracy_m is None:
         return "full"
     if accuracy_m <= accuracy_gate_m:
         return "full"
-    if engine_state in _CONFIRMED_DEVIATION_STATES:
+    if engine_state in CONFIRMED_DEVIATION_STATES:
         return "weak"
     return "mute"
 
@@ -158,6 +180,8 @@ def decide_alert(
     last_weak_ts_ms: Optional[int],
     alert_enabled: bool,
     cooldown_ms: int = WEAK_TOAST_COOLDOWN_MS,
+    last_drift_alert_ts_ms: Optional[int] = None,
+    drift_cooldown_ms: int = DRIFT_REPEAT_COOLDOWN_MS,
 ) -> AlertDecision:
     """상태 전이 게이트(state != last_alerted)까지 포함한 최종 발화 결정.
 
@@ -165,10 +189,14 @@ def decide_alert(
       (전이를 '소비'하지 않아 재활성화 시 정상 발화).
     - 전이 없음(state == last_alerted) → 미발화, 전부 불변.
     - full + 전이 → fire_full, last_alerted 갱신.
+    - full + drifting 재발화 + 쿨다운 미경과 → 미발화, last_alerted만 갱신.
+      임계선 근처를 걸을 때 같은 '벗어나기 시작' 경고가 반복되는 것을 막는다.
+      확정 이탈(deviated/passed_turn)에는 적용하지 않는다.
     - weak + 전이 + 쿨다운 경과(또는 첫 발화) → fire_weak_toast, last_alerted·ts 갱신.
     - weak + 전이 + 쿨다운 미경과 → 미발화, last_alerted만 갱신(동일 state 재토글 방지).
-    - mute → 미발화, last_alerted 미갱신(안전 측 기본값: 정확도 회복 시 같은
-      state로도 full이 재발화될 수 있게), ts 불변.
+    - mute → 미발화, 기본적으로 last_alerted 미갱신(정확도 회복 시 같은 state로도
+      full이 재발화될 수 있게). 단, 확정 이탈에서 on_route/drifting으로 돌아온
+      mute 전이는 동기화해 다음 확정 이탈 알림이 stale state로 묵살되지 않게 함.
     """
     if not alert_enabled:
         return AlertDecision(
@@ -176,6 +204,8 @@ def decide_alert(
             fire_weak_toast=False,
             new_last_alerted=last_alerted,
             new_last_weak_ts_ms=last_weak_ts_ms,
+            new_last_drift_alert_ts_ms=last_drift_alert_ts_ms,
+            suppressed_reason="disabled" if state != last_alerted else None,
         )
 
     if state == last_alerted:
@@ -184,14 +214,36 @@ def decide_alert(
             fire_weak_toast=False,
             new_last_alerted=last_alerted,
             new_last_weak_ts_ms=last_weak_ts_ms,
+            new_last_drift_alert_ts_ms=last_drift_alert_ts_ms,
         )
 
     if level == "full":
+        # 실제로 '벗어나기 시작' 경고를 내는 drifting 에만 건다. on_route 복귀는 소리가
+        # 없으므로 쿨다운 시각을 건드리지 않아야 '마지막 발화 시각'이 정확히 유지된다.
+        drift_muffled = (
+            state == "drifting"
+            and last_drift_alert_ts_ms is not None
+            and now_ms - last_drift_alert_ts_ms <= drift_cooldown_ms
+        )
+        if drift_muffled:
+            # 전이는 소비한다(last_alerted 갱신) — on_route↔drifting 토글이 매 표본마다
+            # 다시 평가돼 쿨다운이 끝나는 순간 몰아서 울리는 것을 막는다.
+            return AlertDecision(
+                fire_full=False,
+                fire_weak_toast=False,
+                new_last_alerted=state,
+                new_last_weak_ts_ms=last_weak_ts_ms,
+                new_last_drift_alert_ts_ms=last_drift_alert_ts_ms,
+                suppressed_reason="drift_cooldown",
+            )
         return AlertDecision(
             fire_full=True,
             fire_weak_toast=False,
             new_last_alerted=state,
             new_last_weak_ts_ms=last_weak_ts_ms,
+            new_last_drift_alert_ts_ms=(
+                now_ms if state == "drifting" else last_drift_alert_ts_ms
+            ),
         )
 
     if level == "weak":
@@ -204,20 +256,33 @@ def decide_alert(
                 fire_weak_toast=True,
                 new_last_alerted=state,
                 new_last_weak_ts_ms=now_ms,
+                new_last_drift_alert_ts_ms=last_drift_alert_ts_ms,
             )
         return AlertDecision(
             fire_full=False,
             fire_weak_toast=False,
             new_last_alerted=state,
             new_last_weak_ts_ms=last_weak_ts_ms,
+            new_last_drift_alert_ts_ms=last_drift_alert_ts_ms,
+            suppressed_reason="weak_cooldown",
         )
 
-    # level == "mute": last_alerted 미갱신 — 정확도 회복 시 full 재발화 허용
+    # level == "mute": 확정 이탈에서 muted 상태로 돌아온 경우만 동기화한다.
+    # 이 전이를 기록하지 않으면 다음 확정 이탈이 이전 last_alerted와 같아져
+    # 상태 전이 없음으로 오인되고 알림이 묵살된다.
+    new_last_alerted = (
+        state
+        if last_alerted in CONFIRMED_DEVIATION_STATES
+        and state not in CONFIRMED_DEVIATION_STATES
+        else last_alerted
+    )
     return AlertDecision(
         fire_full=False,
         fire_weak_toast=False,
-        new_last_alerted=last_alerted,
+        new_last_alerted=new_last_alerted,
         new_last_weak_ts_ms=last_weak_ts_ms,
+        new_last_drift_alert_ts_ms=last_drift_alert_ts_ms,
+        suppressed_reason="mute",
     )
 
 

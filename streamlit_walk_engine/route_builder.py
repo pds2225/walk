@@ -26,7 +26,14 @@ from urllib.parse import quote
 import requests
 
 sys.path.insert(0, str(Path(__file__).parent))
-from engine import Coordinate, RouteModel, TurnPoint, distance_meters
+from engine import (
+    Coordinate,
+    RouteModel,
+    TurnPoint,
+    angular_difference,
+    bearing_degrees,
+    distance_meters,
+)
 
 
 @dataclass(frozen=True)
@@ -64,16 +71,54 @@ _NAVER_REVERSE = "https://maps.apigw.ntruss.com/map-reversegeocode/v2/gc"
 # 네이버 '지역(장소)검색' 오픈API — 상호·건물·POI 등 네이버 지도와 같은 장소 DB.
 # 지오코딩(주소 전용)이 못 찾는 장소명을 여기서 잡아 '네이버엔 나오는데 여긴 안 뜸'을 해소.
 _NAVER_LOCAL = "https://openapi.naver.com/v1/search/local.json"
+_KAKAO_LOCAL = "https://dapi.kakao.com/v2/local/search/keyword.json"  # 장소(상호) 키워드 검색
 _TMAP_POI = "https://apis.openapi.sk.com/tmap/pois"  # 장소명(POI) 통합검색
 _TMAP_ADDR_GEO = "https://apis.openapi.sk.com/tmap/geo/fullAddrGeo"  # 주소→좌표(도로명·지번)
 _TMAP_REVERSE = "https://apis.openapi.sk.com/tmap/geo/reversegeocoding"  # 좌표→주소
+_TMAP_STATIC_MAP = "https://apis.openapi.sk.com/tmap/staticMap"
 _ENV_SHARED = Path(r"D:\_secure\.env.shared")  # 마스터 .env — 키를 코드에 넣지 않음
 _naver_keys_cache: dict[str, str] | None | bool = False  # False=미로드, None=키 없음
 _naver_search_keys_cache: dict[str, str] | None | bool = False  # 지역검색 키(지오코딩과 별개)
+_kakao_keys_cache: dict[str, str] | None | bool = False         # 카카오 로컬(장소) REST 키
 _HTML_TAG_RE = re.compile(r"<[^>]+>")  # 지역검색 title 의 <b> 하이라이트 태그 제거용
 # 같은 라벨 후보를 '중복'으로 합칠 좌표 근접 상한(m). 이보다 멀면 동명 '다른 장소'로 보고
 # 둘 다 남긴다 — 한 도로/건물의 여러 표현만 합쳐 검색 결과가 사라지지 않게 하는 경계.
 _DEDUP_NEAR_M = 60.0
+
+
+def _parse_env_line(line: str) -> tuple[str, str] | None:
+    """`.env` 한 줄 → (이름, 값). 주석·빈 줄·형식 오류는 None.
+
+    실기기에서 키가 조용히 안 먹던 원인 두 가지를 여기서 흡수한다:
+      · `KEY = "값"` 처럼 `=` 앞뒤에 공백이 있는 형식(TOML 습관대로 쓴 경우)
+      · 값을 감싼 따옴표 — 벗기지 않으면 `"abc"` 가 그대로 키로 나가 인증이 실패한다
+    둘 다 '값이 틀렸다'는 신호 없이 그냥 인증 오류로만 보여 원인 찾기가 어렵다.
+    """
+    line = line.strip()
+    if not line or line.startswith("#") or "=" not in line:
+        return None
+    name, _, raw = line.partition("=")
+    name = name.strip()
+    value = raw.strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in ("'", '"'):
+        value = value[1:-1]
+    return (name, value) if name else None
+
+
+def _env_shared_values(*names: str) -> dict[str, str]:
+    """마스터 .env 에서 요청한 이름들의 값을 읽는다. 없거나 못 읽으면 빈 dict."""
+    if not _ENV_SHARED.is_file():
+        return {}
+    wanted = set(names)
+    found: dict[str, str] = {}
+    try:
+        for line in _ENV_SHARED.read_text(encoding="utf-8").splitlines():
+            parsed = _parse_env_line(line)
+            if parsed and parsed[0] in wanted and parsed[1]:
+                found[parsed[0]] = parsed[1]
+    except OSError:
+        return {}
+    return found
 
 
 def _naver_headers() -> dict[str, str] | None:
@@ -94,16 +139,10 @@ def _naver_headers() -> dict[str, str] | None:
                 sec = sec or str(st.secrets.get("NAVER_MAPS_CLIENT_SECRET", "") or "")
             except Exception:
                 pass
-        if not (cid and sec) and _ENV_SHARED.is_file():
-            try:
-                for line in _ENV_SHARED.read_text(encoding="utf-8").splitlines():
-                    line = line.strip()
-                    if line.startswith("NAVER_MAPS_CLIENT_ID="):
-                        cid = line.partition("=")[2].strip()
-                    elif line.startswith("NAVER_MAPS_CLIENT_SECRET="):
-                        sec = line.partition("=")[2].strip()
-            except OSError:
-                pass
+        if not (cid and sec):
+            shared = _env_shared_values("NAVER_MAPS_CLIENT_ID", "NAVER_MAPS_CLIENT_SECRET")
+            cid = cid or shared.get("NAVER_MAPS_CLIENT_ID", "")
+            sec = sec or shared.get("NAVER_MAPS_CLIENT_SECRET", "")
         _naver_keys_cache = (
             {"X-NCP-APIGW-API-KEY-ID": cid, "X-NCP-APIGW-API-KEY": sec}
             if cid and sec else None
@@ -128,16 +167,10 @@ def _naver_search_headers() -> dict[str, str] | None:
                 sec = sec or str(st.secrets.get("NAVER_SEARCH_CLIENT_SECRET", "") or "")
             except Exception:
                 pass
-        if not (cid and sec) and _ENV_SHARED.is_file():
-            try:
-                for line in _ENV_SHARED.read_text(encoding="utf-8").splitlines():
-                    line = line.strip()
-                    if line.startswith("NAVER_SEARCH_CLIENT_ID="):
-                        cid = line.partition("=")[2].strip()
-                    elif line.startswith("NAVER_SEARCH_CLIENT_SECRET="):
-                        sec = line.partition("=")[2].strip()
-            except OSError:
-                pass
+        if not (cid and sec):
+            shared = _env_shared_values("NAVER_SEARCH_CLIENT_ID", "NAVER_SEARCH_CLIENT_SECRET")
+            cid = cid or shared.get("NAVER_SEARCH_CLIENT_ID", "")
+            sec = sec or shared.get("NAVER_SEARCH_CLIENT_SECRET", "")
         _naver_search_keys_cache = (
             {"X-Naver-Client-Id": cid, "X-Naver-Client-Secret": sec}
             if cid and sec else None
@@ -166,6 +199,163 @@ def _parse_naver_local_items(items: list, limit: int, query: str) -> list[tuple[
         display = f"{addr} {name}".strip() if name and addr else (name or addr or query)
         out.append((Coordinate(latitude=lat, longitude=lon), display))
     return out
+
+
+def _kakao_headers() -> dict[str, str] | None:
+    """카카오 로컬(장소) REST 인증 헤더. 없으면 None → 소스 생략.
+
+    반드시 'REST API 키'다 — JavaScript 키(브라우저 SDK)·네이티브 앱 키는 이 API 에서
+    401 이 난다. 서버에서만 호출하므로 키가 사용자에게 노출되지 않는다.
+    """
+    global _kakao_keys_cache
+    if _kakao_keys_cache is False:
+        key = os.environ.get("KAKAO_REST_API_KEY", "").strip()
+        if not key:
+            try:
+                import streamlit as st
+                key = str(st.secrets.get("KAKAO_REST_API_KEY", "") or "").strip()
+            except Exception:
+                pass
+        if not key:
+            key = _env_shared_values("KAKAO_REST_API_KEY").get("KAKAO_REST_API_KEY", "")
+        _kakao_keys_cache = {"Authorization": f"KakaoAK {key}"} if key else None
+    return _kakao_keys_cache or None
+
+
+def _parse_kakao_documents(documents: list, limit: int, query: str) -> list[tuple[Coordinate, str]]:
+    """카카오 로컬 documents[] → (Coordinate, 표시문자열) 목록(순수 함수).
+
+    x=경도, y=위도 이며 문자열로 온다(네이버의 ×10^7 정수와 규약이 다르다 — 헷갈리면
+    엉뚱한 곳으로 안내하게 되므로 여기서만 변환한다). 표시는 네이버와 같은 한국식
+    '주소 뒤 상호'로 맞춰, 두 소스가 섞여도 목록이 한 형식으로 보이게 한다.
+    """
+    out: list[tuple[Coordinate, str]] = []
+    for doc in documents[:limit]:
+        try:
+            lon = float(doc["x"])
+            lat = float(doc["y"])
+        except (KeyError, ValueError, TypeError):
+            continue
+        if not (33.0 <= lat <= 39.5 and 124.0 <= lon <= 132.0):
+            continue  # 한국 범위 밖 = 좌표계 오인/이상치
+        name = str(doc.get("place_name") or "").strip()
+        addr = str(doc.get("road_address_name") or doc.get("address_name") or "").strip()
+        display = f"{addr} {name}".strip() if name and addr else (name or addr or query)
+        out.append((Coordinate(latitude=lat, longitude=lon), display))
+    return out
+
+
+def _kakao_local_hits(query: str, limit: int = 5,
+                      center: Coordinate | None = None) -> list[tuple[Coordinate, str]]:
+    """카카오 로컬 장소 검색 — 네이버 지역검색과 같은 자리(상호·가게)를 메운다.
+
+    상호 검색 소스를 둘로 두는 이유: 한쪽이 못 찾는 가게를 다른 쪽이 찾는 일이 잦고,
+    한쪽 키가 막혀도 검색이 통째로 죽지 않는다. 키 없음·오류·결과 없음이면 [].
+    """
+    headers = _kakao_headers()
+    if headers is None:
+        return []
+    params: dict[str, str] = {"query": query, "size": str(max(1, min(limit, 15)))}
+    if center is not None:
+        # x/y 만 넘기고 정렬은 기본값(accuracy)을 쓴다. sort=distance 로 두면 관련도를
+        # 통째로 무시해 '경복궁' 검색에 근처 미용실·부동산이 뜬다(실측: 경복궁→쏘아베
+        # 에스테틱, 강남역→바른명상연구소). accuracy 도 x/y 를 위치 편향으로 반영해
+        # 'CU편의점' 같은 체인 검색은 거리순과 결과가 같았다 — 잃는 것 없이 관련도만 얻는다.
+        params["x"] = f"{center.longitude:.7f}"
+        params["y"] = f"{center.latitude:.7f}"
+    try:
+        resp = requests.get(_KAKAO_LOCAL, params=params, headers=headers, timeout=_TIMEOUT)
+        if resp.status_code != 200:
+            return []
+        documents = resp.json().get("documents", []) or []
+    except (requests.RequestException, KeyError, ValueError):
+        return []
+    return _parse_kakao_documents(documents, limit, query)
+
+
+def search_source_status() -> dict[str, bool]:
+    """검색 소스별 사용 가능 여부(키가 설정돼 있는지). 키 값 자체는 반환하지 않는다.
+
+    소스가 죽어도 geocode_suggestions 는 조용히 []를 돌려주게 설계돼 있어(다른 소스로
+    통과), 화면에서는 '장소가 없음'과 '키가 없어 아예 안 물어봄'이 똑같아 보인다.
+    실기기에서 "네이버엔 나오는데 여긴 안 뜬다"는 보고의 대부분이 이 구분 불가였다.
+    """
+    return {
+        "kakao_local": _kakao_headers() is not None,          # 카카오 로컬(상호·가게)
+        "naver_local": _naver_search_headers() is not None,   # 네이버 지역검색(상호·POI)
+        "naver_geocode": _naver_headers() is not None,        # 네이버 지오코딩(주소)
+        "tmap": _tmap_app_key() is not None,                  # TMAP 주소 + 장소
+    }
+
+
+EXPECTED_KEY_NAMES = (
+    "NAVER_SEARCH_CLIENT_ID", "NAVER_SEARCH_CLIENT_SECRET",
+    "NAVER_MAPS_CLIENT_ID", "NAVER_MAPS_CLIENT_SECRET",
+    "TMAP_APP_KEY", "ODSAY_API_KEY", "KAKAO_REST_API_KEY",
+)
+
+
+def _configured_key_names() -> set[str]:
+    """설정에 실제로 들어 있는 이름들(값은 읽지 않는다)."""
+    names = {n for n in os.environ if n.isupper()}
+    try:
+        import streamlit as st
+        names |= {str(n) for n in st.secrets}
+    except Exception:
+        pass
+    names |= set(_env_shared_names())
+    return names
+
+
+def _env_shared_names() -> list[str]:
+    """마스터 .env 에 적힌 이름 목록(값은 읽지 않는다)."""
+    if not _ENV_SHARED.is_file():
+        return []
+    try:
+        lines = _ENV_SHARED.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return []
+    out = []
+    for line in lines:
+        parsed = _parse_env_line(line)
+        if parsed:
+            out.append(parsed[0])
+    return out
+
+
+def misnamed_key_hints(configured: set[str] | None = None) -> list[str]:
+    """오타 난 키 이름을 찾아 알려준다.
+
+    실제로 겪은 사고: `NAVER_SEARCH_CLIENT_ID_ID` 로 한 글자 덧붙은 이름을 넣어 두고
+    "키를 다 넣었는데 왜 검색이 안 되냐"로 몇 시간을 헤맸다. 키가 '없는' 것과 '이름이
+    틀린' 것은 화면에서 똑같이 ❌ 로 보여 구분이 안 된다 — 그래서 따로 짚어준다.
+
+    판정: 기대 이름을 그대로 품고 있지만 정확히 같지는 않은 이름(접두·접미 오타).
+    """
+    have = _configured_key_names() if configured is None else configured
+    hints: list[str] = []
+    for expected in EXPECTED_KEY_NAMES:
+        if expected in have:
+            continue   # 제대로 들어 있음
+        for name in sorted(have):
+            if name != expected and expected in name:
+                hints.append(f"`{name}` → `{expected}` 오타로 보입니다")
+                break
+    return hints
+
+
+def missing_source_hint() -> str | None:
+    """검색이 비었을 때 덧붙일 설명. 빠진 소스가 없으면 None."""
+    status = search_source_status()
+    # 상호·가게는 카카오/네이버에서만 나온다. 둘 다 꺼져 있을 때만 짚는다 —
+    # 하나만 켜져 있어도 가게 검색은 되므로 굳이 경고할 이유가 없다.
+    if not (status["kakao_local"] or status["naver_local"]):
+        return ("상호·가게 이름 검색이 꺼져 있습니다 "
+                "(KAKAO_REST_API_KEY 또는 NAVER_SEARCH_CLIENT_ID/SECRET 미설정). "
+                "주소나 지하철역 출구로 찾아보세요.")
+    if not status["tmap"]:
+        return "TMAP 키가 없어 주소·장소 검색이 제한됩니다 (TMAP_APP_KEY 미설정)."
+    return None
 
 
 def _naver_local_hits(query: str, limit: int = 5) -> list[tuple[Coordinate, str]]:
@@ -325,14 +515,147 @@ def _tmap_poi_results(query: str, limit: int = 5,
             found.append((coord, display))
         return found
 
-    if center is not None:
-        near = _fetch({"centerLat": f"{center.latitude:.8f}",
-                       "centerLon": f"{center.longitude:.8f}",
-                       "searchtypCd": "R", "radius": "0"})
-        if near:
-            return near
-        # 거리순이 비면 정확도순으로 폴백(먼 곳의 유일한 이름이 반경에 걸려 누락되는 것 방지)
-    return _fetch({"searchtypCd": "A"})
+    exact = _fetch({"searchtypCd": "A"})   # 정확도순 — 이름이 맞으면 거리와 무관하게 뜬다
+    if center is None:
+        return exact[:limit]
+
+    near = _fetch({"centerLat": f"{center.latitude:.8f}",
+                   "centerLon": f"{center.longitude:.8f}",
+                   "searchtypCd": "R", "radius": "0"})
+
+    # 정확도순과 거리순을 번갈아 섞는다.
+    #
+    # 거리순만 쓰면 관련도를 통째로 무시해, '경복궁' 검색에 경복궁 대신 '경복궁 참치·
+    # 고려주차장·종각컨설팅부동산중개'가 뜬다(배포본 실측). 예전 코드는 거리순이 '완전히
+    # 비었을 때만' 정확도순으로 폴백했는데, 거리순은 근처 아무거나로 늘 채워지므로 그
+    # 폴백이 사실상 발동하지 않았다.
+    # 반대로 정확도순만 쓰면 'CU편의점' 같은 체인이 전국 기준으로 뽑혀 가까운 지점이
+    # 후보에서 빠진다. 그래서 둘 다 받아 섞는다 — 랜드마크는 정확도순이, 체인은 거리순이
+    # 각각 답을 낸다. radius=0 은 반경 제한 없음(먼 목적지도 후보에 들게).
+    merged: list[tuple[Coordinate, str]] = []
+    seen: set[str] = set()
+    for i in range(max(len(exact), len(near))):
+        for hits in (exact, near):
+            if i >= len(hits) or len(merged) >= limit:
+                continue
+            coord, display = hits[i]
+            key = f"{display}@{coord.latitude:.5f},{coord.longitude:.5f}"
+            if key in seen:
+                continue
+            seen.add(key)
+            merged.append((coord, display))
+    return merged
+
+
+def search_places_near(center: Coordinate, keyword: str,
+                       limit: int = 3) -> list[tuple[Coordinate, str]]:
+    """좌표 주변의 장소를 키워드로 찾는다(랜드마크 후보 자동 수집용).
+
+    TMAP POI 통합검색을 '거리순(searchtypCd=R)'으로만 쓴다 — 정확도순 폴백은 전국에서
+    같은 이름을 끌어와 회전점과 무관한 곳을 후보로 만든다. 앱키가 없거나 실패하면 빈
+    리스트(수집은 부가 기능이라 조용히 건너뛴다).
+    """
+    app_key = _tmap_app_key()
+    if not app_key:
+        return []
+    try:
+        resp = requests.get(
+            _TMAP_POI,
+            params={
+                "version": "1", "searchKeyword": keyword, "count": limit,
+                "centerLat": f"{center.latitude:.8f}",
+                "centerLon": f"{center.longitude:.8f}",
+                "searchtypCd": "R", "radius": "1",   # km 단위 — 1km 안에서 거리순
+                "reqCoordType": "WGS84GEO", "resCoordType": "WGS84GEO",
+            },
+            headers={"appKey": app_key, "Accept": "application/json"},
+            timeout=_TIMEOUT,
+        )
+        if resp.status_code != 200:
+            return []
+        pois = resp.json().get("searchPoiInfo", {}).get("pois", {}).get("poi", []) or []
+    except (requests.RequestException, KeyError, ValueError):
+        return []
+    out: list[tuple[Coordinate, str]] = []
+    for poi in pois[:limit]:
+        coord = None
+        for lat_key, lon_key in (("frontLat", "frontLon"), ("noorLat", "noorLon")):
+            try:
+                lat, lon = float(poi.get(lat_key) or 0), float(poi.get(lon_key) or 0)
+            except (TypeError, ValueError):
+                continue
+            if lat and lon:
+                coord = Coordinate(latitude=lat, longitude=lon)
+                break
+        name = (poi.get("name") or "").strip()
+        if coord is not None and name:
+            out.append((coord, name))
+    return out
+
+
+# ── 지하철 출입구 자동 선택 (TASK-001) ────────────────────────────────────────
+# TMAP POI 통합검색이 지하철 출입구를 역과 별개 POI(예: '강남역 3번출구')로 갖고
+# 있는 경우가 많아 그대로 재사용한다(REQUIRED: 별도 지도엔진 신규 구축 금지).
+_EXIT_NUM_RE = re.compile(r"(\d+)\s*번?\s*출구")
+
+
+def subway_exit_candidates(
+    station_name: str, near: Coordinate, limit: int = 4,
+) -> list[tuple[Coordinate, str]]:
+    """'역명 N번출구' POI 후보를 모은다. 출구 번호가 명시된 결과만 후보로 인정한다
+
+    (역 대표좌표 자체는 이미 기존 경로의 fallback이므로 후보에서 제외해 중복
+    선택을 막는다). 앱키 없음·결과 없음이면 빈 리스트 — 호출부가 기존 역좌표로
+    안전하게 fallback한다. limit은 이후 각 후보마다 실제 도보경로를 조회하는
+    비용을 억제하기 위한 상한이다.
+    """
+    name = (station_name or "").strip()
+    if not name:
+        return []
+    hits = _tmap_poi_results(name, limit=limit * 3, center=near)
+    out: list[tuple[Coordinate, str]] = []
+    seen: set[tuple[float, float]] = set()
+    for coord, display in hits:
+        if not _EXIT_NUM_RE.search(display):
+            continue
+        key = (round(coord.latitude, 6), round(coord.longitude, 6))
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append((coord, display))
+        if len(out) >= limit:
+            break
+    return out
+
+
+def select_nearest_exit(
+    candidates: list[tuple[Coordinate, str]], target: Coordinate,
+) -> tuple[Coordinate, str, int | None] | None:
+    """실제 도보경로 거리 기준으로 target에 가장 가까운 출구 후보를 고른다.
+
+    RANKING_RULE: actual walking distance가 하나라도 계산되면 그 값을 최우선으로
+    쓰고, 계산 성공한 후보 중에서만 고른다(직선거리로 뒤집지 않는다). 후보 전원의
+    walking route 조회가 실패하면(네트워크 등) 직선거리로 대체 — 후보가 있는데도
+    아무것도 못 고르는 상황을 피하는 안전한 마지막 수단이다. 후보가 비어 있으면
+    None(호출부가 기존 좌표를 그대로 쓴다).
+
+    반환: (좌표, 표시 라벨, 실제 도보거리m 또는 직선거리 fallback이면 None).
+    """
+    if not candidates:
+        return None
+    best: tuple[Coordinate, str, int] | None = None
+    for coord, display in candidates:
+        try:
+            _, _, info = fetch_walking_route_with_engine(coord, target)
+            dist = info.total_distance_meters
+        except Exception:
+            dist = None
+        if dist is not None and (best is None or dist < best[2]):
+            best = (coord, display, dist)
+    if best is not None:
+        return best
+    coord, display = min(candidates, key=lambda c: distance_meters(c[0], target))
+    return (coord, display, None)
 
 
 def _tmap_addr_results(query: str, limit: int = 5) -> list[tuple[Coordinate, str]]:
@@ -568,22 +891,26 @@ def geocode_suggestions(query: str, limit: int = 5,
     # 우선순위 그대로 병합한다 — 후보 구성·순서는 직렬 때와 동일.
     # (Naver 성공 시 fullAddrGeo 결과는 버려지는 투기 호출이지만 지연 0·쿼터 여유.
     #  키 없는 소스는 네트워크 없이 즉시 [] 반환이라 스레드 낭비도 없음.)
-    with ThreadPoolExecutor(max_workers=4) as pool:
+    with ThreadPoolExecutor(max_workers=5) as pool:
+        f_kakao = pool.submit(_kakao_local_hits, q, limit, center)
         f_local = pool.submit(_naver_local_hits, q, limit)
         f_naver = pool.submit(_naver_suggestion_hits, q, limit)
         f_addr = pool.submit(_tmap_addr_results, q, limit)
         f_poi = pool.submit(_tmap_poi_results, q, limit, center)
+        kakao_hits = _future_result(f_kakao)
         local_hits = _future_result(f_local)
         naver_hits = _future_result(f_naver)
         addr_hits = _future_result(f_addr)
         poi_hits = _future_result(f_poi)
 
-    # 0) 네이버 지역검색(장소 DB) 먼저 — 네이버 지도에 뜨는 상호·건물·POI 를 최우선으로
-    #    보여준다('네이버엔 나오는데 여긴 안 뜸' 해소). 키 없으면 []라 아래 순서와 동일.
-    for coord, display in local_hits:
-        if len(out) >= limit:
-            break
-        _add(coord.latitude, coord.longitude, display)
+    # 0) 상호·가게 먼저 — 카카오 로컬과 네이버 지역검색을 번갈아 섞는다.
+    #    한쪽을 앞에 몰아 넣으면 limit 에 막혀 다른 쪽 결과가 아예 안 보인다. 한 소스가
+    #    비면 다른 소스가 그 자리를 그대로 채운다(zip_longest 가 아니라 수동 인터리브).
+    for i in range(max(len(kakao_hits), len(local_hits))):
+        for hits in (kakao_hits, local_hits):
+            if i < len(hits) and len(out) < limit:
+                coord, display = hits[i]
+                _add(coord.latitude, coord.longitude, display)
 
     # 1) 주소 후보: Naver 지오코딩 → 키 없음·결과 없음이면 TMAP 주소 지오코딩(fullAddrGeo)
     #    — 배포 환경에 Naver 키가 없으면 주소 검색이 통째로 죽던 문제의 수정(#67) 보존.
@@ -918,6 +1245,55 @@ def _tmap_app_key() -> str | None:
         return None
 
 
+# ── 회전 지점 정리 (경로 엔진 공통) ──────────────────────────────────────────
+
+# 실제 진행 방향이 이만큼(도)은 꺾여야 '회전'으로 안내한다. 경로 API는 완만한 커브나
+# 횡단보도 진입까지 좌/우회전으로 표시해, 그대로 두면 직진길에 불필요한 회전 안내가
+# 쌓이고 회전 접근·회전 지나침 판정까지 헛돈다.
+MIN_TURN_HEADING_CHANGE_DEGREES = 30.0
+
+# 방향을 잴 때 앞뒤로 확보할 거리(m). 인접 좌표 1개만 쓰면 촘촘한 polyline 에서
+# 1~2m 짜리 선분의 방위가 튀어 실제 꺾임을 제대로 재지 못한다.
+_TURN_HEADING_SPAN_METERS = 15.0
+
+
+def _heading_change_degrees(polyline: list[Coordinate], index: int) -> float | None:
+    """polyline[index] 에서 실제로 몇 도 꺾이는지. 앞뒤 구간이 없으면 None."""
+    if index <= 0 or index >= len(polyline) - 1:
+        return None
+
+    before = 0
+    span = 0.0
+    for i in range(index, 0, -1):
+        span += distance_meters(polyline[i - 1], polyline[i])
+        before = i - 1
+        if span >= _TURN_HEADING_SPAN_METERS:
+            break
+
+    after = len(polyline) - 1
+    span = 0.0
+    for i in range(index, len(polyline) - 1):
+        span += distance_meters(polyline[i], polyline[i + 1])
+        after = i + 1
+        if span >= _TURN_HEADING_SPAN_METERS:
+            break
+
+    if polyline[before] == polyline[index] or polyline[index] == polyline[after]:
+        return None
+    return angular_difference(
+        bearing_degrees(polyline[before], polyline[index]),
+        bearing_degrees(polyline[index], polyline[after]),
+    )
+
+
+def is_significant_turn(polyline: list[Coordinate], index: int) -> bool:
+    """안내할 가치가 있는 회전인지 — 완만한 커브는 회전으로 보지 않는다."""
+    change = _heading_change_degrees(polyline, index)
+    if change is None:
+        return False
+    return change >= MIN_TURN_HEADING_CHANGE_DEGREES
+
+
 # ── 경로 탐색 (TMAP pedestrian) ──────────────────────────────────────────────
 
 _TMAP_TURN_LEFT  = {12, 16, 17}  # 좌회전 / 8시 방향 좌회전 / 10시 방향 좌회전
@@ -968,6 +1344,8 @@ def _route_from_tmap_features(features: list[dict]) -> tuple[RouteModel, RouteIn
     for idx, direction, description in raw_turns:
         if idx in seen or idx <= 0 or idx >= len(coords) - 1:
             continue
+        if not is_significant_turn(coords, idx):
+            continue  # 완만한 커브 — 회전으로 안내하지 않는다
         seen.add(idx)
         tid += 1
         turn_id = f"turn-{tid}"
@@ -1062,6 +1440,8 @@ def _fetch_walking_route_valhalla(origin: Coordinate, dest: Coordinate) -> tuple
         idx = maneuver.get("begin_shape_index", 0)
         if idx in seen or idx <= 0 or idx >= len(polyline) - 1:
             continue
+        if not is_significant_turn(polyline, idx):
+            continue  # slight_left/right 등 완만한 커브 — 회전으로 안내하지 않는다
         seen.add(idx)
         direction = "right" if mtype in _TURN_RIGHT else "left"
         tid += 1
@@ -1123,3 +1503,67 @@ def route_engine_label() -> str:
     if _tmap_app_key():
         return _LABEL_TMAP
     return f"{_LABEL_VALHALLA} — TMAP 앱키 미설정"
+
+
+# ── TMAP Static Map (경로 미리보기 이미지) ─────────────────────────────────────
+
+def _static_map_zoom(distance_m: float) -> int:
+    """출발-목적지 직선거리에 맞는 줌 레벨 — 두 지점이 화면에 함께 들어오게."""
+    if distance_m < 300:
+        return 17
+    if distance_m < 700:
+        return 16
+    if distance_m < 1500:
+        return 15
+    if distance_m < 3000:
+        return 14
+    if distance_m < 6000:
+        return 13
+    return 12
+
+
+# TMAP StaticMap 유효 최대 크기 — 초과 요청은 서버가 512px로 잘라 반환할 수 있어
+# 호출부에서 명시적으로 클램프한다(600→12×320, 2048→12×512).
+_STATIC_MAP_MAX_PX = 512
+
+
+def fetch_static_map_png(
+    origin: Coordinate,
+    dest: Coordinate,
+    *,
+    width: int = 512,
+    height: int = 320,
+) -> bytes | None:
+    """목적지 미리보기용 TMAP Static Map PNG.
+
+    서버측(requests) 호출이라 앱키가 브라우저에 노출되지 않습니다.
+    출발-목적지 중점을 중심으로 하고 목적지에 마커를 찍습니다.
+    키 없음/호출 실패 시 None — 호출부는 이미지 영역을 생략하면 됩니다.
+    """
+    app_key = _tmap_app_key()
+    if not app_key:
+        return None
+    try:
+        resp = requests.get(
+            _TMAP_STATIC_MAP,
+            params={
+                "version": "1",
+                "longitude": f"{(origin.longitude + dest.longitude) / 2:.8f}",
+                "latitude": f"{(origin.latitude + dest.latitude) / 2:.8f}",
+                "coordType": "WGS84GEO",
+                "zoom": _static_map_zoom(distance_meters(origin, dest)),
+                "format": "PNG",
+                "width": min(width, _STATIC_MAP_MAX_PX),
+                "height": min(height, _STATIC_MAP_MAX_PX),
+                "markers": f"{dest.longitude:.8f},{dest.latitude:.8f}",
+            },
+            headers={"appKey": app_key},
+            timeout=_TIMEOUT,
+        )
+        if resp.status_code != 200:
+            return None
+        if not resp.headers.get("Content-Type", "").startswith("image/"):
+            return None
+        return resp.content
+    except requests.RequestException:
+        return None

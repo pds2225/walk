@@ -1,0 +1,11 @@
+# walk 공통 테마 — 기기 다크모드와 무관하게 항상 흰 배경으로 고정한다.
+# (야외 보행 중 대비를 일정하게 유지하고, 지도·경고 색이 배경에 따라 달라지지 않게 한다.)
+[theme]
+base = "light"
+primaryColor = "#1B64DA"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F4F6F9"
+textColor = "#16181D"
+
+[client]
+toolbarMode = "minimal"

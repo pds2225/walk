@@ -1,0 +1,45 @@
+{
+  "name": "left-turn-missed-shared-trace",
+  "description": "Python과 TypeScript 엔진에 동일하게 투입하는 회전 미이행 좌표 로그",
+  "route": {
+    "polyline": [
+      {"latitude": 37.5665, "longitude": 126.978},
+      {"latitude": 37.5665, "longitude": 126.9784536},
+      {"latitude": 37.56686, "longitude": 126.9784536}
+    ],
+    "turnPoints": [
+      {
+        "id": "turn-left-1",
+        "coordinate": {"latitude": 37.5665, "longitude": 126.9784536},
+        "routeIndex": 1,
+        "direction": "left"
+      }
+    ]
+  },
+  "samples": [
+    {
+      "latitude": 37.5665,
+      "longitude": 126.9783629,
+      "headingDegrees": 90,
+      "speedMetersPerSecond": 1.4,
+      "timestampMs": 1000
+    },
+    {
+      "latitude": 37.5665,
+      "longitude": 126.9785896,
+      "headingDegrees": 90,
+      "speedMetersPerSecond": 1.4,
+      "timestampMs": 2000
+    }
+  ],
+  "expected": [
+    {
+      "state": "on_route",
+      "suggestedNextAction": "none"
+    },
+    {
+      "state": "passed_turn",
+      "suggestedNextAction": "reroute_candidate"
+    }
+  ]
+}

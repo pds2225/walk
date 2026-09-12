@@ -1,21 +1,28 @@
-"""도보 진단 로그 — 실제 보행 데이터로 문제를 진단하기 위한 순수 함수 모듈.
+"""도보 진단 로그 — 동의한 세션의 비식별 데이터로 문제를 진단하는 순수 함수 모듈.
 
-걷는 동안 GPS 좌표·정확도·이탈 판정·재탐색·음성 이벤트를 시간순 레코드로 쌓아,
+걷는 동안 GPS 정확도·이탈 판정·재탐색·음성 이벤트를 시간순 레코드로 쌓아,
 이탈 오판정·GPS 튐·재탐색 폭주·음성 누락 같은 문제를 데이터로 짚을 수 있게 한다.
 페이지 모듈(1_Navigation.py)은 하단 ``main()`` 즉시 실행으로 import-테스트가 불가하므로
 로직을 여기로 분리한다. 시각(``t_ms``)은 호출부에서 주입해 테스트 결정성을 지킨다.
+
+원본 좌표와 목적지 문자열은 기본적으로 기록하지 않는다. 사용자가 대략 위치 포함에
+별도 동의한 경우에도 좌표는 소수점 셋째 자리(약 100m 격자)로 낮춰 기록한다.
 """
 
 from __future__ import annotations
 
-import base64
 import json
-from typing import Any
+from typing import Any, Optional
 
 DIAG_CAP = 3000  # 레코드 상한 — 초과 시 오래된 것부터 버림(1초 폴링 ≈ 50분 분량)
+DEFAULT_DIAG_RETENTION_HOURS = 24
+MAX_DIAG_RETENTION_HOURS = 168
+COARSE_COORD_DECIMALS = 3
 
-GITHUB_LOG_BRANCH = "walk-diag-logs"  # 로그 전용 브랜치(main 미변경 → 앱 재배포 안 됨)
-GITHUB_LOG_DIR = "logs"
+_COORDINATE_KEYS = frozenset({"lat", "lon", "latitude", "longitude"})
+_ROUTE_IDENTITY_KEYS = frozenset({
+    "address", "dest", "destination", "origin", "query", "route", "route_name",
+})
 
 
 def diag_record(t_ms: int, event: str, **fields: Any) -> dict:
@@ -30,6 +37,85 @@ def diag_record(t_ms: int, event: str, **fields: Any) -> dict:
     return rec
 
 
+def _scrub_private_value(value: Any, *, include_coarse_location: bool) -> Any:
+    """중첩 dict·list 안의 좌표·경로 식별 필드도 같은 규칙으로 정리한다."""
+    if isinstance(value, dict):
+        scrubbed: dict[str, Any] = {}
+        for key, nested in value.items():
+            normalized_key = str(key).lower()
+            if normalized_key in _ROUTE_IDENTITY_KEYS:
+                continue
+            if normalized_key in _COORDINATE_KEYS:
+                if include_coarse_location and isinstance(nested, (int, float)):
+                    scrubbed[key] = round(float(nested), COARSE_COORD_DECIMALS)
+                continue
+            scrubbed[key] = _scrub_private_value(
+                nested, include_coarse_location=include_coarse_location
+            )
+        return scrubbed
+    if isinstance(value, list):
+        return [
+            _scrub_private_value(item, include_coarse_location=include_coarse_location)
+            for item in value
+        ]
+    if isinstance(value, tuple):
+        return tuple(
+            _scrub_private_value(item, include_coarse_location=include_coarse_location)
+            for item in value
+        )
+    return value
+
+
+def private_diag_record(
+    t_ms: int,
+    event: str,
+    *,
+    include_coarse_location: bool = False,
+    **fields: Any,
+) -> dict:
+    """개인 경로를 식별할 수 있는 필드를 제거한 진단 레코드를 만든다.
+
+    목적지·주소·검색어 같은 경로 식별 문자열은 항상 제외한다. 좌표는 기본 제외하며
+    별도 동의 시에도 약 100m 격자로 양자화한다. 숫자가 아닌 좌표는 버린다.
+    중첩 구조 안의 동일 키도 같은 규칙으로 처리한다.
+    """
+    safe: dict[str, Any] = {}
+    for key, value in fields.items():
+        normalized_key = str(key).lower()
+        if normalized_key in _ROUTE_IDENTITY_KEYS:
+            continue
+        if normalized_key in _COORDINATE_KEYS:
+            if include_coarse_location and isinstance(value, (int, float)):
+                safe[key] = round(float(value), COARSE_COORD_DECIMALS)
+            continue
+        safe[key] = _scrub_private_value(
+            value, include_coarse_location=include_coarse_location
+        )
+    return diag_record(t_ms, event, **safe)
+
+
+def normalized_retention_hours(value: Any) -> int:
+    """보존기간을 1~168시간 정수로 제한한다."""
+    try:
+        hours = int(value)
+    except (TypeError, ValueError):
+        return DEFAULT_DIAG_RETENTION_HOURS
+    return max(1, min(MAX_DIAG_RETENTION_HOURS, hours))
+
+
+def prune_expired(log: list, now_ms: int, retention_hours: Any) -> list:
+    """보존기간을 지난 레코드와 시각이 손상된 레코드를 제거해 새 목록으로 반환한다."""
+    cutoff_ms = int(now_ms) - normalized_retention_hours(retention_hours) * 60 * 60 * 1000
+    kept: list = []
+    for record in log:
+        if not isinstance(record, dict):
+            continue
+        timestamp = record.get("t")
+        if isinstance(timestamp, (int, float)) and cutoff_ms <= int(timestamp) <= int(now_ms):
+            kept.append(record)
+    return kept
+
+
 def append_capped(log: list, record: dict, cap: int = DIAG_CAP) -> list:
     """레코드를 로그에 추가하고, 상한을 넘으면 앞(오래된)에서 잘라낸다. 로그를 그대로 반환."""
     log.append(record)
@@ -41,25 +127,6 @@ def append_capped(log: list, record: dict, cap: int = DIAG_CAP) -> list:
 def diag_json(log: list) -> str:
     """로그를 옮기기 쉬운 JSON 문자열로 직렬화(한글 보존)."""
     return json.dumps(log, ensure_ascii=False)
-
-
-def github_upload_payload(session_id: str, t_ms: int, log: list,
-                          branch: str = GITHUB_LOG_BRANCH) -> tuple[str, dict]:
-    """GitHub Contents API(PUT /repos/{owner}/{repo}/contents/{path}) 요청 payload 생성(순수).
-
-    반환: ``(path, body)`` — body 는 ``{"message", "content"(base64), "branch"}``.
-    session_id 는 파일명에 안전한 문자만 남긴다(경로 주입·특수문자 방지). 새 파일이므로
-    기존 sha 는 필요 없다(경로가 매번 t_ms 로 유일).
-    """
-    safe_sid = "".join(c for c in str(session_id) if c.isalnum() or c in "-_")[:32] or "sess"
-    path = f"{GITHUB_LOG_DIR}/{safe_sid}-{int(t_ms)}.json"
-    content_b64 = base64.b64encode(diag_json(log).encode("utf-8")).decode("ascii")
-    body = {
-        "message": f"walk diag: {safe_sid} @ {int(t_ms)} ({len(log)} recs)",
-        "content": content_b64,
-        "branch": branch,
-    }
-    return path, body
 
 
 def _percentile(sorted_vals: list[float], pct: float) -> float:
@@ -83,9 +150,14 @@ def diag_summary(log: list) -> dict:
         return {"records": 0}
     events: dict[str, int] = {}
     states: dict[str, int] = {}
+    muted: dict[str, int] = {}  # 억제 사유별 횟수 — 억제가 과한지/모자란지 판단 근거
     tick_states: dict[str, int] = {}  # 판정(tick) 레코드에서만 센 상태 — 비율 계산의 분모/분자 일치용
     accs: list[float] = []
     times: list[float] = []
+    # 판정(tick) 스트림의 분포 — 임계값 조정의 직접 근거라 백분위수로 요약한다.
+    dists: list[float] = []   # 경로까지 횡거리(m)
+    hdiffs: list[float] = []  # 경로 방향과의 차이(도)
+    spds: list[float] = []    # 속도(m/s)
     for rec in log:
         ev = str(rec.get("e", "?"))
         events[ev] = events.get(ev, 0) + 1
@@ -94,6 +166,15 @@ def diag_summary(log: list) -> dict:
             states[state] = states.get(state, 0) + 1
             if ev == "tick":  # alert·reroute 레코드도 st 를 달고 있어, 비율엔 tick 만 센다
                 tick_states[state] = tick_states.get(state, 0) + 1
+        if ev in ("alert_muted", "reroute_muted"):
+            why = str(rec.get("why", "?"))
+            key = f"{ev.split('_')[0]}:{why}"   # alert:mute / reroute:stationary ...
+            muted[key] = muted.get(key, 0) + 1
+        if ev == "tick":
+            for key, bucket in (("dist", dists), ("hdiff", hdiffs), ("spd", spds)):
+                v = rec.get(key)
+                if isinstance(v, (int, float)):
+                    bucket.append(float(v))
         acc = rec.get("acc")
         if isinstance(acc, (int, float)):
             accs.append(float(acc))
@@ -106,13 +187,59 @@ def diag_summary(log: list) -> dict:
         "events": events,
         "states": states,
         "tick_states": tick_states,
+        "muted": muted,
     }
     if accs:
         accs_sorted = sorted(accs)
         summary["acc_p50"] = round(_percentile(accs_sorted, 50), 1)
         summary["acc_p90"] = round(_percentile(accs_sorted, 90), 1)
         summary["acc_max"] = round(max(accs), 1)
+    for name, vals in (("dist", dists), ("hdiff", hdiffs), ("spd", spds)):
+        if not vals:
+            continue
+        ordered = sorted(vals)
+        summary[f"{name}_p50"] = round(_percentile(ordered, 50), 1)
+        summary[f"{name}_p90"] = round(_percentile(ordered, 90), 1)
+        summary[f"{name}_max"] = round(max(vals), 1)
     return summary
+
+
+def _counts_text(counts: dict, empty: str = "없음") -> str:
+    return ", ".join(f"{k} {v}" for k, v in sorted(counts.items())) if counts else empty
+
+
+def _range_text(summary: dict, name: str, unit: str) -> str:
+    if f"{name}_p50" not in summary:
+        return "데이터 없음"
+    return (
+        f"p50 {summary[f'{name}_p50']}{unit} / "
+        f"p90 {summary[f'{name}_p90']}{unit} / "
+        f"max {summary[f'{name}_max']}{unit}"
+    )
+
+
+def diag_report(summary: dict, settings: Optional[dict] = None) -> str:
+    """붙여넣기용 한 화면 요약 — 원본 로그 없이 임계값을 조정할 수 있는 최소 정보.
+
+    좌표·목적지·검색어는 애초에 로그에 없고, 여기서도 분포값(백분위수)과 횟수만 낸다.
+    settings 에 현재 임계값을 넘기면 '어떤 설정에서 나온 분포인지'까지 한 번에 남는다.
+    """
+    if not summary or summary.get("records", 0) == 0:
+        return "walk 진단 요약: 기록 없음"
+    lines = [
+        "walk 진단 요약",
+        f"기간 {summary.get('span_s', 0.0)}초 / 레코드 {summary.get('records', 0)}",
+        f"이벤트: {_counts_text(summary.get('events', {}))}",
+        f"판정(tick): {_counts_text(summary.get('tick_states', {}))}",
+        f"억제: {_counts_text(summary.get('muted', {}))}",
+        f"GPS 정확도: {_range_text(summary, 'acc', 'm')}",
+        f"경로 횡거리: {_range_text(summary, 'dist', 'm')}",
+        f"방향차: {_range_text(summary, 'hdiff', '°')}",
+        f"속도: {_range_text(summary, 'spd', 'm/s')}",
+    ]
+    if settings:
+        lines.append(f"설정: {_counts_text(settings, '기본값')}")
+    return "\n".join(lines)
 
 
 def diag_findings(summary: dict) -> list[str]:
@@ -155,6 +282,18 @@ def diag_findings(summary: dict) -> list[str]:
     notified = events.get("alert", 0) + events.get("weak_toast", 0)
     if dev >= 3 and notified == 0:
         findings.append("🔴 이탈이 있었는데 음성/알림 기록 0회 — 음성 미작동 의심")
+
+    # 억제가 실제로 얼마나 걸렸는지 — 발화 대비 비율로 임계값을 조정할 수 있게 노출한다.
+    muted = summary.get("muted", {}) or {}
+    muted_total = sum(muted.values())
+    if muted_total:
+        detail = ", ".join(f"{k} {v}" for k, v in sorted(muted.items()))
+        findings.append(f"ℹ️ 억제된 판정 {muted_total}회 — {detail}")
+    if notified and muted_total > notified * 3:
+        findings.append(
+            f"🟡 억제가 발화보다 많음 (억제 {muted_total} / 발화 {notified}) — "
+            "쿨다운·제자리 판정이 과할 수 있음"
+        )
 
     if ticks < 5:
         findings.append(f"ℹ️ 표본이 적음 (tick {ticks}) — 더 걸어야 진단 신뢰도가 올라감")

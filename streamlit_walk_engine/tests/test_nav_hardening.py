@@ -128,7 +128,7 @@ def test_booking_activation_hardening():
 
 # ── 초기화: 목적지 배너 잔존 방지 ─────────────────────────────────────────────
 def test_reset_clears_dest_banner():
-    reset_at = SRC.index('if st.button("↺ 초기화"')
+    reset_at = SRC.index('st.button("↺ 초기화"')
     block = SRC[reset_at:reset_at + 1100]
     assert '"nav_dest_display"' in block  # [18]
     # 초기화는 대기 중인 자동 재개·저장된 안내 세션도 지운다(되살아나지 않게).
@@ -153,7 +153,9 @@ def test_active_session_persist_and_restore_wired():
     save = save[:save.index("def _restore_active_session")]
     # 안내 중이면 목적지 저장, 아니면 삭제(중지·초기화·도착 자동 정리)
     assert "_LS_KEY_ACTIVE" in save
-    assert "removeItem" in save and "setItem" in save
+    assert "nav_privacy.storage_set_script" in save and "_remove_ls" in save
+    # 위치 저장은 명시적 opt-in일 때만 허용한다.
+    assert "nav_location_storage_enabled" in save
     # 매 rerun 재주입 방지 스로틀(직렬화 서명 비교)
     assert "nav_active_saved_sig" in save
     # 자동 재개는 '단독 도보 안내'만 저장한다 — 여정 중에는 저장하지 않는다
@@ -188,6 +190,10 @@ def test_active_session_persist_and_restore_wired():
     # 성공했을 때만 pending 소비 + 실패는 상한까지 재시도(무한 fetch·영구 유실 방지).
     assert "_RESUME_MAX_ATTEMPTS" in resume
     assert "nav_resume_attempts" in resume
+    # 재시도 상한을 넘으면 저장 항목도 지워 다음 새로고침에서 고아 세션이 되살아나지 않게 한다.
+    give_up = resume[resume.index("if tries >= _RESUME_MAX_ATTEMPTS:"):]
+    assert "removeItem" in give_up and "_LS_KEY_ACTIVE" in give_up
+    assert 'nav_resume_attempts"] = 0' in give_up
 
 
 # ── 걷는 방향 보정: 원형 평균 스무딩을 지도 화살표·헤딩업에 적용 ───────────────

@@ -1,7 +1,13 @@
 # RESUME.md — 세션 재시작 시 이어하기 진입점
 
-> 새 세션을 시작하면 이 파일을 가장 먼저 읽어라. (최종 갱신: 2026-09-02)
+> 새 세션을 시작하면 이 파일을 가장 먼저 읽어라. (최종 갱신: 2026-09-12)
 > Secret/API Key/.env 값 금지. 세부는 링크만.
+
+## 현재 세션 (2026-09-12)
+- [x] 현재 브랜치·미커밋 변경·전체 worktree·stash·원격 `main` SHA와 열린 PR 확인 상태를 점검했다. GitHub PR 조회는 `gh` 인증 만료(HTTP 401)로 확인하지 못했다.
+- [x] 로컬 변경 중 실제 프로젝트 파일·문서 8개를 `backup/local-before-main-sync-20260912` 브랜치의 커밋 `544dc58`로 보존하고, 커밋 메시지에 동기화 전 보존 메모를 남겼다.
+- [x] `main`에 `git pull --ff-only origin main`을 실행해 `9c943ef`까지 fast-forward 완료했다. 현재 `HEAD...origin/main`은 `0 0`이다.
+- 핵심 제약: `.claude/worktrees`·`.worktrees`의 생성 파일 2,392개와 런타임 표시 파일은 커밋·삭제하지 않고 원래 위치에 보존했다.
 
 ## 0. 30초 컨텍스트
 walk 앱(`D:\walk`)의 Production `Ready` 상태와 `k-walk.vercel.app` 도메인을 재확인 완료했다. Vercel의 `Deployment Settings`는 Root Directory `.`, Next.js, `npm run next:build`, Output `web/.next`, Install `npm install`, Node 24.x로 확인됐고 현재 배포와 일치한다. `4 Recommendations`는 연결·분석·성능 관련 선택형 운영 권고이며 오류가 아니다. `To update your Production Deployment, push to the main branch.`도 현재 Production을 갱신하려면 `main` 브랜치에 변경사항을 push하라는 일반 안내다. Vercel의 `github/pds2225`는 연결된 GitHub 저장소 소유자/조직 표기이고, `Source`의 `main`은 기본 배포 브랜치, `5e2cfff`는 배포에 사용된 Git 커밋 식별자다. 커밋 제목 `feat(web): wire deviation reroute into navigation`은 웹 앱에 경로 이탈 시 재탐색 기능을 연결한 변경을 뜻한다. `6h ago by pds2225`는 배포 생성 시각·생성 주체이며 오류가 아니다. Preview 실패는 `backup/WIN-K20QOC29TOB` 브랜치의 별도 빌드 문제로 Production에는 영향이 없다. 로컬 `main=83aa91c`, 실제 원격·배포 기준 `main=5e2cfff`이며 동기화·리셋은 하지 않았다.

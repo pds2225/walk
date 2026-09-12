@@ -2,11 +2,33 @@
 .streamlit/secrets.toml
 .env
 .env.*
+# 값이 비어 있는 예시 파일만 예외 — 어떤 키가 필요한지 알려면 저장소에 있어야 한다.
+# '.example' 로 끝나는 것만 풀어 주므로 실제 키 파일은 계속 무시된다.
+!**/.env*.example
 
 # Python
 __pycache__/
 *.pyc
 .pytest_cache/
+.venv/
 
 # Node
 node_modules/
+
+# Next.js / 빌드 산출물 — 소스에서 매번 다시 만든다
+web/.next/
+web/next-env.d.ts
+web/tsconfig.tsbuildinfo
+packages/route-engine/dist/
+.vercel/
+
+# 로컬 AI/런타임 상태 — 공개 저장소에 추적하지 않음
+.claude/settings.local.json
+.claude/.closeout_tick
+.claude/.resume_tick
+*.log
+
+# 현장 검수 전 로컬 랜드마크와 업로드 사진
+streamlit_walk_engine/data/landmarks.local.json
+streamlit_walk_engine/data/landmarks.local.history.jsonl
+streamlit_walk_engine/data/landmark_photos/

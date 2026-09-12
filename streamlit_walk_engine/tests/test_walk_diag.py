@@ -2,12 +2,13 @@
 
 커버 범위:
   diag_record   → t/e 필드 + None 제외
+  private_diag_record → 목적지 제거·좌표 기본 제외·대략 위치 양자화
+  prune_expired → 보존기간 만료 데이터 제거
   append_capped → 상한 초과 시 오래된 것부터 제거
   diag_json     → 한글 보존 직렬화
   diag_summary  → 이벤트/상태 카운트, 정확도 p50/p90, 기록 시간
 """
 
-import base64
 import json
 import os
 import sys
@@ -15,8 +16,10 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from walk_diag import (
-    DIAG_CAP, GITHUB_LOG_BRANCH, append_capped, diag_findings, diag_json, diag_record,
-    diag_summary, github_upload_payload,
+    diag_report,
+    COARSE_COORD_DECIMALS, DEFAULT_DIAG_RETENTION_HOURS, DIAG_CAP,
+    append_capped, diag_findings, diag_json, diag_record, diag_summary,
+    normalized_retention_hours, private_diag_record, prune_expired,
 )
 
 
@@ -33,6 +36,75 @@ class TestDiagRecord:
     def test_time_coerced_to_int(self):
         rec = diag_record(1000.9, "x")
         assert rec["t"] == 1000 and isinstance(rec["t"], int)
+
+
+class TestPrivateDiagRecord:
+    def test_original_coordinates_and_route_identity_are_removed_by_default(self):
+        rec = private_diag_record(
+            1000, "start", lat=37.566543, lon=126.978123,
+            dest="집", address="서울 어딘가", st="on_route",
+        )
+        assert rec == {"t": 1000, "e": "start", "st": "on_route"}
+
+    def test_separate_opt_in_keeps_only_coarse_coordinates(self):
+        rec = private_diag_record(
+            1000, "tick", include_coarse_location=True,
+            latitude=37.566543, longitude=126.978123,
+        )
+        assert rec["latitude"] == round(37.566543, COARSE_COORD_DECIMALS)
+        assert rec["longitude"] == round(126.978123, COARSE_COORD_DECIMALS)
+        assert rec["latitude"] != 37.566543
+        assert rec["longitude"] != 126.978123
+
+    def test_non_numeric_coordinate_is_dropped(self):
+        rec = private_diag_record(
+            1000, "tick", include_coarse_location=True, lat="37.5", acc=10,
+        )
+        assert "lat" not in rec
+        assert rec["acc"] == 10
+
+    def test_nested_coordinates_and_route_identity_are_scrubbed(self):
+        rec = private_diag_record(
+            1000,
+            "tick",
+            payload={
+                "lat": 37.566543,
+                "lon": 126.978123,
+                "dest": "집",
+                "acc": 8,
+                "nested": [{"latitude": 37.1, "query": "카페"}],
+            },
+        )
+        assert rec["payload"] == {"acc": 8, "nested": [{}]}
+
+    def test_nested_coarse_opt_in_quantizes_coordinates(self):
+        rec = private_diag_record(
+            1000,
+            "tick",
+            include_coarse_location=True,
+            payload={"lat": 37.566543, "dest": "집"},
+        )
+        assert rec["payload"] == {"lat": round(37.566543, COARSE_COORD_DECIMALS)}
+        assert "dest" not in rec["payload"]
+
+
+class TestRetention:
+    def test_prunes_expired_future_and_malformed_records(self):
+        hour = 60 * 60 * 1000
+        now = 10 * hour
+        log = [
+            diag_record(now - hour, "keep"),
+            diag_record(now - 3 * hour, "drop"),
+            diag_record(now + 1, "future"),
+            {"e": "missing-time"},
+            "bad",
+        ]
+        assert [record["e"] for record in prune_expired(log, now, 2)] == ["keep"]
+
+    def test_retention_is_bounded_and_invalid_value_uses_default(self):
+        assert normalized_retention_hours(0) == 1
+        assert normalized_retention_hours(9999) == 168
+        assert normalized_retention_hours("bad") == DEFAULT_DIAG_RETENTION_HOURS
 
 
 class TestAppendCapped:
@@ -94,31 +166,6 @@ class TestDiagSummary:
         assert diag_summary([diag_record(999, "start")])["span_s"] == 0.0
 
 
-class TestGithubUploadPayload:
-    def test_path_and_branch_and_message(self):
-        log = [diag_record(1, "tick"), diag_record(2, "reroute")]
-        path, body = github_upload_payload("abc123", 1699999999000, log)
-        assert path == "logs/abc123-1699999999000.json"
-        assert body["branch"] == GITHUB_LOG_BRANCH
-        assert "2 recs" in body["message"]
-
-    def test_content_is_base64_of_json_roundtrip(self):
-        log = [diag_record(1, "alert", note="경로 이탈")]
-        _, body = github_upload_payload("s", 1000, log)
-        decoded = json.loads(base64.b64decode(body["content"]).decode("utf-8"))
-        assert decoded[0]["note"] == "경로 이탈"  # 한글 base64 왕복 보존
-
-    def test_session_id_sanitized_against_path_injection(self):
-        # 파일명에 안전한 문자만 남긴다 — 경로 주입(../)·특수문자 제거
-        path, _ = github_upload_payload("../../etc/passwd!@#", 1000, [])
-        assert ".." not in path and "!" not in path and "@" not in path
-        assert path.startswith("logs/") and path.endswith("-1000.json")
-
-    def test_empty_session_id_falls_back(self):
-        path, _ = github_upload_payload("", 1000, [])
-        assert path == "logs/sess-1000.json"
-
-
 class TestDiagFindings:
     """요약 → 사람이 읽는 자동 진단 힌트."""
 
@@ -174,3 +221,86 @@ class TestDiagFindings:
         out = diag_findings(diag_summary(log))
         assert any("정확도 데이터 없음" in f for f in out)
         assert not any("특이사항 없음" in f for f in out)
+
+    def test_counts_suppressed_decisions_by_reason(self):
+        # 울린 경고만 기록하면 억제가 과한지 알 수 없다 — 억제 사유별 횟수를 요약에 남긴다.
+        log = [diag_record(i * 1000, "tick", st="drifting", acc=10.0) for i in range(10)]
+        log += [
+            diag_record(20000, "alert_muted", st="drifting", why="drift_cooldown"),
+            diag_record(21000, "alert_muted", st="drifting", why="drift_cooldown"),
+            diag_record(22000, "alert_muted", st="on_route", why="mute"),
+            diag_record(23000, "reroute_muted", st="deviated", why="stationary"),
+        ]
+        summ = diag_summary(log)
+
+        assert summ["muted"] == {
+            "alert:drift_cooldown": 2,
+            "alert:mute": 1,
+            "reroute:stationary": 1,
+        }
+        out = diag_findings(summ)
+        assert any("억제된 판정 4회" in f for f in out)
+
+    def test_flags_when_suppression_outweighs_alerts(self):
+        # 발화보다 억제가 훨씬 많으면 쿨다운·제자리 판정이 과할 수 있다고 알린다.
+        log = [diag_record(i * 1000, "tick", st="drifting", acc=10.0) for i in range(10)]
+        log.append(diag_record(50000, "alert", st="drifting"))
+        log += [
+            diag_record(50000 + i, "alert_muted", st="drifting", why="drift_cooldown")
+            for i in range(5)
+        ]
+        out = diag_findings(diag_summary(log))
+
+        assert any("억제가 발화보다 많음" in f for f in out)
+
+    def test_no_suppression_keeps_all_clear(self):
+        log = [diag_record(i * 1000, "tick", st="on_route", acc=10.0) for i in range(10)]
+        summ = diag_summary(log)
+
+        assert summ["muted"] == {}
+        assert any("특이사항 없음" in f for f in diag_findings(summ))
+
+
+class TestDiagReport:
+    """내려받기 없이 붙여넣기로 넘길 수 있는 한 화면 요약."""
+
+    def test_empty_log_reports_no_records(self):
+        assert diag_report(diag_summary([])) == "walk 진단 요약: 기록 없음"
+
+    def test_report_includes_distributions_counts_and_settings(self):
+        log = [
+            diag_record(i * 1000, "tick", st="on_route", acc=12.0,
+                        dist=3.0 + i, hdiff=10.0, spd=1.2)
+            for i in range(10)
+        ]
+        log += [
+            diag_record(20000, "alert", st="drifting"),
+            diag_record(21000, "alert_muted", st="drifting", why="drift_cooldown"),
+        ]
+        report = diag_report(diag_summary(log), {"drift_m": 10, "hyst": 0.8})
+
+        assert "walk 진단 요약" in report
+        assert "tick 10" in report and "alert 1" in report
+        assert "alert:drift_cooldown 1" in report
+        assert "경로 횡거리: p50" in report      # 임계값 조정의 핵심 분포
+        assert "GPS 정확도: p50 12.0m" in report
+        assert "속도: p50 1.2m/s" in report
+        assert "drift_m 10" in report and "hyst 0.8" in report
+        # 좌표는 로그에도 요약에도 남지 않는다
+        assert "lat" not in report and "lon" not in report
+
+    def test_missing_fields_say_no_data_instead_of_zero(self):
+        # 분포 데이터가 없는데 0 으로 적으면 '정확도 0m' 처럼 잘못 읽힌다.
+        log = [diag_record(i * 1000, "tick", st="on_route") for i in range(5)]
+        report = diag_report(diag_summary(log))
+
+        assert "GPS 정확도: 데이터 없음" in report
+        assert "경로 횡거리: 데이터 없음" in report
+
+    def test_tick_only_distributions_ignore_alert_records(self):
+        # alert 레코드에 dist 가 실려도 판정 분포를 오염시키면 안 된다.
+        log = [diag_record(i * 1000, "tick", st="on_route", dist=2.0) for i in range(5)]
+        log.append(diag_record(9000, "alert", st="deviated", dist=99.0))
+        summ = diag_summary(log)
+
+        assert summ["dist_max"] == 2.0

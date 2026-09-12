@@ -152,9 +152,11 @@ class TestFormatKoreanAddress:
 
 # 실제 TMAP 응답 구조: Point(SP) → LineString → Point(GP) → LineString → ... → Point(EP)
 # 구간 경계 좌표는 직전 LineString 끝 = Point = 다음 LineString 시작으로 3회 중복 등장
+# A→B→C 서쪽, C→D 남쪽, D→E 다시 서쪽 — C·D 는 실제로 약 90° 꺾이는 회전 지점이다
+# (회전 지점 필터가 완만한 커브를 걸러내므로 픽스처도 실제 꺾임을 가져야 한다).
 A, B, C, D, E, F = (
     (126.9780, 37.5662), (126.9776, 37.5662), (126.9774, 37.5662),
-    (126.9774, 37.5655), (126.9775, 37.5652), (126.9752, 37.5652),
+    (126.9774, 37.5655), (126.9770, 37.5655), (126.9752, 37.5652),
 )
 
 
@@ -220,6 +222,18 @@ class TestRouteFromTmapFeatures:
             _point(12, *A),           # polyline 비어 있음 → index -1 → 제외
             _line(A, B, C),
             _point(13, *C),           # 마지막 좌표 → 제외
+        ])
+        assert route.turn_points == ()
+
+    def test_gentle_curve_is_not_reported_as_a_turn(self):
+        # 방향이 거의 그대로인(약 10°) 완만한 커브 — API 가 좌회전으로 줘도 안내하지 않는다.
+        straight = (126.9780, 37.5662)
+        bend = (126.9774, 37.5662)
+        ahead = (126.9768, 37.5661)
+        route, _ = _route_from_tmap_features([
+            _line(straight, bend),
+            _point(12, *bend),
+            _line(bend, ahead),
         ])
         assert route.turn_points == ()
 
@@ -367,10 +381,65 @@ class TestTmapAppKey:
 
     def test_missing_everywhere_returns_none(self, monkeypatch):
         monkeypatch.delenv("TMAP_APP_KEY", raising=False)
-        # 로컬 secrets 파일이 있어도, 이 테스트는 모든 공급원이 없는 경우를 검증한다.
-        import streamlit
-        monkeypatch.setattr(streamlit, "secrets", _FakeSecrets({}))
+        # secrets 파일이 없는 환경에서는 st.secrets 접근이 예외 → None
         assert route_builder._tmap_app_key() is None
+
+
+class _FakeStaticMapResp:
+    def __init__(self, status=200, content=b"", content_type="image/png;charset=UTF-8"):
+        self.status_code = status
+        self.content = content
+        self.headers = {"Content-Type": content_type}
+
+
+class TestStaticMap:
+    _O = Coordinate(latitude=37.56629, longitude=126.97797)
+    _D = Coordinate(latitude=37.56575, longitude=126.97515)
+
+    def test_zoom_levels_by_distance(self):
+        for distance, zoom in ((100, 17), (300, 16), (700, 15), (1500, 14), (3000, 13), (6000, 12)):
+            assert route_builder._static_map_zoom(distance) == zoom
+
+    def test_returns_png_bytes(self, monkeypatch):
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: "test-key")
+        monkeypatch.setattr(
+            route_builder.requests, "get",
+            lambda *a, **kw: _FakeStaticMapResp(content=b"PNGDATA"),
+        )
+        assert route_builder.fetch_static_map_png(self._O, self._D) == b"PNGDATA"
+
+    def test_without_key_returns_none(self, monkeypatch):
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: None)
+        assert route_builder.fetch_static_map_png(self._O, self._D) is None
+
+    def test_error_status_returns_none(self, monkeypatch):
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: "test-key")
+        monkeypatch.setattr(
+            route_builder.requests, "get",
+            lambda *a, **kw: _FakeStaticMapResp(status=429, content_type="application/json"),
+        )
+        assert route_builder.fetch_static_map_png(self._O, self._D) is None
+
+    def test_non_image_body_returns_none(self, monkeypatch):
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: "test-key")
+        monkeypatch.setattr(
+            route_builder.requests, "get",
+            lambda *a, **kw: _FakeStaticMapResp(content_type="application/json"),
+        )
+        assert route_builder.fetch_static_map_png(self._O, self._D) is None
+
+    def test_dimensions_clamped_to_tmap_limit(self, monkeypatch):
+        captured = {}
+
+        def _capture(url, params=None, **kw):
+            captured.update(params)
+            return _FakeStaticMapResp(content=b"PNGDATA")
+
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: "test-key")
+        monkeypatch.setattr(route_builder.requests, "get", _capture)
+        route_builder.fetch_static_map_png(self._O, self._D, width=2048, height=1024)
+        assert captured["width"] == 512
+        assert captured["height"] == 512
 
 
 class _FakeResp:
@@ -797,9 +866,12 @@ class TestTmapPoiResults:
         assert "centerLat" not in captured
         assert "radius" not in captured
 
-    def test_far_poi_falls_back_to_accuracy_order(self, monkeypatch):
-        """근본 수정: 인천에서 검색한 서울 '대륭포스트타워8차'처럼 반경 밖 장소가 거리순
-        검색에서 비면, center 없이 정확도순으로 한 번 더 검색해 반드시 뜨게 한다."""
+    def test_far_poi_still_found_via_accuracy_order(self, monkeypatch):
+        """인천에서 검색한 서울 '대륭포스트타워8차'처럼 반경 밖 장소도 반드시 떠야 한다.
+
+        예전엔 거리순이 '완전히 빌 때만' 정확도순으로 폴백했다. 지금은 정확도순을 항상
+        부르고 거리순과 섞으므로, 거리순이 근처 잡음으로 채워져도 이 장소가 살아남는다
+        (그 폴백이 발동하지 않아 '경복궁'에 엉뚱한 가게가 뜨던 문제의 수정)."""
         monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: "k")
         calls: list = []
 
@@ -815,7 +887,8 @@ class TestTmapPoiResults:
         center = route_builder.Coordinate(latitude=37.45, longitude=126.72)  # 인천
         out = route_builder._tmap_poi_results("대륭포스트타워8차", 5, center=center)
         assert [d for _, d in out] == ["서울 금천구 대륭포스트타워8차"]
-        assert [c.get("searchtypCd") for c in calls] == ["R", "A"]  # 거리순 → 정확도순 폴백
+        # 정확도순을 먼저(항상) 부르고 거리순도 함께 받는다 — 폴백이 아니라 병행이다
+        assert sorted(c.get("searchtypCd") for c in calls) == ["A", "R"]
 
     def test_skips_poi_without_usable_coords(self, monkeypatch):
         monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: "k")
@@ -826,6 +899,103 @@ class TestTmapPoiResults:
         monkeypatch.setattr(route_builder.requests, "get", lambda *a, **k: _FakeResp(200, payload))
         out = route_builder._tmap_poi_results("x")
         assert [d for _, d in out] == ["정상"]
+
+
+class TestSubwayExitCandidates:
+    """TASK-001: '역명 N번출구' POI만 후보로 인정 — 출구 번호 없는 결과는 제외."""
+
+    def test_empty_station_name_returns_empty_without_network(self, monkeypatch):
+        def _boom(*a, **k):
+            raise AssertionError("빈 역명이면 네트워크를 호출하면 안 됨")
+        monkeypatch.setattr(route_builder, "_tmap_poi_results", _boom)
+        assert route_builder.subway_exit_candidates("", near=Coordinate(37.5, 127.0)) == []
+
+    def test_filters_out_results_without_exit_number(self, monkeypatch):
+        near = Coordinate(latitude=37.5, longitude=127.0)
+        hits = [
+            (Coordinate(latitude=37.501, longitude=127.001), "강남역"),  # 출구 번호 없음 → 제외
+            (Coordinate(latitude=37.502, longitude=127.002), "강남역 1번출구"),
+            (Coordinate(latitude=37.503, longitude=127.003), "강남역 맛집"),  # 출구 아님 → 제외
+        ]
+        monkeypatch.setattr(route_builder, "_tmap_poi_results", lambda *a, **k: hits)
+        out = route_builder.subway_exit_candidates("강남역", near=near)
+        assert [d for _, d in out] == ["강남역 1번출구"]
+
+    def test_deduplicates_same_coordinate(self, monkeypatch):
+        near = Coordinate(latitude=37.5, longitude=127.0)
+        hits = [
+            (Coordinate(latitude=37.501, longitude=127.001), "강남역 1번출구"),
+            (Coordinate(latitude=37.501, longitude=127.001), "강남역 1번 출구"),  # 같은 좌표 중복
+        ]
+        monkeypatch.setattr(route_builder, "_tmap_poi_results", lambda *a, **k: hits)
+        out = route_builder.subway_exit_candidates("강남역", near=near)
+        assert len(out) == 1
+
+    def test_respects_limit(self, monkeypatch):
+        near = Coordinate(latitude=37.5, longitude=127.0)
+        hits = [
+            (Coordinate(latitude=37.5 + i * 0.001, longitude=127.0), f"강남역 {i}번출구")
+            for i in range(1, 10)
+        ]
+        monkeypatch.setattr(route_builder, "_tmap_poi_results", lambda *a, **k: hits)
+        out = route_builder.subway_exit_candidates("강남역", near=near, limit=3)
+        assert len(out) == 3
+
+
+class TestSelectNearestExit:
+    """TASK-001: 실제 도보거리 최소 후보 선택 — 직선거리와 뒤바뀔 수 있는 케이스가 핵심."""
+
+    def _route_info(self, meters):
+        return (None, "engine", RouteInfo(total_distance_meters=meters))
+
+    def test_empty_candidates_returns_none(self):
+        assert route_builder.select_nearest_exit([], Coordinate(37.5, 127.0)) is None
+
+    def test_picks_shorter_actual_walking_distance_even_if_farther_straight_line(self, monkeypatch):
+        # 후보 1: 직선거리는 가깝지만 실제 보행거리가 김(우회 도로)
+        # 후보 2: 직선거리는 멀지만 실제 보행거리가 짧음(직선 도로) → 이게 선택돼야 함
+        near_straight = Coordinate(latitude=37.5001, longitude=127.0)
+        far_straight = Coordinate(latitude=37.51, longitude=127.0)
+        target = Coordinate(latitude=37.5, longitude=127.0)
+
+        def _fake_fetch(origin, dest):
+            if origin is near_straight:
+                return self._route_info(900)  # 직선은 가깝지만 실제로는 우회
+            return self._route_info(200)
+
+        monkeypatch.setattr(route_builder, "fetch_walking_route_with_engine", _fake_fetch)
+        candidates = [(near_straight, "1번출구"), (far_straight, "2번출구")]
+        picked = route_builder.select_nearest_exit(candidates, target)
+        assert picked == (far_straight, "2번출구", 200)
+
+    def test_falls_back_to_straight_line_when_all_walking_routes_fail(self, monkeypatch):
+        near = Coordinate(latitude=37.5001, longitude=127.0)
+        far = Coordinate(latitude=37.51, longitude=127.0)
+        target = Coordinate(latitude=37.5, longitude=127.0)
+
+        def _boom(origin, dest):
+            raise ValueError("network down")
+
+        monkeypatch.setattr(route_builder, "fetch_walking_route_with_engine", _boom)
+        candidates = [(far, "2번출구"), (near, "1번출구")]
+        picked = route_builder.select_nearest_exit(candidates, target)
+        assert picked[0] is near  # 직선거리로 대체 — 가까운 쪽 선택
+        assert picked[2] is None  # 실제 도보거리 계산은 실패했음을 표시
+
+    def test_partial_failure_picks_from_successful_candidates_only(self, monkeypatch):
+        ok = Coordinate(latitude=37.5001, longitude=127.0)
+        broken = Coordinate(latitude=37.5002, longitude=127.0)
+        target = Coordinate(latitude=37.5, longitude=127.0)
+
+        def _fake_fetch(origin, dest):
+            if origin is broken:
+                raise ValueError("no route")
+            return self._route_info(150)
+
+        monkeypatch.setattr(route_builder, "fetch_walking_route_with_engine", _fake_fetch)
+        candidates = [(broken, "1번출구"), (ok, "2번출구")]
+        picked = route_builder.select_nearest_exit(candidates, target)
+        assert picked == (ok, "2번출구", 150)
 
 
 class TestTmapReverse:
@@ -1216,3 +1386,387 @@ class TestParseCoordLiteral:
     def test_geocode_suggestions_uses_literal(self):
         out = route_builder.geocode_suggestions("37.5, 127.0")
         assert len(out) == 1 and abs(out[0][0].longitude - 127.0) < 1e-9
+
+
+class TestSearchSourceStatus:
+    """검색 소스가 조용히 죽는 것을 화면에서 구분할 수 있어야 한다.
+
+    실기기 보고: "네이버에 검색되는데 내 앱에서는 안 나온다". 원인 대부분은 장소가
+    없어서가 아니라 네이버 지역검색 키가 없어 그 소스를 아예 안 물어본 것인데,
+    모든 실패가 빈 목록으로 같아 보여 구분이 안 됐다.
+    """
+
+    def test_status_reports_each_source(self, monkeypatch):
+        monkeypatch.setattr(route_builder, "_kakao_headers", lambda: None)
+        monkeypatch.setattr(route_builder, "_naver_search_headers", lambda: {"X-Naver-Client-Id": "x"})
+        monkeypatch.setattr(route_builder, "_naver_headers", lambda: None)
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: "k")
+
+        assert route_builder.search_source_status() == {
+            "kakao_local": False, "naver_local": True, "naver_geocode": False, "tmap": True,
+        }
+
+    def test_status_never_leaks_key_values(self, monkeypatch):
+        secret = "super-secret-value"
+        monkeypatch.setattr(route_builder, "_kakao_headers",
+                            lambda: {"Authorization": f"KakaoAK {secret}"})
+        monkeypatch.setattr(route_builder, "_naver_search_headers",
+                            lambda: {"X-Naver-Client-Id": secret})
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: secret)
+
+        assert secret not in repr(route_builder.search_source_status())
+        assert all(isinstance(v, bool) for v in route_builder.search_source_status().values())
+
+    def test_hint_points_at_storefront_sources_first(self, monkeypatch):
+        # 상호·가게 이름은 카카오/네이버에서만 나온다 — 가장 흔한 원인이라 먼저 알린다.
+        monkeypatch.setattr(route_builder, "_kakao_headers", lambda: None)
+        monkeypatch.setattr(route_builder, "_naver_search_headers", lambda: None)
+        monkeypatch.setattr(route_builder, "_naver_headers", lambda: None)
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: None)
+
+        hint = route_builder.missing_source_hint()
+        assert hint is not None and "상호" in hint
+
+    def test_hint_mentions_tmap_when_only_tmap_missing(self, monkeypatch):
+        monkeypatch.setattr(route_builder, "_kakao_headers", lambda: None)
+        monkeypatch.setattr(route_builder, "_naver_search_headers", lambda: {"a": "b"})
+        monkeypatch.setattr(route_builder, "_naver_headers", lambda: {"a": "b"})
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: None)
+
+        hint = route_builder.missing_source_hint()
+        assert hint is not None and "TMAP" in hint
+
+    def test_no_hint_when_all_sources_available(self, monkeypatch):
+        monkeypatch.setattr(route_builder, "_kakao_headers", lambda: {"Authorization": "KakaoAK x"})
+        monkeypatch.setattr(route_builder, "_naver_search_headers", lambda: {"a": "b"})
+        monkeypatch.setattr(route_builder, "_naver_headers", lambda: {"a": "b"})
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: "k")
+
+        assert route_builder.missing_source_hint() is None
+
+
+class TestEnvLineParsing:
+    """마스터 .env 파싱 — 조용히 틀린 값을 만들어 인증만 실패하던 경로."""
+
+    def test_strips_quotes_around_value(self):
+        # TOML 습관대로 따옴표를 씌우면, 벗기지 않는 한 `"abc"` 가 그대로 키로 나간다
+        assert route_builder._parse_env_line('KEY="abc123"') == ("KEY", "abc123")
+        assert route_builder._parse_env_line("KEY='abc123'") == ("KEY", "abc123")
+
+    def test_allows_spaces_around_equals(self):
+        assert route_builder._parse_env_line('TMAP_APP_KEY = "abc"') == ("TMAP_APP_KEY", "abc")
+
+    def test_plain_value_unchanged(self):
+        assert route_builder._parse_env_line("KEY=abc123") == ("KEY", "abc123")
+
+    def test_skips_comments_and_blanks(self):
+        assert route_builder._parse_env_line("# KEY=abc") is None
+        assert route_builder._parse_env_line("") is None
+        assert route_builder._parse_env_line("   ") is None
+        assert route_builder._parse_env_line("KEY_WITHOUT_EQUALS") is None
+
+    def test_keeps_inner_quotes(self):
+        # 양끝이 짝이 아닐 때는 건드리지 않는다
+        assert route_builder._parse_env_line('KEY="abc') == ("KEY", '"abc')
+
+
+class TestMisnamedKeyHints:
+    """키 이름 오타는 '키 없음'과 화면에서 구별되지 않아 원인 찾기가 매우 어렵다.
+
+    실제 사고: NAVER_SEARCH_CLIENT_ID_ID 로 넣어 두고 "다 넣었는데 왜 안 되냐"로 헤맴.
+    """
+
+    def test_flags_doubled_suffix_typo(self):
+        hints = route_builder.misnamed_key_hints({"NAVER_SEARCH_CLIENT_ID_ID"})
+
+        assert len(hints) == 1
+        assert "NAVER_SEARCH_CLIENT_ID_ID" in hints[0]
+        assert "NAVER_SEARCH_CLIENT_ID" in hints[0]
+
+    def test_flags_prefix_typo(self):
+        hints = route_builder.misnamed_key_hints({"MY_TMAP_APP_KEY"})
+
+        assert any("TMAP_APP_KEY" in h for h in hints)
+
+    def test_silent_when_name_is_correct(self):
+        assert route_builder.misnamed_key_hints({"NAVER_SEARCH_CLIENT_ID"}) == []
+
+    def test_correct_name_wins_even_if_typo_also_present(self):
+        # 고친 뒤 옛 줄이 남아 있어도 다시 경고하지 않는다
+        have = {"NAVER_SEARCH_CLIENT_ID", "NAVER_SEARCH_CLIENT_ID_ID"}
+
+        assert route_builder.misnamed_key_hints(have) == []
+
+    def test_silent_when_nothing_configured(self):
+        assert route_builder.misnamed_key_hints(set()) == []
+
+    def test_unrelated_names_are_not_flagged(self):
+        assert route_builder.misnamed_key_hints({"PATH", "HOME", "KAKAO_REST_API_KEY"}) == []
+
+
+class TestKakaoLocal:
+    """카카오 로컬(장소) 파싱 — 좌표 규약이 네이버와 반대라 여기서 어긋나면 오안내가 된다."""
+
+    SEOUL = {"x": "126.9780", "y": "37.5665"}
+
+    def test_x_is_longitude_y_is_latitude(self):
+        hits = route_builder._parse_kakao_documents(
+            [{**self.SEOUL, "place_name": "서울시청"}], 5, "시청")
+
+        assert len(hits) == 1
+        coord, _ = hits[0]
+        assert abs(coord.latitude - 37.5665) < 1e-4
+        assert abs(coord.longitude - 126.9780) < 1e-4
+
+    def test_display_is_address_then_place_like_naver(self):
+        hits = route_builder._parse_kakao_documents(
+            [{**self.SEOUL, "place_name": "동네치킨",
+              "road_address_name": "서울 중구 세종대로 110"}], 5, "치킨")
+
+        assert hits[0][1] == "서울 중구 세종대로 110 동네치킨"
+
+    def test_falls_back_to_jibun_address(self):
+        hits = route_builder._parse_kakao_documents(
+            [{**self.SEOUL, "place_name": "가게", "address_name": "서울 중구 태평로1가 31"}],
+            5, "가게")
+
+        assert hits[0][1] == "서울 중구 태평로1가 31 가게"
+
+    def test_drops_coordinates_outside_korea(self):
+        # x/y 를 뒤집어 보낸 응답 — 그대로 쓰면 엉뚱한 곳으로 안내한다
+        hits = route_builder._parse_kakao_documents(
+            [{"x": "37.5665", "y": "126.9780", "place_name": "뒤집힘"}], 5, "x")
+
+        assert hits == []
+
+    def test_drops_unparsable_coordinates(self):
+        assert route_builder._parse_kakao_documents([{"place_name": "좌표없음"}], 5, "x") == []
+        assert route_builder._parse_kakao_documents(
+            [{"x": "abc", "y": "def", "place_name": "이상"}], 5, "x") == []
+
+    def test_respects_limit(self):
+        docs = [{**self.SEOUL, "place_name": f"가게{i}"} for i in range(10)]
+
+        assert len(route_builder._parse_kakao_documents(docs, 3, "가게")) == 3
+
+    def test_uses_query_when_no_name_or_address(self):
+        assert route_builder._parse_kakao_documents([dict(self.SEOUL)], 5, "빈검색")[0][1] == "빈검색"
+
+    def test_skipped_entirely_without_key(self, monkeypatch):
+        monkeypatch.setattr(route_builder, "_kakao_headers", lambda: None)
+
+        assert route_builder._kakao_local_hits("치킨") == []
+
+
+class TestStorefrontSourcesInterleave:
+    """상호 소스(카카오·네이버)를 번갈아 섞는다.
+
+    한쪽을 앞에 몰아 넣으면 limit 에 막혀 다른 쪽 결과가 아예 안 보인다 — 한 소스가
+    못 찾는 가게를 다른 쪽이 찾는 게 소스를 둘 두는 이유인데, 그 이점이 사라진다.
+    """
+
+    @staticmethod
+    def _coord(i: int):
+        return route_builder.Coordinate(latitude=37.5 + i * 0.01, longitude=127.0 + i * 0.01)
+
+    def _patch(self, monkeypatch, kakao, naver):
+        monkeypatch.setattr(route_builder, "_kakao_local_hits",
+                            lambda q, limit=5, center=None: kakao)
+        monkeypatch.setattr(route_builder, "_naver_local_hits", lambda q, limit=5: naver)
+        monkeypatch.setattr(route_builder, "_naver_suggestion_hits", lambda q, limit: [])
+        monkeypatch.setattr(route_builder, "_tmap_addr_results", lambda q, limit=5: [])
+        monkeypatch.setattr(route_builder, "_tmap_poi_results",
+                            lambda q, limit=5, center=None: [])
+
+    def test_alternates_between_sources(self, monkeypatch):
+        self._patch(
+            monkeypatch,
+            kakao=[(self._coord(0), "카카오1"), (self._coord(1), "카카오2")],
+            naver=[(self._coord(2), "네이버1"), (self._coord(3), "네이버2")],
+        )
+
+        got = [display for _, display in route_builder.geocode_suggestions("치킨", limit=8)]
+
+        assert got == ["카카오1", "네이버1", "카카오2", "네이버2"]
+
+    def test_one_empty_source_does_not_leave_gaps(self, monkeypatch):
+        self._patch(monkeypatch, kakao=[],
+                    naver=[(self._coord(0), "네이버1"), (self._coord(1), "네이버2")])
+
+        got = [display for _, display in route_builder.geocode_suggestions("치킨", limit=8)]
+
+        assert got == ["네이버1", "네이버2"]
+
+    def test_storefront_sources_come_before_addresses(self, monkeypatch):
+        monkeypatch.setattr(route_builder, "_kakao_local_hits",
+                            lambda q, limit=5, center=None: [(self._coord(0), "동네치킨")])
+        monkeypatch.setattr(route_builder, "_naver_local_hits", lambda q, limit=5: [])
+        monkeypatch.setattr(route_builder, "_naver_suggestion_hits",
+                            lambda q, limit: [(self._coord(5), "서울 중구 어딘가")])
+        monkeypatch.setattr(route_builder, "_tmap_addr_results", lambda q, limit=5: [])
+        monkeypatch.setattr(route_builder, "_tmap_poi_results",
+                            lambda q, limit=5, center=None: [])
+
+        got = [display for _, display in route_builder.geocode_suggestions("치킨", limit=8)]
+
+        assert got[0] == "동네치킨"
+
+
+class TestKakaoInSourceStatus:
+    def test_status_includes_kakao(self, monkeypatch):
+        monkeypatch.setattr(route_builder, "_kakao_headers", lambda: {"Authorization": "KakaoAK x"})
+        monkeypatch.setattr(route_builder, "_naver_search_headers", lambda: None)
+        monkeypatch.setattr(route_builder, "_naver_headers", lambda: None)
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: None)
+
+        assert route_builder.search_source_status()["kakao_local"] is True
+
+    def test_no_storefront_hint_when_only_kakao_is_on(self, monkeypatch):
+        # 카카오만 있어도 가게 검색은 된다 — 굳이 경고하지 않는다
+        monkeypatch.setattr(route_builder, "_kakao_headers", lambda: {"Authorization": "KakaoAK x"})
+        monkeypatch.setattr(route_builder, "_naver_search_headers", lambda: None)
+        monkeypatch.setattr(route_builder, "_naver_headers", lambda: {"a": "b"})
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: "k")
+
+        assert route_builder.missing_source_hint() is None
+
+    def test_hint_when_both_storefront_sources_are_off(self, monkeypatch):
+        monkeypatch.setattr(route_builder, "_kakao_headers", lambda: None)
+        monkeypatch.setattr(route_builder, "_naver_search_headers", lambda: None)
+        monkeypatch.setattr(route_builder, "_naver_headers", lambda: {"a": "b"})
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: "k")
+
+        hint = route_builder.missing_source_hint()
+        assert hint is not None and "상호" in hint
+
+    def test_kakao_key_typo_is_flagged(self):
+        hints = route_builder.misnamed_key_hints({"KAKAO_REST_API_KEY_ID"})
+
+        assert any("KAKAO_REST_API_KEY" in h for h in hints)
+
+
+class TestKakaoSortMode:
+    """카카오는 정렬 기본값(accuracy)을 써야 한다.
+
+    실측(2026-08-04, 서울시청 기준):
+      sort=distance → 경복궁: 쏘아베에스테틱 / 강남역: 바른명상연구소  (관련도 무시)
+      sort=accuracy → 경복궁: 경복궁        / 강남역: 강남역 2호선
+      'CU편의점' 같은 체인은 두 모드 결과가 같았다 — x/y 가 위치 편향으로 반영되므로
+      거리순으로 강제해서 얻는 것이 없고, 랜드마크 검색만 망가진다.
+    """
+
+    def _captured_params(self, monkeypatch, center):
+        seen = {}
+
+        class _Resp:
+            status_code = 200
+
+            @staticmethod
+            def json():
+                return {"documents": []}
+
+        def fake_get(url, params=None, headers=None, timeout=None):
+            seen.update(params or {})
+            return _Resp()
+
+        monkeypatch.setattr(route_builder, "_kakao_headers", lambda: {"Authorization": "KakaoAK x"})
+        monkeypatch.setattr(route_builder.requests, "get", fake_get)
+        route_builder._kakao_local_hits("경복궁", limit=5, center=center)
+        return seen
+
+    def test_never_forces_distance_sort(self, monkeypatch):
+        center = route_builder.Coordinate(latitude=37.5665, longitude=126.978)
+
+        params = self._captured_params(monkeypatch, center)
+
+        assert params.get("sort") != "distance"
+        assert "x" in params and "y" in params    # 위치 편향은 유지한다
+
+    def test_omits_coordinates_without_center(self, monkeypatch):
+        params = self._captured_params(monkeypatch, None)
+
+        assert "x" not in params and "y" not in params
+
+
+class TestTmapPoiSortMix:
+    """TMAP POI 는 정확도순과 거리순을 함께 받아 섞어야 한다.
+
+    배포본 실측(2026-08-04, 서울시청 기준): 거리순만 쓰면 '경복궁' 검색에 경복궁이
+    아예 안 나오고 '경복궁 참치 / 고려주차장 / 종각컨설팅부동산중개'가 떴다.
+    옛 코드는 거리순이 '완전히 비었을 때만' 정확도순으로 폴백했는데, 거리순은 근처
+    아무거나로 늘 채워지므로 그 폴백이 사실상 발동하지 않았다.
+    """
+
+    @staticmethod
+    def _poi(name: str, lat: float, lon: float) -> dict:
+        return {"name": name, "frontLat": str(lat), "frontLon": str(lon),
+                "upperAddrName": "서울"}
+
+    def _fake_tmap(self, monkeypatch, by_sort: dict[str, list]):
+        calls: list[str] = []
+
+        class _Resp:
+            def __init__(self, pois):
+                self.status_code = 200
+                self._pois = pois
+
+            def json(self):
+                return {"searchPoiInfo": {"pois": {"poi": self._pois}}}
+
+        def fake_get(url, params=None, headers=None, timeout=None):
+            sort = (params or {}).get("searchtypCd", "?")
+            calls.append(sort)
+            return _Resp(by_sort.get(sort, []))
+
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: "k")
+        monkeypatch.setattr(route_builder.requests, "get", fake_get)
+        return calls
+
+    def test_queries_both_sorts_when_center_given(self, monkeypatch):
+        calls = self._fake_tmap(monkeypatch, {})
+        center = route_builder.Coordinate(latitude=37.5665, longitude=126.978)
+
+        route_builder._tmap_poi_results("경복궁", limit=5, center=center)
+
+        assert "A" in calls and "R" in calls   # 거리순만 쓰지 않는다
+
+    def test_landmark_from_accuracy_survives_nearby_noise(self, monkeypatch):
+        # 거리순이 근처 잡음으로 가득 차도 정확도순 1위(경복궁)가 맨 앞에 남아야 한다
+        self._fake_tmap(monkeypatch, {
+            "A": [self._poi("경복궁", 37.5796, 126.9770)],
+            "R": [self._poi("경복궁 참치", 37.5706, 126.9798),
+                  self._poi("고려주차장", 37.5706, 126.9749)],
+        })
+        center = route_builder.Coordinate(latitude=37.5665, longitude=126.978)
+
+        got = [d for _, d in route_builder._tmap_poi_results("경복궁", limit=5, center=center)]
+
+        assert got[0].endswith("경복궁")
+        assert any("경복궁 참치" in d for d in got)   # 근처 후보도 버리지 않는다
+
+    def test_only_accuracy_without_center(self, monkeypatch):
+        calls = self._fake_tmap(monkeypatch, {"A": [self._poi("경복궁", 37.5796, 126.977)]})
+
+        route_builder._tmap_poi_results("경복궁", limit=5, center=None)
+
+        assert calls == ["A"]   # 위치를 모르면 거리순은 의미가 없다
+
+    def test_same_place_from_both_sorts_appears_once(self, monkeypatch):
+        same = self._poi("경복궁", 37.5796, 126.9770)
+        self._fake_tmap(monkeypatch, {"A": [same], "R": [same]})
+        center = route_builder.Coordinate(latitude=37.5665, longitude=126.978)
+
+        got = route_builder._tmap_poi_results("경복궁", limit=5, center=center)
+
+        assert len(got) == 1
+
+    def test_respects_limit(self, monkeypatch):
+        self._fake_tmap(monkeypatch, {
+            "A": [self._poi(f"A{i}", 37.5 + i / 100, 127.0) for i in range(5)],
+            "R": [self._poi(f"R{i}", 37.6 + i / 100, 127.0) for i in range(5)],
+        })
+        center = route_builder.Coordinate(latitude=37.5665, longitude=126.978)
+
+        got = route_builder._tmap_poi_results("가게", limit=3, center=center)
+
+        assert len(got) == 3

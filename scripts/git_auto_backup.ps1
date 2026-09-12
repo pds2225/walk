@@ -1,56 +1,15 @@
-﻿# Git Auto Backup (Stash-Pull-Pop Safe Mode) for walk
-$repoPath = "D:\walk"
-$logFile = "D:\walk\.git-auto-backup.log"
-$intervalSeconds = 300
+# walk 자동 커밋·push 작업은 2026-07-28부터 안전을 위해 격리되었습니다.
+#
+# 과거 스크립트는 main에서 stash/pull/pop/add/commit/push를 반복해 빈 커밋,
+# worktree 파일 유입, 백업 브랜치 장기 분기를 만들 수 있었습니다. 이 파일은 기존
+# 스케줄러가 같은 경로를 호출하더라도 Git 상태를 변경하지 않도록 의도적으로
+# fail-closed 상태를 유지합니다.
+#
+# 백업이 필요하면 Git 브랜치를 자동으로 변경하지 않는 파일 단위 백업 도구를 별도로
+# 설계하고, 저장 위치·보존기간·복원 테스트를 검토한 뒤 새 스크립트로 도입하세요.
 
-function Write-Log($msg) {
-    $line = "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')  $msg"
-    Write-Host $line
-    $line | Add-Content $logFile -Encoding UTF8
-}
+[CmdletBinding()]
+param()
 
-Set-Location $repoPath
-Write-Log "=== Git Auto Backup Started ==="
-Write-Log "Repository: $repoPath"
-Write-Log ""
-
-while ($true) {
-    try {
-        Set-Location $repoPath
-        $branch = git rev-parse --abbrev-ref HEAD 2>$null
-        if ($branch -ne "main") { Write-Log "[SKIP] branch=$branch"; Start-Sleep $intervalSeconds; continue }
-        git fetch origin main --quiet 2>$null
-        $status = git status --short 2>$null
-        if ([string]::IsNullOrWhiteSpace($status)) {
-            Write-Log "[CHECK] No local changes."
-        } else {
-            $changeCount = ($status -split "`n" | Where-Object { $_.Trim() -ne "" }).Count
-            Write-Log "[BACKUP] $changeCount changed file(s)."
-            $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-            if (Test-Path "$epoPath\.git-auto-backup.log") { Remove-Item "$epoPath\.git-auto-backup.log" -Force }
-            git stash push -m "auto-backup-stash-$timestamp" --include-untracked 2>$null
-            if ($LASTEXITCODE -ne 0) { throw "git stash failed" }
-            Write-Log "[STASH] Saved."
-            $behind = git rev-list --count HEAD..origin/main 2>$null
-            if ($behind -gt 0) {
-                Write-Log "[PULL] origin/main is $behind ahead."
-                git pull origin main --quiet 2>$null
-                if ($LASTEXITCODE -ne 0) { Write-Log "[ERROR] pull failed"; git stash pop 2>$null; exit 1 }
-                Write-Log "[PULL] Synced."
-            }
-            git stash pop 2>$null
-            if ($LASTEXITCODE -ne 0) { Write-Log "[ERROR] pop failed"; exit 1 }
-            Write-Log "[POP] Restored."
-            $conflicts = git diff --name-only --diff-filter=U 2>$null
-            if ($conflicts) { Write-Log "[CONFLICT] $conflicts"; exit 1 }
-            git add -A 2>$null
-            git commit -m "auto-backup: $timestamp" 2>$null
-            if ($LASTEXITCODE -ne 0) { throw "commit failed" }
-            git push origin main 2>$null
-            if ($LASTEXITCODE -ne 0) { throw "push failed" }
-            Write-Log "[DONE] Pushed."
-        }
-    } catch { Write-Log "[ERROR] $_" }
-    Start-Sleep -Seconds $intervalSeconds
-}
-
+Write-Warning "walk git auto-backup is disabled. No files, commits, branches, or remotes were changed."
+exit 2

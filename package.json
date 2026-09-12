@@ -4,6 +4,10 @@
   "private": true,
   "description": "Pedestrian route deviation detection engine for walking navigation",
   "type": "module",
+  "workspaces": [
+    "packages/*",
+    "web"
+  ],
   "scripts": {
     "test": "vitest",
     "test:run": "vitest run",
@@ -11,11 +15,14 @@
     "typecheck": "tsc --noEmit",
     "simulate": "tsx packages/route-engine/src/simulator/runSimulator.ts",
     "web:install": "python streamlit_walk_engine/install_requirements.py",
-    "web:demo": "python streamlit_walk_engine/run_demo.py"
+    "web:demo": "python streamlit_walk_engine/run_demo.py",
+    "next:dev": "npm run dev --workspace web",
+    "next:build": "npm run build --workspace web"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/node": "^25.6.0",
+    "@vitejs/plugin-react": "^5.2.0",
     "eslint": "^10.2.0",
     "globals": "^17.5.0",
     "tsx": "^4.20.6",

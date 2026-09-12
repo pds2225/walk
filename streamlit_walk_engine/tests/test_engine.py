@@ -235,3 +235,91 @@ class TestSessionBehavior:
 
         assert engine._session.consecutive_threshold_breaches == 1
         assert engine._session.drift_start_timestamp_ms == 3_000
+
+
+class TestDriftHysteresis:
+    """임계선(기본 10m) 위를 걸을 때 판정이 매 표본 뒤집히지 않아야 한다."""
+
+    def test_stays_drifting_between_exit_and_entry_thresholds(self):
+        # 11m 로 진입한 뒤 9m(복귀 임계 8m 바깥)로 들어와도 아직 '경로 위'가 아니다.
+        engine = RouteDeviationEngine(straight_route())
+        entered = engine.process_sample(sample(20, 11, 90, 1_000))
+        held = engine.process_sample(sample(24, 9, 90, 2_000))
+
+        assert entered.state == "drifting"
+        assert held.state == "drifting"
+
+    def test_returns_to_on_route_inside_exit_threshold(self):
+        # 복귀 임계(8m) 안쪽으로 들어오면 정상적으로 '경로 위'로 돌아온다.
+        engine = RouteDeviationEngine(straight_route())
+        engine.process_sample(sample(20, 11, 90, 1_000))
+        recovered = engine.process_sample(sample(24, 7, 90, 2_000))
+
+        assert recovered.state == "on_route"
+
+    def test_threshold_line_walking_does_not_flap(self):
+        # 9~11m 를 오가며 걸어도 on_route 로 되돌아가며 깜빡이지 않는다.
+        engine = RouteDeviationEngine(straight_route())
+        states = [
+            engine.process_sample(sample(east, north, 90, ts)).state
+            for east, north, ts in (
+                (20, 11, 1_000), (23, 9, 2_000), (26, 11, 3_000),
+                (29, 9, 4_000), (32, 11, 5_000),
+            )
+        ]
+
+        assert states.count("on_route") == 0
+
+    def test_hysteresis_can_be_disabled_by_config(self):
+        # 비율 1.0 = 히스테리시스 없음(옛 동작) — 9m 에서 곧바로 경로 위로 판정.
+        engine = RouteDeviationEngine(
+            straight_route(), EngineConfig(drift_exit_hysteresis_ratio=1.0)
+        )
+        engine.process_sample(sample(20, 11, 90, 1_000))
+        recovered = engine.process_sample(sample(24, 9, 90, 2_000))
+
+        assert recovered.state == "on_route"
+
+
+class TestStraightRoadBackAndForth:
+    """직진길에서 왔다갔다·서성임을 이탈로 판정하지 않는다."""
+
+    def test_walking_back_and_forth_on_route_never_deviates(self):
+        # 경로 위(코리도 안)에서 진행 방향만 앞뒤로 뒤집는 경우 — 재탐색 대상이 아니다.
+        engine = RouteDeviationEngine(straight_route())
+        states = [
+            engine.process_sample(sample(east, 3, heading, ts)).state
+            for east, heading, ts in (
+                (20, 90, 1_000), (24, 90, 2_000), (20, 270, 3_000),
+                (16, 270, 4_000), (20, 90, 5_000), (25, 90, 6_000),
+            )
+        ]
+
+        assert "deviated" not in states
+
+    def test_reversed_heading_beside_route_stays_drifting(self):
+        # 12m 옆(경고 시작~이탈 확정 사이)에서 뒤돌아 걸어도 '주의'까지만 — 거리 기준 미달.
+        engine = RouteDeviationEngine(straight_route())
+        engine.process_sample(sample(20, 12, 270, 1_000))
+        engine.process_sample(sample(24, 12, 270, 3_000))
+        result = engine.process_sample(sample(28, 12, 270, 5_000))
+
+        assert result.state == "drifting"
+        assert result.suggested_next_action == "monitor"
+
+    def test_standing_still_heading_noise_is_not_a_heading_conflict(self):
+        # 제자리(속도 0.1m/s)에서 heading 이 뒤집혀도 방향 충돌로 세지 않는다.
+        engine = RouteDeviationEngine(straight_route())
+        result = engine.process_sample(sample(20, 7, 270, 1_000, speed=0.1))
+
+        assert result.state == "on_route"
+        assert "heading_conflicts_with_route" not in result.reasons
+
+    def test_real_distance_breach_still_deviates(self):
+        # 완화가 '진짜 이탈'까지 놓치지 않는지 — 18m 옆으로 계속 벗어나면 그대로 이탈.
+        engine = RouteDeviationEngine(straight_route())
+        engine.process_sample(sample(20, 18, 90, 1_000))
+        engine.process_sample(sample(25, 18, 90, 3_000))
+        result = engine.process_sample(sample(30, 18, 90, 5_000))
+
+        assert result.state == "deviated"
