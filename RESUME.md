@@ -7,6 +7,7 @@
 - [x] 현재 브랜치·미커밋 변경·전체 worktree·stash·원격 `main` SHA와 열린 PR 확인 상태를 점검했다. GitHub PR 조회는 `gh` 인증 만료(HTTP 401)로 확인하지 못했다.
 - [x] 로컬 변경 중 실제 프로젝트 파일·문서 8개를 `backup/local-before-main-sync-20260912` 브랜치의 커밋 `544dc58`로 보존하고, 커밋 메시지에 동기화 전 보존 메모를 남겼다.
 - [x] `main`에 `git pull --ff-only origin main`을 실행해 `9c943ef`까지 fast-forward 완료했다. 현재 `HEAD...origin/main`은 `0 0`이다.
+- [x] 일반 실행 위치 테스트는 로컬 Secret 자동 로딩·임시폴더 권한 때문에 실패했으나, 격리 실행 위치에서 `598 passed`를 확인하고 이번 실행의 임시 폴더 2개를 삭제했다.
 - 핵심 제약: `.claude/worktrees`·`.worktrees`의 생성 파일 2,392개와 런타임 표시 파일은 커밋·삭제하지 않고 원래 위치에 보존했다.
 
 ## 0. 30초 컨텍스트
