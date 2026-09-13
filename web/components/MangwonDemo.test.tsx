@@ -11,12 +11,15 @@ vi.mock("./RoadviewViewer", () => ({
 describe("MangwonDemo", () => {
   afterEach(() => cleanup());
 
-  it("실제 점포 목록과 확인 전 데이터를 표시한다", () => {
+  it("실제 점포 목록과 구매 메뉴·가격을 표시한다", () => {
     render(<MangwonDemo onStartWalking={vi.fn()} />);
 
     expect(screen.getByRole("heading", { name: "망원시장 리얼데이터" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "훈훈호떡" })).toBeTruthy();
-    expect(screen.getAllByText("확인 중").length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByTestId("mangwon-purchase-info")).toBeTruthy();
+    expect(screen.getByText("옥수수호떡")).toBeTruthy();
+    expect(within(screen.getByTestId("mangwon-purchase-info")).getAllByText("1,500원").length).toBeGreaterThan(0);
+    expect(screen.getByText("공개 메뉴 정보 기준 · 가격과 재고는 현장에서 다시 확인")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Google Street View로 현장 확인" })).toBeTruthy();
   });
 

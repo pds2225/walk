@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import RoadviewViewer from "./RoadviewViewer";
 import { GoogleStreetViewAdapter } from "../lib/roadview";
-import { MANGWON_STORES, type MangwonStore } from "../lib/mangwonStores";
+import { MANGWON_STORES, type MangwonStore, type StoreProduct } from "../lib/mangwonStores";
 import type { Coordinate } from "../lib/types";
 
 interface MangwonDemoProps {
@@ -43,6 +43,24 @@ function streetViewLabel(store: MangwonStore): string {
 
 function unknownLabel(value: string | null): string {
   return value ?? "확인 중";
+}
+
+function priceLabel(product: StoreProduct): string {
+  if (product.priceKrw !== null) return `${product.priceKrw.toLocaleString("ko-KR")}원`;
+  return product.priceLabel ?? "가격 확인 필요";
+}
+
+function purchaseMethodLabel(store: MangwonStore): string {
+  const methods: string[] = [];
+  if (store.purchaseInfo.takeout === true) methods.push("포장");
+  if (store.purchaseInfo.dineIn === true) methods.push("매장 식사");
+  return methods.length > 0 ? methods.join(" · ") : "구매 방식 확인 필요";
+}
+
+function productSummary(store: MangwonStore): string {
+  if (store.products.length === 0) return "확인 중";
+  const names = store.products.slice(0, 3).map((item) => item.nameKo).join(", ");
+  return store.products.length > 3 ? `${names} 외 ${store.products.length - 3}개` : names;
 }
 
 export default function MangwonDemo({ onStartWalking }: MangwonDemoProps) {
@@ -143,11 +161,46 @@ export default function MangwonDemo({ onStartWalking }: MangwonDemoProps) {
           </div>
           <div>
             <dt>메뉴·가격</dt>
-            <dd>{selected.products.length > 0 ? selected.products.join(", ") : "확인 중"}</dd>
+            <dd>{productSummary(selected)}</dd>
+          </div>
+          <div>
+            <dt>구매 방식</dt>
+            <dd>{purchaseMethodLabel(selected)}</dd>
+          </div>
+          <div>
+            <dt>전화</dt>
+            <dd>{selected.phone ? <a href={`tel:${selected.phone}`}>{selected.phone}</a> : "확인 중"}</dd>
           </div>
         </dl>
 
         <p className="mangwon-disclosure">{selected.verification.memo}</p>
+
+        <div className="mangwon-purchase-box" data-testid="mangwon-purchase-info">
+          <div className="mangwon-purchase-heading">
+            <div>
+              <h4>구매 가능한 메뉴</h4>
+              <p>공개 메뉴 정보 기준 · 가격과 재고는 현장에서 다시 확인</p>
+            </div>
+            <span>{selected.products.length}개</span>
+          </div>
+          {selected.products.length > 0 ? (
+            <div className="mangwon-product-list">
+              {selected.products.map((item) => (
+                <div className="mangwon-product-item" key={`${selected.id}-${item.nameKo}`}>
+                  <div>
+                    <strong>{item.nameKo}</strong>
+                    {item.descriptionKo ? <small>{item.descriptionKo}</small> : null}
+                  </div>
+                  <span>{priceLabel(item)}</span>
+                  {item.priceLabel && item.priceKrw !== null ? <small className="mangwon-price-note">{item.priceLabel}</small> : null}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="mangwon-empty-products">메뉴 정보를 확인 중입니다.</p>
+          )}
+          {selected.purchaseInfo.orderNote ? <p className="mangwon-order-note">주문 참고: {selected.purchaseInfo.orderNote}</p> : null}
+        </div>
 
         {streetViewOpen ? (
           <RoadviewViewer

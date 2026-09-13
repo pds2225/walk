@@ -478,6 +478,88 @@ html, body {
   font-size: 12px;
   line-height: 1.5;
 }
+.mangwon-purchase-box {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid #eadfce;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .82);
+}
+.mangwon-purchase-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+.mangwon-purchase-heading h4 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 15px;
+}
+.mangwon-purchase-heading p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+.mangwon-purchase-heading > span {
+  flex: 0 0 auto;
+  color: var(--blue);
+  font-size: 12px;
+  font-weight: 800;
+}
+.mangwon-product-list {
+  display: grid;
+  max-height: 360px;
+  gap: 7px;
+  margin: 11px 0 0;
+  padding: 0 4px 0 0;
+  overflow-y: auto;
+  list-style: none;
+}
+.mangwon-product-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 8px;
+  padding-bottom: 7px;
+  border-bottom: 1px solid #f0e9df;
+}
+.mangwon-product-item > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.mangwon-product-list strong {
+  color: var(--ink);
+  font-size: 12px;
+  word-break: keep-all;
+}
+.mangwon-product-item > span {
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.mangwon-product-list small {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.35;
+}
+.mangwon-product-list .mangwon-price-note {
+  grid-column: 1 / -1;
+  color: #9a5a1a;
+}
+.mangwon-empty-products,
+.mangwon-order-note {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+.mangwon-order-note {
+  padding-top: 9px;
+  border-top: 1px solid #f0e9df;
+}
 .mangwon-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;

@@ -952,19 +952,19 @@ PR =
 
 ## Implementation completion
 
-- `web/lib/mangwonStores.ts`: 명세의 5개 점포에 대해 실제 Google 대표 좌표, 출처, nullable 상세정보, `navigationTarget`의 `FIELD_CHECK_REQUIRED`, Street View 품질·pano 캐시·검증 메모를 저장했다. 공식 목록과 상호가 다른 `큐스닭강정`은 `officialSource = null`로 유지했다.
-- `web/components/MangwonDemo.tsx`: 실제 좌표 기반 망원시장 구간 선택 UI, 점포 상세, 미확인 정보 상태 표시, 기존 K-Navi `startWalking` 연결, Google Street View 전용 viewer 연결을 추가했다. 화면 배치 좌표와 navigation 좌표를 분리했다.
-- `web/app/page.tsx`, `web/app/globals.css`: 기존 홈 구조를 유지한 채 Demo를 최소 삽입하고 모바일 카드·상세·fallback UI를 추가했다.
+- `web/lib/mangwonStores.ts`: 명세의 5개 점포에 대해 실제 Google 대표 좌표, 출처, 메뉴별 가격·설명, 영업시간, 전화, 포장/매장 이용 정보를 구조화했다. 메뉴·가격은 공개 지도 정보 기준으로 저장하고 변동·출처 충돌은 메모로 표시했다. 공식 목록과 상호가 다른 `큐스닭강정`은 `officialSource = null`로 유지했다.
+- `web/components/MangwonDemo.tsx`, `web/app/globals.css`: 기존 좌표·상세·Street View·K-Navi 흐름을 유지하면서 선택 점포의 메뉴별 가격, 구매 방식, 전화, 주문 참고를 상세 화면에 추가했다. 화면 배치 좌표와 navigation 좌표는 계속 분리했다.
+- `web/app/page.tsx`: 기존 홈 구조와 Demo 삽입 상태를 유지했다.
 - Google API key/billing/domain restriction은 사람의 외부 설정이므로 `EXTERNAL_ACTION_REQUIRED`로 남겼다. 키가 없는 로컬 브라우저에서는 Google viewer가 오류 없이 지도 안내 fallback으로 전환됨을 확인했다.
 
 ## Verification completion
 
-- `npm run test:run -- --reporter=dot`: 17 files / 139 tests passed.
+- `npm run test:run -- --reporter=dot`: 17 files / 140 tests passed.
 - `npm run typecheck`: passed.
 - `npm run lint`: passed.
 - `npm run next:build`: passed.
 - `Set-Location D:\; python -m pytest D:\walk\streamlit_walk_engine\tests -q`: 598 passed. Repo root에서 실행하면 로컬 Streamlit secret이 노출되지 않는 기존 환경 테스트가 1건 실패하므로, secrets 파일을 읽지 않는 `D:\` cwd에서 재검증했다.
-- Local browser smoke: 5개 점포 표시 → `우이락 망원본점` 선택 → 실제 좌표/확인 중 상태 표시 → Google Street View viewer 진입 → key 미설정 fallback 확인.
+- Local browser smoke: 5개 점포 표시 → `우이락 망원본점` 선택 → 메뉴 48개·가격·전화 표시 → Google Street View viewer 진입 → key 미설정 fallback 확인.
 
 ## Final state
 
