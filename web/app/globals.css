@@ -304,3 +304,201 @@ html, body {
   border-right: 5px solid transparent;
   border-bottom: 10px solid var(--blue);
 }
+
+/* ── 망원시장 리얼데이터 Demo ─────────────────────────────────────────── */
+.mangwon-demo {
+  margin: 18px 0 24px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: linear-gradient(180deg, #fffaf3 0%, #fff 42%);
+}
+.mangwon-demo-header,
+.mangwon-detail-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.mangwon-kicker {
+  margin: 0 0 4px;
+  color: #a15b16;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .12em;
+}
+.mangwon-demo h2,
+.mangwon-detail h3 { margin: 0; color: var(--ink); }
+.mangwon-demo h2 { font-size: 21px; }
+.mangwon-detail h3 { font-size: 23px; }
+.mangwon-demo-header p:last-child,
+.mangwon-detail-heading p:last-child {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.mangwon-status {
+  flex: 0 0 auto;
+  padding: 6px 8px;
+  border-radius: 999px;
+  background: #fff0d9;
+  color: #8d4e0e;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.mangwon-map {
+  position: relative;
+  height: 188px;
+  margin-top: 16px;
+  overflow: hidden;
+  border: 1px solid #e8ded1;
+  border-radius: 16px;
+  background-color: #f5eee3;
+  background-image: linear-gradient(115deg, transparent 0 47%, rgba(255,255,255,.9) 47% 53%, transparent 53%), linear-gradient(25deg, transparent 0 42%, rgba(255,255,255,.8) 42% 58%, transparent 58%);
+}
+.mangwon-map-road {
+  position: absolute;
+  left: -8%;
+  width: 116%;
+  height: 18px;
+  border-top: 2px solid rgba(161, 91, 22, .26);
+  border-bottom: 2px solid rgba(161, 91, 22, .16);
+  background: rgba(255, 255, 255, .68);
+  transform: rotate(-7deg);
+}
+.mangwon-map-road-a { top: 42%; }
+.mangwon-map-road-b { top: 67%; transform: rotate(12deg); }
+.mangwon-marker {
+  position: absolute;
+  z-index: 2;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 3px solid #fff;
+  border-radius: 50% 50% 50% 0;
+  background: #c66f2c;
+  color: #fff;
+  box-shadow: 0 2px 7px rgba(45, 31, 17, .25);
+  transform: translate(-50%, -100%) rotate(-45deg);
+  cursor: pointer;
+}
+.mangwon-marker span {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  font-size: 12px;
+  font-weight: 900;
+  transform: rotate(45deg);
+}
+.mangwon-marker.is-selected { background: var(--blue); }
+.mangwon-map-caption {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  left: 10px;
+  z-index: 3;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, .9);
+  color: var(--muted);
+  font-size: 11px;
+}
+.mangwon-map-caption strong { color: var(--ink); font-size: 12px; }
+.mangwon-store-list {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(92px, 1fr));
+  gap: 6px;
+  margin-top: 12px;
+  overflow-x: auto;
+}
+.mangwon-store-card {
+  display: flex;
+  width: 100%;
+  min-height: 82px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  padding: 9px 8px;
+  border: 1.5px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+.mangwon-store-card.is-selected { border-color: var(--blue); background: #f2f6ff; }
+.mangwon-store-number { color: var(--blue); font-size: 11px; font-weight: 900; }
+.mangwon-store-card-copy { display: grid; gap: 3px; }
+.mangwon-store-card-copy strong { font-size: 13px; word-break: keep-all; }
+.mangwon-store-card-copy span { color: var(--muted); font-size: 11px; }
+.mangwon-store-card-arrow { align-self: flex-end; color: var(--muted); font-size: 17px; line-height: 1; }
+.mangwon-detail {
+  margin-top: 12px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+.mangwon-quality {
+  max-width: 45%;
+  padding: 6px 8px;
+  border-radius: 9px;
+  background: #eef3ff;
+  color: var(--blue);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.35;
+  text-align: right;
+}
+.quality-available_but_not_useful { background: #fff4df; color: #8d4e0e; }
+.mangwon-facts {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0 0;
+}
+.mangwon-facts div {
+  display: grid;
+  grid-template-columns: 78px 1fr;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+.mangwon-facts dt { color: var(--muted); }
+.mangwon-facts dd { margin: 0; color: var(--ink); font-weight: 650; }
+.mangwon-disclosure {
+  margin: 12px 0 0;
+  padding: 10px;
+  border-radius: 10px;
+  background: #f8f9fb;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.mangwon-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 12px;
+}
+.mangwon-actions button {
+  min-height: 50px;
+  padding: 0 10px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.mangwon-secondary { border: 1.5px solid var(--line); background: #fff; color: var(--ink); }
+.mangwon-primary { border: 0; background: var(--blue); color: #fff; }
+
+@media (max-width: 520px) {
+  .mangwon-demo { padding: 13px; }
+  .mangwon-map-caption { display: block; }
+  .mangwon-map-caption span { display: block; margin-top: 2px; }
+  .mangwon-store-list { grid-template-columns: repeat(5, 112px); }
+  .mangwon-actions { grid-template-columns: 1fr; }
+}

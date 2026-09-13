@@ -9,6 +9,7 @@ import type { Coordinate, PlaceHit, RouteResponse } from "../lib/types";
 import { getUiText, LOCALE_OPTIONS, type Locale } from "../lib/i18n";
 import { primeSpeech } from "../lib/voice";
 import RoadviewViewer from "../components/RoadviewViewer";
+import MangwonDemo from "../components/MangwonDemo";
 import type { RoadviewProvider } from "../lib/roadview";
 import { selectRoadviewProvider } from "../lib/roadviewProviders";
 
@@ -435,6 +436,8 @@ export default function Home() {
       </div>
 
       <h1>{ui.homeTitle}</h1>
+
+      <MangwonDemo onStartWalking={(target) => void startWalking(target)} />
 
       <input
         className="dest-input"

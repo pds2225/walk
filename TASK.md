@@ -913,3 +913,62 @@ PR =
 2026-08-26~2026-09-09의 상세 구현·테스트·PR 기록은 Git commit/PR history에 남아 있다. 이 파일은 **현재 실행할 할 일과 현재 상태를 빠르게 읽을 수 있는 active source of truth**로 유지한다.
 
 과거 상세 기록이 필요하면 해당 PR/commit을 조회한다. 완료된 과거 TASK의 장문 로그를 다시 이 파일에 중복 누적하지 않는다.
+
+---
+
+# 17. MANGWON REAL DATA DEMO — FEASIBILITY GATE RECORD
+
+`TASK_ID = MANGWON-REAL-DATA-DEMO-V1`
+
+`STATUS = AUTO_CODE_COMPLETE + FIELD_VALIDATION_PENDING`
+
+`BRANCH = feat/mangwon-realdata-demo`
+
+`GATE_DATE = 2026-09-13 (Asia/Seoul)`
+
+`SOURCES = 망원시장 공식 점포 안내, Google Maps 장소 상세/좌표, Google Maps Street View 브라우저 probe, 기존 web 코드·테스트`
+
+## Gate result
+
+| 점포 | 실제 존재 | Google Place | Store 좌표 | Navigation Target | Street View | SV 품질 | 상세삽입 | Geolocation | K-Navi 연결 | 판정 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 훈훈호떡 | YES — 공식 점포 상세 + Google Maps | YES — `g/11qbc6cc09` | `37.5559174, 126.9063682` | YES — Google 대표점 좌표를 임시 접근점으로 사용, 출입구 현장확인은 `FIELD_CHECK_REQUIRED` | YES — 좌표 probe에서 Google pano `yySLIeZga7pxywbtwdPysw` 확인 | `CORRIDOR_VISIBLE` — 2018-04 Google pano, 점포 전면 일치 여부는 현장확인 필요 | YES — 기존 `RoadviewViewer`/Google adapter로 연결 가능 | YES — `getCurrentPositionOnce`/`useWatchPosition` | YES — `/api/route` + `useNavigation` | PARTIAL GO |
+| 맛있는집 | YES — 공식 점포 상세 + Google Maps | YES — `g/11ghrgwcv5` | `37.5561438, 126.906064` | YES — Google 대표점 좌표를 임시 접근점으로 사용, 출입구 현장확인은 `FIELD_CHECK_REQUIRED` | YES — 좌표 probe에서 Google pano `cnmzJ4_mqvF364sPtlMKhw` 확인 | `CORRIDOR_VISIBLE` — 2018-04 Google pano, 점포 전면 일치 여부는 현장확인 필요 | YES — 기존 `RoadviewViewer`/Google adapter로 연결 가능 | YES — 기존 geolocation hook | YES — 기존 routing/navigation 경로 | PARTIAL GO |
+| 부산대원어묵 | YES — 공식 점포 상세 + Google Maps | YES — `g/11f64dd61l` | `37.5562789, 126.9060128` | YES — Google 대표점 좌표를 임시 접근점으로 사용, 출입구 현장확인은 `FIELD_CHECK_REQUIRED` | YES — 인접 사용자 제작 pano만 probe됨 | `AVAILABLE_BUT_NOT_USEFUL` — Google UI가 “이곳에는 스트리트 뷰 이미지가 없습니다”로 표시 | YES — provider 실패 시 지도 안내 유지 | YES — 기존 geolocation hook | YES — 기존 routing/navigation 경로 | PARTIAL GO |
+| 큐스닭강정 | YES — Google Maps + DiningCode 교차 확인; 공식 시장 목록에는 동일 상호 대신 `망원닭강정` 표기가 확인됨 | YES — `g/11g722cl0z` | `37.5562557, 126.9062372` | YES — Google 대표점 좌표를 임시 접근점으로 사용, 출입구 현장확인은 `FIELD_CHECK_REQUIRED` | YES — 좌표 probe에서 Google pano `yySLIeZga7pxywbtwdPysw` 확인 | `CORRIDOR_VISIBLE` — 2018-04 Google pano, 점포 전면 일치 여부는 현장확인 필요 | YES — 기존 `RoadviewViewer`/Google adapter로 연결 가능 | YES — 기존 geolocation hook | YES — 기존 routing/navigation 경로 | PARTIAL GO |
+| 우이락 망원본점 | YES — 공식 시장 점포 `우이락` + Google Maps | YES — `g/11j2v4mk2r` | `37.5564530, 126.9059867` | YES — Google 대표점 좌표를 임시 접근점으로 사용, 출입구 현장확인은 `FIELD_CHECK_REQUIRED` | YES — 인접 사용자 제작 pano만 probe됨 | `AVAILABLE_BUT_NOT_USEFUL` — Google UI가 “이곳에는 스트리트 뷰 이미지가 없습니다”로 표시 | YES — provider 실패 시 지도 안내 유지 | YES — 기존 geolocation hook | YES — 기존 routing/navigation 경로 | PARTIAL GO |
+
+## Gate 근거와 제한
+
+- 공식 점포 상세: `https://www.mangwonmarket.com/stores-restaurant-kr/?bmode=view&idx=167464653`(훈훈호떡), `idx=167464646`(맛있는집), `idx=167464639`(부산대원어묵), `idx=167464636`(우이락).
+- Google Maps는 5개 점포 모두 장소 상세와 좌표를 반환했다. Place ID는 영구 식별자로 저장하지 않고 현재 검증용 근거로만 사용한다.
+- Street View browser probe는 점포 좌표에서 한 번 수행했다. Google Maps 웹 UI가 nearest panorama의 정확한 미터를 노출하지 않아 표에는 `좌표 probe / exact distance not exposed`를 적용한다. 구현에서는 기존 `50m → 30m` 좌표 기반 재조회 규칙을 유지한다.
+- Google Maps JavaScript API 키와 billing/domain restriction은 코드로 생성·승인할 수 없으므로 `EXTERNAL_ACTION_REQUIRED: Google Maps API key/billing/domain restriction`이다. 키가 없어도 schema·실제 점포 데이터·상세 UI·navigation 연결은 계속 구현한다.
+- 현장 출입구, 실제 도보 도착, GNSS 오차, Street View와 눈앞 점포의 시각 일치는 `FIELD_VALIDATION_PENDING`이다.
+
+## Gate conclusion
+
+핵심 구조(실제 점포 선택 → 실제 좌표 → 현재 위치 → 기존 K-Navi routing)는 구현 가능하고, 일부 점포의 Google Street View 품질/공식 목록 표기 차이만 남아 있으므로 `PARTIAL GO`로 판정한다. 명세에 따라 Store schema·검증 데이터·망원시장 구간 UI·상세/Street View 연결을 계속 구현한다.
+
+## Implementation completion
+
+- `web/lib/mangwonStores.ts`: 명세의 5개 점포에 대해 실제 Google 대표 좌표, 출처, nullable 상세정보, `navigationTarget`의 `FIELD_CHECK_REQUIRED`, Street View 품질·pano 캐시·검증 메모를 저장했다. 공식 목록과 상호가 다른 `큐스닭강정`은 `officialSource = null`로 유지했다.
+- `web/components/MangwonDemo.tsx`: 실제 좌표 기반 망원시장 구간 선택 UI, 점포 상세, 미확인 정보 상태 표시, 기존 K-Navi `startWalking` 연결, Google Street View 전용 viewer 연결을 추가했다. 화면 배치 좌표와 navigation 좌표를 분리했다.
+- `web/app/page.tsx`, `web/app/globals.css`: 기존 홈 구조를 유지한 채 Demo를 최소 삽입하고 모바일 카드·상세·fallback UI를 추가했다.
+- Google API key/billing/domain restriction은 사람의 외부 설정이므로 `EXTERNAL_ACTION_REQUIRED`로 남겼다. 키가 없는 로컬 브라우저에서는 Google viewer가 오류 없이 지도 안내 fallback으로 전환됨을 확인했다.
+
+## Verification completion
+
+- `npm run test:run -- --reporter=dot`: 17 files / 139 tests passed.
+- `npm run typecheck`: passed.
+- `npm run lint`: passed.
+- `npm run next:build`: passed.
+- `Set-Location D:\; python -m pytest D:\walk\streamlit_walk_engine\tests -q`: 598 passed. Repo root에서 실행하면 로컬 Streamlit secret이 노출되지 않는 기존 환경 테스트가 1건 실패하므로, secrets 파일을 읽지 않는 `D:\` cwd에서 재검증했다.
+- Local browser smoke: 5개 점포 표시 → `우이락 망원본점` 선택 → 실제 좌표/확인 중 상태 표시 → Google Street View viewer 진입 → key 미설정 fallback 확인.
+
+## Final state
+
+- Code state: `AUTO_CODE_COMPLETE`
+- Human validation: `FIELD_VALIDATION_PENDING` — 실제 점포 출입구·좌우/순서·도보 도착점·GNSS 오차·현장 시각 일치.
+- External action: `EXTERNAL_ACTION_REQUIRED` — Google Maps JavaScript API key, Street View API enablement, billing, localhost/production domain restriction.
+- Main merge/deploy: not performed; this task authorizes only current branch commit/push.
