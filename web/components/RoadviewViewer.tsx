@@ -81,7 +81,7 @@ export default function RoadviewViewer({
       if (session) session.close();
       else container.current?.replaceChildren();
     };
-  }, [destination.latitude, destination.longitude, embedPanoId]);
+  }, [destination.latitude, destination.longitude]);
 
   return (
     <section className="roadview-panel" aria-label={heading}>
