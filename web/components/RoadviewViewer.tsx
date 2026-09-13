@@ -19,6 +19,8 @@ interface RoadviewViewerProps {
    */
   readonly provider?: RoadviewProvider | null;
   readonly onClose: () => void;
+  readonly title?: string;
+  readonly showCloseButton?: boolean;
 }
 
 type ViewerStatus = "loading" | "ready" | "unavailable";
@@ -30,8 +32,11 @@ export default function RoadviewViewer({
   locale,
   provider,
   onClose,
+  title,
+  showCloseButton = true,
 }: RoadviewViewerProps) {
   const ui = getUiText(locale);
+  const heading = title ?? ui.roadviewTitle;
   const container = useRef<HTMLDivElement | null>(null);
   const initialApproachOrigin = useRef(approachOrigin);
   // mount 이후에는 provider 를 다시 고르지 않는다 — 한 세션 = 한 provider.
@@ -73,10 +78,10 @@ export default function RoadviewViewer({
   }, [destination.latitude, destination.longitude]);
 
   return (
-    <section className="roadview-panel" aria-label={ui.roadviewTitle}>
+    <section className="roadview-panel" aria-label={heading}>
       <div className="roadview-heading">
-        <h2>{ui.roadviewTitle}</h2>
-        <button type="button" onClick={onClose}>{ui.roadviewClose}</button>
+        <h2>{heading}</h2>
+        {showCloseButton ? <button type="button" onClick={onClose}>{ui.roadviewClose}</button> : null}
       </div>
       <div className="roadview-frame">
         <div ref={container} className="roadview-container" aria-hidden={status !== "ready"} />
@@ -84,7 +89,7 @@ export default function RoadviewViewer({
         {status === "unavailable" ? (
           <div className="roadview-message" role="status">
             <p>{failure === "no_pano" ? ui.roadviewNoPano : ui.roadviewUnavailable}</p>
-            <button type="button" onClick={onClose}>{ui.roadviewClose}</button>
+            {showCloseButton ? <button type="button" onClick={onClose}>{ui.roadviewClose}</button> : null}
           </div>
         ) : null}
         {status === "ready" ? <div className="roadview-destination" aria-label={ui.roadviewDestination(destinationName)}>

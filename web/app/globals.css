@@ -313,8 +313,7 @@ html, body {
   border-radius: 20px;
   background: linear-gradient(180deg, #fffaf3 0%, #fff 42%);
 }
-.mangwon-demo-header,
-.mangwon-detail-heading {
+.mangwon-demo-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -328,11 +327,10 @@ html, body {
   letter-spacing: .12em;
 }
 .mangwon-demo h2,
-.mangwon-detail h3 { margin: 0; color: var(--ink); }
+.mangwon-store-panel h3 { margin: 0; color: var(--ink); }
 .mangwon-demo h2 { font-size: 21px; }
-.mangwon-detail h3 { font-size: 23px; }
-.mangwon-demo-header p:last-child,
-.mangwon-detail-heading p:last-child {
+.mangwon-store-hero-copy > p:last-child,
+.mangwon-demo-header > div > p:last-child {
   margin: 6px 0 0;
   color: var(--muted);
   font-size: 13px;
@@ -348,113 +346,74 @@ html, body {
   font-weight: 800;
   white-space: nowrap;
 }
-.mangwon-map {
-  position: relative;
-  height: 188px;
+.mangwon-view-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
   margin-top: 16px;
-  overflow: hidden;
-  border: 1px solid #e8ded1;
-  border-radius: 16px;
-  background-color: #f5eee3;
-  background-image: linear-gradient(115deg, transparent 0 47%, rgba(255,255,255,.9) 47% 53%, transparent 53%), linear-gradient(25deg, transparent 0 42%, rgba(255,255,255,.8) 42% 58%, transparent 58%);
+  padding: 4px;
+  border-radius: 13px;
+  background: #f1f3f7;
 }
-.mangwon-map-road {
-  position: absolute;
-  left: -8%;
-  width: 116%;
-  height: 18px;
-  border-top: 2px solid rgba(161, 91, 22, .26);
-  border-bottom: 2px solid rgba(161, 91, 22, .16);
-  background: rgba(255, 255, 255, .68);
-  transform: rotate(-7deg);
-}
-.mangwon-map-road-a { top: 42%; }
-.mangwon-map-road-b { top: 67%; transform: rotate(12deg); }
-.mangwon-marker {
-  position: absolute;
-  z-index: 2;
-  width: 30px;
-  height: 30px;
-  padding: 0;
-  border: 3px solid #fff;
-  border-radius: 50% 50% 50% 0;
-  background: #c66f2c;
-  color: #fff;
-  box-shadow: 0 2px 7px rgba(45, 31, 17, .25);
-  transform: translate(-50%, -100%) rotate(-45deg);
+.mangwon-view-tabs button,
+.mangwon-panorama-nav button {
+  min-height: 40px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
   cursor: pointer;
 }
-.mangwon-marker span {
-  display: grid;
-  place-items: center;
-  height: 100%;
-  font-size: 12px;
-  font-weight: 900;
-  transform: rotate(45deg);
-}
-.mangwon-marker.is-selected { background: var(--blue); }
-.mangwon-map-caption {
-  position: absolute;
-  right: 10px;
-  bottom: 10px;
-  left: 10px;
-  z-index: 3;
+.mangwon-view-tabs button.is-active { background: #fff; color: var(--blue); box-shadow: 0 1px 5px rgba(23, 40, 71, .12); }
+.mangwon-hotspot-heading,
+.mangwon-map-toolbar {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  padding: 8px 10px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, .9);
-  color: var(--muted);
-  font-size: 11px;
+  gap: 10px;
+  margin-top: 14px;
 }
-.mangwon-map-caption strong { color: var(--ink); font-size: 12px; }
-.mangwon-store-list {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(92px, 1fr));
-  gap: 6px;
-  margin-top: 12px;
-  overflow-x: auto;
-}
-.mangwon-store-card {
+.mangwon-hotspot-heading { color: var(--ink); font-size: 12px; }
+.mangwon-hotspot-heading span { color: var(--muted); }
+.mangwon-hotspots {
   display: flex;
-  width: 100%;
-  min-height: 82px;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 5px;
-  padding: 9px 8px;
-  border: 1.5px solid var(--line);
+  gap: 7px;
+  margin-top: 8px;
+  overflow-x: auto;
+  padding-bottom: 3px;
+}
+.mangwon-hotspots button {
+  display: grid;
+  flex: 1 0 106px;
+  gap: 4px;
+  min-height: 61px;
+  padding: 8px;
+  border: 1px solid var(--line);
   border-radius: 12px;
   background: #fff;
   color: var(--ink);
   text-align: left;
   cursor: pointer;
 }
-.mangwon-store-card.is-selected { border-color: var(--blue); background: #f2f6ff; }
-.mangwon-store-number { color: var(--blue); font-size: 11px; font-weight: 900; }
-.mangwon-store-card-copy { display: grid; gap: 3px; }
-.mangwon-store-card-copy strong { font-size: 13px; word-break: keep-all; }
-.mangwon-store-card-copy span { color: var(--muted); font-size: 11px; }
-.mangwon-store-card-arrow { align-self: flex-end; color: var(--muted); font-size: 17px; line-height: 1; }
-.mangwon-detail {
+.mangwon-hotspots button.is-selected { border-color: var(--blue); background: #eef4ff; box-shadow: inset 0 0 0 1px var(--blue); }
+.mangwon-hotspots span { color: var(--blue); font-size: 10px; font-weight: 900; }
+.mangwon-hotspots strong { font-size: 12px; word-break: keep-all; }
+.mangwon-panorama-nav { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+.mangwon-panorama-nav button { border: 1px solid var(--line); background: #fff; color: var(--ink); }
+.mangwon-store-panel {
   margin-top: 12px;
   padding-top: 14px;
   border-top: 1px solid var(--line);
 }
-.mangwon-quality {
-  max-width: 45%;
-  padding: 6px 8px;
-  border-radius: 9px;
-  background: #eef3ff;
-  color: var(--blue);
-  font-size: 11px;
-  font-weight: 800;
-  line-height: 1.35;
-  text-align: right;
-}
-.quality-available_but_not_useful { background: #fff4df; color: #8d4e0e; }
+.mangwon-store-hero { display: grid; grid-template-columns: 92px 1fr; gap: 12px; align-items: center; }
+.mangwon-store-hero img,
+.mangwon-store-image-fallback { width: 92px; height: 92px; border-radius: 14px; object-fit: cover; }
+.mangwon-store-image-fallback { display: grid; place-items: center; padding: 8px; background: linear-gradient(135deg, #dce9ff, #ffe5c8); color: var(--ink); font-size: 11px; font-weight: 800; text-align: center; }
+.mangwon-store-hero-copy p:last-child { margin-bottom: 0; }
+.mangwon-store-hero-copy h3 { font-size: 22px; }
+.mangwon-store-description { margin: 12px 0 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
 .mangwon-facts {
   display: grid;
   gap: 8px;
@@ -469,97 +428,6 @@ html, body {
 }
 .mangwon-facts dt { color: var(--muted); }
 .mangwon-facts dd { margin: 0; color: var(--ink); font-weight: 650; }
-.mangwon-disclosure {
-  margin: 12px 0 0;
-  padding: 10px;
-  border-radius: 10px;
-  background: #f8f9fb;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.5;
-}
-.mangwon-purchase-box {
-  margin-top: 12px;
-  padding: 12px;
-  border: 1px solid #eadfce;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, .82);
-}
-.mangwon-purchase-heading {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 10px;
-}
-.mangwon-purchase-heading h4 {
-  margin: 0;
-  color: var(--ink);
-  font-size: 15px;
-}
-.mangwon-purchase-heading p {
-  margin: 4px 0 0;
-  color: var(--muted);
-  font-size: 11px;
-  line-height: 1.4;
-}
-.mangwon-purchase-heading > span {
-  flex: 0 0 auto;
-  color: var(--blue);
-  font-size: 12px;
-  font-weight: 800;
-}
-.mangwon-product-list {
-  display: grid;
-  max-height: 360px;
-  gap: 7px;
-  margin: 11px 0 0;
-  padding: 0 4px 0 0;
-  overflow-y: auto;
-  list-style: none;
-}
-.mangwon-product-item {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 2px 8px;
-  padding-bottom: 7px;
-  border-bottom: 1px solid #f0e9df;
-}
-.mangwon-product-item > div {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-}
-.mangwon-product-list strong {
-  color: var(--ink);
-  font-size: 12px;
-  word-break: keep-all;
-}
-.mangwon-product-item > span {
-  color: var(--ink);
-  font-size: 12px;
-  font-weight: 800;
-  white-space: nowrap;
-}
-.mangwon-product-list small {
-  color: var(--muted);
-  font-size: 10px;
-  line-height: 1.35;
-}
-.mangwon-product-list .mangwon-price-note {
-  grid-column: 1 / -1;
-  color: #9a5a1a;
-}
-.mangwon-empty-products,
-.mangwon-order-note {
-  margin: 10px 0 0;
-  color: var(--muted);
-  font-size: 11px;
-  line-height: 1.45;
-}
-.mangwon-order-note {
-  padding-top: 9px;
-  border-top: 1px solid #f0e9df;
-}
 .mangwon-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -576,11 +444,30 @@ html, body {
 }
 .mangwon-secondary { border: 1.5px solid var(--line); background: #fff; color: var(--ink); }
 .mangwon-primary { border: 0; background: var(--blue); color: #fff; }
+.mangwon-detail-disclosure { margin-top: 12px; padding: 11px; border-radius: 12px; background: #f8f9fb; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.mangwon-detail-disclosure p { margin: 0 0 7px; }
+.mangwon-detail-disclosure ul { display: grid; gap: 6px; margin: 10px 0 0; padding: 0; list-style: none; }
+.mangwon-detail-disclosure li { display: flex; justify-content: space-between; gap: 8px; border-top: 1px solid #e9edf3; padding-top: 6px; }
+.mangwon-detail-disclosure strong { color: var(--ink); white-space: nowrap; }
+.mangwon-map-toolbar p { flex: 1; margin: 0; color: #a15b16; font-size: 11px; line-height: 1.35; }
+.mangwon-map-toolbar button { min-height: 38px; padding: 0 12px; border: 1px solid var(--blue); border-radius: 10px; background: #fff; color: var(--blue); font-size: 12px; font-weight: 800; cursor: pointer; }
+.mangwon-market-map { height: 330px; margin-top: 10px; overflow: hidden; border: 1px solid #d9e0eb; border-radius: 16px; background: #eef1f5; }
+.mangwon-map-marker-wrap { display: grid; place-items: center; }
+.mangwon-map-marker { display: grid; grid-template-columns: 22px minmax(0, 1fr) 10px; align-items: center; gap: 5px; max-width: 175px; padding: 4px 7px 4px 4px; border: 1px solid rgba(36, 59, 91, .2); border-radius: 999px; background: #fff; color: var(--ink); box-shadow: 0 2px 7px rgba(23, 40, 71, .2); cursor: pointer; }
+.mangwon-map-marker.is-selected { border-color: var(--blue); background: #eef4ff; }
+.mangwon-map-marker-image { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; }
+.mangwon-map-marker-copy { display: grid; min-width: 0; gap: 1px; text-align: left; }
+.mangwon-map-marker-name { overflow: hidden; font-size: 10px; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
+.mangwon-map-marker-copy small { overflow: hidden; color: var(--muted); font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.mangwon-map-pin { color: #d45d36; font-size: 10px; line-height: 1; }
+.mangwon-here-marker { position: relative; width: 24px; height: 24px; }
+.mangwon-here-dot { position: absolute; inset: 6px; z-index: 2; border: 2px solid #fff; border-radius: 50%; background: #1976d2; box-shadow: 0 0 0 1px rgba(0, 0, 0, .2); }
+.mangwon-here-pulse { position: absolute; inset: 1px; border: 2px solid rgba(25, 118, 210, .4); border-radius: 50%; }
 
 @media (max-width: 520px) {
   .mangwon-demo { padding: 13px; }
-  .mangwon-map-caption { display: block; }
-  .mangwon-map-caption span { display: block; margin-top: 2px; }
-  .mangwon-store-list { grid-template-columns: repeat(5, 112px); }
+  .mangwon-store-hero { grid-template-columns: 76px 1fr; }
+  .mangwon-store-hero img,
+  .mangwon-store-image-fallback { width: 76px; height: 76px; }
   .mangwon-actions { grid-template-columns: 1fr; }
 }

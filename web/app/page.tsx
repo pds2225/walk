@@ -437,7 +437,7 @@ export default function Home() {
 
       <h1>{ui.homeTitle}</h1>
 
-      <MangwonDemo onStartWalking={(target) => void startWalking(target)} />
+      <MangwonDemo locale={locale} onStartWalking={(target) => void startWalking(target)} />
 
       <input
         className="dest-input"
