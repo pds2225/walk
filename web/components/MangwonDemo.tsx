@@ -175,6 +175,7 @@ export default function MangwonDemo({ locale, onStartWalking }: MangwonDemoProps
             destination={point.coordinate}
             destinationName={selected.nameKo}
             approachOrigin={null}
+            embedPanoId={selected.streetView.lastResolvedPanoId}
             locale={locale}
             provider={googleProvider}
             onClose={() => undefined}

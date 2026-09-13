@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Coordinate } from "../lib/types";
 import { getUiText, type Locale } from "../lib/i18n";
-import { RoadviewError } from "../lib/roadview";
+import { googleStreetViewEmbedUrl, RoadviewError } from "../lib/roadview";
 import type { RoadviewProvider, RoadviewSession } from "../lib/roadview";
 import { selectRoadviewProvider } from "../lib/roadviewProviders";
 
@@ -11,6 +11,7 @@ interface RoadviewViewerProps {
   readonly destination: Coordinate;
   readonly destinationName: string;
   readonly approachOrigin: Coordinate | null;
+  readonly embedPanoId?: string | null;
   readonly locale: Locale;
   /**
    * navigation 세션 시작 때 고정된 provider. 뷰어를 닫았다 다시 열어도 같은
@@ -23,12 +24,13 @@ interface RoadviewViewerProps {
   readonly showCloseButton?: boolean;
 }
 
-type ViewerStatus = "loading" | "ready" | "unavailable";
+type ViewerStatus = "loading" | "ready" | "embed" | "unavailable";
 
 export default function RoadviewViewer({
   destination,
   destinationName,
   approachOrigin,
+  embedPanoId = null,
   locale,
   provider,
   onClose,
@@ -64,6 +66,10 @@ export default function RoadviewViewer({
       })
       .catch((error: unknown) => {
         if (cancelled) return;
+        if (active.id === "google" && googleStreetViewEmbedUrl(destination, 0, embedPanoId)) {
+          setStatus("embed");
+          return;
+        }
         setStatus("unavailable");
         setFailure(error instanceof RoadviewError && error.reason === "no_pano" ? "no_pano" : "unavailable");
       });
@@ -75,7 +81,7 @@ export default function RoadviewViewer({
       if (session) session.close();
       else container.current?.replaceChildren();
     };
-  }, [destination.latitude, destination.longitude]);
+  }, [destination.latitude, destination.longitude, embedPanoId]);
 
   return (
     <section className="roadview-panel" aria-label={heading}>
@@ -85,6 +91,20 @@ export default function RoadviewViewer({
       </div>
       <div className="roadview-frame">
         <div ref={container} className="roadview-container" aria-hidden={status !== "ready"} />
+        {status === "embed" ? (
+          <div className="roadview-embed-wrap">
+            <iframe
+              className="roadview-embed"
+              title={`${heading} Google Maps Embed`}
+              src={googleStreetViewEmbedUrl(destination, 0, embedPanoId) ?? "about:blank"}
+              allow="fullscreen"
+              allowFullScreen
+              loading="eager"
+              referrerPolicy="strict-origin-when-cross-origin"
+            />
+            <span className="roadview-embed-label">360° · Google Street View</span>
+          </div>
+        ) : null}
         {status === "loading" ? <p className="roadview-message" role="status">{ui.roadviewLoading}</p> : null}
         {status === "unavailable" ? (
           <div className="roadview-message" role="status">
