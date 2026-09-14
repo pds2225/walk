@@ -44,10 +44,10 @@ function StoreCard({
   const image = store.storeImages[0];
 
   return (
-    <article className="mangwon-store-panel" aria-labelledby="mangwon-selected-title">
+    <article className="mangwon-store-panel" data-testid="mangwon-store-card" aria-labelledby="mangwon-selected-title">
       <div className="mangwon-store-hero">
         {image ? (
-          <img src={image.url} alt={`${store.nameKo} 대표 이미지`} />
+          <img src={image.url} alt={`${store.nameKo} 대표 이미지`} loading="eager" />
         ) : (
           <div className="mangwon-store-image-fallback" role="img" aria-label={`${store.nameKo} 대표 이미지 준비 중`}>
             <span>{store.category}</span>
@@ -158,40 +158,60 @@ export default function MangwonDemo({ locale, onStartWalking }: MangwonDemoProps
 
       {view === "panorama" ? (
         <>
-          <div className="mangwon-hotspot-heading"><strong>{ui.hotspotLabel}</strong><span>{pointIndex + 1} / {MANGWON_PANORAMA_POINTS.length}</span></div>
-          <div className="mangwon-hotspots" aria-label={ui.hotspotLabel}>
-            {MANGWON_PANORAMA_POINTS.map((hotspot, index) => (
-              <button key={hotspot.id} type="button" className={index === pointIndex ? "is-selected" : ""} onClick={() => selectPoint(index)} aria-pressed={index === pointIndex}>
-                <span>{String(index + 1).padStart(2, "0")}</span><strong>{hotspot.label}</strong>
-              </button>
-            ))}
-          </div>
-          <div className="mangwon-panorama-nav">
-            <button type="button" onClick={() => selectPoint(pointIndex - 1)}>{ui.previousPoint}</button>
-            <button type="button" onClick={() => selectPoint(pointIndex + 1)}>{ui.nextPoint}</button>
-          </div>
-          <RoadviewViewer
-            key={point.id}
-            destination={point.coordinate}
-            destinationName={selected.nameKo}
-            approachOrigin={null}
-            embedPanoId={selected.streetView.lastResolvedPanoId}
-            locale={locale}
-            provider={googleProvider}
-            onClose={() => undefined}
-            title={`Google Street View · ${selected.nameKo}`}
-            showCloseButton={false}
-          />
-          <StoreCard store={selected} locale={locale} onStartWalking={onStartWalking} />
+          <StoreCard key={selected.id} store={selected} locale={locale} onStartWalking={onStartWalking} />
+
+          <section className="mangwon-panorama-support" aria-labelledby="mangwon-street-view-title">
+            <div className="mangwon-support-heading">
+              <div>
+                <p className="mangwon-kicker">SUPPORTING VIEW</p>
+                <p className="mangwon-support-description">{ui.storeStreetViewDescription}</p>
+              </div>
+              <span className="mangwon-support-badge">360°</span>
+            </div>
+
+            <div className="mangwon-hotspot-heading"><strong>{ui.hotspotLabel}</strong><span>{pointIndex + 1} / {MANGWON_PANORAMA_POINTS.length}</span></div>
+            <div className="mangwon-hotspots" aria-label={ui.hotspotLabel}>
+              {MANGWON_PANORAMA_POINTS.map((hotspot, index) => (
+                <button key={hotspot.id} type="button" className={index === pointIndex ? "is-selected" : ""} onClick={() => selectPoint(index)} aria-pressed={index === pointIndex}>
+                  <span>{String(index + 1).padStart(2, "0")}</span><strong>{hotspot.label}</strong>
+                </button>
+              ))}
+            </div>
+            <div className="mangwon-panorama-nav">
+              <button type="button" onClick={() => selectPoint(pointIndex - 1)}>{ui.previousPoint}</button>
+              <button type="button" onClick={() => selectPoint(pointIndex + 1)}>{ui.nextPoint}</button>
+            </div>
+            <RoadviewViewer
+              key={point.id}
+              destination={point.coordinate}
+              destinationName={selected.nameKo}
+              approachOrigin={null}
+              embedPanoId={selected.streetView.lastResolvedPanoId}
+              locale={locale}
+              provider={googleProvider}
+              onClose={() => undefined}
+              title={ui.storeStreetViewTitle}
+              showCloseButton={false}
+            />
+          </section>
         </>
       ) : (
         <>
-          <div className="mangwon-map-toolbar">
-            <p>{locationState === "denied" ? ui.locationDenied : ""}</p>
-            <button type="button" onClick={requestLocation}>{ui.locationButton}</button>
-          </div>
-          <MangwonMarketMap stores={MANGWON_STORES} selectedId={selectedId} here={here} onSelect={selectStore} locale={locale} />
-          <StoreCard store={selected} locale={locale} onStartWalking={onStartWalking} />
+          <StoreCard key={selected.id} store={selected} locale={locale} onStartWalking={onStartWalking} />
+          <section className="mangwon-map-support" aria-labelledby="mangwon-map-support-title">
+            <div className="mangwon-support-heading">
+              <div>
+                <p className="mangwon-kicker">SUPPORTING MAP</p>
+                <h3 id="mangwon-map-support-title">{ui.mapTab}</h3>
+              </div>
+              <span className="mangwon-support-badge">{ui.locationButton}</span>
+            </div>
+            <div className="mangwon-map-toolbar">
+              <p>{locationState === "denied" ? ui.locationDenied : ""}</p>
+              <button type="button" onClick={requestLocation}>{ui.locationButton}</button>
+            </div>
+            <MangwonMarketMap stores={MANGWON_STORES} selectedId={selectedId} here={here} onSelect={selectStore} locale={locale} />
+          </section>
         </>
       )}
     </section>

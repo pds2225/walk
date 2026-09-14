@@ -17,11 +17,14 @@ vi.mock("./RoadviewViewer", () => ({
 describe("MangwonDemo", () => {
   afterEach(() => cleanup());
 
-  it("360 파노라마와 첫 점포 카드에 메뉴·가격·영업시간을 즉시 표시한다", () => {
+  it("점포 정보 카드를 먼저 표시하고 그 아래 360 보조 영역을 제공한다", () => {
     render(<MangwonDemo locale="ko" onStartWalking={vi.fn()} />);
 
-    expect(screen.getByRole("heading", { name: "망원시장 360 산책" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "망원시장 점포 안내" })).toBeTruthy();
+    const storeCard = screen.getByTestId("mangwon-store-card");
     expect(screen.getByTestId("roadview-viewer")).toBeTruthy();
+    expect(screen.getByText("점포 정면 360 보기")).toBeTruthy();
+    expect(storeCard.compareDocumentPosition(screen.getByTestId("roadview-viewer")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByRole("heading", { name: "훈훈호떡" })).toBeTruthy();
     expect(screen.getByText("옥수수호떡")).toBeTruthy();
     expect(screen.getByText("1,500원")).toBeTruthy();

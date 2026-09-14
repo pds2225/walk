@@ -242,6 +242,8 @@ export interface MangwonUiText {
   readonly details: string;
   readonly closeDetails: string;
   readonly goThere: string;
+  readonly storeStreetViewTitle: string;
+  readonly storeStreetViewDescription: string;
   readonly locationButton: string;
   readonly locationWaiting: string;
   readonly locationDenied: string;
@@ -251,9 +253,9 @@ export interface MangwonUiText {
 
 const MANGWON_UI: Record<Locale, MangwonUiText> = {
   ko: {
-    title: "망원시장 360 산책",
-    subtitle: "훈훈호떡에서 우이락까지 실제 점포 구간을 360°로 둘러보세요.",
-    panoramaTab: "360 파노라마",
+    title: "망원시장 점포 안내",
+    subtitle: "점포 정보를 먼저 보고, 아래에서 정면 360°와 위치를 확인하세요.",
+    panoramaTab: "점포 정보",
     mapTab: "일반 지도",
     hotspotLabel: "구간 핫스팟",
     previousPoint: "앞 포인트",
@@ -265,6 +267,8 @@ const MANGWON_UI: Record<Locale, MangwonUiText> = {
     details: "상세보기",
     closeDetails: "상세 닫기",
     goThere: "여기로 가기",
+    storeStreetViewTitle: "점포 정면 360 보기",
+    storeStreetViewDescription: "선택한 점포 주변의 Street View를 보조 정보로 확인하세요.",
     locationButton: "내 위치 표시",
     locationWaiting: "내 위치 확인 중…",
     locationDenied: "위치 권한을 허용하면 지도에 내 위치가 표시됩니다.",
@@ -272,9 +276,9 @@ const MANGWON_UI: Record<Locale, MangwonUiText> = {
     panoramaUnavailable: "Street View를 사용할 수 없어 안내 카드만 표시합니다.",
   },
   en: {
-    title: "Mangwon Market 360 Walk",
-    subtitle: "Explore the real store corridor from Hunhun Hotteok to Uirak in 360°.",
-    panoramaTab: "360 panorama",
+    title: "Mangwon Market Stores",
+    subtitle: "See store details first, then check the storefront in 360° and on the map.",
+    panoramaTab: "Store details",
     mapTab: "Standard map",
     hotspotLabel: "Corridor hotspots",
     previousPoint: "Previous point",
@@ -286,6 +290,8 @@ const MANGWON_UI: Record<Locale, MangwonUiText> = {
     details: "Details",
     closeDetails: "Close details",
     goThere: "Go here",
+    storeStreetViewTitle: "View storefront in 360°",
+    storeStreetViewDescription: "Use Street View below as supporting information for the selected store.",
     locationButton: "Show my location",
     locationWaiting: "Finding your location…",
     locationDenied: "Allow location access to show your position on the map.",
@@ -293,9 +299,9 @@ const MANGWON_UI: Record<Locale, MangwonUiText> = {
     panoramaUnavailable: "Street View is unavailable; the store card remains available.",
   },
   ja: {
-    title: "望遠市場 360 散歩",
-    subtitle: "フンフンホットクからウイラクまで実際の店舗区間を360°で見てみましょう。",
-    panoramaTab: "360°パノラマ",
+    title: "望遠市場 店舗案内",
+    subtitle: "先に店舗情報を確認し、その下で正面360°と位置を見られます。",
+    panoramaTab: "店舗情報",
     mapTab: "通常地図",
     hotspotLabel: "区間ホットスポット",
     previousPoint: "前のポイント",
@@ -307,6 +313,8 @@ const MANGWON_UI: Record<Locale, MangwonUiText> = {
     details: "詳細を見る",
     closeDetails: "詳細を閉じる",
     goThere: "ここへ行く",
+    storeStreetViewTitle: "店舗正面を360°で見る",
+    storeStreetViewDescription: "選択した店舗周辺のStreet Viewを補助情報として確認できます。",
     locationButton: "現在地を表示",
     locationWaiting: "現在地を確認中…",
     locationDenied: "位置情報を許可すると地図に現在地が表示されます。",
@@ -314,9 +322,9 @@ const MANGWON_UI: Record<Locale, MangwonUiText> = {
     panoramaUnavailable: "Street Viewを利用できないため、店舗カードを表示します。",
   },
   zh: {
-    title: "望远市场 360 漫步",
-    subtitle: "用360°浏览从训训糖饼到雨耳乐的真实店铺路段。",
-    panoramaTab: "360 全景",
+    title: "望远市场店铺指南",
+    subtitle: "先查看店铺信息，再在下方查看正面360°和位置。",
+    panoramaTab: "店铺信息",
     mapTab: "普通地图",
     hotspotLabel: "路段热点",
     previousPoint: "上一个点",
@@ -328,6 +336,8 @@ const MANGWON_UI: Record<Locale, MangwonUiText> = {
     details: "查看详情",
     closeDetails: "关闭详情",
     goThere: "去这里",
+    storeStreetViewTitle: "查看店铺正面360°",
+    storeStreetViewDescription: "Street View作为补充信息显示在所选店铺下方。",
     locationButton: "显示我的位置",
     locationWaiting: "正在确认位置…",
     locationDenied: "允许位置权限后，地图会显示您的位置。",
