@@ -1,72 +1,69 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { MANGWON_PANORAMA_POINTS, MANGWON_STORES } from "../lib/mangwonStores";
+import { MANGWON_STORES } from "../lib/mangwonStores";
+import type { Locale } from "../lib/i18n";
 import MangwonDemo from "./MangwonDemo";
 
-vi.mock("next/dynamic", () => ({
-  default: () => function MockDynamicMap() {
-    return <div data-testid="mangwon-market-map" />;
-  },
-}));
-
-vi.mock("./RoadviewViewer", () => ({
-  default: ({ title }: { title?: string }) => <div data-testid="roadview-viewer">{title ?? "Google Street View mock"}</div>,
-}));
-
-describe("MangwonDemo", () => {
+describe("MangwonDemo Mobile Screen 01", () => {
   afterEach(() => cleanup());
 
-  it("점포 정보 카드를 먼저 표시하고 그 아래 360 보조 영역을 제공한다", () => {
+  it("첫 화면에서 큰 대표 이미지와 점포 정보 위계를 보여주고 360·지도를 메인에서 숨긴다", () => {
     render(<MangwonDemo locale="ko" onStartWalking={vi.fn()} />);
 
     expect(screen.getByRole("heading", { name: "망원시장 점포 안내" })).toBeTruthy();
-    const storeCard = screen.getByTestId("mangwon-store-card");
-    expect(screen.getByTestId("roadview-viewer")).toBeTruthy();
-    expect(screen.getByText("점포 정면 360 보기")).toBeTruthy();
-    expect(storeCard.compareDocumentPosition(screen.getByTestId("roadview-viewer")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByRole("heading", { name: "훈훈호떡" })).toBeTruthy();
-    expect(screen.getByText("옥수수호떡")).toBeTruthy();
-    expect(screen.getByText("1,500원")).toBeTruthy();
-    expect(screen.getByText("화–일 11:00–20:30 · 월요일 휴무")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "상세보기" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "여기로 가기" })).toBeTruthy();
+    expect(screen.getByRole("img", { name: "훈훈호떡 대표 이미지" })).toBeTruthy();
+    expect(screen.getByText("인기 메뉴")).toBeTruthy();
+    expect(screen.getAllByText("옥수수호떡").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("1,500원").length).toBeGreaterThan(0);
+    expect(screen.getByText("점포 안내")).toBeTruthy();
+    expect(screen.queryByTestId("roadview-viewer")).toBeNull();
+    expect(screen.queryByText("일반 지도")).toBeNull();
     expect(screen.queryByText(/37\.\d+/)).toBeNull();
   });
 
-  it("핫스팟과 앞·뒤 포인트 이동으로 5개 연결 지점을 전환한다", () => {
-    render(<MangwonDemo locale="ko" onStartWalking={vi.fn()} />);
-
-    expect(MANGWON_PANORAMA_POINTS).toHaveLength(5);
-    fireEvent.click(screen.getByRole("button", { name: "뒤 포인트" }));
-    expect(screen.getByRole("heading", { name: "부산대원어묵" })).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: /우이락 망원본점/ }));
-    expect(screen.getByRole("heading", { name: "우이락 망원본점" })).toBeTruthy();
-  });
-
-  it("상세보기는 조사된 메뉴 목록을 열고 여기로 가기는 기존 K-Navi 목적지를 전달한다", () => {
+  it("다른 점포를 선택하면 hero 이미지·메뉴·가격·영업시간이 즉시 바뀌고 K-Navi를 호출한다", () => {
     const onStartWalking = vi.fn();
     render(<MangwonDemo locale="ko" onStartWalking={onStartWalking} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "상세보기" }));
-    expect(screen.getByTestId("mangwon-detail-disclosure")).toBeTruthy();
-    expect(screen.getByText("치즈닝호떡")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "우이락 망원본점" }));
+    expect(screen.getByRole("heading", { name: "우이락 망원본점" })).toBeTruthy();
+    expect(screen.getByRole("img", { name: "우이락 망원본점 대표 이미지" })).toBeTruthy();
+    expect(screen.getAllByText("오리지날 고추튀김").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("12,000원").length).toBeGreaterThan(0);
+    expect(screen.getByText("매일 11:00–22:00")).toBeTruthy();
 
-    fireEvent.click(screen.getByRole("button", { name: /우이락 망원본점/ }));
     fireEvent.click(screen.getByRole("button", { name: "여기로 가기" }));
     const target = MANGWON_STORES.find((store) => store.nameKo === "우이락 망원본점");
     expect(onStartWalking).toHaveBeenCalledWith({ name: "우이락 망원본점", coordinate: target?.navigationTarget });
   });
 
-  it("일반 지도는 보조 탭에서 열고 위치 권한을 요청한다", () => {
-    const watchPosition = vi.fn((_success: PositionCallback) => 7);
-    const clearWatch = vi.fn();
-    Object.defineProperty(navigator, "geolocation", { configurable: true, value: { watchPosition, clearWatch } });
+  it("KO와 EN을 같은 화면에서 전환하고 영어 점포·메뉴·CTA를 표시한다", () => {
+    let locale: Locale = "ko";
+    const onLocaleChange = vi.fn((nextLocale: Locale) => { locale = nextLocale; });
+    const onStartWalking = vi.fn();
+    const { rerender } = render(<MangwonDemo locale={locale} onLocaleChange={onLocaleChange} onStartWalking={onStartWalking} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "EN" }));
+    expect(onLocaleChange).toHaveBeenCalledWith("en");
+    rerender(<MangwonDemo locale={locale} onLocaleChange={onLocaleChange} onStartWalking={onStartWalking} />);
+
+    expect(screen.getByRole("heading", { name: "Hunhun Hotteok" })).toBeTruthy();
+    expect(screen.getByText("Hotteok · Dessert")).toBeTruthy();
+    expect(screen.getAllByText("Corn Hotteok").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("₩1,500").length).toBeGreaterThan(0);
+    expect(screen.getByText("Popular Menu")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Start Walking Guide" })).toBeTruthy();
+  });
+
+  it("저장·공유와 Popular Menu 전체 보기를 제공한다", () => {
     render(<MangwonDemo locale="ko" onStartWalking={vi.fn()} />);
 
-    fireEvent.click(screen.getByRole("tab", { name: "일반 지도" }));
-    expect(screen.getByTestId("mangwon-market-map")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "내 위치 표시" }));
-    expect(watchPosition).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: "저장" }));
+    expect(screen.getByRole("button", { name: "저장됨" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "전체 보기" }));
+    expect(screen.getByText("아메리카노")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "공유" })).toBeTruthy();
   });
 });

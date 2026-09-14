@@ -230,6 +230,10 @@ export function getUiText(locale: Locale): UiText {
 export interface MangwonUiText {
   readonly title: string;
   readonly subtitle: string;
+  readonly back: string;
+  readonly market: string;
+  readonly language: string;
+  readonly selectShop: string;
   readonly panoramaTab: string;
   readonly mapTab: string;
   readonly hotspotLabel: string;
@@ -242,6 +246,23 @@ export interface MangwonUiText {
   readonly details: string;
   readonly closeDetails: string;
   readonly goThere: string;
+  readonly startWalkingGuide: string;
+  readonly save: string;
+  readonly saved: string;
+  readonly share: string;
+  readonly shared: string;
+  readonly shareUnavailable: string;
+  readonly popularMenu: string;
+  readonly seeAll: string;
+  readonly showLess: string;
+  readonly signature: string;
+  readonly aboutShop: string;
+  readonly takeout: string;
+  readonly dineIn: string;
+  readonly available: string;
+  readonly notAvailable: string;
+  readonly unavailable: string;
+  readonly orderNote: string;
   readonly storeStreetViewTitle: string;
   readonly storeStreetViewDescription: string;
   readonly locationButton: string;
@@ -255,6 +276,10 @@ const MANGWON_UI: Record<Locale, MangwonUiText> = {
   ko: {
     title: "망원시장 점포 안내",
     subtitle: "점포 정보를 먼저 보고, 아래에서 정면 360°와 위치를 확인하세요.",
+    back: "뒤로",
+    market: "망원시장",
+    language: "언어",
+    selectShop: "시장 점포 선택",
     panoramaTab: "점포 정보",
     mapTab: "일반 지도",
     hotspotLabel: "구간 핫스팟",
@@ -267,6 +292,23 @@ const MANGWON_UI: Record<Locale, MangwonUiText> = {
     details: "상세보기",
     closeDetails: "상세 닫기",
     goThere: "여기로 가기",
+    startWalkingGuide: "여기로 가기",
+    save: "저장",
+    saved: "저장됨",
+    share: "공유",
+    shared: "공유됨",
+    shareUnavailable: "공유할 수 없음",
+    popularMenu: "인기 메뉴",
+    seeAll: "전체 보기",
+    showLess: "접기",
+    signature: "대표",
+    aboutShop: "점포 안내",
+    takeout: "포장",
+    dineIn: "매장 이용",
+    available: "가능",
+    notAvailable: "불가",
+    unavailable: "확인 필요",
+    orderNote: "주문 참고",
     storeStreetViewTitle: "점포 정면 360 보기",
     storeStreetViewDescription: "선택한 점포 주변의 Street View를 보조 정보로 확인하세요.",
     locationButton: "내 위치 표시",
@@ -278,6 +320,10 @@ const MANGWON_UI: Record<Locale, MangwonUiText> = {
   en: {
     title: "Mangwon Market Stores",
     subtitle: "See store details first, then check the storefront in 360° and on the map.",
+    back: "Back",
+    market: "Mangwon Market",
+    language: "Language",
+    selectShop: "Choose a market shop",
     panoramaTab: "Store details",
     mapTab: "Standard map",
     hotspotLabel: "Corridor hotspots",
@@ -290,6 +336,23 @@ const MANGWON_UI: Record<Locale, MangwonUiText> = {
     details: "Details",
     closeDetails: "Close details",
     goThere: "Go here",
+    startWalkingGuide: "Start Walking Guide",
+    save: "Save",
+    saved: "Saved",
+    share: "Share",
+    shared: "Shared",
+    shareUnavailable: "Sharing unavailable",
+    popularMenu: "Popular Menu",
+    seeAll: "See all",
+    showLess: "Show less",
+    signature: "Signature",
+    aboutShop: "About this shop",
+    takeout: "Takeout",
+    dineIn: "Dine-in",
+    available: "Available",
+    notAvailable: "Not available",
+    unavailable: "Check before visiting",
+    orderNote: "Order note",
     storeStreetViewTitle: "View storefront in 360°",
     storeStreetViewDescription: "Use Street View below as supporting information for the selected store.",
     locationButton: "Show my location",
@@ -301,6 +364,10 @@ const MANGWON_UI: Record<Locale, MangwonUiText> = {
   ja: {
     title: "望遠市場 店舗案内",
     subtitle: "先に店舗情報を確認し、その下で正面360°と位置を見られます。",
+    back: "戻る",
+    market: "望遠市場",
+    language: "言語",
+    selectShop: "市場の店舗を選択",
     panoramaTab: "店舗情報",
     mapTab: "通常地図",
     hotspotLabel: "区間ホットスポット",
@@ -313,6 +380,23 @@ const MANGWON_UI: Record<Locale, MangwonUiText> = {
     details: "詳細を見る",
     closeDetails: "詳細を閉じる",
     goThere: "ここへ行く",
+    startWalkingGuide: "ここへ歩いて行く",
+    save: "保存",
+    saved: "保存済み",
+    share: "共有",
+    shared: "共有済み",
+    shareUnavailable: "共有できません",
+    popularMenu: "人気メニュー",
+    seeAll: "すべて見る",
+    showLess: "閉じる",
+    signature: "おすすめ",
+    aboutShop: "店舗について",
+    takeout: "テイクアウト",
+    dineIn: "店内利用",
+    available: "可",
+    notAvailable: "不可",
+    unavailable: "要確認",
+    orderNote: "注文メモ",
     storeStreetViewTitle: "店舗正面を360°で見る",
     storeStreetViewDescription: "選択した店舗周辺のStreet Viewを補助情報として確認できます。",
     locationButton: "現在地を表示",
@@ -324,6 +408,10 @@ const MANGWON_UI: Record<Locale, MangwonUiText> = {
   zh: {
     title: "望远市场店铺指南",
     subtitle: "先查看店铺信息，再在下方查看正面360°和位置。",
+    back: "返回",
+    market: "望远市场",
+    language: "语言",
+    selectShop: "选择市场店铺",
     panoramaTab: "店铺信息",
     mapTab: "普通地图",
     hotspotLabel: "路段热点",
@@ -336,6 +424,23 @@ const MANGWON_UI: Record<Locale, MangwonUiText> = {
     details: "查看详情",
     closeDetails: "关闭详情",
     goThere: "去这里",
+    startWalkingGuide: "开始步行导航",
+    save: "收藏",
+    saved: "已收藏",
+    share: "分享",
+    shared: "已分享",
+    shareUnavailable: "无法分享",
+    popularMenu: "热门菜单",
+    seeAll: "查看全部",
+    showLess: "收起",
+    signature: "招牌",
+    aboutShop: "关于这家店",
+    takeout: "外带",
+    dineIn: "堂食",
+    available: "可用",
+    notAvailable: "不可用",
+    unavailable: "需要确认",
+    orderNote: "点单提示",
     storeStreetViewTitle: "查看店铺正面360°",
     storeStreetViewDescription: "Street View作为补充信息显示在所选店铺下方。",
     locationButton: "显示我的位置",

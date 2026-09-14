@@ -1,219 +1,268 @@
 "use client";
 
-import dynamic from "next/dynamic";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import RoadviewViewer from "./RoadviewViewer";
+import { useCallback, useMemo, useState } from "react";
 import { getMangwonUiText, type Locale } from "../lib/i18n";
-import { GoogleStreetViewAdapter } from "../lib/roadview";
-import { MANGWON_PANORAMA_POINTS, MANGWON_STORES, type MangwonStore } from "../lib/mangwonStores";
+import {
+  localizeCategory,
+  localizeDescription,
+  localizeHours,
+  localizeOrderNote,
+  localizePriceLabel,
+  localizeProductName,
+  localizeStoreName,
+} from "../lib/mangwonStoreCopy";
+import { MANGWON_STORES, type MangwonStore, type StoreProduct } from "../lib/mangwonStores";
 import type { Coordinate } from "../lib/types";
-
-const MangwonMarketMap = dynamic(() => import("./MangwonMarketMap"), { ssr: false });
 
 interface MangwonDemoProps {
   readonly locale: Locale;
+  readonly onLocaleChange?: (locale: Locale) => void;
   readonly onStartWalking: (target: { name: string; coordinate: Coordinate }) => void;
 }
 
-type DemoView = "panorama" | "map";
+type ShareState = "idle" | "done" | "unavailable";
+type DisplayProduct = StoreProduct;
 
-function priceText(price: number | null, unknown: string): string {
-  return price === null ? unknown : `${price.toLocaleString("ko-KR")}원`;
+function priceText(
+  price: number | null,
+  priceLabel: string | null,
+  locale: Locale,
+  unknown: string,
+): string {
+  if (price !== null) {
+    return locale === "en" ? `₩${price.toLocaleString("ko-KR")}` : `${price.toLocaleString("ko-KR")}원`;
+  }
+  return localizePriceLabel(priceLabel, locale) ?? unknown;
 }
 
-function productName(store: MangwonStore, unknown: string): string {
-  return store.representativeMenu?.nameKo ?? store.products[0]?.nameKo ?? unknown;
+function displayProducts(store: MangwonStore): DisplayProduct[] {
+  const products = [...store.products];
+  const representative = store.representativeMenu;
+  if (representative && !products.some((product) => product.nameKo === representative.nameKo)) {
+    products.unshift({
+      nameKo: representative.nameKo,
+      priceKrw: representative.priceWon,
+      priceLabel: null,
+      descriptionKo: null,
+    });
+  }
+  return products;
 }
 
-function productPrice(store: MangwonStore, unknown: string): string {
-  const product = store.products[0];
-  return priceText(store.representativeMenu?.priceWon ?? product?.priceKrw ?? null, unknown);
+function MangwonMobileHeader({ locale, onLocaleChange }: { readonly locale: Locale; readonly onLocaleChange?: ((locale: Locale) => void) | undefined }) {
+  const ui = getMangwonUiText(locale);
+  const goBack = () => {
+    if (typeof window !== "undefined" && window.history.length > 1) window.history.back();
+  };
+
+  return (
+    <header className="mangwon-mobile-header">
+      <button type="button" className="mangwon-back-button" aria-label={ui.back} onClick={goBack}>‹</button>
+      <div className="mangwon-mobile-brand">
+        <strong>K-Navi</strong>
+        <span>{ui.market}</span>
+      </div>
+      <div className="mangwon-locale-switcher" role="group" aria-label={`${ui.language} 선택`}>
+        <span className="mangwon-globe" aria-hidden="true">🌐</span>
+        <button type="button" className={locale === "ko" ? "is-active" : ""} aria-pressed={locale === "ko"} onClick={() => onLocaleChange?.("ko")}>KO</button>
+        <button type="button" className={locale === "en" ? "is-active" : ""} aria-pressed={locale === "en"} onClick={() => onLocaleChange?.("en")}>EN</button>
+      </div>
+    </header>
+  );
 }
 
-function StoreCard({
-  store,
-  locale,
-  onStartWalking,
-}: {
+function StoreSwitcher({ stores, selectedId, locale, onSelect }: {
+  readonly stores: readonly MangwonStore[];
+  readonly selectedId: string;
+  readonly locale: Locale;
+  readonly onSelect: (storeId: string) => void;
+}) {
+  const ui = getMangwonUiText(locale);
+  return (
+    <nav className="mangwon-store-switcher" aria-label={ui.selectShop}>
+      {stores.map((store) => (
+        <button
+          key={store.id}
+          type="button"
+          className={store.id === selectedId ? "is-active" : ""}
+          aria-current={store.id === selectedId ? "true" : undefined}
+          onClick={() => onSelect(store.id)}
+        >
+          {localizeStoreName(store, locale)}
+        </button>
+      ))}
+    </nav>
+  );
+}
+
+function StoreKeyFacts({ store, locale }: { readonly store: MangwonStore; readonly locale: Locale }) {
+  const ui = getMangwonUiText(locale);
+  const menu = store.representativeMenu;
+  const firstProduct = store.products[0];
+  return (
+    <dl className="mangwon-mobile-key-facts">
+      <div>
+        <dt><span aria-hidden="true">✦</span>{ui.representativeMenu}</dt>
+        <dd>{localizeProductName(menu?.nameKo ?? firstProduct?.nameKo ?? "", locale) || ui.unknown}</dd>
+      </div>
+      <div>
+        <dt><span aria-hidden="true">₩</span>{ui.price}</dt>
+        <dd>{priceText(menu?.priceWon ?? firstProduct?.priceKrw ?? null, firstProduct?.priceLabel ?? null, locale, ui.unknown)}</dd>
+      </div>
+      <div>
+        <dt><span aria-hidden="true">◷</span>{ui.hours}</dt>
+        <dd>{localizeHours(store.businessHours, locale) ?? ui.unknown}</dd>
+      </div>
+    </dl>
+  );
+}
+
+function StorePrimaryActions({ store, locale, onStartWalking }: {
   readonly store: MangwonStore;
   readonly locale: Locale;
   readonly onStartWalking: MangwonDemoProps["onStartWalking"];
 }) {
   const ui = getMangwonUiText(locale);
-  const [detailsOpen, setDetailsOpen] = useState(false);
-  const image = store.storeImages[0];
+  const [saved, setSaved] = useState(false);
+  const [shareState, setShareState] = useState<ShareState>("idle");
+
+  const share = async () => {
+    if (typeof navigator === "undefined") return;
+    const browserNavigator = navigator as Navigator & {
+      share?: (data: { title: string; text: string; url: string }) => Promise<void>;
+    };
+    try {
+      if (typeof browserNavigator.share === "function") {
+        await browserNavigator.share({ title: store.nameKo, text: store.descriptionKo ?? "", url: window.location.href });
+        setShareState("done");
+        return;
+      }
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(window.location.href);
+        setShareState("done");
+        return;
+      }
+      setShareState("unavailable");
+    } catch {
+      setShareState("unavailable");
+    }
+  };
 
   return (
-    <article className="mangwon-store-panel" data-testid="mangwon-store-card" aria-labelledby="mangwon-selected-title">
-      <div className="mangwon-store-hero">
-        {image ? (
-          <img src={image.url} alt={`${store.nameKo} 대표 이미지`} loading="eager" />
-        ) : (
-          <div className="mangwon-store-image-fallback" role="img" aria-label={`${store.nameKo} 대표 이미지 준비 중`}>
-            <span>{store.category}</span>
-          </div>
-        )}
-        <div className="mangwon-store-hero-copy">
-          <p className="mangwon-kicker">{ui.selectedStore}</p>
-          <h3 id="mangwon-selected-title">{store.nameKo}</h3>
-          <p>{store.category}</p>
-        </div>
+    <div className="mangwon-mobile-actions">
+      <button
+        type="button"
+        className="mangwon-mobile-primary"
+        onClick={() => onStartWalking({ name: store.nameKo, coordinate: store.navigationTarget })}
+      >
+        {locale === "en" ? ui.startWalkingGuide : ui.goThere}
+      </button>
+      <div className="mangwon-mobile-secondary-actions">
+        <button type="button" className={saved ? "is-selected" : ""} aria-pressed={saved} onClick={() => setSaved((value) => !value)}>
+          <span aria-hidden="true">♡</span>{saved ? ui.saved : ui.save}
+        </button>
+        <button type="button" onClick={() => void share()}>
+          <span aria-hidden="true">↗</span>{shareState === "done" ? ui.shared : shareState === "unavailable" ? ui.shareUnavailable : ui.share}
+        </button>
       </div>
+    </div>
+  );
+}
 
-      <p className="mangwon-store-description">{store.descriptionKo ?? ui.unknown}</p>
+function MenuCarousel({ store, locale }: { readonly store: MangwonStore; readonly locale: Locale }) {
+  const ui = getMangwonUiText(locale);
+  const [expanded, setExpanded] = useState(false);
+  const products = useMemo(() => displayProducts(store), [store]);
+  const shownProducts = expanded ? products : products.slice(0, 6);
 
-      <dl className="mangwon-facts">
-        <div><dt>{ui.representativeMenu}</dt><dd>{productName(store, ui.unknown)}</dd></div>
-        <div><dt>{ui.price}</dt><dd>{productPrice(store, ui.unknown)}</dd></div>
-        <div><dt>{ui.hours}</dt><dd>{store.businessHours ?? ui.unknown}</dd></div>
+  return (
+    <section className="mangwon-mobile-section mangwon-popular-menu" aria-labelledby="mangwon-popular-menu-title">
+      <div className="mangwon-section-heading">
+        <h3 id="mangwon-popular-menu-title">{ui.popularMenu}</h3>
+        {products.length > 6 ? (
+          <button type="button" onClick={() => setExpanded((value) => !value)}>{expanded ? ui.showLess : ui.seeAll}</button>
+        ) : null}
+      </div>
+      {shownProducts.length > 0 ? (
+        <div className="mangwon-menu-carousel" role="region" aria-label={ui.popularMenu}>
+          {shownProducts.map((product) => {
+            const signature = store.representativeMenu?.nameKo === product.nameKo;
+            return (
+              <article key={`${store.id}-${product.nameKo}`} className="mangwon-menu-card">
+                {signature ? <span className="mangwon-signature">{ui.signature}</span> : null}
+                <strong>{localizeProductName(product.nameKo, locale)}</strong>
+                <span>{priceText(product.priceKrw, product.priceLabel, locale, ui.unknown)}</span>
+              </article>
+            );
+          })}
+        </div>
+      ) : <p className="mangwon-empty-copy">{ui.unknown}</p>}
+    </section>
+  );
+}
+
+function purchaseText(value: boolean | null, ui: ReturnType<typeof getMangwonUiText>): string {
+  if (value === null) return ui.unavailable;
+  return value ? ui.available : ui.notAvailable;
+}
+
+function StoreAbout({ store, locale }: { readonly store: MangwonStore; readonly locale: Locale }) {
+  const ui = getMangwonUiText(locale);
+  const description = localizeDescription(store.descriptionKo, locale);
+  const orderNote = localizeOrderNote(store.purchaseInfo.orderNote, locale);
+  return (
+    <section className="mangwon-mobile-section mangwon-about-shop" aria-labelledby="mangwon-about-shop-title">
+      <h3 id="mangwon-about-shop-title">{ui.aboutShop}</h3>
+      <p>{description ?? ui.unknown}</p>
+      <dl className="mangwon-purchase-facts">
+        <div><dt>{ui.takeout}</dt><dd>{purchaseText(store.purchaseInfo.takeout, ui)}</dd></div>
+        <div><dt>{ui.dineIn}</dt><dd>{purchaseText(store.purchaseInfo.dineIn, ui)}</dd></div>
       </dl>
+      {orderNote ? <p className="mangwon-order-note"><strong>{ui.orderNote}</strong>{orderNote}</p> : null}
+    </section>
+  );
+}
 
-      <div className="mangwon-actions">
-        <button type="button" className="mangwon-secondary" onClick={() => setDetailsOpen((open) => !open)} aria-expanded={detailsOpen}>
-          {detailsOpen ? ui.closeDetails : ui.details}
-        </button>
-        <button type="button" className="mangwon-primary" onClick={() => onStartWalking({ name: store.nameKo, coordinate: store.navigationTarget })}>
-          {ui.goThere}
-        </button>
+function StoreDetail({ store, locale, onStartWalking }: {
+  readonly store: MangwonStore;
+  readonly locale: Locale;
+  readonly onStartWalking: MangwonDemoProps["onStartWalking"];
+}) {
+  const ui = getMangwonUiText(locale);
+  const image = store.storeImages[0];
+  const name = localizeStoreName(store, locale);
+  return (
+    <article className="mangwon-mobile-detail" aria-labelledby="mangwon-selected-title">
+      <div className="mangwon-mobile-hero-image">
+        {image ? <img src={image.url} alt={`${name} ${locale === "en" ? "shop photo" : "대표 이미지"}`} loading="eager" /> : <div className="mangwon-store-image-fallback" role="img" aria-label={`${name} ${ui.aboutShop}`}><span>{localizeCategory(store.category, locale)}</span></div>}
       </div>
-
-      {detailsOpen ? (
-        <div className="mangwon-detail-disclosure" data-testid="mangwon-detail-disclosure">
-          <p>{store.verification.memo}</p>
-          {store.phone ? <p>{store.phone}</p> : null}
-          {store.purchaseInfo.orderNote ? <p>{store.purchaseInfo.orderNote}</p> : null}
-          {store.products.length > 0 ? (
-            <ul>
-              {store.products.slice(0, 8).map((product) => (
-                <li key={`${store.id}-${product.nameKo}`}><span>{product.nameKo}</span><strong>{priceText(product.priceKrw, ui.unknown)}</strong></li>
-              ))}
-            </ul>
-          ) : null}
-        </div>
-      ) : null}
+      <div className="mangwon-mobile-detail-body">
+        <p className="mangwon-mobile-eyebrow">{ui.selectedStore}</p>
+        <h2 id="mangwon-selected-title">{name}</h2>
+        <p className="mangwon-mobile-category">{localizeCategory(store.category, locale)}</p>
+        <p className="mangwon-mobile-description">{localizeDescription(store.descriptionKo, locale) ?? ui.unknown}</p>
+        <StoreKeyFacts store={store} locale={locale} />
+        <StorePrimaryActions store={store} locale={locale} onStartWalking={onStartWalking} />
+      </div>
+      <MenuCarousel store={store} locale={locale} />
+      <StoreAbout store={store} locale={locale} />
     </article>
   );
 }
 
-export default function MangwonDemo({ locale, onStartWalking }: MangwonDemoProps) {
-  const ui = getMangwonUiText(locale);
-  const [view, setView] = useState<DemoView>("panorama");
-  const [pointIndex, setPointIndex] = useState(0);
-  const [selectedId, setSelectedId] = useState(MANGWON_PANORAMA_POINTS[0]?.storeId ?? MANGWON_STORES[0]?.id ?? "");
-  const [here, setHere] = useState<Coordinate | null>(null);
-  const [locationState, setLocationState] = useState<"idle" | "ready" | "denied">("idle");
-  const googleProvider = useMemo(() => new GoogleStreetViewAdapter(), []);
-  const point = MANGWON_PANORAMA_POINTS[pointIndex] ?? MANGWON_PANORAMA_POINTS[0];
+export default function MangwonDemo({ locale, onLocaleChange, onStartWalking }: MangwonDemoProps) {
+  const [selectedId, setSelectedId] = useState(MANGWON_STORES[0]?.id ?? "");
   const selected = MANGWON_STORES.find((store) => store.id === selectedId) ?? MANGWON_STORES[0];
 
-  useEffect(() => {
-    if (view !== "map" || locationState !== "ready") return undefined;
-    if (typeof navigator === "undefined" || !navigator.geolocation) {
-      setLocationState("denied");
-      return undefined;
-    }
-    const watchId = navigator.geolocation.watchPosition(
-      (position) => setHere({ latitude: position.coords.latitude, longitude: position.coords.longitude }),
-      () => setLocationState("denied"),
-      { enableHighAccuracy: true, maximumAge: 5_000, timeout: 15_000 },
-    );
-    return () => navigator.geolocation.clearWatch(watchId);
-  }, [locationState, view]);
-
-  const selectPoint = useCallback((index: number) => {
-    const normalized = (index + MANGWON_PANORAMA_POINTS.length) % MANGWON_PANORAMA_POINTS.length;
-    const nextPoint = MANGWON_PANORAMA_POINTS[normalized];
-    if (!nextPoint) return;
-    setPointIndex(normalized);
-    setSelectedId(nextPoint.storeId);
-  }, []);
-
-  const selectStore = useCallback((storeId: string) => {
-    setSelectedId(storeId);
-    const index = MANGWON_PANORAMA_POINTS.findIndex((item) => item.storeId === storeId);
-    if (index >= 0) setPointIndex(index);
-  }, []);
-
-  const requestLocation = useCallback(() => {
-    if (typeof navigator === "undefined" || !navigator.geolocation) {
-      setLocationState("denied");
-      return;
-    }
-    setLocationState("ready");
-  }, []);
-
-  if (!selected || !point) return null;
+  const selectStore = useCallback((storeId: string) => setSelectedId(storeId), []);
+  if (!selected) return null;
 
   return (
-    <section className="mangwon-demo" aria-labelledby="mangwon-demo-title">
-      <div className="mangwon-demo-header">
-        <div><p className="mangwon-kicker">REAL DATA DEMO</p><h2 id="mangwon-demo-title">{ui.title}</h2><p>{ui.subtitle}</p></div>
-        <span className="mangwon-status">{MANGWON_PANORAMA_POINTS.length} HOTSPOTS</span>
-      </div>
-
-      <div className="mangwon-view-tabs" role="tablist" aria-label="망원시장 보기 방식">
-        <button type="button" role="tab" aria-selected={view === "panorama"} className={view === "panorama" ? "is-active" : ""} onClick={() => { setView("panorama"); setSelectedId(MANGWON_PANORAMA_POINTS[pointIndex]?.storeId ?? selectedId); }}>{ui.panoramaTab}</button>
-        <button type="button" role="tab" aria-selected={view === "map"} className={view === "map" ? "is-active" : ""} onClick={() => setView("map")}>{ui.mapTab}</button>
-      </div>
-
-      {view === "panorama" ? (
-        <>
-          <StoreCard key={selected.id} store={selected} locale={locale} onStartWalking={onStartWalking} />
-
-          <section className="mangwon-panorama-support" aria-labelledby="mangwon-street-view-title">
-            <div className="mangwon-support-heading">
-              <div>
-                <p className="mangwon-kicker">SUPPORTING VIEW</p>
-                <p className="mangwon-support-description">{ui.storeStreetViewDescription}</p>
-              </div>
-              <span className="mangwon-support-badge">360°</span>
-            </div>
-
-            <div className="mangwon-hotspot-heading"><strong>{ui.hotspotLabel}</strong><span>{pointIndex + 1} / {MANGWON_PANORAMA_POINTS.length}</span></div>
-            <div className="mangwon-hotspots" aria-label={ui.hotspotLabel}>
-              {MANGWON_PANORAMA_POINTS.map((hotspot, index) => (
-                <button key={hotspot.id} type="button" className={index === pointIndex ? "is-selected" : ""} onClick={() => selectPoint(index)} aria-pressed={index === pointIndex}>
-                  <span>{String(index + 1).padStart(2, "0")}</span><strong>{hotspot.label}</strong>
-                </button>
-              ))}
-            </div>
-            <div className="mangwon-panorama-nav">
-              <button type="button" onClick={() => selectPoint(pointIndex - 1)}>{ui.previousPoint}</button>
-              <button type="button" onClick={() => selectPoint(pointIndex + 1)}>{ui.nextPoint}</button>
-            </div>
-            <RoadviewViewer
-              key={point.id}
-              destination={point.coordinate}
-              destinationName={selected.nameKo}
-              approachOrigin={null}
-              embedPanoId={selected.streetView.lastResolvedPanoId}
-              locale={locale}
-              provider={googleProvider}
-              onClose={() => undefined}
-              title={ui.storeStreetViewTitle}
-              showCloseButton={false}
-            />
-          </section>
-        </>
-      ) : (
-        <>
-          <StoreCard key={selected.id} store={selected} locale={locale} onStartWalking={onStartWalking} />
-          <section className="mangwon-map-support" aria-labelledby="mangwon-map-support-title">
-            <div className="mangwon-support-heading">
-              <div>
-                <p className="mangwon-kicker">SUPPORTING MAP</p>
-                <h3 id="mangwon-map-support-title">{ui.mapTab}</h3>
-              </div>
-              <span className="mangwon-support-badge">{ui.locationButton}</span>
-            </div>
-            <div className="mangwon-map-toolbar">
-              <p>{locationState === "denied" ? ui.locationDenied : ""}</p>
-              <button type="button" onClick={requestLocation}>{ui.locationButton}</button>
-            </div>
-            <MangwonMarketMap stores={MANGWON_STORES} selectedId={selectedId} here={here} onSelect={selectStore} locale={locale} />
-          </section>
-        </>
-      )}
+    <section className="mangwon-demo mangwon-mobile-screen" aria-labelledby="mangwon-demo-title">
+      <MangwonMobileHeader locale={locale} onLocaleChange={onLocaleChange} />
+      <h1 id="mangwon-demo-title" className="visually-hidden">{getMangwonUiText(locale).title}</h1>
+      <StoreSwitcher stores={MANGWON_STORES} selectedId={selectedId} locale={locale} onSelect={selectStore} />
+      <StoreDetail key={selected.id} store={selected} locale={locale} onStartWalking={onStartWalking} />
     </section>
   );
 }

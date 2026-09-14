@@ -426,18 +426,18 @@ export default function Home() {
   const shown = recentsExpanded ? recents : recents.slice(0, RECENT_ROW);
   return (
     <main className="home">
-      <div className="language-bar">
+      <h1 className="visually-hidden">{ui.homeTitle}</h1>
+
+      <div className="visually-hidden">
         <label>
-          <span className="visually-hidden">{ui.language}</span>
+          <span>{ui.language}</span>
           <select aria-label={ui.language} value={locale} onChange={(e) => changeLocale(e.target.value as Locale)}>
             {LOCALE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
           </select>
         </label>
       </div>
 
-      <h1>{ui.homeTitle}</h1>
-
-      <MangwonDemo locale={locale} onStartWalking={(target) => void startWalking(target)} />
+      <MangwonDemo locale={locale} onLocaleChange={changeLocale} onStartWalking={(target) => void startWalking(target)} />
 
       <input
         className="dest-input"

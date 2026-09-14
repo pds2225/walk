@@ -522,3 +522,202 @@ html, body {
   .mangwon-actions { grid-template-columns: 1fr; }
   .mangwon-support-heading h3 { font-size: 18px; }
 }
+
+/* ── Mobile Screen 01: Shop Detail(Main) ─────────────────────────────────── */
+.mangwon-mobile-screen {
+  width: auto;
+  margin: -24px -18px 0;
+  padding: 0 0 34px;
+  border: 0;
+  border-radius: 0;
+  background: #fff;
+  overflow-x: hidden;
+}
+.mangwon-mobile-header {
+  display: grid;
+  grid-template-columns: 42px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 64px;
+  padding: 8px 16px;
+  border-bottom: 1px solid #edf0f4;
+  background: #fff;
+}
+.mangwon-back-button {
+  width: 40px;
+  height: 40px;
+  margin-left: -8px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: 34px;
+  font-weight: 350;
+  line-height: 1;
+  cursor: pointer;
+}
+.mangwon-mobile-brand { display: grid; gap: 1px; min-width: 0; }
+.mangwon-mobile-brand strong { color: var(--ink); font-size: 18px; line-height: 1.1; }
+.mangwon-mobile-brand span { color: var(--muted); font-size: 11px; line-height: 1.2; }
+.mangwon-locale-switcher { display: flex; align-items: center; gap: 4px; }
+.mangwon-globe { margin-right: 3px; font-size: 15px; line-height: 1; }
+.mangwon-locale-switcher button {
+  min-width: 34px;
+  min-height: 34px;
+  padding: 0 5px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: #8a919d;
+  font-size: 11px;
+  font-weight: 850;
+  cursor: pointer;
+}
+.mangwon-locale-switcher button.is-active { background: #eaf1ff; color: var(--blue); }
+.mangwon-mobile-screen > .mangwon-store-switcher {
+  display: flex;
+  gap: 7px;
+  width: 100%;
+  padding: 12px 16px 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.mangwon-mobile-screen > .mangwon-store-switcher::-webkit-scrollbar { display: none; }
+.mangwon-store-switcher button {
+  flex: 0 0 auto;
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid #e4e8ee;
+  border-radius: 999px;
+  background: #fff;
+  color: #6d7480;
+  font-size: 12px;
+  font-weight: 750;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.mangwon-store-switcher button.is-active { border-color: #b7cdf8; background: #edf3ff; color: var(--blue); }
+.mangwon-mobile-detail { display: block; }
+.mangwon-mobile-hero-image {
+  position: relative;
+  width: 100%;
+  min-height: 300px;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  background: #f1f3f6;
+}
+.mangwon-mobile-hero-image img,
+.mangwon-mobile-hero-image .mangwon-store-image-fallback {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 300px;
+  border-radius: 0;
+  object-fit: cover;
+}
+.mangwon-mobile-detail-body { padding: 20px 18px 0; }
+.mangwon-mobile-eyebrow {
+  margin: 0 0 5px;
+  color: var(--blue);
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.mangwon-mobile-detail-body h2 {
+  margin: 0;
+  color: var(--ink);
+  font-size: clamp(30px, 8vw, 34px);
+  line-height: 1.08;
+  letter-spacing: -.055em;
+}
+.mangwon-mobile-category { margin: 7px 0 0; color: #4f5865; font-size: 15px; font-weight: 700; }
+.mangwon-mobile-description { margin: 14px 0 0; color: var(--muted); font-size: 15px; line-height: 1.55; }
+.mangwon-mobile-key-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 20px 0 0;
+}
+.mangwon-mobile-key-facts div { min-width: 0; padding: 11px 9px 12px; border-radius: 12px; background: #f7f9fc; }
+.mangwon-mobile-key-facts dt {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #7b8491;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.25;
+}
+.mangwon-mobile-key-facts dt span { color: var(--blue); font-size: 13px; }
+.mangwon-mobile-key-facts dd { margin: 6px 0 0; color: var(--ink); font-size: 13px; font-weight: 800; line-height: 1.35; overflow-wrap: anywhere; }
+.mangwon-mobile-actions { margin-top: 20px; }
+.mangwon-mobile-primary {
+  width: 100%;
+  min-height: 54px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--blue);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 850;
+  cursor: pointer;
+}
+.mangwon-mobile-secondary-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 9px; }
+.mangwon-mobile-secondary-actions button {
+  min-height: 48px;
+  border: 1px solid #e1e5eb;
+  border-radius: 11px;
+  background: #fff;
+  color: #4e5662;
+  font-size: 14px;
+  font-weight: 750;
+  cursor: pointer;
+}
+.mangwon-mobile-secondary-actions button span { margin-right: 5px; color: var(--blue); font-size: 17px; }
+.mangwon-mobile-secondary-actions button.is-selected { border-color: #b7cdf8; background: #f2f6ff; color: var(--blue); }
+.mangwon-mobile-section { margin-top: 26px; padding: 22px 18px 0; border-top: 1px solid #edf0f4; }
+.mangwon-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.mangwon-section-heading h3,
+.mangwon-about-shop h3 { margin: 0; color: var(--ink); font-size: 19px; letter-spacing: -.03em; }
+.mangwon-section-heading button { min-height: 36px; padding: 0; border: 0; background: transparent; color: var(--blue); font-size: 12px; font-weight: 800; cursor: pointer; }
+.mangwon-menu-carousel {
+  display: flex;
+  gap: 10px;
+  margin: 14px -18px 0;
+  padding: 0 18px 3px;
+  overflow-x: auto;
+  list-style: none;
+  scrollbar-width: none;
+}
+.mangwon-menu-carousel::-webkit-scrollbar { display: none; }
+.mangwon-menu-card {
+  position: relative;
+  display: flex;
+  flex: 0 0 148px;
+  min-height: 112px;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 7px;
+  padding: 14px;
+  border: 1px solid #e6e9ee;
+  border-radius: 14px;
+  background: #fff;
+}
+.mangwon-menu-card strong { color: var(--ink); font-size: 14px; line-height: 1.35; }
+.mangwon-menu-card > span:last-child { color: var(--blue); font-size: 14px; font-weight: 850; }
+.mangwon-signature { position: absolute; top: 10px; left: 12px; padding: 3px 6px; border-radius: 999px; background: #eaf1ff; color: var(--blue); font-size: 9px; font-weight: 900; }
+.mangwon-empty-copy { margin: 14px 0 0; color: var(--muted); font-size: 14px; }
+.mangwon-about-shop > p { margin: 12px 0 0; color: var(--muted); font-size: 14px; line-height: 1.55; }
+.mangwon-purchase-facts { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin: 16px 0 0; }
+.mangwon-purchase-facts div { display: flex; justify-content: space-between; gap: 8px; padding: 11px 12px; border-radius: 10px; background: #f7f9fc; font-size: 13px; }
+.mangwon-purchase-facts dt { color: var(--muted); }
+.mangwon-purchase-facts dd { margin: 0; color: var(--ink); font-weight: 750; }
+.mangwon-order-note { display: grid; gap: 4px; }
+.mangwon-order-note strong { color: var(--ink); font-size: 12px; }
+
+@media (min-width: 641px) {
+  .mangwon-mobile-hero-image { max-height: 440px; }
+  .mangwon-mobile-detail-body { padding-left: 28px; padding-right: 28px; }
+  .mangwon-mobile-section { padding-left: 28px; padding-right: 28px; }
+}
