@@ -1,0 +1,158 @@
+/* Screen 01 visual-fidelity overrides.
+   Keep the existing data/navigation implementation intact while matching the
+   approved mobile Shop Detail(Main) hierarchy more closely. */
+
+/* The shop-detail demo is the initial consumer-facing screen. Keep the legacy
+   destination-search controls in code, but do not render them visually below
+   the approved Screen 01 surface. Navigation itself is unchanged. */
+.home > .dest-input,
+.home > .hint,
+.home > .hits,
+.home > .chips,
+.home > .primary,
+.home > .error {
+  display: none;
+}
+
+/* Match the approved composition: header -> hero/detail -> menu/about.
+   Keep the temporary shop switcher available for QA, but move it below the
+   actual Screen 01 content so it does not compete with the hero image. */
+.mangwon-mobile-screen {
+  display: flex;
+  flex-direction: column;
+}
+
+.mangwon-mobile-header {
+  order: 0;
+}
+
+.mangwon-mobile-detail {
+  order: 1;
+}
+
+.mangwon-mobile-screen > .mangwon-store-switcher {
+  order: 2;
+  margin-top: 26px;
+  padding: 16px 16px 4px;
+  border-top: 1px solid #edf0f4;
+}
+
+/* Header fidelity */
+.mangwon-back-button {
+  color: var(--blue);
+}
+
+.mangwon-mobile-brand strong {
+  color: var(--blue);
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: -0.04em;
+}
+
+.mangwon-mobile-brand span {
+  color: #35547d;
+  font-weight: 700;
+}
+
+.mangwon-locale-switcher {
+  gap: 5px;
+}
+
+.mangwon-locale-switcher button {
+  min-width: 38px;
+  min-height: 36px;
+  border-radius: 999px;
+  background: #f3f5f8;
+  color: #667085;
+  font-size: 12px;
+}
+
+.mangwon-locale-switcher button.is-active {
+  background: var(--blue);
+  color: #fff;
+}
+
+/* The approved mockup starts directly with the shop name below the image.
+   "Selected store" is internal context, not consumer-facing copy. */
+.mangwon-mobile-eyebrow {
+  display: none;
+}
+
+.mangwon-mobile-detail-body {
+  padding-top: 18px;
+}
+
+.mangwon-mobile-detail-body h2 {
+  font-size: clamp(28px, 7.6vw, 32px);
+  line-height: 1.08;
+}
+
+.mangwon-mobile-description {
+  margin-top: 12px;
+  line-height: 1.5;
+}
+
+/* Open three-column fact row instead of three dashboard-like mini cards. */
+.mangwon-mobile-key-facts {
+  gap: 14px;
+  margin-top: 22px;
+}
+
+.mangwon-mobile-key-facts div {
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.mangwon-mobile-key-facts dt {
+  color: #596579;
+  font-size: 10px;
+}
+
+.mangwon-mobile-key-facts dd {
+  margin-top: 7px;
+  font-size: 13px;
+}
+
+/* Strong primary action, quiet secondary actions. */
+.mangwon-mobile-primary {
+  min-height: 54px;
+  border-radius: 10px;
+  box-shadow: 0 8px 20px rgba(27, 100, 218, 0.16);
+}
+
+.mangwon-mobile-secondary-actions button {
+  border-color: transparent;
+  background: #f5f8fc;
+}
+
+/* Show enough of the next menu card to make horizontal swiping obvious. */
+.mangwon-menu-card {
+  flex-basis: 124px;
+  min-height: 116px;
+  padding: 13px;
+}
+
+/* About panel follows the light-blue information panel treatment in the mockup. */
+.mangwon-about-shop {
+  margin: 24px 16px 0;
+  padding: 17px 16px 18px;
+  border-top: 0;
+  border-radius: 14px;
+  background: #f3f7fd;
+}
+
+.mangwon-about-shop > p {
+  margin-top: 10px;
+}
+
+.mangwon-about-shop .mangwon-purchase-facts div {
+  background: #fff;
+}
+
+@media (min-width: 641px) {
+  .mangwon-about-shop {
+    margin-left: 28px;
+    margin-right: 28px;
+  }
+}
