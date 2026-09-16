@@ -90,6 +90,7 @@ const MENU_EN: Record<string, string> = {
   스무디: "Smoothie",
   아메리카노: "Americano",
   오튀김밥: "Squid Fritter Gimbap",
+  "오징어튀김 김밥": "Squid Fritter Gimbap",
   오채김밥: "Ochae Gimbap",
   야채김밥: "Vegetable Gimbap",
   꼬마김밥: "Mini Gimbap",
