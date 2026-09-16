@@ -9,6 +9,7 @@ import type { Coordinate, PlaceHit, RouteResponse } from "../lib/types";
 import { getUiText, LOCALE_OPTIONS, type Locale } from "../lib/i18n";
 import { primeSpeech } from "../lib/voice";
 import RoadviewViewer from "../components/RoadviewViewer";
+import MangwonDemo from "../components/MangwonDemo";
 import type { RoadviewProvider } from "../lib/roadview";
 import { selectRoadviewProvider } from "../lib/roadviewProviders";
 
@@ -425,16 +426,18 @@ export default function Home() {
   const shown = recentsExpanded ? recents : recents.slice(0, RECENT_ROW);
   return (
     <main className="home">
-      <div className="language-bar">
+      <h1 className="visually-hidden">{ui.homeTitle}</h1>
+
+      <div className="visually-hidden">
         <label>
-          <span className="visually-hidden">{ui.language}</span>
+          <span>{ui.language}</span>
           <select aria-label={ui.language} value={locale} onChange={(e) => changeLocale(e.target.value as Locale)}>
             {LOCALE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
           </select>
         </label>
       </div>
 
-      <h1>{ui.homeTitle}</h1>
+      <MangwonDemo locale={locale} onLocaleChange={changeLocale} onStartWalking={(target) => void startWalking(target)} />
 
       <input
         className="dest-input"

@@ -1,14 +1,106 @@
 # RESUME.md — 세션 재시작 시 이어하기 진입점
 
-> 새 세션을 시작하면 이 파일을 가장 먼저 읽어라. (최종 갱신: 2026-09-12)
+> 새 세션을 시작하면 이 파일을 가장 먼저 읽어라. (최종 갱신: 2026-09-14, 최신 working tree·branch 보존)
 > Secret/API Key/.env 값 금지. 세부는 링크만.
 
-## 현재 세션 (2026-09-12)
-- [x] 현재 브랜치·미커밋 변경·전체 worktree·stash·원격 `main` SHA와 열린 PR 확인 상태를 점검했다. GitHub PR 조회는 `gh` 인증 만료(HTTP 401)로 확인하지 못했다.
-- [x] 로컬 변경 중 실제 프로젝트 파일·문서 8개를 `backup/local-before-main-sync-20260912` 브랜치의 커밋 `544dc58`로 보존하고, 커밋 메시지에 동기화 전 보존 메모를 남겼다.
-- [x] `main`에 `git pull --ff-only origin main`을 실행해 `9c943ef`까지 fast-forward 완료했다. 현재 `HEAD...origin/main`은 `0 0`이다.
-- [x] 일반 실행 위치 테스트는 로컬 Secret 자동 로딩·임시폴더 권한 때문에 실패했으나, 격리 실행 위치에서 `598 passed`를 확인하고 이번 실행의 임시 폴더 2개를 삭제했다.
-- 핵심 제약: `.claude/worktrees`·`.worktrees`의 생성 파일 2,392개와 런타임 표시 파일은 커밋·삭제하지 않고 원래 위치에 보존했다.
+## 현재 요청 (2026-09-14)
+- [x] `4c8a7cf`는 이전 중간 버전이며 rollback 기준으로 사용하지 않는다.
+- [x] 최신 branch와 현재 working tree를 보존하고, 이미 통합된 메뉴·가격·13개 점포 데이터를 유지한다.
+- [x] 최신 상태를 읽기 전용으로 확인했다. HEAD·원격은 `961f0bf`로 동일하고 tracked working tree 변경은 없다.
+- [x] 현재 branch 기준 웹 테스트 142개, typecheck, lint, Next build를 다시 통과시켰다. Streamlit은 수정하지 않았다.
+- [ ] Google Cloud 설정·현장 점포 검증 등 사람 확인 항목을 진행할 수 있을 때 이어간다.
+
+## 현재 세션 (2026-09-14)
+- [x] `AGENTS.md`, `docs/MANGWON_REAL_DATA_DEMO_AUTONOMOUS.md`, root `TASK.md`를 전부 읽었다.
+- [x] 저장소 root와 현재 브랜치 `feat/mangwon-realdata-demo`, 기존 HEAD와 원격 추적 상태를 확인했다.
+- [x] 기존 `.claude/worktrees/`, `.worktrees/`, `.vscode/`, `RESUME.md` 미추적 항목은 사용자/세션 상태로 보존하고 삭제·정리하지 않는다.
+- [x] `actual-use-approval-loop`와 `session-resume` 지침을 확인했고, 5개 점포 FEASIBILITY GATE 결과를 `PARTIAL_GO`로 기록했다.
+- [x] `web/lib/mangwonStores.ts`, `web/components/MangwonDemo.tsx`, 관련 테스트·스타일과 `TASK.md` completion record를 반영했다.
+- [x] 5개 샘플 외 전수 조사 요구가 아니라는 현재 명세 범위를 유지하고, 점포별 공개 데이터의 출처·불확실성을 코드 메모로 남겼다.
+- [x] 현재 변경분의 커밋 hash `539781b`와 원격 push를 확인했다. 코드 상태는 `IMPLEMENTED + FIELD_VALIDATION_PENDING`이다.
+- [x] 다른 세션의 메뉴·가격·구매 정보 결과를 `web/lib/mangwonStores.ts`에 보존·통합했다.
+- [x] 사용자가 `4c8a7cf`로 rollback하지 말고 현재 통합 상태를 기준으로 계속하라고 확정했다.
+- [x] 최신 HEAD·원격 추적 상태·working tree·worktree·stash·PR을 읽기 전용으로 확인했다. 기존 데이터·미커밋 변경·세션 파일은 삭제하거나 덮어쓰지 않는다.
+- [x] 최신 branch의 13개 점포·메뉴 데이터와 웹 회귀 상태를 확인했다.
+- [x] 훈훈호떡→우이락 5개 360 파노라마 핫스팟, 카드·다국어 구조·좌표 비노출, 실제 지도 보조 탭, 기존 K-Navi 연결을 구현했다.
+- [x] 웹 140개·Streamlit 598개·typecheck·lint·build, 로컬/Preview 브라우저 smoke를 통과시켰다.
+- [x] Vercel Preview `https://k-navi-9av8vvx7b-ekth3691-8902s-projects.vercel.app` 배포 상태 `READY`를 확인했다.
+
+## 재개 우선순위
+- 1) Google Cloud API key/billing/domain restriction은 사람 설정으로 남아 있다.
+- 2) 실제 현장 출입구·좌우·순서·도보 도착점·Street View 시야 일치는 FIELD_CHECK_REQUIRED로 남아 있다.
+
+## P0 재개 요청 (2026-09-13)
+- [x] Vercel Preview에서 360 파노라마 실제 렌더링 실패 원인을 재현·특정하고 5포인트 표시를 복구했다.
+- [x] 360 화면과 점포 이미지를 확대하고 현재 순서의 가까운 점포가 먼저 보이게 조정했다. 일반 지도는 보조 탭으로 유지한다.
+- [x] Google Cloud CLI의 프로젝트/API/결제·키 상태를 읽기 전용으로 점검했고, 사람 승인 필요한 최소 단계만 남겼다.
+- [x] 데이터·기존 K-Navi를 보존한 채 test/typecheck/lint/build → commit/push → 새 Preview 배포를 수행했다.
+
+## 복원 체크포인트 (2026-09-13)
+- [x] 압축 후 현재 P0 요청·기준 커밋·기존 Preview 상태를 재확인했다.
+- [x] `roadview` 로더와 Vercel 환경을 읽기 전용으로 점검해 Preview 360 실패 원인을 특정했다. Vercel Preview에는 Google 키가 없고 기존 SDK가 `missing_key`로 종료했다.
+- [x] 공개 Google Maps Embed fallback과 360 영역·5개 핫스팟·점포 이미지 확대를 구현했고, 로컬에서 1·2·3·5번 실제 Street View와 4번 명세 fallback을 확인했다.
+- [x] 웹 142개 테스트·typecheck·lint·Next build를 통과했다. 최종 커밋 `961f0bf`를 push했고 새 Preview `https://k-navi-88oiuh0sj-ekth3691-8902s-projects.vercel.app`를 READY로 확인했다.
+
+## 현재 UI 재작업 체크포인트 (2026-09-14)
+- [x] 메인 첫 화면을 선택 점포 정보 hero 카드로 재배치하고 대표 이미지·메뉴·가격·영업시간·CTA를 우선 노출했다.
+- [x] Street View 360은 점포 정보 카드 아래 보조 영역, 일반 지도는 보조 탭/섹션으로 유지했다.
+- [x] 점포 선택 → 카드 갱신 → 보조 Street View → K-Navi 이동 흐름을 로컬·Preview에서 검증했다.
+- [x] 테스트 142개·typecheck·lint·build 후 커밋 `225eef8`을 push하고 Vercel Preview `https://k-navi-dev7ixgp7-ekth3691-8902s-projects.vercel.app`를 READY로 확인했다.
+- [x] 현재 UI는 모바일 우선 반응형이며, 데스크톱에서는 중앙 고정폭 카드로 표시된다. 실제 휴대전화 실기기 검증은 별도다.
+
+## Mobile Screen 01 체크포인트 (2026-09-14)
+- [x] 모바일 Shop Detail(Main)만 목업 순서로 재구성한다. 360·지도·추천·데이터 수집·K-Navi 로직은 변경하지 않는다.
+- [x] KO/EN 전환, 큰 대표 이미지, 핵심 정보 3개, K-Navi CTA, Save/Share, Popular Menu 가로 스크롤, About this shop을 구현한다.
+- [x] 390x844·412x915 실제 Chromium에서 첫 화면을 캡처하고, 로컬/Preview에서 점포 전환·언어 전환·메뉴 전체 보기·길안내 흐름을 검증했다.
+- [x] 테스트·typecheck·lint·production build를 통과했고 커밋 `65e976d`를 현재 브랜치에 push했다. 새 Preview `https://k-navi-i0wwkbv1r-ekth3691-8902s-projects.vercel.app`는 `READY`다.
+- [x] 배포 Preview를 390x844·412x915 실제 Chromium으로 최종 시각 감사했다. 목업 기준 모든 항목 PASS이며 MAJOR/FAIL 수정은 없다.
+
+## Integration audit checkpoint (2026-09-15)
+- [x] 인터넷 없이 영어/다국어 공용 처리와 Street View 공용 구조를 실제 repository에서 탐색·추적했다.
+- [x] Screen 01의 import·locale·점포 데이터·Street View 연결과 fallback/legacy 상태를 보고만 했다.
+- [x] production code는 수정하지 않고 로컬 test 142개·typecheck·lint·Next build를 확인했다.
+- [x] 판정은 `INTEGRATION PASS WITH WARNINGS`로 기록한다. Screen 01의 KO/EN은 연결됐고 Street View는 기존 navigation 경로의 공용 viewer/provider만 연결되어 있다.
+- [x] 13개 점포의 `streetViewLocation`·`headingOverride`는 비어 있고 `lastResolvedPanoId`는 5개만 존재하며, `navigationTarget`은 모두 `FIELD_CHECK_REQUIRED`로 유지된다.
+
+## Street View runtime verification checkpoint (2026-09-16)
+- [x] Vercel CLI 읽기 전용 확인: `k-navi` 연결·Preview `READY`, Preview 환경변수 0개. 로컬 Google/Kakao/Naver/provider pin 변수도 미설정이다.
+- [x] Google Cloud 읽기 전용 확인: 기존 후보 `drive-activity-tracker-493601`에 Maps/Places/Street View 관련 API와 결제가 연결되어 있다. 기존 키 1개는 AI Platform 대상이며 localhost/Vercel HTTP referrer 제한은 확인되지 않았다.
+- [x] Preview 브라우저에서 Screen 01 표시·점포 전환·좌표 비노출·console error/overlay 없음을 확인했다. 1536x622에서 확인했고 viewport capability 부재로 390x844/412x915 에뮬레이션은 미실행이다.
+- [x] K-Navi CTA는 위치 획득 실패 메시지로 종료되어 navigation/RoadviewViewer mount와 실제 panorama 표시까지 도달하지 못했다. provider 스크립트도 로드되지 않았다.
+- [x] 코드와 동일한 무환경변수 조건의 provider 선택 결과는 `kakao` 기본 선택, Kakao/Naver/Google 모두 `configured=false`이다.
+- [x] production code·UI·Street View metadata·Git은 수정하지 않고, 판정은 `PARTIAL`로 기록한다. 남은 blocker는 Vercel Preview env 미설정과 브라우저 위치 획득 실패다.
+- [x] runtime 검증 보고를 완료했다. 다음 액션은 승인된 provider credential의 Preview 연결 전 읽기 전용 확인과 위치 권한이 허용된 브라우저 재검증이다.
+
+## Runtime recheck continuation (2026-09-16)
+- [x] Chrome Preview에서 HTTPS와 CTA 위치 조회 흐름을 재시도했다. 자동화 연결이 끊겨 위치 허용 UI를 제어하지 못했으며 navigation 진입은 실측 완료로 단정하지 않는다.
+- [x] 이전 Preview 관찰에서 CTA는 위치 실패 일반 메시지로 돌아왔고 RoadviewViewer/provider SDK에는 도달하지 않았다. raw geolocation code는 화면에 노출되지 않는다.
+- [x] Vercel Preview env 0개, 로컬 provider env 미설정, Google Cloud 후보의 관련 API·결제 연결과 key restriction을 읽기 전용 재확인했다. Maps 대상 key 0개, 기존 key는 AI Platform 대상, referrer 0개다.
+- [x] production code·UI·Street View metadata·Git은 수정하지 않았다. Gate는 `B`(브라우저/위치 환경 blocker)이며 provider는 별도 `PROVIDER CONFIG REQUIRED`다.
+
+## Runtime permission retry (2026-09-16)
+- [ ] 사용자가 허용한 Chrome Preview 탭에서 Screen 01 → K-Navi CTA → geolocation → navigation 흐름을 다시 관찰한다.
+- [ ] navigation 도달 시 RoadviewViewer/provider 선택·SDK 요청·fallback·console/network를 확인한다.
+- [ ] provider env/Cloud 설정과 Git은 읽기 전용으로 유지하고, 결과만 이 체크포인트에 기록한다.
+
+## Google Cloud 연결 체크포인트 (2026-09-14)
+- [x] Google Cloud 본인 인증 재시도가 완료됐고 `gcloud` 계정·프로젝트 목록 조회가 정상 동작한다. 인증 코드·계정 정보는 기록하지 않는다.
+- [x] 읽기 전용 점검에서 Maps/Places 서비스와 결제가 연결된 기존 후보 프로젝트 1개를 확인했다. 새 프로젝트는 만들지 않는다.
+- [ ] 기존 Maps JavaScript API·Places API·결제·API key와 HTTP referrer 제한을 읽기 전용으로 확인한다.
+- [ ] 기존 키가 없거나 제한 변경이 필요할 때만 실제 승인 단계에서 멈춘다. 키 값은 기록·출력하지 않는다.
+- [ ] 기존 Vercel `k-navi`에 `D:\walk`를 재연결하고 `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` Preview 환경변수 상태를 점검한 뒤, 필요 시 승인 후 연결·재배포·브라우저 검증을 수행한다.
+- [ ] 기존 Vercel Preview 환경변수 이름만 확인하고, 안전한 키 연결 후 새 Preview에서 Street View SDK와 Embed fallback을 검증한다.
+
+## Runtime permission retry checkpoint (2026-09-16)
+- [x] 사용자가 허용했다고 보고한 Chrome Preview 탭에서 Screen 01 → K-Navi CTA를 재시도했다. HTTPS는 정상이나 앱 화면에 `현재 위치를 찾지 못했습니다...`가 다시 표시되어 좌표 획득·navigation 진입은 확인되지 않았다.
+- [x] navigation 미도달로 RoadviewViewer mount, provider SDK load, panorama/fallback은 runtime 미검증 상태로 유지했다. 콘솔 error/warn 및 Next overlay는 관찰되지 않았다.
+- [x] Vercel Preview env/Google Cloud/provider 상태는 읽기 전용으로 유지했다. production code/UI/Street View metadata/env/Git에는 변경이 없다. 현재 Gate는 B(geolocation 미확정)이며 provider 설정 필요 상태는 별도 유지한다.
+
+## Geolocation root-cause and synthetic runtime checkpoint (2026-09-16)
+- [x] 앱은 CTA에서 `getCurrentPosition` 1회 호출 후 성공할 때만 `/api/route`와 `navigating`으로 전환한다. 옵션은 `enableHighAccuracy=true`, `maximumAge=0`, `timeout=15초`이며 실패 시 위치 오류를 표시하고 선택 화면으로 돌아간다.
+- [x] Windows `lfsvc=Running`, 시스템·사용자 위치 동의 `Allow`를 읽기 전용 확인했다. 실제 Chrome의 permissions/raw API/외부 위치 기능은 브라우저 연결 부재로 실행하지 못해 `GEO-C / AUTOMATION LIMITATION`으로 분리한다.
+- [x] CUA 브라우저가 사라졌고 임시 CDP Chrome 실행도 정책 차단되어 `SYNTHETIC TEST UNAVAILABLE`이다. navigation/RoadviewViewer 추가 runtime 판정은 하지 않았다.
+- [x] production code/UI/metadata/env/Git 및 기존 untracked 파일은 변경하지 않았다. 다음 Gate는 실제 Chrome 연결 복구 후 raw Geolocation 재검증이다.
 
 ## 0. 30초 컨텍스트
 walk 앱(`D:\walk`)의 Production `Ready` 상태와 `k-walk.vercel.app` 도메인을 재확인 완료했다. Vercel의 `Deployment Settings`는 Root Directory `.`, Next.js, `npm run next:build`, Output `web/.next`, Install `npm install`, Node 24.x로 확인됐고 현재 배포와 일치한다. `4 Recommendations`는 연결·분석·성능 관련 선택형 운영 권고이며 오류가 아니다. `To update your Production Deployment, push to the main branch.`도 현재 Production을 갱신하려면 `main` 브랜치에 변경사항을 push하라는 일반 안내다. Vercel의 `github/pds2225`는 연결된 GitHub 저장소 소유자/조직 표기이고, `Source`의 `main`은 기본 배포 브랜치, `5e2cfff`는 배포에 사용된 Git 커밋 식별자다. 커밋 제목 `feat(web): wire deviation reroute into navigation`은 웹 앱에 경로 이탈 시 재탐색 기능을 연결한 변경을 뜻한다. `6h ago by pds2225`는 배포 생성 시각·생성 주체이며 오류가 아니다. Preview 실패는 `backup/WIN-K20QOC29TOB` 브랜치의 별도 빌드 문제로 Production에는 영향이 없다. 로컬 `main=83aa91c`, 실제 원격·배포 기준 `main=5e2cfff`이며 동기화·리셋은 하지 않았다.
