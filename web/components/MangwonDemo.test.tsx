@@ -5,6 +5,14 @@ import { MANGWON_STORES } from "../lib/mangwonStores";
 import type { Locale } from "../lib/i18n";
 import MangwonDemo from "./MangwonDemo";
 
+vi.mock("./MangwonMarketMap", () => ({
+  default: ({ selectedId }: { selectedId: string }) => <div data-testid="mangwon-market-map">map:{selectedId}</div>,
+}));
+
+vi.mock("./RoadviewViewer", () => ({
+  default: ({ destinationName }: { destinationName: string }) => <div data-testid="roadview-viewer">360:{destinationName}</div>,
+}));
+
 describe("MangwonDemo Mobile Screen 01", () => {
   afterEach(() => cleanup());
 
@@ -19,7 +27,7 @@ describe("MangwonDemo Mobile Screen 01", () => {
     expect(screen.getAllByText("1,500원").length).toBeGreaterThan(0);
     expect(screen.getByText("점포 안내")).toBeTruthy();
     expect(screen.queryByTestId("roadview-viewer")).toBeNull();
-    expect(screen.queryByText("일반 지도")).toBeNull();
+    expect(screen.queryByTestId("mangwon-market-map")).toBeNull();
     expect(screen.queryByText(/37\.\d+/)).toBeNull();
   });
 
@@ -65,5 +73,24 @@ describe("MangwonDemo Mobile Screen 01", () => {
     fireEvent.click(screen.getByRole("button", { name: "전체 보기" }));
     expect(screen.getByText("아메리카노")).toBeTruthy();
     expect(screen.getByRole("button", { name: "공유" })).toBeTruthy();
+  });
+
+  it("Screen 02에서 Nearby 점포 선택이 360·지도·K-Navi CTA에 동일하게 연결된다", () => {
+    const onStartWalking = vi.fn();
+    render(<MangwonDemo locale="ko" onStartWalking={onStartWalking} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /주변 점포 · 360 · 지도/ }));
+    expect(screen.getByRole("heading", { name: "주변 점포" })).toBeTruthy();
+    expect(screen.getByTestId("mangwon-market-map")).toBeTruthy();
+
+    const wooyirakButtons = screen.getAllByRole("button", { name: /우이락 망원본점/ });
+    fireEvent.click(wooyirakButtons[0]);
+
+    const target = MANGWON_STORES.find((store) => store.nameKo === "우이락 망원본점");
+    expect(screen.getByText("map:mangwon-wooyirak-main")).toBeTruthy();
+    expect(screen.getByText("360:우이락 망원본점")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "여기로 가기" }));
+    expect(onStartWalking).toHaveBeenCalledWith({ name: "우이락 망원본점", coordinate: target?.navigationTarget });
   });
 });
