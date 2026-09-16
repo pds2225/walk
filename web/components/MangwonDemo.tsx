@@ -237,7 +237,6 @@ function StoreDetail({ store, locale, onStartWalking }: {
         {image ? <img src={image.url} alt={`${name} ${locale === "en" ? "shop photo" : "대표 이미지"}`} loading="eager" /> : <div className="mangwon-store-image-fallback" role="img" aria-label={`${name} ${ui.aboutShop}`}><span>{localizeCategory(store.category, locale)}</span></div>}
       </div>
       <div className="mangwon-mobile-detail-body">
-        <p className="mangwon-mobile-eyebrow">{ui.selectedStore}</p>
         <h2 id="mangwon-selected-title">{name}</h2>
         <p className="mangwon-mobile-category">{localizeCategory(store.category, locale)}</p>
         <p className="mangwon-mobile-description">{localizeDescription(store.descriptionKo, locale) ?? ui.unknown}</p>
@@ -261,8 +260,8 @@ export default function MangwonDemo({ locale, onLocaleChange, onStartWalking }: 
     <section className="mangwon-demo mangwon-mobile-screen" aria-labelledby="mangwon-demo-title">
       <MangwonMobileHeader locale={locale} onLocaleChange={onLocaleChange} />
       <h1 id="mangwon-demo-title" className="visually-hidden">{getMangwonUiText(locale).title}</h1>
-      <StoreSwitcher stores={MANGWON_STORES} selectedId={selectedId} locale={locale} onSelect={selectStore} />
       <StoreDetail key={selected.id} store={selected} locale={locale} onStartWalking={onStartWalking} />
+      <StoreSwitcher stores={MANGWON_STORES} selectedId={selectedId} locale={locale} onSelect={selectStore} />
     </section>
   );
 }
