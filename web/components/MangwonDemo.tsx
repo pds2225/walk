@@ -12,7 +12,10 @@ import {
   localizeStoreName,
 } from "../lib/mangwonStoreCopy";
 import { MANGWON_STORES, type MangwonStore, type StoreProduct } from "../lib/mangwonStores";
+import { createRoadviewProvider } from "../lib/roadviewProviders";
 import type { Coordinate } from "../lib/types";
+import MangwonMarketMap from "./MangwonMarketMap";
+import RoadviewViewer from "./RoadviewViewer";
 
 interface MangwonDemoProps {
   readonly locale: Locale;
@@ -22,6 +25,9 @@ interface MangwonDemoProps {
 
 type ShareState = "idle" | "done" | "unavailable";
 type DisplayProduct = StoreProduct;
+type DemoScreen = "detail" | "nearby";
+
+const GOOGLE_STREET_VIEW_PROVIDER = createRoadviewProvider("google");
 
 function priceText(
   price: number | null,
@@ -49,9 +55,17 @@ function displayProducts(store: MangwonStore): DisplayProduct[] {
   return products;
 }
 
-function MangwonMobileHeader({ locale, onLocaleChange }: { readonly locale: Locale; readonly onLocaleChange?: ((locale: Locale) => void) | undefined }) {
+function MangwonMobileHeader({ locale, onLocaleChange, onBack }: {
+  readonly locale: Locale;
+  readonly onLocaleChange?: ((locale: Locale) => void) | undefined;
+  readonly onBack?: (() => void) | undefined;
+}) {
   const ui = getMangwonUiText(locale);
   const goBack = () => {
+    if (onBack) {
+      onBack();
+      return;
+    }
     if (typeof window !== "undefined" && window.history.length > 1) window.history.back();
   };
 
@@ -223,10 +237,11 @@ function StoreAbout({ store, locale }: { readonly store: MangwonStore; readonly 
   );
 }
 
-function StoreDetail({ store, locale, onStartWalking }: {
+function StoreDetail({ store, locale, onStartWalking, onOpenNearby }: {
   readonly store: MangwonStore;
   readonly locale: Locale;
   readonly onStartWalking: MangwonDemoProps["onStartWalking"];
+  readonly onOpenNearby: () => void;
 }) {
   const ui = getMangwonUiText(locale);
   const image = store.storeImages[0];
@@ -245,22 +260,151 @@ function StoreDetail({ store, locale, onStartWalking }: {
       </div>
       <MenuCarousel store={store} locale={locale} />
       <StoreAbout store={store} locale={locale} />
+      <div className="mangwon-nearby-entry">
+        <button type="button" onClick={onOpenNearby}>
+          <span>{locale === "en" ? "Nearby Shops · 360 · Map" : "주변 점포 · 360 · 지도"}</span>
+          <span aria-hidden="true">›</span>
+        </button>
+      </div>
     </article>
+  );
+}
+
+function NearbyShopRail({ selectedId, locale, onSelect }: {
+  readonly selectedId: string;
+  readonly locale: Locale;
+  readonly onSelect: (storeId: string) => void;
+}) {
+  return (
+    <div className="mangwon-nearby-rail" role="list" aria-label={locale === "en" ? "Nearby Shops" : "주변 점포"}>
+      {MANGWON_STORES.map((store) => {
+        const image = store.storeImages[0];
+        const selected = store.id === selectedId;
+        return (
+          <button
+            key={store.id}
+            type="button"
+            role="listitem"
+            className={selected ? "is-selected" : ""}
+            aria-pressed={selected}
+            onClick={() => onSelect(store.id)}
+          >
+            {image ? <img src={image.url} alt="" /> : <span className="mangwon-nearby-thumb-fallback" aria-hidden="true" />}
+            <strong>{localizeStoreName(store, locale)}</strong>
+            <small>{localizeCategory(store.category, locale)}</small>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function NearbyScreen({ store, selectedId, locale, onLocaleChange, onSelect, onBack, onStartWalking }: {
+  readonly store: MangwonStore;
+  readonly selectedId: string;
+  readonly locale: Locale;
+  readonly onLocaleChange?: ((locale: Locale) => void) | undefined;
+  readonly onSelect: (storeId: string) => void;
+  readonly onBack: () => void;
+  readonly onStartWalking: MangwonDemoProps["onStartWalking"];
+}) {
+  const ui = getMangwonUiText(locale);
+  const image = store.storeImages[0];
+  const usableStreetView = store.streetView.available
+    && store.streetView.quality !== "NOT_AVAILABLE"
+    && store.streetView.quality !== "AVAILABLE_BUT_NOT_USEFUL";
+  const streetViewTarget = store.streetViewLocation ?? store.navigationTarget;
+
+  return (
+    <section className="mangwon-nearby-screen" aria-labelledby="mangwon-nearby-title">
+      <MangwonMobileHeader locale={locale} onLocaleChange={onLocaleChange} onBack={onBack} />
+      <div className="mangwon-nearby-heading">
+        <p>{locale === "en" ? "EXPLORE AROUND YOU" : "주변 둘러보기"}</p>
+        <h2 id="mangwon-nearby-title">{locale === "en" ? "Nearby Shops" : "주변 점포"}</h2>
+      </div>
+      <NearbyShopRail selectedId={selectedId} locale={locale} onSelect={onSelect} />
+
+      <article className="mangwon-nearby-selected">
+        {image ? <img src={image.url} alt="" /> : null}
+        <div>
+          <h3>{localizeStoreName(store, locale)}</h3>
+          <p>{localizeCategory(store.category, locale)}</p>
+          <span>{localizeDescription(store.descriptionKo, locale) ?? ui.unknown}</span>
+        </div>
+      </article>
+
+      <section className="mangwon-nearby-block" aria-labelledby="mangwon-storefront-title">
+        <div className="mangwon-nearby-block-heading">
+          <h3 id="mangwon-storefront-title">{locale === "en" ? "Storefront 360" : "점포 앞 360"}</h3>
+          <span>Google Street View</span>
+        </div>
+        {usableStreetView ? (
+          <RoadviewViewer
+            key={`streetview-${store.id}`}
+            destination={streetViewTarget}
+            destinationName={localizeStoreName(store, locale)}
+            approachOrigin={null}
+            embedPanoId={store.streetView.lastResolvedPanoId}
+            locale={locale}
+            provider={GOOGLE_STREET_VIEW_PROVIDER}
+            onClose={() => undefined}
+            title={locale === "en" ? "Storefront 360" : "점포 앞 360"}
+            showCloseButton={false}
+          />
+        ) : (
+          <div className="mangwon-storefront-unavailable" role="status">
+            <strong>{locale === "en" ? "Storefront view unavailable" : "사용 가능한 점포 정면뷰가 없습니다"}</strong>
+            <span>{locale === "en" ? "You can still check the map and start the walking guide." : "지도와 K-Navi 도보안내는 계속 사용할 수 있습니다."}</span>
+          </div>
+        )}
+      </section>
+
+      <section className="mangwon-nearby-block" aria-labelledby="mangwon-location-map-title">
+        <div className="mangwon-nearby-block-heading">
+          <h3 id="mangwon-location-map-title">{locale === "en" ? "Location" : "위치"}</h3>
+          <span>{locale === "en" ? "Mangwon Market" : "망원시장"}</span>
+        </div>
+        <MangwonMarketMap stores={MANGWON_STORES} selectedId={selectedId} here={null} onSelect={onSelect} locale={locale} />
+      </section>
+
+      <div className="mangwon-nearby-cta">
+        <button type="button" onClick={() => onStartWalking({ name: store.nameKo, coordinate: store.navigationTarget })}>
+          {locale === "en" ? ui.startWalkingGuide : ui.goThere}
+        </button>
+      </div>
+    </section>
   );
 }
 
 export default function MangwonDemo({ locale, onLocaleChange, onStartWalking }: MangwonDemoProps) {
   const [selectedId, setSelectedId] = useState(MANGWON_STORES[0]?.id ?? "");
+  const [screenName, setScreenName] = useState<DemoScreen>("detail");
   const selected = MANGWON_STORES.find((store) => store.id === selectedId) ?? MANGWON_STORES[0];
 
   const selectStore = useCallback((storeId: string) => setSelectedId(storeId), []);
   if (!selected) return null;
 
+  if (screenName === "nearby") {
+    return (
+      <section className="mangwon-demo mangwon-mobile-screen" aria-label={getMangwonUiText(locale).title}>
+        <NearbyScreen
+          store={selected}
+          selectedId={selectedId}
+          locale={locale}
+          onLocaleChange={onLocaleChange}
+          onSelect={selectStore}
+          onBack={() => setScreenName("detail")}
+          onStartWalking={onStartWalking}
+        />
+      </section>
+    );
+  }
+
   return (
     <section className="mangwon-demo mangwon-mobile-screen" aria-labelledby="mangwon-demo-title">
       <MangwonMobileHeader locale={locale} onLocaleChange={onLocaleChange} />
       <h1 id="mangwon-demo-title" className="visually-hidden">{getMangwonUiText(locale).title}</h1>
-      <StoreDetail key={selected.id} store={selected} locale={locale} onStartWalking={onStartWalking} />
+      <StoreDetail key={selected.id} store={selected} locale={locale} onStartWalking={onStartWalking} onOpenNearby={() => setScreenName("nearby")} />
       <StoreSwitcher stores={MANGWON_STORES} selectedId={selectedId} locale={locale} onSelect={selectStore} />
     </section>
   );
