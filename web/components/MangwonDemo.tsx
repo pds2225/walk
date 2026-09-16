@@ -12,10 +12,9 @@ import {
   localizeStoreName,
 } from "../lib/mangwonStoreCopy";
 import { MANGWON_STORES, type MangwonStore, type StoreProduct } from "../lib/mangwonStores";
-import { createRoadviewProvider } from "../lib/roadviewProviders";
 import type { Coordinate } from "../lib/types";
 import MangwonMarketMap from "./MangwonMarketMap";
-import RoadviewViewer from "./RoadviewViewer";
+import MangwonStorefront360 from "./MangwonStorefront360";
 
 interface MangwonDemoProps {
   readonly locale: Locale;
@@ -26,8 +25,6 @@ interface MangwonDemoProps {
 type ShareState = "idle" | "done" | "unavailable";
 type DisplayProduct = StoreProduct;
 type DemoScreen = "detail" | "nearby";
-
-const GOOGLE_STREET_VIEW_PROVIDER = createRoadviewProvider("google");
 
 function priceText(
   price: number | null,
@@ -310,10 +307,6 @@ function NearbyScreen({ store, selectedId, locale, onLocaleChange, onSelect, onB
 }) {
   const ui = getMangwonUiText(locale);
   const image = store.storeImages[0];
-  const usableStreetView = store.streetView.available
-    && store.streetView.quality !== "NOT_AVAILABLE"
-    && store.streetView.quality !== "AVAILABLE_BUT_NOT_USEFUL";
-  const streetViewTarget = store.streetViewLocation ?? store.navigationTarget;
 
   return (
     <section className="mangwon-nearby-screen" aria-labelledby="mangwon-nearby-title">
@@ -338,25 +331,7 @@ function NearbyScreen({ store, selectedId, locale, onLocaleChange, onSelect, onB
           <h3 id="mangwon-storefront-title">{locale === "en" ? "Storefront 360" : "점포 앞 360"}</h3>
           <span>Google Street View</span>
         </div>
-        {usableStreetView ? (
-          <RoadviewViewer
-            key={`streetview-${store.id}`}
-            destination={streetViewTarget}
-            destinationName={localizeStoreName(store, locale)}
-            approachOrigin={null}
-            embedPanoId={store.streetView.lastResolvedPanoId}
-            locale={locale}
-            provider={GOOGLE_STREET_VIEW_PROVIDER}
-            onClose={() => undefined}
-            title={locale === "en" ? "Storefront 360" : "점포 앞 360"}
-            showCloseButton={false}
-          />
-        ) : (
-          <div className="mangwon-storefront-unavailable" role="status">
-            <strong>{locale === "en" ? "Storefront view unavailable" : "사용 가능한 점포 정면뷰가 없습니다"}</strong>
-            <span>{locale === "en" ? "You can still check the map and start the walking guide." : "지도와 K-Navi 도보안내는 계속 사용할 수 있습니다."}</span>
-          </div>
-        )}
+        <MangwonStorefront360 key={`storefront-${store.id}`} store={store} locale={locale} />
       </section>
 
       <section className="mangwon-nearby-block" aria-labelledby="mangwon-location-map-title">
