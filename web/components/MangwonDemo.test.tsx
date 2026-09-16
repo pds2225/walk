@@ -80,8 +80,8 @@ describe("MangwonDemo Mobile Screen 01", () => {
     expect(screen.getByTestId("mangwon-market-map")).toBeTruthy();
     expect(screen.getByTitle("훈훈호떡 Google Street View")).toBeTruthy();
 
-    const wooyirakButtons = screen.getAllByRole("button", { name: /우이락 망원본점/ });
-    fireEvent.click(wooyirakButtons[0]);
+    const wooyirakItems = screen.getAllByRole("listitem", { name: /우이락 망원본점/ });
+    fireEvent.click(wooyirakItems[0]);
 
     const target = MANGWON_STORES.find((store) => store.nameKo === "우이락 망원본점");
     expect(screen.getByText("map:mangwon-wooyirak-main")).toBeTruthy();
