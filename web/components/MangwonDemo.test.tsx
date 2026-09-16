@@ -75,20 +75,22 @@ describe("MangwonDemo Mobile Screen 01", () => {
     expect(screen.getByRole("button", { name: "공유" })).toBeTruthy();
   });
 
-  it("Screen 02에서 Nearby 점포 선택이 360·지도·K-Navi CTA에 동일하게 연결된다", () => {
+  it("Screen 02에서 Nearby 점포 선택이 360·지도·K-Navi CTA에 동일하게 연결되고 부적합 정면뷰는 대체하지 않는다", () => {
     const onStartWalking = vi.fn();
     render(<MangwonDemo locale="ko" onStartWalking={onStartWalking} />);
 
     fireEvent.click(screen.getByRole("button", { name: /주변 점포 · 360 · 지도/ }));
     expect(screen.getByRole("heading", { name: "주변 점포" })).toBeTruthy();
     expect(screen.getByTestId("mangwon-market-map")).toBeTruthy();
+    expect(screen.getByText("360:훈훈호떡")).toBeTruthy();
 
     const wooyirakButtons = screen.getAllByRole("button", { name: /우이락 망원본점/ });
     fireEvent.click(wooyirakButtons[0]);
 
     const target = MANGWON_STORES.find((store) => store.nameKo === "우이락 망원본점");
     expect(screen.getByText("map:mangwon-wooyirak-main")).toBeTruthy();
-    expect(screen.getByText("360:우이락 망원본점")).toBeTruthy();
+    expect(screen.queryByText("360:우이락 망원본점")).toBeNull();
+    expect(screen.getByText("사용 가능한 점포 정면뷰가 없습니다")).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "여기로 가기" }));
     expect(onStartWalking).toHaveBeenCalledWith({ name: "우이락 망원본점", coordinate: target?.navigationTarget });
