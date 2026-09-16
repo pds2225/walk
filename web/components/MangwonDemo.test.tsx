@@ -74,14 +74,15 @@ describe("MangwonDemo Mobile Screen 01", () => {
     expect(screen.getByRole("button", { name: "공유" })).toBeTruthy();
   });
 
-  it("Screen 02에서 Nearby 점포 선택이 360·지도·K-Navi CTA에 동일하게 연결되고 부적합 정면뷰는 대체하지 않는다", () => {
+  it("Screen 02에서 Nearby 점포 선택이 지도·K-Navi CTA에 동일하게 연결되고 미검증 corridor pano는 정면뷰로 표시하지 않는다", () => {
     const onStartWalking = vi.fn();
     render(<MangwonDemo locale="ko" onStartWalking={onStartWalking} />);
 
     fireEvent.click(screen.getByRole("button", { name: /주변 점포 · 360 · 지도/ }));
     expect(screen.getByRole("heading", { name: "주변 점포" })).toBeTruthy();
     expect(screen.getByTestId("mangwon-market-map")).toBeTruthy();
-    expect(screen.getByTitle("훈훈호떡 Google Street View")).toBeTruthy();
+    expect(screen.queryByTitle("훈훈호떡 Google Street View")).toBeNull();
+    expect(screen.getByText("사용 가능한 점포 정면뷰가 없습니다")).toBeTruthy();
 
     const wooyirakItems = screen.getAllByRole("listitem", { name: /우이락 망원본점/ });
     fireEvent.click(wooyirakItems[0]);
