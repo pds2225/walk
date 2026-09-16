@@ -10,7 +10,10 @@ vi.mock("./MangwonMarketMap", () => ({
 }));
 
 describe("MangwonDemo Mobile Screen 01", () => {
-  afterEach(() => cleanup());
+  afterEach(() => {
+    cleanup();
+    window.history.replaceState({}, "", "/");
+  });
 
   it("첫 화면에서 큰 대표 이미지와 점포 정보 위계를 보여주고 360·지도를 메인에서 숨긴다", () => {
     render(<MangwonDemo locale="ko" onStartWalking={vi.fn()} />);
@@ -90,5 +93,15 @@ describe("MangwonDemo Mobile Screen 01", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "여기로 가기" }));
     expect(onStartWalking).toHaveBeenCalledWith({ name: "우이락 망원본점", coordinate: target?.navigationTarget });
+  });
+
+  it("?store= deep link로 특정 점포 상세에 직접 진입하고 점포 변경 시 URL을 갱신한다", async () => {
+    window.history.replaceState({}, "", "/?store=mangwon-wooyirak-main");
+    render(<MangwonDemo locale="ko" onStartWalking={vi.fn()} />);
+
+    expect(await screen.findByRole("heading", { name: "우이락 망원본점" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "훈훈호떡" }));
+    expect(window.location.search).toContain("store=mangwon-hunhun-hotteok");
   });
 });
