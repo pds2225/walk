@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "maplibre-gl/dist/maplibre-gl.css";
 import "./globals.css";
 import "./mangwon-mobile-overrides.css";
+import "./mangwon-storefront.css";
 
 export const metadata: Metadata = {
   title: "walk — 도보 내비게이션",
