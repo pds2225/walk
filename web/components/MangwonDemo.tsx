@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { getMangwonUiText, type Locale } from "../lib/i18n";
 import {
   localizeCategory,
@@ -50,6 +50,17 @@ function displayProducts(store: MangwonStore): DisplayProduct[] {
     });
   }
   return products;
+}
+
+function hasStore(storeId: string | null): storeId is string {
+  return Boolean(storeId && MANGWON_STORES.some((store) => store.id === storeId));
+}
+
+function updateStoreDeepLink(storeId: string): void {
+  if (typeof window === "undefined") return;
+  const url = new URL(window.location.href);
+  url.searchParams.set("store", storeId);
+  window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
 }
 
 function MangwonMobileHeader({ locale, onLocaleChange, onBack }: {
@@ -139,6 +150,7 @@ function StorePrimaryActions({ store, locale, onStartWalking }: {
 
   const share = async () => {
     if (typeof navigator === "undefined") return;
+    updateStoreDeepLink(store.id);
     const browserNavigator = navigator as Navigator & {
       share?: (data: { title: string; text: string; url: string }) => Promise<void>;
     };
@@ -356,7 +368,17 @@ export default function MangwonDemo({ locale, onLocaleChange, onStartWalking }: 
   const [screenName, setScreenName] = useState<DemoScreen>("detail");
   const selected = MANGWON_STORES.find((store) => store.id === selectedId) ?? MANGWON_STORES[0];
 
-  const selectStore = useCallback((storeId: string) => setSelectedId(storeId), []);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const requestedStore = new URLSearchParams(window.location.search).get("store");
+    if (hasStore(requestedStore)) setSelectedId(requestedStore);
+  }, []);
+
+  const selectStore = useCallback((storeId: string) => {
+    setSelectedId(storeId);
+    updateStoreDeepLink(storeId);
+  }, []);
+
   if (!selected) return null;
 
   if (screenName === "nearby") {
