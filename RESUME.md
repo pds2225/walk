@@ -101,6 +101,7 @@
 - [x] Windows `lfsvc=Running`, 시스템·사용자 위치 동의 `Allow`를 읽기 전용 확인했다. 실제 Chrome의 permissions/raw API/외부 위치 기능은 브라우저 연결 부재로 실행하지 못해 `GEO-C / AUTOMATION LIMITATION`으로 분리한다.
 - [x] CUA 브라우저가 사라졌고 임시 CDP Chrome 실행도 정책 차단되어 `SYNTHETIC TEST UNAVAILABLE`이다. navigation/RoadviewViewer 추가 runtime 판정은 하지 않았다.
 - [x] production code/UI/metadata/env/Git 및 기존 untracked 파일은 변경하지 않았다. 다음 Gate는 실제 Chrome 연결 복구 후 raw Geolocation 재검증이다.
+- [x] 이번 세션은 위 검증 결과를 회고로 정리했으며, Google Sheet 개발내역 기록과 추가 개발은 실행하지 않았다.
 
 ## 0. 30초 컨텍스트
 walk 앱(`D:\walk`)의 Production `Ready` 상태와 `k-walk.vercel.app` 도메인을 재확인 완료했다. Vercel의 `Deployment Settings`는 Root Directory `.`, Next.js, `npm run next:build`, Output `web/.next`, Install `npm install`, Node 24.x로 확인됐고 현재 배포와 일치한다. `4 Recommendations`는 연결·분석·성능 관련 선택형 운영 권고이며 오류가 아니다. `To update your Production Deployment, push to the main branch.`도 현재 Production을 갱신하려면 `main` 브랜치에 변경사항을 push하라는 일반 안내다. Vercel의 `github/pds2225`는 연결된 GitHub 저장소 소유자/조직 표기이고, `Source`의 `main`은 기본 배포 브랜치, `5e2cfff`는 배포에 사용된 Git 커밋 식별자다. 커밋 제목 `feat(web): wire deviation reroute into navigation`은 웹 앱에 경로 이탈 시 재탐색 기능을 연결한 변경을 뜻한다. `6h ago by pds2225`는 배포 생성 시각·생성 주체이며 오류가 아니다. Preview 실패는 `backup/WIN-K20QOC29TOB` 브랜치의 별도 빌드 문제로 Production에는 영향이 없다. 로컬 `main=83aa91c`, 실제 원격·배포 기준 `main=5e2cfff`이며 동기화·리셋은 하지 않았다.
