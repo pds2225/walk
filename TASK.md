@@ -1,915 +1,665 @@
 # K-Navi / 케이네비 — Active Development TASK
 
 > Repository: `pds2225/walk`  
-> Product name: **K-Navi / 케이네비**  
 > Canonical task file: **repository root `TASK.md` only**  
-> Updated: **2026-09-10**  
-> Status: **ACTIVE**
+> Updated: **2026-09-16**  
+> Status: **ACTIVE — OVERNIGHT AUTONOMOUS MODE**  
+> Target branch: `feat/mangwon-realdata-demo`
 
 ---
 
-# 0. TASK GOVERNANCE — SINGLE SOURCE OF TRUTH
+# 0. SOURCE OF TRUTH
 
-이 repository의 개발 할 일·후속작업·결함·검증·완료기록은 **루트 `TASK.md` 하나만** 기준으로 관리한다.
+개발 할 일·우선순위·검증·완료기록은 이 루트 `TASK.md` 하나를 기준으로 한다.
 
-사용자가 `TASK 읽어`, `task 봐`, `할 일 뭐야`라고 하면 **현재 작업 중인 repository의 루트 `TASK.md`를 가장 먼저 읽는다.**
+충돌 시 우선순위:
 
-다음 파일을 별도 기준 문서로 새로 만들지 않는다.
-
-- `TASK_DATA_COLLECTION.md`
-- `CURRENT_TASK.md`
-- `NEW_TASK.md`
-- `NEXT_TASK.md`
-- `TODO.md`
-- 기능별 별도 TASK 문서
-
-새 할 일이 생기면 반드시 이 파일에 추가한다.
-
-## Source of truth
-
-내용 충돌 시:
-
-1. 현재 대화에서 사용자가 명시적으로 확정한 최신 지시
-2. 현재 repository 루트 `TASK.md`
+1. 사용자의 가장 최근 명시 지시
+2. 이 `TASK.md`
 3. 현재 repository의 실제 코드·테스트·배포 상태
-4. 최신 현장 테스트/재현 결과
+4. 최신 QA/재현 결과
 5. 최신 프로젝트 자료
-6. 과거 사업계획서·발표자료
+6. 과거 자료
 7. 추론
 
-과거 명칭 `K-Walk`, `케이워크`, `도보네비`, `K-네비`가 코드·과거 문서에 남아 있을 수 있으나 신규 사용자 노출 명칭은 **K-Navi / 케이네비**로 통일한다.
+신규 사용자 노출 명칭은 **K-Navi / 케이네비**로 통일한다.
 
-서비스명 변경만을 이유로 코드 identifier를 대규모 rename하지 않는다.
-
-## 개발 원칙
+기본 개발 원칙:
 
 `AUDIT → REUSE → FIX → EXTEND → NEW → TEST`
 
-- 기존 구현을 먼저 조사한다.
-- 같은 기능을 다른 이름으로 중복 구현하지 않는다.
-- 기존 정상 기능을 이유 없이 제거하지 않는다.
+- 이미 구현된 기능을 중복 구현하지 않는다.
+- 정상 기능을 이유 없이 제거하지 않는다.
 - `1 기능 = 1 TASK = 1 검증`을 기본으로 한다.
-- build/unit test 성공만으로 DONE 처리하지 않는다.
-- 실제 사용자 흐름과 Acceptance Criteria를 기준으로 완료 판단한다.
+- build/test 성공만으로 DONE 처리하지 않는다.
+- 실제 사용자 흐름과 Acceptance Criteria로 완료 판단한다.
+- mock 점포·메뉴·가격·좌표·점포사진을 신규 생성하지 않는다.
+- 확인되지 않은 데이터는 명시 상태값으로 처리한다.
 
 ---
 
-# 1. CURRENT PRODUCT GOAL
+# 1. OVERNIGHT AUTONOMOUS EXECUTION CONTRACT
 
-K-Navi를 실제 사용자가 휴대폰을 들고 이동하면서 테스트할 수 있는 도보 내비게이션 PoC 수준으로 유지·고도화하고, 동시에 그 이동과 관광행동을 익명 Journey 데이터로 축적한다.
+사용자는 실행 중 확인하거나 승인할 수 없다고 가정한다.
 
-핵심 사용자 흐름:
+## 절대 원칙
 
-`장소 탐색`
-→ `목적지 선택`
-→ `목적지 좌표 확정`
-→ `길안내 시작`
-→ `현재 위치 수신`
-→ `위치 신뢰도 판단`
-→ `실제 이동방향 판단`
-→ `경로 진행`
-→ `경로 이탈 판정`
-→ `재탐색/재안내`
-→ `목적지 접근`
-→ `Roadview 보조 안내`
-→ `도착`
-→ `체류`
-→ `다음 장소 선택`
+**작업 중 사용자에게 승인·선택·확인을 요청하지 않는다.**
 
-동시에 같은 익명 `session_id`로:
+일반적인 구현 판단은 repository의 기존 패턴과 최소변경 원칙을 기준으로 스스로 결정한다.
 
-`탐색 → 선택 → 이동 → 이탈 → 재안내 → 접근 → 도착 → 체류 → 콘텐츠 조회 → 다음 이동`
+불확실성이 있어도 작업 전체를 멈추지 않는다.
 
-을 시간순으로 재구성할 수 있어야 한다.
+판단 우선순위:
 
----
+1. 기존 구현 재사용
+2. 최소 변경
+3. 기존 사용자 흐름 보존
+4. 데이터 무결성 보존
+5. 되돌리기 쉬운 구현
+6. 실패 시 graceful fallback
 
-# 2. CURRENT VERIFIED / RECORDED STATUS
+## 외부 작업으로 막힌 경우
 
-아래는 기존 TASK completion record와 사용자 보고를 기준으로 정리한 현재 상태다. 과거 `CURRENT INITIAL STATUS`의 `TODO` 값은 더 이상 최신 상태로 사용하지 않는다.
+다음은 `BLOCKED_EXTERNAL`로 기록만 하고 즉시 다음 독립 TASK로 진행한다.
 
-| Capability / TASK | 현재 상태 | 근거 |
-|---|---|---|
-| `KN-20260826-01` Navigation 전체 흐름 | **IMPLEMENTED** | PR #110 merged |
-| `KN-20260826-02` 경로·위치·이탈·재탐색 | **IMPLEMENTED** | PR #111/#112 merged |
-| `KN-20260826-03` 실제 보행 UI/방향 분리 | **IMPLEMENTED** | PR #113 merged |
-| `KN-20260826-04` 4개 언어 + TTS | **IMPLEMENTED** | PR #114 merged |
-| `KN-20260826-05` Kakao Roadview | **IMPLEMENTED** | PR #115 merged |
-| `KN-20260826-06` 랜드마크 사진 의존성 정리 | **IMPLEMENTED** | PR #116 |
-| `KN-20260826-07` 통합 E2E | **FIELD_VERIFIED** | 2026-08-30 사용자 실외 테스트 종합 보고 |
-| Pre-field hardening | **VERIFIED** | PR #120 merged |
-| `K-NAVI-RV-01` Kakao 운영설정 | **DONE — USER_REPORTED** | 2026-08-30 배포 도메인 등록 보고 |
-| `K-NAVI-RV-02` Roadview follow-up | **IMPLEMENTED** | PR #124 merged |
-| `K-NAVI-TRANSIT-01` 대중교통 딥링크 + 도보 TMAP 유지 | **DONE** | PR #129 merged |
-| `TASK-001` 지하철 승·하차 최적 출입구 선택 | **IMPLEMENTED — FIELD_TEST_REQUIRED** | PR #132 merged |
+- 로그인/2FA
+- API key 신규 발급
+- billing/결제 승인
+- 약관 동의
+- 도메인/Cloud Console 수동 설정
+- 외부 조사 handoff 파일 미도착
+- GitHub/Vercel 일시 네트워크 장애
 
-## Current status normalization
+**외부 blocker 때문에 밤샘 실행 전체를 중단하지 않는다.**
 
-`KAKAO_DEVELOPER_APP = DONE`
+## 실패 처리
 
-`KAKAO_MAP_API = ENABLED`
+한 단계가 실패하면:
 
-`KAKAO_JS_DOMAINS = CONFIGURED (USER_REPORTED)`
+1. 원인 파악
+2. 최대 3회까지 수정·재검증
+3. 여전히 실패하면 `PARTIAL / BLOCKED` 기록
+4. 현재 변경이 다른 정상 기능을 깨뜨리면 안전하게 해당 TASK 변경만 되돌림
+5. 다음 독립 TASK 진행
 
-`KAKAO_ROADVIEW_CODE = IMPLEMENTED`
+같은 명령/API를 무한 재시도하지 않는다.
 
-`NAVIGATION_CORE = IMPLEMENTED`
+## 금지
 
-`DESTINATION_COORDINATE_FLOW = IMPLEMENTED`
-
-`NAVIGATION_UI = IMPLEMENTED`
-
-`MULTILINGUAL_TTS = IMPLEMENTED`
-
-`LANDMARK_PHOTO_DEPENDENCY = AUDITED / PRIMARY FLOW EXCLUDED`
-
-`FULL_NAVIGATION_E2E = FIELD_VERIFIED (USER_REPORTED, 2026-08-30)`
-
-`SUBWAY_EXIT_AUTO_SELECTION = IMPLEMENTED / FIELD_TEST_REQUIRED`
-
-`DATA_COLLECTION_PIPELINE = NOT_YET_AUDITED`
-
-`JOURNEY_RECONSTRUCTION = NOT_YET_IMPLEMENTED`
-
-## Important limitation
-
-`KN-20260826-07`의 FIELD_VERIFIED는 사용자의 종합 보고를 근거로 한다. Scenario A~G 개별 결과가 모두 항목화된 것은 아니므로, 향후 재현되는 결함은 새 TASK로 등록한다.
+- `git reset --hard`
+- `git clean -fd`
+- force push
+- main history rewrite
+- 사용자/다른 agent의 unrelated 변경 삭제
+- secret commit
+- 근거 없는 데이터 생성
+- 실패한 TASK 때문에 전체 작업 중단
+- 중간 진행보고를 기다리며 멈춤
 
 ---
 
-# 3. CURRENT TECHNICAL PRINCIPLES
+# 2. PATH / PC INDEPENDENCE
 
-## 3.1 Navigation 판단
+집 PC·노트북·다른 PC에서 동일하게 실행되어야 한다.
+
+**`D:\walk` 같은 절대경로를 가정하지 않는다.**
+
+작업 시작 시 현재 repository root를 자동 확인한다.
+
+```powershell
+$repo = git rev-parse --show-toplevel
+Set-Location $repo
+```
+
+shell이 다르면 동등한 명령을 사용한다.
+
+모든 repository 파일은 root 기준 상대경로를 사용한다.
+
+Street View 조사 handoff는 아래 순서로만 찾는다.
+
+1. `K_NAVI_HANDOFF_DIR` 환경변수
+2. repository root 기준 `handoff/streetview_frontage_report.md`
+3. repository 부모/형제의 `k-navi-handoff/streetview_frontage_report.md`
+4. 없으면 `BLOCKED_HANDOFF` 기록 후 다음 TASK 진행
+
+전체 디스크 무차별 탐색은 하지 않는다.
+
+---
+
+# 3. CURRENT NORMALIZED STATUS
+
+| Capability | 상태 |
+|---|---|
+| 기존 K-Navi navigation core | **IMPLEMENTED — 보존** |
+| 망원시장 실제 점포 데이터 | **13개 구현 — 보존** |
+| Screen 01 Shop Detail(Main) | **IMPLEMENTED — FINAL QA 필요** |
+| Screen 01 KO/EN | **IMPLEMENTED — 누락 Audit 필요** |
+| 대표이미지/점포정보/CTA/Popular Menu/About | **IMPLEMENTED** |
+| 기존 Map / Roadview 구현 파일 | **PRESERVED** |
+| 점포별 Google Street View 정면 설정 | **조사 handoff 통합 대기** |
+| Screen 02 Nearby + 360 + Map | **NEXT** |
+| Screen 01 ↔ Screen 02 연결 | **NEXT** |
+| Market Overview / Explore | **P1** |
+| Store Deep Link / QR 진입구조 | **P1** |
+| Funnel analytics / Journey data | **P2** |
+
+현재 최우선 목표는 **망원시장 모바일 Demo를 하나의 end-to-end 사용자 흐름으로 완성**하는 것이다.
+
+---
+
+# 4. 변경 금지 핵심 기술 원칙
+
+## Navigation
 
 단일 GPS 좌표나 단말 Heading 하나만으로 경로이탈을 판단하지 않는다.
 
-사용 신호:
+주요 신호:
 
 - GNSS Accuracy
-- 위치 history
 - Movement Bearing
 - Route Bearing
 - Route Progress
 - Cross-track Distance
-- 이동거리
-- 시간 연속성
+- 이동거리/시간 연속성
 - route geometry
-- navigation state
 
-상태 개념:
+상태 흐름:
 
-`On-route → Drifting → Deviated`
+`On-route → Drifting → Deviated → Reroute`
 
-- `Drifting`: 실제 이탈인지 불확실한 중간 상태. 사용자 음성 경고를 즉시 발생시키지 않는다.
-- `Deviated`: 복수 신호가 실제 이탈을 지지할 때 확정.
+Device Heading은 Movement Bearing 대체값으로 사용하지 않는다.
 
-Heading은 보조 신호로만 사용한다.
+## Street View
 
-## 3.2 방향값 분리
+망원시장 Demo 사용자-facing 360은 **Google Street View** 기준으로 구현한다.
 
-- **Map Bearing**: DeviceOrientation 기반, 사용자가 휴대폰으로 보는 방향
-- **Movement Bearing**: 실제 GNSS 이동궤적 기반 이동방향
-- **Route Bearing**: active route의 진행방향
+점포별로 가능하면 다음을 분리한다.
 
-세 값을 같은 값처럼 사용하지 않는다.
+- `storeLocation`
+- `navigationTarget`
+- `streetViewLocation`
+- `resolvedPanoId`
+- `headingOverride`
+- `pitch`
+- `quality`
 
-## 3.3 Roadview
+규칙:
 
-PoC primary provider는 **Kakao Roadview**.
+- 검증된 pano/heading이 있으면 nearest pano 재탐색보다 우선
+- 점포 선택 시 해당 점포 정면이 첫 POV 중심
+- same pano는 정면이 heading으로 명확히 구분될 때만 허용
+- 적합한 pano가 없으면 `STOREFRONT_VIEW_UNAVAILABLE`
+- 다른 점포 pano로 대체 금지
+- Street View 실패가 navigation 실패로 이어지지 않음
 
-장기 구조는:
+## Real-data integrity
 
-`Kakao → NAVER → Google`
-
-을 고려하되, NAVER/Google 실제 연동은 현재 필수 범위가 아니다.
-
-별도 대규모 랜드마크 사진 DB를 신규 구축하지 않는다.
-
-Roadview 실패 시 navigation은 계속되어야 한다.
-
-## 3.4 SBAS / KASS
-
-구현·검증 증거 없이 다음을 완료처럼 기록하지 않는다.
-
-- KASS 정밀 보정 완료
-- SBAS 적용 완료
-- m/cm급 정확도
-- 기존 지도 대비 정확도 우월
-
-현재 핵심은 GNSS 위치 신뢰도, 실제 이동궤적, 경로이탈 판단, reroute, 사용자 안내다.
+- 가격·메뉴·영업시간·좌표·점포사진은 기존 검증 데이터 유지
+- 영어는 기존 한국어 데이터의 의미만 번역
+- 숫자·사실 변경 금지
 
 ---
 
-# 4. CURRENT ACTIVE QUEUE
+# 5. NIGHT RUN — P0 EXECUTION ORDER
 
-## P0 — 현장검증 잔여
+밤샘 실행 순서:
 
-### [ ] TASK-001-FIELD — 지하철 승·하차 최적 출입구 실기기 현장검증
+`MW-01 → MW-02 → MW-03(if handoff) → MW-04 → MW-05 → MW-06`
 
-`SOURCE = TASK-001 completion record`
+MW-03 handoff가 없어도 멈추지 않고 MW-04로 진행한다.
 
-`STATUS = FIELD_TEST_REQUIRED`
+각 TASK 종료 시:
 
-**Goal**
+1. 관련 구현 완료
+2. 관련 test
+3. typecheck
+4. lint
+5. build 또는 가능한 runtime 검증
+6. 실패 수정
+7. PASS 가능한 수준까지 재검증
+8. completion record 작성
+9. 안전한 local commit
+10. 다음 TASK 즉시 진행
 
-실제 지하철역 1곳 이상에서 승차·하차 각각 선택된 출입구가 실제 보행 관점에서 적절한지 확인한다.
-
-**Acceptance**
-
-- [ ] 실제 역에서 승차 출입구 선택 확인
-- [ ] 실제 역에서 하차 출구 선택 확인
-- [ ] 출구번호 UI 확인
-- [ ] 후보 없음 시 기존 역좌표 fallback 확인
-- [ ] 기존 deviation/reroute/TTS 흐름 회귀 없음 확인
-
----
-
-# 5. DATA COLLECTION — NEW ACTIVE TASKS
-
-## 공통 아키텍처
-
-사용자 행동 이벤트와 GNSS 이동 샘플을 별도 저장하되 **동일한 익명 `session_id`로 연결**한다.
-
-### Session
-
-세션 시작 시 1회 생성/확정:
-
-- `session_id`
-- `session_started_at`
-- `language`
-
-`session_id`는 매 이벤트마다 새로 생성하지 않는다. 단, 각 event/movement row는 동일 세션을 연결하기 위해 같은 `session_id`를 참조한다.
-
-### Event common fields
-
-- `session_id`
-- `event_timestamp`
-- `event_type`
-- `poi_id` nullable
-- `route_id` nullable
-- `payload_json` nullable
-
-### Movement sample
-
-- `session_id`
-- `sample_timestamp`
-- `route_id`
-- `latitude`
-- `longitude`
-- `gnss_accuracy`
-- `speed`
-- `movement_bearing`
-- `route_progress`
-- `cross_track_distance`
-- `navigation_state`
-
-### Target event set
-
-P0:
-
-- `route_start`
-- `route_deviation`
-- `reroute`
-- `poi_approach`
-- `arrival`
-- `dwell`
-
-P1:
-
-- `place_view`
-- `place_select`
-- `menu_view`
-- `next_place_select`
-
-P2:
-
-- `coupon_click`
-- `coupon_use`
-
-구매 여부를 GNSS만으로 추정하지 않는다. 실제 소비전환은 쿠폰/주문/결제/POS 등 별도 데이터가 있어야 한다.
+GitHub/Vercel 연결이 되면 push/preview까지 수행한다. 네트워크가 실패하면 local commit은 유지하고 다음 TASK로 진행한다.
 
 ---
 
-## [ ] TASK-002 — 데이터 수집 capability audit
+## [ ] MW-01 — Screen 01 Final Visual QA
 
 `PRIORITY = P0`
 
-`STATUS = READY`
+**Goal**
+
+승인된 모바일 Shop Detail 목업과 현재 구현의 시각적 정합성을 최종 마감한다.
+
+**Viewport**
+
+- `390 × 844`
+- `412 × 915`
+
+**Required hierarchy**
+
+`Header`
+→ `Large shop image`
+→ `Shop name`
+→ `Category`
+→ `Description`
+→ `Signature Menu / Price / Hours`
+→ `Start Walking Guide`
+→ `Save / Share`
+→ `Popular Menu`
+→ `About this shop`
+
+**FAIL**
+
+- 점포 switcher가 대표이미지보다 먼저 보임
+- 기존 목적지 검색 UI가 Shop Detail 아래 다시 노출됨
+- 360/Map이 Screen 01 첫 화면을 지배함
+- 개발자용 상태/좌표/source URL 노출
+- Google Maps clone 인상
+- KO/EN 전환 시 overflow/레이아웃 파손
+
+**Acceptance**
+
+- [ ] 두 viewport 실제 Chromium 확인
+- [ ] 대표이미지가 첫 시선 중심
+- [ ] CTA가 가장 강함
+- [ ] Popular Menu horizontal scroll 자연스러움
+- [ ] Save/Share 보조 위계
+- [ ] About 과하지 않음
+- [ ] KO → EN → KO 클릭 확인
+- [ ] MAJOR/FAIL 0개 또는 남은 이슈가 명확한 MINOR뿐
+- [ ] test/typecheck/lint/build 가능한 항목 PASS
+
+완벽한 픽셀 동일성이 아니어도 사용자 흐름과 시각 위계가 충족되면 완료하고 다음으로 진행한다.
+
+---
+
+## [ ] MW-02 — 13개 점포 English Audit
+
+`PRIORITY = P0`
+`DEPENDS = MW-01`
+
+이미 구현된 영어를 전부 갈아엎지 않는다.
+
+점검:
+
+- name/category
+- description
+- representative menu
+- menu items
+- hours
+- takeout/dine-in
+- order note
+- Screen UI text
+
+**Acceptance**
+
+- [ ] 13개 점포 KO→EN smoke test
+- [ ] 비정상 한국어 fallback 최소화
+- [ ] 가격·시간·전화번호 불변
+- [ ] 긴 영어 title/button overflow 없음
+- [ ] 새로운 사실 생성 없음
+
+---
+
+## [ ] MW-03 — Storefront Street View Handoff Integration
+
+`PRIORITY = P0`
+`STATUS = RUN_IF_HANDOFF_EXISTS`
+
+handoff 파일을 자동 검색해 존재하면 직접 읽고 통합한다.
+사용자에게 복사/승인을 요청하지 않는다.
+
+우선 대상:
+
+1. 훈훈호떡
+2. 부산대원어묵
+3. 큐스
+4. 망원닭강정
+5. 우이락 망원본점
+
+반영 후보:
+
+- streetViewLocation
+- resolvedPanoId
+- headingOverride
+- pitch
+- quality
+
+**Acceptance**
+
+- [ ] 검증된 pano 우선
+- [ ] headingOverride 첫 POV 적용
+- [ ] same pano 규칙 준수
+- [ ] unavailable에 다른 점포 pano 사용 금지
+- [ ] Screen 01 회귀 없음
+- [ ] navigation 회귀 없음
+
+handoff가 없으면 `BLOCKED_HANDOFF`만 기록하고 즉시 MW-04로 이동한다.
+
+---
+
+## [ ] MW-04 — Screen 02 Nearby Shops + 360 + Map
+
+`PRIORITY = P0`
+`DEPENDS = MW-01`
 
 **Goal**
 
-현재 repository에서 이미 생성·저장 가능한 데이터와 신규 Gap을 먼저 확정한다.
+Screen 01을 재설계하지 않고 두 번째 소비자 화면을 구현한다.
 
-**Audit 대상**
+사용 흐름:
+
+`Nearby Shops`
+→ `점포 선택`
+→ `선택 점포 요약`
+→ `Storefront 360`
+→ `Location Map`
+→ `Start Walking Guide`
+
+**UI rules**
+
+- MANGWON_STORES 단일 데이터 소스
+- 실제 대표이미지 thumbnail 사용
+- Nearby horizontal rail
+- 선택 점포 상태 명확
+- 360은 선택 점포와 일치
+- Map은 보조 정보
+- Google Maps clone처럼 만들지 않음
+- K-Navi white + blue 소비자 관광앱 톤
+- KO/EN
+- CTA는 기존 K-Navi navigationTarget 호출
+- Google walking directions redirect 금지
+
+**Minimum stores**
+
+- 훈훈호떡
+- 부산대원어묵
+- 큐스
+- 망원닭강정
+- 우이락 망원본점
+
+**Acceptance**
+
+- [ ] 390×844
+- [ ] 412×915
+- [ ] 점포 전환 시 요약/360/Map/CTA 동일 점포
+- [ ] 360 unavailable graceful fallback
+- [ ] KO→EN→KO
+- [ ] 기존 Screen 01 회귀 없음
+
+Street View handoff가 없어도 Screen 02 구조와 fallback까지 구현하고 멈추지 않는다.
+
+---
+
+## [ ] MW-05 — Screen 01 ↔ Screen 02 연결
+
+`PRIORITY = P0`
+`DEPENDS = MW-04`
+
+**Goal**
+
+두 화면을 하나의 실제 사용자 흐름으로 연결한다.
+
+**Acceptance**
+
+- [ ] selectedStore 유지
+- [ ] locale 유지
+- [ ] 뒤로가기 정상
+- [ ] 새로고침 시 안전한 fallback
+- [ ] Screen 02 선택점포 ↔ 360 ↔ Map ↔ CTA 일치
+- [ ] 기존 navigationTarget 사용
+- [ ] 불필요한 전역 상태 라이브러리 추가 없음
+
+---
+
+## [ ] MW-06 — Full Regression / Release Candidate QA
+
+`PRIORITY = P0`
+`DEPENDS = MW-01 ~ MW-05 가능한 범위`
+
+신규 기능 추가 금지. 회귀만 수정한다.
+
+검증:
+
+- Screen 01
+- Screen 02
+- 13개 점포 smoke test
+- KO/EN
+- 대표이미지
+- Popular Menu
+- Save/Share
+- Street View/fallback
+- Map
+- Start Walking Guide
+- 기존 K-Navi navigation
+
+Real-data integrity:
+
+- mock store 없음
+- fake menu/price 없음
+- fake coordinate 없음
+- fake store image 없음
+- wrong-store pano 없음
+
+가능하면 full test/typecheck/lint/production build를 수행한다.
+
+테스트 하나가 환경 문제로 불가능하면 그 사실을 기록하고 나머지 검증을 계속한다.
+
+---
+
+# 6. P1 — P0가 일찍 끝나면 자동 진행
+
+P0가 모두 가능한 범위에서 완료되고 시간이 남으면 **사용자 승인 없이** 아래를 순서대로 진행한다.
+
+## [ ] MW-07 — Market Overview / Explore
+
+목표:
+
+`Market Overview → Store Detail → Screen 02 → Walking Guide`
+
+- 검색창 중심이 아니라 시장 전체 탐색 중심
+- 실제 13개 점포만 사용
+- 대표이미지/업종/점포명 중심
+- 간단 카테고리 필터 가능
+- Map은 보조
+- KO/EN
+- 기존 Screen 01/02 재사용
+
+---
+
+## [ ] MW-08 — Store Deep Link / QR-ready URL
+
+점포별 직접 진입 가능한 URL 구조를 만든다.
+
+예:
+
+`/mangwon/store/{storeId}` 또는 현재 구조에 가장 적합한 동등 구현.
+
+Acceptance:
+
+- [ ] URL 직접 접속 시 해당 점포 Screen 01
+- [ ] 잘못된 storeId safe fallback
+- [ ] 새로고침 유지
+- [ ] Share가 가능하면 deep link 사용
+- [ ] 13개 점포 automated smoke test
+
+QR 이미지 제작 자체보다 **deep-link routing**을 우선한다.
+
+---
+
+## [ ] MW-09 — Navigation entry/return UX
+
+`Store Detail → Walking Guide → 종료/도착 → Store context` 흐름을 정리한다.
+
+- 선택 점포명 유지
+- navigation 중 store context 보존
+- 종료 시 안전한 복귀
+- navigation state machine 자체는 재설계하지 않음
+
+---
+
+# 7. P2 — DATA PIPELINE (기존 설계 유지, UI 통합 후 진행)
+
+P0/P1이 끝나기 전 데이터 파이프라인 때문에 밤샘 작업을 선점하지 않는다.
+
+## DATA-01 — Capability Audit
+
+현재 코드에서 이미 가능한 것을 먼저 분류:
+
+`ALREADY_DONE / PARTIAL / BROKEN / NOT_IMPLEMENTED / NOT_APPLICABLE / BLOCKED_EXTERNAL`
+
+대상:
 
 - session/client state
-- geolocation / watchPosition
-- GNSS accuracy
+- geolocation
+- GNSS accuracy/speed
+- Movement Bearing
+- Route Progress
+- Cross-track Distance
+- navigation state
+- deviation/reroute
+- arrival
+- POI/store model
+- backend/API/storage
+- analytics/logging
+
+## DATA-02 — Anonymous Session
+
+- session_id 1회 생성
+- 동일 Journey 유지
+- language/session_started_at 연결
+- 직접 식별정보 사용 금지
+
+## DATA-03 — Event Log
+
+우선 이벤트:
+
+- place_view
+- menu_view
+- route_start
+- streetview_open
+- map_view
+- route_deviation
+- reroute
+- poi_approach
+- arrival
+- dwell
+- next_place_select
+- save/share
+
+## DATA-04 — Movement Log
+
+- timestamp
+- session_id
+- route_id
+- latitude/longitude
+- gnss_accuracy
 - speed
-- movement bearing
-- route progress
-- cross-track distance
-- navigation state
-- deviation/reroute lifecycle
-- arrival lifecycle
-- POI/destination model
-- place/menu UI
-- backend/API
-- DB/storage
-- existing analytics/logging
-- 위치정보 동의/권한 UI
+- movement_bearing
+- route_progress
+- cross_track_distance
+- navigation_state
 
-**Acceptance**
+## DATA-05 — Journey Reconstruction
 
-- [ ] 각 항목을 `ALREADY_DONE / PARTIAL / BROKEN / NOT_IMPLEMENTED / NOT_APPLICABLE`로 분류
-- [ ] 재사용할 파일/module 근거 기록
-- [ ] 새 DB 도입이 필요한지 여부 판정
-- [ ] 기존 기능 중 재작성 금지 대상 명시
-- [ ] 별도 Audit 문서 생성 금지 — 결과는 이 `TASK.md` completion record에 기록
+`탐색 → 선택 → 이동 → 이탈 → 재안내 → 접근 → 도착 → 체류 → 다음 이동`
+
+을 session_id 기준으로 재구성하고 최소 JSON/CSV export 가능하게 한다.
+
+Data 저장 실패는 navigation fatal error가 되면 안 된다.
 
 ---
 
-## [ ] TASK-003 — 익명 Session foundation
+# 8. CHECKPOINT / RESUME CONTRACT
 
-`PRIORITY = P0`
+중간에 context reset, reconnect, PC/CLI 재시작이 발생해도 재개 가능하게 한다.
 
-`STATUS = READY`
+repository root의 `RESUME.md`가 이미 있으면 덮어쓰기보다 기존 형식을 존중해 갱신한다.
 
-`DEPENDS = TASK-002`
-
-**Goal**
-
-익명 session을 1회 생성하고 같은 관광 Journey 전체에서 유지한다.
-
-**Acceptance**
-
-- [ ] session 시작 시 `session_id` 1회 생성
-- [ ] rerender로 session_id 변경되지 않음
-- [ ] 같은 Journey 내 다음 장소 이동까지 동일 session 유지
-- [ ] language / session_started_at 연결
-- [ ] 실명·전화번호·이메일을 session key로 사용하지 않음
-- [ ] 테스트로 동일 session 유지 검증
-
----
-
-## [ ] TASK-004 — Event Tracker + `event_log`
-
-`PRIORITY = P0`
-
-`STATUS = READY`
-
-`DEPENDS = TASK-003`
-
-**Goal**
-
-사용자 행동과 navigation 상태 이벤트를 공통 형식으로 서버에 저장한다.
-
-권장 시작 구조:
-
-`event_log`
+각 TASK 종료 시 최소 기록:
 
 ```text
-id
-session_id
-event_timestamp
-event_type
-poi_id
-route_id
-payload_json
-created_at
+[완료]
+[현재 작업]
+[다음 작업]
+[Blocker]
+[마지막 검증]
+[마지막 local commit]
 ```
 
-기존 DB/ORM이 있으면 재사용한다. Audit 전에 Supabase/Prisma/Drizzle 등 새 스택을 임의 확정하지 않는다.
-
-**Acceptance**
-
-- [ ] 공통 `trackEvent()` 또는 동등한 capability 존재
-- [ ] timestamp/type 자동 기록
-- [ ] poi_id/route_id/payload 선택적 저장
-- [ ] 중복 이벤트 억제
-- [ ] 저장 실패가 navigation fatal error로 이어지지 않음
-- [ ] 실제 서버 저장 검증
-- [ ] 직접 식별정보와 raw movement를 결합하지 않음
+**RESUME.md 갱신을 위해 사용자 승인을 요청하지 않는다.**
 
 ---
 
-## [ ] TASK-005 — GNSS `movement_log`
+# 9. GIT / NETWORK CONTRACT
 
-`PRIORITY = P0`
+작업 시작 시:
 
-`STATUS = READY`
+- 현재 branch 확인
+- git status 확인
+- unrelated dirty/untracked 파일 보존
 
-`DEPENDS = TASK-002, TASK-003`
+현재 branch가 `feat/mangwon-realdata-demo`가 아니면 기존 변경을 손상시키지 않는 범위에서 해당 branch/worktree를 확인한다.
 
-**Goal**
+각 TASK가 안정화되면 local commit을 남긴다.
 
-navigation 중 실제 이동데이터와 K-Navi 분석값을 시계열로 저장한다.
+인터넷이 가능하면 push한다.
 
-권장 구조:
+GitHub/Vercel 실패 시:
 
-```text
-id
-session_id
-sample_timestamp
-route_id
-latitude
-longitude
-gnss_accuracy
-speed
-movement_bearing
-route_progress
-cross_track_distance
-navigation_state
-created_at
+- 최대 2회 재시도
+- local commit 유지
+- `BLOCKED_NETWORK` 기록
+- 다음 TASK 진행
+- 밤샘 종료 직전 한 번 더 push 시도
+
+main에 직접 merge하지 않는다.
+
+---
+
+# 10. NIGHT RUN FINAL OUTPUT
+
+밤샘 실행은 중간 보고를 기다리며 멈추지 않는다.
+
+**가능한 P0를 모두 끝내고, 시간이 남으면 P1까지 진행한 뒤에만 종료한다.**
+
+마지막에 repository root에 `NIGHT_REPORT.md`를 생성/갱신한다.
+
+형식:
+
+```markdown
+# K-Navi Overnight Report
+
+## 완료
+- ...
+
+## Partial / 미완료
+- ...
+
+## External / Network blockers
+- ...
+
+## Commits
+- ...
+
+## Verification
+- test:
+- typecheck:
+- lint:
+- build:
+- browser QA:
+
+## Preview
+- ...
+
+## 다음 작업
+1. ...
+2. ...
+3. ...
 ```
 
-**Acceptance**
-
-- [ ] 기존 geolocation/navigation 계산값 재사용
-- [ ] Device Heading을 Movement Bearing으로 저장하지 않음
-- [ ] navigation 활성 구간에서만 합리적 cadence로 저장
-- [ ] sample timestamp + route_id 연결
-- [ ] 동일 값 무한 중복 저장 방지
-- [ ] UI/navigation 성능저하 여부 검증
-- [ ] 실제 서버 저장 확인
-
-Sampling 주기나 거리 기준은 PoC에서 조정 가능한 설정값으로 둔다. 근거 없이 확정 성능값처럼 고정하지 않는다.
-
----
-
-## [ ] TASK-006 — `route_deviation` / `reroute` 이벤트 연결
-
-`PRIORITY = P0`
-
-`STATUS = READY`
-
-`DEPENDS = TASK-004, TASK-005`
-
-**Goal**
-
-기존 navigation state machine을 그대로 활용해 경로이탈·재안내 이벤트를 자동 생성한다.
-
-**Acceptance**
-
-- [ ] `Deviated` 확정 시 `route_deviation` 1회 기록
-- [ ] `Drifting`에서는 `route_deviation` 생성 금지
-- [ ] 실제 reroute 실행 시 `reroute` 기록
-- [ ] duplicate reroute 이벤트 억제
-- [ ] deviation 확정부터 정상복귀/새 경로 진입까지 recovery time 산출 가능
-- [ ] replay test로 event sequence 검증
-
----
-
-## [ ] TASK-007 — POI 접근·도착·체류 자동 판정
-
-`PRIORITY = P0`
-
-`STATUS = READY`
-
-`DEPENDS = TASK-004, TASK-005`
-
-**Goal**
-
-클릭이 아니라 실제 공간행동인 `poi_approach → arrival → dwell`을 측정한다.
-
-### `poi_approach`
-
-목적지 좌표와 현재 위치 거리로 자동 판정.
-
-초기 예시 20m는 **PoC 조정값 / 확정 성능값 아님**.
-
-### `arrival`
-
-단순 거리 1개로 판정하지 않는다.
-
-최소 고려:
-
-- destination distance
-- route progress
-- GNSS accuracy
-- repeated samples / temporal stability
-- navigation state
-
-### `dwell`
-
-POI 반경 내 연속 체류시간 계산.
-
-예시 3분 역시 **PoC 조정값 / 확정값 아님**.
-
-**Acceptance**
-
-- [ ] `distance_to_poi` 계산
-- [ ] approach threshold configurable
-- [ ] jitter로 approach 이벤트 반복 폭증 없음
-- [ ] `NEAR_DESTINATION`과 실제 `arrival` 분리
-- [ ] arrival 1회만 기록
-- [ ] 조기 arrival false positive 테스트
-- [ ] dwell_seconds 계산
-- [ ] GPS jitter로 체류가 과도하게 끊기지 않음
-- [ ] visibility/background 변화 처리방식 기록
-
----
-
-## [ ] TASK-008 — 관광행동 이벤트 연결
-
-`PRIORITY = P1`
-
-`STATUS = READY`
-
-`DEPENDS = TASK-004`
-
-**Goal**
-
-사용자가 무엇을 보고, 무엇을 선택하고, 다음 어디로 가려 했는지 실제 이동데이터와 연결한다.
-
-필수:
-
-- `place_view`
-- `place_select`
-- `menu_view`
-- `next_place_select`
-
-**Acceptance**
-
-- [ ] 기존 UI에 tracker를 최소 침습으로 연결
-- [ ] 관련 poi/content ID 연결
-- [ ] rerender로 `place_view` 중복 폭증 방지
-- [ ] `next_place_select` 후 새 `route_start`와 동일 session으로 연결
-- [ ] 언어 변경이 session을 끊지 않음
-
----
-
-## [ ] TASK-009 — Journey reconstruction + export
-
-`PRIORITY = P1`
-
-`STATUS = READY`
-
-`DEPENDS = TASK-003 ~ TASK-008`
-
-**Goal**
-
-한 익명 사용자의 Journey를 시간순으로 재구성한다.
-
-목표 sequence:
-
-`place_view`
-→ `place_select`
-→ `route_start`
-→ `movement`
-→ `route_deviation`
-→ `reroute`
-→ `poi_approach`
-→ `arrival`
-→ `dwell`
-→ `menu_view`
-→ `next_place_select`
-→ `new route_start`
-
-**Acceptance**
-
-- [ ] session_id 기준 event + movement 조회
-- [ ] timestamp 순 정렬
-- [ ] route 변경 구분
-- [ ] 주요 이벤트와 이동구간 연결
-- [ ] 최소 CSV 또는 JSON export 제공
-- [ ] 대형 BI dashboard는 이번 TASK에서 만들지 않음
-- [ ] 실제 sample Journey 재구성 검증
-
----
-
-## [ ] TASK-010 — Data-enabled PoC E2E
-
-`PRIORITY = P1 / Integration`
-
-`STATUS = READY`
-
-`DEPENDS = TASK-003 ~ TASK-009`
-
-**Goal**
-
-실제 한 사용자 Journey가 처음부터 끝까지 저장·재구성되는지 종단 검증한다.
-
-필수 시나리오:
-
-`session_start`
-→ `place_view`
-→ `place_select`
-→ `route_start`
-→ `movement samples`
-→ `route_deviation`
-→ `reroute`
-→ `poi_approach`
-→ `arrival`
-→ `dwell`
-→ `menu_view`
-→ `next_place_select`
-→ `new route_start`
-
-**Acceptance**
-
-- [ ] session_id 중간 변경 없음
-- [ ] GNSS raw sample 저장
-- [ ] Movement Bearing / Route Progress / Cross-track / Navigation State 저장
-- [ ] false route_deviation 억제
-- [ ] arrival 1회
-- [ ] dwell 계산
-- [ ] 다음 장소 이동 연결
-- [ ] Journey 완전 재구성
-- [ ] 데이터 저장 실패 시 navigation 계속
-- [ ] 직접 식별정보와 raw movement 미결합
-- [ ] 기존 navigation 실사용 흐름 회귀 없음
-
----
-
-## [ ] TASK-011 — 쿠폰/소비전환 event hook
-
-`PRIORITY = P2`
-
-`STATUS = READY — CONDITIONAL`
-
-**Goal**
-
-향후 `coupon_click`, `coupon_use`를 방문 Journey와 연결할 수 있도록 실제 쿠폰 기능이 존재할 때만 hook을 추가한다.
-
-**Acceptance**
-
-- [ ] 실제 쿠폰 UI/기능이 존재할 때만 이벤트 연결
-- [ ] 존재하지 않으면 이번 cycle에서 구현하지 않아도 됨
-- [ ] 구매 발생을 GNSS 위치만으로 추정하지 않음
-- [ ] POS/결제 연동은 별도 후속 TASK
-
----
-
-# 6. ACTIVE TASK EXECUTION ORDER
-
-기본 순서:
-
-`Repository sync`
-→ `TASK.md 확인`
-→ `git status`
-→ `TASK-002 Audit`
-→ `TASK-003 Session`
-→ `TASK-004 Event Log`
-→ `TASK-005 Movement Log`
-→ `TASK-006 Deviation/Reroute Event`
-→ `TASK-007 Approach/Arrival/Dwell`
-→ `TASK-008 Tourism Events`
-→ `TASK-009 Journey Reconstruction`
-→ `TASK-010 Data E2E`
-→ 필요 시 `TASK-011`
-
-`TASK-001-FIELD`는 실제 현장 테스트가 가능한 시점에 수행한다.
-
-Audit에서 이미 구현된 capability는 새로 만들지 않고 검증 후 넘어간다.
-
----
-
-# 7. DATA PRIVACY / COLLECTION BOUNDARY
-
-- 이동데이터는 **익명 session 단위**를 기본으로 한다.
-- raw 위치는 navigation 또는 사용자가 명시적으로 동의한 수집구간에서만 수집한다.
-- navigation 종료, arrival 완료, 명시적 stop, timeout 등에서 tracking을 종료한다.
-- 실명·전화번호·이메일 등 직접 식별정보를 raw movement row와 직접 결합하지 않는다.
-- 위치권한 거부 시 navigation이 가능한 범위에서 명확한 fallback을 제공한다.
-- 개인별 장기 이동이력 계정화는 현재 cycle의 범위가 아니다.
-
----
-
-# 8. DEVELOPMENT AUDIT MATRIX
-
-TASK-002 수행 시 실제 코드 근거로 갱신한다.
-
-| Component | Status | Evidence | Main file/module | Gap |
-|---|---|---|---|---|
-| Destination Search | TBD | | | |
-| Destination Coordinate | TBD | | | |
-| Route Generation | TBD | | | |
-| Location Tracking | TBD | | | |
-| GNSS Accuracy | TBD | | | |
-| Movement Bearing | TBD | | | |
-| Route Bearing | TBD | | | |
-| Route Progress | TBD | | | |
-| Cross-track Distance | TBD | | | |
-| On-route / Drifting / Deviated | TBD | | | |
-| Reroute | TBD | | | |
-| Arrival | TBD | | | |
-| Kakao Roadview | TBD | | | |
-| Localization / TTS | TBD | | | |
-| Session Manager | TBD | | | |
-| Event Tracker | TBD | | | |
-| Event Log Storage | TBD | | | |
-| Movement Log Storage | TBD | | | |
-| POI Approach | TBD | | | |
-| Dwell | TBD | | | |
-| Tourism Behavior Events | TBD | | | |
-| Journey Reconstruction | TBD | | | |
-| Export | TBD | | | |
-| Data E2E | TBD | | | |
-
-Allowed audit status:
-
-- `ALREADY_DONE`
-- `PARTIAL`
-- `BROKEN`
-- `NOT_IMPLEMENTED`
-- `NOT_APPLICABLE`
-- `BLOCKED_EXTERNAL`
-
-코드를 확인하지 않고 추측해서 채우지 않는다.
-
----
-
-# 9. FALSE DONE POLICY
-
-다음만으로 완료 처리하지 않는다.
-
-- process exit code 0
-- build success
-- lint success
-- unit test success
-- component 생성
-- API route 생성
-- DB table 생성
-- tracker 함수 생성
-- mock data 저장
-- 화면 렌더
-- AGENT_DONE
-
-실제 Acceptance Criteria + regression + 필요한 runtime/E2E + completion record가 기준이다.
-
----
-
-# 10. GIT / WORK SAFETY
-
-기존 repository 운영계약을 유지한다.
-
-- 작업 시작 전 최신 `origin/main` 확인
-- 사용자/다른 agent의 dirty change 보존
-- 기능 변경은 독립 branch/worktree 사용
-- `git reset --hard` 금지
-- `git clean -fd` 금지
-- force push 금지
-- main history rewrite 금지
-- 사용자 변경 삭제 금지
-- unrelated 파일 대량수정 금지
-- secret commit 금지
-- `git add -A` 금지
-- 작업 파일만 명시적으로 stage
-- CI 실패 상태로 merge 금지
-- 문서 변경도 repository의 `docs-gate`를 통과해야 함
-
-TASK pinning 시 최소:
-
-```text
-TASK_ID =
-TASK_START_SHA =
-TASK_BLOB_SHA =
-WORKTREE =
-WORK_BRANCH =
-LEASE =
-```
-
----
-
-# 11. NON-GOALS THIS CYCLE
-
-- 자체 지도 구축
-- 자체 Roadview 촬영
-- 대규모 랜드마크 사진 DB 신규 구축
-- NAVER Panorama 실제 연동
-- Google Street View 실제 연동
-- 대규모 출입구 DB 구축
-- AR navigation
-- computer vision 출입구 자동인식
-- native Android/iOS 전면 재개발
-- SBAS/KASS 상용 정밀보정 구현
-- 대형 BI dashboard
-- 개인 계정 기반 장기 이동이력
-- POS/결제 연동
-- 광고/CPA 과금
-
-필요성이 실제 PoC에서 확인되면 이 `TASK.md`에 신규 TASK로 등록한다.
-
----
-
-# 12. TASK STATUS RULES
-
-사용 상태:
-
-- `READY`
-- `PINNED`
-- `IN_PROGRESS`
-- `BLOCKED`
-- `IMPLEMENTED`
-- `VERIFIED`
-- `DONE`
-- `SUPERSEDED`
-- `FIELD_TEST_REQUIRED` — 구현과 현장 실기기 검증을 분리 표시할 때 보조 표기
-
----
-
-# 13. TASK COMPLETION RECORD TEMPLATE
-
-각 TASK 완료 시 이 `TASK.md`에 기록한다.
-
-```text
-TASK_ID =
-STATUS =
-BRANCH =
-BASE_COMMIT =
-END_COMMIT =
-FILES_CHANGED =
-AUDIT_RESULT =
-IMPLEMENTATION =
-TEST_COMMANDS =
-TEST_RESULT =
-RUNTIME_RESULT =
-MOBILE_RESULT =
-DATA_RESULT =
-ACCEPTANCE =
-KNOWN_LIMITATIONS =
-NEW_TASKS =
-INDEPENDENT_VERIFY =
-PR =
-```
-
----
-
-# 14. CURRENT POC READY DEFINITION
-
-기존 navigation PoC는 사용자 종합 field-test 보고 기준으로 `K_NAVI_POC_READY = YES`가 기록되어 있다.
-
-그러나 **데이터 수집형 PoC**는 별도로 아래가 충족되어야 한다.
-
-`K_NAVI_DATA_POC_READY = YES`
-
-조건:
-
-- [ ] 익명 session 생성/유지
-- [ ] `event_log` 실제 저장
-- [ ] `movement_log` 실제 저장
-- [ ] `route_start`
-- [ ] `route_deviation`
-- [ ] `reroute`
-- [ ] `poi_approach`
-- [ ] `arrival`
-- [ ] `dwell`
-- [ ] `place_view`
-- [ ] `place_select`
-- [ ] `menu_view`
-- [ ] `next_place_select`
-- [ ] 한 session Journey 재구성
-- [ ] CSV 또는 JSON export
-- [ ] 기존 navigation flow 회귀 없음
-- [ ] 데이터 저장 실패가 navigation을 중단하지 않음
-- [ ] 직접 식별정보와 raw movement 미결합
-
-일부만 충족:
-
-`K_NAVI_DATA_POC_READY = PARTIAL`
-
-핵심 데이터 flow 불가:
-
-`K_NAVI_DATA_POC_READY = NO`
-
----
-
-# 15. CURRENT TASK SUMMARY
-
-## Completed / implemented
-
-- `KN-20260826-01 ~ 06`
-- `KN-20260826-07` — FIELD_VERIFIED, user-reported
-- `K-NAVI-RV-01`
-- `K-NAVI-RV-02`
-- `K-NAVI-TRANSIT-01`
-- `TASK-001` — code implemented, field verification pending
-
-## Active
-
-1. `TASK-001-FIELD` — 지하철 출입구 실기기 현장검증
-2. `TASK-002` — Data capability audit
-3. `TASK-003` — Anonymous session
-4. `TASK-004` — Event log
-5. `TASK-005` — Movement log
-6. `TASK-006` — Deviation/Reroute events
-7. `TASK-007` — Approach/Arrival/Dwell
-8. `TASK-008` — Tourism behavior events
-9. `TASK-009` — Journey reconstruction/export
-10. `TASK-010` — Data-enabled E2E
-11. `TASK-011` — Coupon hooks, conditional P2
-
-## Next auto task
-
-**`TASK-002 — 데이터 수집 capability audit`**
-
-별도 TASK 문서를 만들지 말고 이 파일에 Audit 결과와 후속 상태를 계속 기록한다.
-
----
-
-# 16. HISTORICAL NOTE
-
-2026-08-26~2026-09-09의 상세 구현·테스트·PR 기록은 Git commit/PR history에 남아 있다. 이 파일은 **현재 실행할 할 일과 현재 상태를 빠르게 읽을 수 있는 active source of truth**로 유지한다.
-
-과거 상세 기록이 필요하면 해당 PR/commit을 조회한다. 완료된 과거 TASK의 장문 로그를 다시 이 파일에 중복 누적하지 않는다.
+완벽하지 않아도 **사용자 승인 대기로 멈춘 상태보다, 안전한 best-effort 결과 + 명확한 보고서**를 우선한다.

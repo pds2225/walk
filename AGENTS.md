@@ -1,10 +1,24 @@
+# ACTIVE SCOPE OVERRIDE — 망원시장 리얼데이터 Demo
 
+이 branch `feat/mangwon-realdata-demo`에서 망원시장 리얼데이터 Demo를 작업할 때는 먼저 다음 문서를 전부 읽는다.
+
+- `docs/MANGWON_REAL_DATA_DEMO_AUTONOMOUS.md`
+- root `TASK.md`
+
+이번 망원시장 Demo 범위에서는 `docs/MANGWON_REAL_DATA_DEMO_AUTONOMOUS.md`가 최신 사용자 지시를 기록한 실행 명세이며, 기존 문서와 충돌하는 Street View / Demo 범위에 한해 우선한다.
+
+사용자는 이번 작업에 한해 `feat/mangwon-realdata-demo` branch의 코드 수정, 테스트, commit, push를 명시적으로 승인했다. `main` merge는 승인 범위가 아니다.
+
+사람만 할 수 있는 Google Cloud secret/billing/약관 승인이나 실제 망원시장 현장 보행은 `EXTERNAL_ACTION_REQUIRED` 또는 `FIELD_VALIDATION_PENDING`으로 분리하고, 독립적으로 가능한 나머지 작업은 계속한다.
+
+---
 
 # walk 프로젝트별 한 줄 지침
 
 - 프로젝트명은 항상 `walk`로 유지한다.
 - Streamlit 화면 수정은 기존 페이지 구조를 유지하고, 특히 `streamlit_walk_engine/pages/1_Navigation.py` 변경은 최소 범위로 한다.
 - 빠른 검증은 `python -m pytest streamlit_walk_engine\tests -q`를 우선 사용한다.
+
 ## 프로젝트별 작업 지침
 
 ### 1. 프로젝트 목적
@@ -49,6 +63,7 @@ Set-Location $repoRoot
 
 - 사용자가 요청하지 않으면 커밋하지 않는다.
 - 사용자가 요청하지 않으면 push하지 않는다.
+- 단, 이번 `feat/mangwon-realdata-demo` 작업은 위 ACTIVE SCOPE OVERRIDE에 따라 commit/push가 사전 승인되어 있다.
 - 커밋 전에는 `git status --short`로 포함 파일을 확인한다.
 - 런타임 데이터, 캐시, 로그, `.env`, 개인 설정 파일은 커밋하지 않는다.
 - 변경 상태를 반복 확인할 때는 읽기 전용 `scripts/maintenance/git-change-monitor.ps1`을 사용한다.
@@ -76,4 +91,3 @@ Set-Location $repoRoot
 - Streamlit Cloud 동작과 로컬 실행 동작을 구분한다.
 - Windows에서는 Bash 명령어 대신 PowerShell 명령어를 쓴다.
 - 포트가 열렸다는 것과 앱이 정상 동작한다는 것을 구분한다.
-

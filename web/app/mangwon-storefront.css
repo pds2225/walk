@@ -1,0 +1,31 @@
+/* Google Street View storefront surface used by Mangwon Screen 02. */
+.mangwon-storefront-embed-wrap {
+  position: relative;
+  width: 100%;
+  min-height: 300px;
+  height: min(46dvh, 420px);
+  overflow: hidden;
+  border-radius: 16px;
+  background: #eef2f7;
+}
+
+.mangwon-storefront-embed {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 300px;
+  border: 0;
+}
+
+.mangwon-storefront-provider {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  padding: 6px 9px;
+  border-radius: 999px;
+  background: rgba(16, 24, 40, .76);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  pointer-events: none;
+}
