@@ -387,7 +387,13 @@ P2:
 - deviation/reroute lifecycle
 - arrival lifecycle
 - POI/destination model
-- place/menu UI
+- 시장 overview / 점포카드 / 점포상세 / menu UI
+- QR → 점포/POI 매핑
+- storeLocation / entrance / navigationTarget / streetViewLocation 분리 여부
+- 다국어 점포·메뉴·주재료·알레르기 정보
+- place/menu/QR/navigation 이벤트 연결 가능 여부
+- verified visit(location + QR 등) 판정 가능 여부
+- multi-store journey 연결 가능 여부
 - backend/API
 - DB/storage
 - existing analytics/logging
@@ -598,17 +604,26 @@ POI 반경 내 연속 체류시간 계산.
 
 필수:
 
+- `market_overview_view`
+- `store_card_view`
 - `place_view`
 - `place_select`
+- `qr_scan`
+- `store_detail_view`
 - `menu_view`
+- `route_start`
 - `next_place_select`
+- `verified_visit` — 위치 + QR 등 별도 검증수단이 있을 때만
 
 **Acceptance**
 
 - [ ] 기존 UI에 tracker를 최소 침습으로 연결
-- [ ] 관련 poi/content ID 연결
-- [ ] rerender로 `place_view` 중복 폭증 방지
+- [ ] 관련 poi/store/content ID 연결
+- [ ] QR이 정확한 store_id/poi_id와 연결되고 동일 QR 재스캔 중복폭증 방지
+- [ ] rerender로 `place_view`/`store_card_view` 중복 폭증 방지
+- [ ] `verified_visit`은 GNSS 위치만으로 확정하지 않고 QR/쿠폰/별도 인증 신호와 결합
 - [ ] `next_place_select` 후 새 `route_start`와 동일 session으로 연결
+- [ ] 한 session 안에서 점포1 → 점포2 → 점포3 이동을 재구성 가능
 - [ ] 언어 변경이 session을 끊지 않음
 
 ---
@@ -627,18 +642,21 @@ POI 반경 내 연속 체류시간 계산.
 
 목표 sequence:
 
-`place_view`
-→ `place_select`
-→ `route_start`
+`market_overview_view`
+→ `store_card_view`
+→ `place_view / place_select`
+→ `qr_scan 또는 route_start`
 → `movement`
 → `route_deviation`
 → `reroute`
 → `poi_approach`
 → `arrival`
 → `dwell`
-→ `menu_view`
+→ `store_detail_view / menu_view`
+→ 조건 충족 시 `verified_visit`
 → `next_place_select`
 → `new route_start`
+→ 다점포 Journey
 
 **Acceptance**
 
@@ -667,18 +685,22 @@ POI 반경 내 연속 체류시간 계산.
 필수 시나리오:
 
 `session_start`
-→ `place_view`
-→ `place_select`
-→ `route_start`
+→ `market_overview_view`
+→ `store_card_view`
+→ `place_view / place_select`
+→ `qr_scan`
+→ `store_detail_view / menu_view`
+→ 필요 시 `route_start`
 → `movement samples`
 → `route_deviation`
 → `reroute`
 → `poi_approach`
 → `arrival`
 → `dwell`
-→ `menu_view`
+→ 조건 충족 시 `verified_visit`
 → `next_place_select`
 → `new route_start`
+→ 두 번째 점포까지 동일 session으로 연결
 
 **Acceptance**
 
@@ -689,6 +711,9 @@ POI 반경 내 연속 체류시간 계산.
 - [ ] arrival 1회
 - [ ] dwell 계산
 - [ ] 다음 장소 이동 연결
+- [ ] QR/점포상세/메뉴 이벤트와 이동·방문 이벤트 연결
+- [ ] verified_visit은 별도 검증수단이 없으면 미확정 상태로 남김
+- [ ] 최소 2개 점포의 multi-store Journey 재구성
 - [ ] Journey 완전 재구성
 - [ ] 데이터 저장 실패 시 navigation 계속
 - [ ] 직접 식별정보와 raw movement 미결합
@@ -946,6 +971,20 @@ PR =
 핵심 데이터 flow 불가:
 
 `K_NAVI_DATA_POC_READY = NO`
+
+---
+
+## 2026-09-20 TASK REVIEW
+
+검토 결론:
+
+- 현재 TASK-002~010의 데이터 파이프라인 순서는 유지한다.
+- 단, 기존 문서는 도보 내비게이션 로그 중심이라 실제 사용자 흐름인 시장 overview → 점포 탐색 → QR → 점포/메뉴 정보 → 필요 시 길안내 → 실제 방문 → 다음 점포 흐름이 부족했다.
+- TASK-002 audit 범위를 점포/QR/다국어/좌표 분리/verified visit/multi-store까지 확장했다.
+- TASK-008~010에 QR, 점포상세, verified_visit, multi-store Journey를 반영했다.
+- 구매는 위치만으로 추정하지 않는다. 쿠폰/QR 구매인증/POS 등 별도 검증수단이 있을 때만 구매 전환으로 기록한다.
+- 기존 navigation state machine과 GNSS 데이터 수집 TASK는 그대로 유지한다.
+- 별도 신규 TASK를 남발하지 않고 기존 데이터 TASK에 사용자 행동 흐름을 통합한다.
 
 ---
 
