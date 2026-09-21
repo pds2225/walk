@@ -227,6 +227,129 @@ export function getUiText(locale: Locale): UiText {
   return UI[locale] ?? UI.ko;
 }
 
+export interface MangwonUiText {
+  readonly title: string;
+  readonly subtitle: string;
+  readonly panoramaTab: string;
+  readonly mapTab: string;
+  readonly hotspotLabel: string;
+  readonly previousPoint: string;
+  readonly nextPoint: string;
+  readonly selectedStore: string;
+  readonly representativeMenu: string;
+  readonly price: string;
+  readonly hours: string;
+  readonly details: string;
+  readonly closeDetails: string;
+  readonly goThere: string;
+  readonly storeStreetViewTitle: string;
+  readonly storeStreetViewDescription: string;
+  readonly locationButton: string;
+  readonly locationWaiting: string;
+  readonly locationDenied: string;
+  readonly unknown: string;
+  readonly panoramaUnavailable: string;
+}
+
+const MANGWON_UI: Record<Locale, MangwonUiText> = {
+  ko: {
+    title: "망원시장 점포 안내",
+    subtitle: "점포 정보를 먼저 보고, 아래에서 정면 360°와 위치를 확인하세요.",
+    panoramaTab: "점포 정보",
+    mapTab: "일반 지도",
+    hotspotLabel: "구간 핫스팟",
+    previousPoint: "앞 포인트",
+    nextPoint: "뒤 포인트",
+    selectedStore: "선택 점포",
+    representativeMenu: "대표 메뉴",
+    price: "가격",
+    hours: "영업시간",
+    details: "상세보기",
+    closeDetails: "상세 닫기",
+    goThere: "여기로 가기",
+    storeStreetViewTitle: "점포 정면 360 보기",
+    storeStreetViewDescription: "선택한 점포 주변의 Street View를 보조 정보로 확인하세요.",
+    locationButton: "내 위치 표시",
+    locationWaiting: "내 위치 확인 중…",
+    locationDenied: "위치 권한을 허용하면 지도에 내 위치가 표시됩니다.",
+    unknown: "확인 필요",
+    panoramaUnavailable: "Street View를 사용할 수 없어 안내 카드만 표시합니다.",
+  },
+  en: {
+    title: "Mangwon Market Stores",
+    subtitle: "See store details first, then check the storefront in 360° and on the map.",
+    panoramaTab: "Store details",
+    mapTab: "Standard map",
+    hotspotLabel: "Corridor hotspots",
+    previousPoint: "Previous point",
+    nextPoint: "Next point",
+    selectedStore: "Selected store",
+    representativeMenu: "Featured menu",
+    price: "Price",
+    hours: "Hours",
+    details: "Details",
+    closeDetails: "Close details",
+    goThere: "Go here",
+    storeStreetViewTitle: "View storefront in 360°",
+    storeStreetViewDescription: "Use Street View below as supporting information for the selected store.",
+    locationButton: "Show my location",
+    locationWaiting: "Finding your location…",
+    locationDenied: "Allow location access to show your position on the map.",
+    unknown: "Needs checking",
+    panoramaUnavailable: "Street View is unavailable; the store card remains available.",
+  },
+  ja: {
+    title: "望遠市場 店舗案内",
+    subtitle: "先に店舗情報を確認し、その下で正面360°と位置を見られます。",
+    panoramaTab: "店舗情報",
+    mapTab: "通常地図",
+    hotspotLabel: "区間ホットスポット",
+    previousPoint: "前のポイント",
+    nextPoint: "次のポイント",
+    selectedStore: "選択した店舗",
+    representativeMenu: "代表メニュー",
+    price: "価格",
+    hours: "営業時間",
+    details: "詳細を見る",
+    closeDetails: "詳細を閉じる",
+    goThere: "ここへ行く",
+    storeStreetViewTitle: "店舗正面を360°で見る",
+    storeStreetViewDescription: "選択した店舗周辺のStreet Viewを補助情報として確認できます。",
+    locationButton: "現在地を表示",
+    locationWaiting: "現在地を確認中…",
+    locationDenied: "位置情報を許可すると地図に現在地が表示されます。",
+    unknown: "要確認",
+    panoramaUnavailable: "Street Viewを利用できないため、店舗カードを表示します。",
+  },
+  zh: {
+    title: "望远市场店铺指南",
+    subtitle: "先查看店铺信息，再在下方查看正面360°和位置。",
+    panoramaTab: "店铺信息",
+    mapTab: "普通地图",
+    hotspotLabel: "路段热点",
+    previousPoint: "上一个点",
+    nextPoint: "下一个点",
+    selectedStore: "已选店铺",
+    representativeMenu: "招牌菜单",
+    price: "价格",
+    hours: "营业时间",
+    details: "查看详情",
+    closeDetails: "关闭详情",
+    goThere: "去这里",
+    storeStreetViewTitle: "查看店铺正面360°",
+    storeStreetViewDescription: "Street View作为补充信息显示在所选店铺下方。",
+    locationButton: "显示我的位置",
+    locationWaiting: "正在确认位置…",
+    locationDenied: "允许位置权限后，地图会显示您的位置。",
+    unknown: "需要确认",
+    panoramaUnavailable: "Street View不可用，但仍可查看店铺卡片。",
+  },
+};
+
+export function getMangwonUiText(locale: Locale): MangwonUiText {
+  return MANGWON_UI[locale] ?? MANGWON_UI.ko;
+}
+
 export function localeToSpeechLanguage(locale: Locale): string {
   return { ko: "ko-KR", en: "en-US", ja: "ja-JP", zh: "zh-CN" }[locale];
 }
