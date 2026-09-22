@@ -19,7 +19,7 @@ import os
 import re
 import sys
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from urllib.parse import quote
 
@@ -38,10 +38,21 @@ from engine import (
 
 @dataclass(frozen=True)
 class RouteInfo:
-    """경로 부가정보 — RouteModel(엔진 입력)과 분리해 UI 표시에만 사용합니다."""
+    """경로 부가정보 — RouteModel(엔진 입력)과 분리해 UI 표시에만 사용합니다.
+
+    sidewalk/fork/discomfort 는 TMAP 응답에 이미 있는 값만 옮긴다(신규 수집 없음).
+    8/28 확정 5지표: 총 이동거리, 방향 바꿈 횟수 및 각도, 총 갈림길 개수,
+    보도 비율, 보행 불편요소 수 및 비율.
+    """
     total_distance_meters: int | None = None
     total_time_seconds: int | None = None
     turn_descriptions: dict[str, str] = field(default_factory=dict)  # TurnPoint.id → 안내문
+    sidewalk_ratio: float | None = None
+    fork_count: int = 0
+    discomfort_count: int = 0
+    discomfort_ratio: float | None = None
+    turn_angles_degrees: tuple[float, ...] = ()
+    score_debug: dict | None = None
 
 
 # 도보 소요시간 추정 기준(사용자 지정): 시속 4km(분당 약 67m) — 신호대기·횡단보도·
@@ -1234,6 +1245,83 @@ def is_significant_turn(polyline: list[Coordinate], index: int) -> bool:
 
 _TMAP_TURN_LEFT  = {12, 16, 17}  # 좌회전 / 8시 방향 좌회전 / 10시 방향 좌회전
 _TMAP_TURN_RIGHT = {13, 18, 19}  # 우회전 / 2시 방향 우회전 / 4시 방향 우회전
+# 교차로 기동(직진 포함) — 총 갈림길 개수. 출발(200)/도착(201)/횡단보도(211+)는 제외.
+_TMAP_FORK_TURN_TYPES = {11, 12, 13, 14, 16, 17, 18, 19}
+# 보행 불편요소(계단·급경사·고가·육교·터널·지하도). 횡단보도·차량 노출은 넣지 않는다.
+_TMAP_DISCOMFORT_FACILITY = {2, 3, 11, 12, 14, 17}
+_TMAP_SIDEWALK_ROAD_TYPES = {21}  # TMAP 보행자도로
+_TMAP_SIDEWALK_HINTS = ("보도", "인도", "보행자도로")
+# 모드와 무관한 한 후보 세트: 추천 / 최단 / 편한길. 점수 가중치만 모드별로 다르다.
+TMAP_CANDIDATE_SEARCH_OPTIONS = ("0", "10", "30")
+
+
+def _as_int(value: object) -> int | None:
+    try:
+        return int(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return None
+
+
+def _tmap_quality_from_features(
+    features: list[dict],
+    polyline: list[Coordinate],
+    turn_indices: list[int],
+) -> tuple[float | None, int, int, float | None, tuple[float, ...]]:
+    """기존 TMAP GeoJSON에서 보도·갈림길·불편요소·회전각을 읽는다(신규 수집 없음)."""
+    sidewalk_m = 0.0
+    known_m = 0.0
+    discomfort_m = 0.0
+    discomfort_count = 0
+    fork_count = 0
+    saw_sidewalk_signal = False
+
+    for feature in features:
+        geometry = feature.get("geometry", {})
+        props = feature.get("properties", {}) or {}
+        gtype = geometry.get("type")
+        if gtype == "Point":
+            turn_type = _as_int(props.get("turnType"))
+            intersection = str(props.get("intersectionName") or "").strip()
+            if intersection or turn_type in _TMAP_FORK_TURN_TYPES:
+                fork_count += 1
+            continue
+        if gtype != "LineString":
+            continue
+        coords = geometry.get("coordinates") or []
+        raw_dist = props.get("distance")
+        try:
+            seg_m = float(raw_dist) if raw_dist is not None else 0.0
+        except (TypeError, ValueError):
+            seg_m = 0.0
+        if seg_m <= 0 and len(coords) >= 2:
+            prev = None
+            for lon, lat in coords:
+                cur = Coordinate(latitude=float(lat), longitude=float(lon))
+                if prev is not None:
+                    seg_m += distance_meters(prev, cur)
+                prev = cur
+        facility = _as_int(props.get("facilityType"))
+        road_type = _as_int(props.get("roadType"))
+        description = str(props.get("description") or "")
+        if facility in _TMAP_DISCOMFORT_FACILITY:
+            discomfort_count += 1
+            discomfort_m += seg_m
+        if (
+            road_type in _TMAP_SIDEWALK_ROAD_TYPES
+            or any(hint in description for hint in _TMAP_SIDEWALK_HINTS)
+        ):
+            saw_sidewalk_signal = True
+            sidewalk_m += seg_m
+        known_m += seg_m
+
+    sidewalk_ratio = (sidewalk_m / known_m) if saw_sidewalk_signal and known_m > 0 else None
+    discomfort_ratio = (discomfort_m / known_m) if known_m > 0 and discomfort_count else None
+    turn_angles = tuple(
+        angle
+        for idx in turn_indices
+        if (angle := _heading_change_degrees(polyline, idx)) is not None
+    )
+    return sidewalk_ratio, fork_count, discomfort_count, discomfort_ratio, turn_angles
 
 
 def _route_from_tmap_features(features: list[dict]) -> tuple[RouteModel, RouteInfo]:
@@ -1276,6 +1364,7 @@ def _route_from_tmap_features(features: list[dict]) -> tuple[RouteModel, RouteIn
     turn_points: list[TurnPoint] = []
     turn_descriptions: dict[str, str] = {}
     seen: set[int] = set()
+    kept_turn_indices: list[int] = []
     tid = 0
     for idx, direction, description in raw_turns:
         if idx in seen or idx <= 0 or idx >= len(coords) - 1:
@@ -1283,6 +1372,7 @@ def _route_from_tmap_features(features: list[dict]) -> tuple[RouteModel, RouteIn
         if not is_significant_turn(coords, idx):
             continue  # 완만한 커브 — 회전으로 안내하지 않는다
         seen.add(idx)
+        kept_turn_indices.append(idx)
         tid += 1
         turn_id = f"turn-{tid}"
         turn_points.append(TurnPoint(
@@ -1294,17 +1384,31 @@ def _route_from_tmap_features(features: list[dict]) -> tuple[RouteModel, RouteIn
         if description:
             turn_descriptions[turn_id] = description
 
+    sidewalk_ratio, fork_count, discomfort_count, discomfort_ratio, turn_angles = (
+        _tmap_quality_from_features(features, coords, kept_turn_indices)
+    )
     route = RouteModel(polyline=tuple(coords), turn_points=tuple(turn_points))
     info = RouteInfo(
         total_distance_meters=total_distance,
         total_time_seconds=(total_time if total_time is not None
                             else estimate_walking_seconds(total_distance)),
         turn_descriptions=turn_descriptions,
+        sidewalk_ratio=sidewalk_ratio,
+        fork_count=fork_count,
+        discomfort_count=discomfort_count,
+        discomfort_ratio=discomfort_ratio,
+        turn_angles_degrees=turn_angles,
     )
     return route, info
 
 
-def _fetch_walking_route_tmap(origin: Coordinate, dest: Coordinate, app_key: str) -> tuple[RouteModel, RouteInfo]:
+def _fetch_walking_route_tmap(
+    origin: Coordinate,
+    dest: Coordinate,
+    app_key: str,
+    *,
+    search_option: str = "0",
+) -> tuple[RouteModel, RouteInfo]:
     """TMAP 보행자 경로 API(POST /tmap/routes/pedestrian)로 도보 경로를 가져옵니다."""
     resp = requests.post(
         _TMAP_PEDESTRIAN,
@@ -1319,7 +1423,7 @@ def _fetch_walking_route_tmap(origin: Coordinate, dest: Coordinate, app_key: str
             "endName": quote("도착", safe=""),
             "reqCoordType": "WGS84GEO",
             "resCoordType": "WGS84GEO",
-            "searchOption": "0",  # 0=추천 경로
+            "searchOption": search_option,  # 0=추천 / 10=최단 / 30=편한길
         },
         timeout=_TIMEOUT,
     )
@@ -1367,6 +1471,7 @@ def _fetch_walking_route_valhalla(origin: Coordinate, dest: Coordinate) -> tuple
 
     turn_points: list[TurnPoint] = []
     seen: set[int] = set()
+    kept_turn_indices: list[int] = []
     tid = 0
 
     for maneuver in leg.get("maneuvers", []):
@@ -1379,6 +1484,7 @@ def _fetch_walking_route_valhalla(origin: Coordinate, dest: Coordinate) -> tuple
         if not is_significant_turn(polyline, idx):
             continue  # slight_left/right 등 완만한 커브 — 회전으로 안내하지 않는다
         seen.add(idx)
+        kept_turn_indices.append(idx)
         direction = "right" if mtype in _TURN_RIGHT else "left"
         tid += 1
         turn_points.append(TurnPoint(
@@ -1390,10 +1496,16 @@ def _fetch_walking_route_valhalla(origin: Coordinate, dest: Coordinate) -> tuple
 
     summary = leg.get("summary", {})
     dist_m = int(summary["length"] * 1000) if "length" in summary else None
+    turn_angles = tuple(
+        angle
+        for idx in kept_turn_indices
+        if (angle := _heading_change_degrees(polyline, idx)) is not None
+    )
     info = RouteInfo(
         total_distance_meters=dist_m,
         total_time_seconds=(int(summary["time"]) if "time" in summary
                             else estimate_walking_seconds(dist_m)),
+        turn_angles_degrees=turn_angles,
     )
     return RouteModel(polyline=tuple(polyline), turn_points=tuple(turn_points)), info
 
@@ -1404,8 +1516,102 @@ _LABEL_TMAP = "TMAP 보행자 경로 (SK open API)"
 _LABEL_VALHALLA = "Valhalla (OpenStreetMap 도보 전용)"
 
 
-def fetch_walking_route_with_engine(origin: Coordinate, dest: Coordinate) -> tuple[RouteModel, str, RouteInfo]:
+def _polyline_fingerprint(route: RouteModel) -> tuple:
+    """같은 후보를 한 번만 점수화하기 위한 대략 지문(좌표 6자리)."""
+    if not route.polyline:
+        return ()
+    start = route.polyline[0]
+    end = route.polyline[-1]
+    return (
+        round(start.latitude, 6),
+        round(start.longitude, 6),
+        round(end.latitude, 6),
+        round(end.longitude, 6),
+        len(route.polyline),
+        len(route.turn_points),
+    )
+
+
+def _fetch_tmap_candidate_set(
+    origin: Coordinate,
+    dest: Coordinate,
+    app_key: str,
+) -> list[tuple[RouteModel, RouteInfo, str]]:
+    """모드와 무관한 한 후보 세트(추천/최단/편한길)를 병렬로 가져온다."""
+    found: list[tuple[RouteModel, RouteInfo, str]] = []
+
+    def _one(option: str) -> tuple[str, RouteModel, RouteInfo]:
+        route, info = _fetch_walking_route_tmap(
+            origin, dest, app_key, search_option=option,
+        )
+        return option, route, info
+
+    with ThreadPoolExecutor(max_workers=len(TMAP_CANDIDATE_SEARCH_OPTIONS)) as pool:
+        futures = [pool.submit(_one, option) for option in TMAP_CANDIDATE_SEARCH_OPTIONS]
+        for future in futures:
+            try:
+                option, route, info = future.result()
+            except Exception:
+                continue
+            found.append((route, info, option))
+
+    unique: list[tuple[RouteModel, RouteInfo, str]] = []
+    seen: set[tuple] = set()
+    for route, info, option in found:
+        key = _polyline_fingerprint(route)
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append((route, info, option))
+    return unique
+
+
+def _attach_score_debug(info: RouteInfo, payload: dict) -> RouteInfo:
+    return replace(info, score_debug=payload)
+
+
+def _score_and_pick(
+    candidates: list[tuple[RouteModel, RouteInfo]],
+    *,
+    user_heading_degrees: float | None,
+    route_mode: str | None,
+    engine_label: str,
+) -> tuple[RouteModel, str, RouteInfo] | None:
+    if not candidates:
+        return None
+    from route_score import (
+        DEFAULT_ROUTE_MODE,
+        rank_routes,
+        route_score_diag_payload,
+    )
+
+    mode = route_mode or DEFAULT_ROUTE_MODE
+    ranked = rank_routes(
+        [(route, info) for route, info in candidates],
+        user_heading_deg=user_heading_degrees,
+        mode=mode,
+    )
+    if not ranked:
+        return None
+    winner = ranked[0]
+    payload = route_score_diag_payload(
+        winner, ranked, user_heading_deg=user_heading_degrees,
+    )
+    info = winner.info if isinstance(winner.info, RouteInfo) else RouteInfo()
+    return winner.route, engine_label, _attach_score_debug(info, payload)
+
+
+def fetch_walking_route_with_engine(
+    origin: Coordinate,
+    dest: Coordinate,
+    *,
+    user_heading_degrees: float | None = None,
+    route_mode: str | None = None,
+) -> tuple[RouteModel, str, RouteInfo]:
     """도보 경로를 가져옵니다. TMAP 앱키가 있으면 TMAP, 없거나 실패하면 Valhalla.
+
+    user_heading_degrees 가 있으면 TMAP 후보 세트(추천/최단/편한길)를 같은 5지표로
+    점수화해 고른다. 없으면 기존처럼 searchOption=0 한 경로만 쓴다.
 
     Returns:
         (RouteModel, 사용한 엔진 설명, RouteInfo) — 호출자가 경로와 함께 세션별로
@@ -1418,11 +1624,30 @@ def fetch_walking_route_with_engine(origin: Coordinate, dest: Coordinate) -> tup
     app_key = _tmap_app_key()
     if app_key:
         try:
+            if user_heading_degrees is not None:
+                bundle = _fetch_tmap_candidate_set(origin, dest, app_key)
+                picked = _score_and_pick(
+                    [(route, info) for route, info, _option in bundle],
+                    user_heading_degrees=user_heading_degrees,
+                    route_mode=route_mode,
+                    engine_label=_LABEL_TMAP,
+                )
+                if picked is not None:
+                    return picked
             route, info = _fetch_walking_route_tmap(origin, dest, app_key)
             return route, _LABEL_TMAP, info
         except Exception as exc:  # TMAP 한도 초과/경로 없음 등 — Valhalla로 자동 대체
             tmap_error = str(exc)
     route, info = _fetch_walking_route_valhalla(origin, dest)
+    if user_heading_degrees is not None:
+        scored = _score_and_pick(
+            [(route, info)],
+            user_heading_degrees=user_heading_degrees,
+            route_mode=route_mode,
+            engine_label=_LABEL_VALHALLA,
+        )
+        if scored is not None:
+            route, _label, info = scored
     if tmap_error:
         return route, f"Valhalla (TMAP 호출 실패로 대체 — {tmap_error})", info
     return route, _LABEL_VALHALLA, info

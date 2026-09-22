@@ -507,11 +507,37 @@ def _activate_route(
 
 # ── 공통 헬퍼 ─────────────────────────────────────────────────────────────────
 
+def _user_heading_for_routing() -> float | None:
+    """경로추천용 사용자 방향 — 스무딩 GPS heading → 나침반 → 최근 표본.
+
+    나침반(nav_compass_deg)은 이미 자북→진북 편각 보정된 값이다.
+    """
+    hdg = st.session_state.get("nav_smoothed_heading")
+    if hdg is None:
+        hdg = st.session_state.get("nav_compass_deg")
+    if hdg is None:
+        samples = st.session_state.get("nav_samples") or []
+        if samples:
+            hdg = samples[-1].heading_degrees
+    try:
+        return float(hdg) if hdg is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
 def _fetch_route(origin: Coordinate, dest: Coordinate) -> RouteModel:
     """경로 탐색 + 엔진 라벨/부가정보(총거리·ETA·안내문)를 현재 세션에 기록."""
-    route, engine_label, route_info = fetch_walking_route_with_engine(origin, dest)
+    heading = _user_heading_for_routing()
+    route, engine_label, route_info = fetch_walking_route_with_engine(
+        origin, dest,
+        user_heading_degrees=heading,
+        route_mode=st.session_state.get("nav_route_mode"),
+    )
     st.session_state["nav_route_engine"] = engine_label
     st.session_state["nav_route_info"] = route_info
+    score_debug = getattr(route_info, "score_debug", None)
+    if isinstance(score_debug, dict):
+        _diag("route_score", **score_debug)
 
     # Static Map은 목적지가 바뀔 때만 1회 호출(rerun마다 호출 시도 방지).
     dest_key = f"{dest.latitude:.6f},{dest.longitude:.6f}"
@@ -554,6 +580,8 @@ def _start_reroute_fetch(sid: str, origin: Coordinate, dest: Coordinate) -> None
     워커 스레드는 st.* 를 절대 만지지 않는다 — 순수 네트워크 호출만 하고 결과를
     _PENDING_REROUTE 에 남긴다(커밋은 다음 rerun 의 _commit_pending_reroute 몫).
     """
+    heading = _user_heading_for_routing()
+    route_mode = st.session_state.get("nav_route_mode")
     with _PENDING_REROUTE_LOCK:
         if sid in _PENDING_REROUTE:
             return
@@ -561,7 +589,11 @@ def _start_reroute_fetch(sid: str, origin: Coordinate, dest: Coordinate) -> None
 
     def _work() -> None:
         try:
-            route, engine_label, route_info = fetch_walking_route_with_engine(origin, dest)
+            route, engine_label, route_info = fetch_walking_route_with_engine(
+                origin, dest,
+                user_heading_degrees=heading,
+                route_mode=route_mode,
+            )
             payload = {"state": "ok", "route": route, "engine_label": engine_label,
                        "route_info": route_info, "dest": dest}
         except Exception as e:  # noqa: BLE001 — 실패도 커밋 채널로 넘겨 화면에 표시
@@ -590,6 +622,9 @@ def _commit_pending_reroute() -> None:
     new_route = pending["route"]
     st.session_state["nav_route_engine"] = pending["engine_label"]
     st.session_state["nav_route_info"] = pending["route_info"]
+    score_debug = getattr(pending.get("route_info"), "score_debug", None)
+    if isinstance(score_debug, dict):
+        _diag("route_score", **score_debug)
     new_count = st.session_state["nav_reroute_count"] + 1
     st.session_state.update({
         "nav_route":               new_route,

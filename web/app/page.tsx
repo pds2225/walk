@@ -5,7 +5,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { getCurrentPositionOnce, useCompass, useWatchPosition } from "../lib/useGeolocation";
 import type { Fix } from "../lib/useGeolocation";
 import { useNavigation } from "../lib/useNavigation";
+import { kakaoJavascriptKey } from "../lib/kakaoJsKey";
 import type { Coordinate, PlaceHit, RouteResponse } from "../lib/types";
+import Roadview from "../components/Roadview";
 
 // maplibre 는 window 를 직접 만져 서버 렌더가 불가능하다 — 클라이언트에서만 불러온다.
 const MapView = dynamic(() => import("../components/MapView"), { ssr: false });
@@ -61,10 +63,16 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [headingUp, setHeadingUp] = useState(true);
+  const [mapMode, setMapMode] = useState<"map" | "roadview">("map");
   const [recents, setRecents] = useState<Recent[]>([]);
   const [recentsExpanded, setRecentsExpanded] = useState(false);
+  const jsKey = kakaoJavascriptKey();
 
   useEffect(() => setRecents(loadRecents()), []);
+
+  useEffect(() => {
+    if (phase !== "navigating" && phase !== "arrived") setMapMode("map");
+  }, [phase]);
 
   // 실시간 GPS 구독은 오직 navigating/arrived 에서만 켠다 — 목적지를 고르는 것만으로는
   // 절대 켜지지 않는다.
@@ -215,13 +223,41 @@ export default function Home() {
           </span>
         </div>
 
-        <MapView
-          route={routeResponse.route}
-          here={currentFix}
-          headingDegrees={compass ?? currentFix?.headingDegrees ?? null}
-          headingUp={headingUp}
-          offRoute={offRoute}
-        />
+        {jsKey ? (
+          <div className="view-toggle" role="group" aria-label="보기">
+            <button
+              type="button"
+              aria-pressed={mapMode === "map"}
+              onClick={() => setMapMode("map")}
+            >
+              지도
+            </button>
+            <button
+              type="button"
+              aria-pressed={mapMode === "roadview"}
+              onClick={() => setMapMode("roadview")}
+            >
+              로드뷰
+            </button>
+          </div>
+        ) : null}
+
+        {jsKey && mapMode === "roadview" ? (
+          <Roadview
+            appkey={jsKey}
+            latitude={currentFix?.latitude ?? null}
+            longitude={currentFix?.longitude ?? null}
+            headingDegrees={compass ?? currentFix?.headingDegrees ?? null}
+          />
+        ) : (
+          <MapView
+            route={routeResponse.route}
+            here={currentFix}
+            headingDegrees={compass ?? currentFix?.headingDegrees ?? null}
+            headingUp={headingUp}
+            offRoute={offRoute}
+          />
+        )}
 
         <div className="nav-actions">
           <button type="button" onClick={() => setHeadingUp((v) => !v)}>

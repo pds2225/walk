@@ -34,12 +34,21 @@ npm run next:dev
 |---|---|---|
 | `TMAP_APP_KEY` | **경로 탐색 불가** (앱이 동작하지 않음) | [openapi.sk.com](https://openapi.sk.com/) |
 | `KAKAO_REST_API_KEY` | 가게·상호 이름 검색 안 됨 | 카카오 developers → 앱 키 → **REST API 키** |
+| `NEXT_PUBLIC_KAKAO_JAVASCRIPT_KEY` | 안내 중 **로드뷰 토글이 안 보임** (지도만) | 카카오 developers → 플랫폼 키 → **JavaScript 키** |
 | `NAVER_SEARCH_CLIENT_ID` / `_SECRET` | 네이버쪽 상호 검색만 빠짐 | developers.naver.com |
 
 상호 검색(카카오·네이버)은 **둘 중 하나만 있어도** 됩니다 — 둘 다 넣으면 한쪽이 못
 찾는 가게를 다른 쪽이 찾습니다. 둘 다 없으면 주소·큰 장소만 검색됩니다.
 
-카카오는 반드시 **REST API 키**입니다. JavaScript 키·네이티브 앱 키는 401 이 납니다.
+장소 검색용 카카오는 반드시 **REST API 키**입니다. JavaScript 키·네이티브 앱 키는 401 이 납니다.
+
+로드뷰는 **JavaScript 키**입니다. Kakao Developers → JavaScript 키 → **JS SDK 도메인**에
+아래 origin 을 등록해야 거리 사진이 뜹니다.
+
+- `localhost:3000` (로컬 Next)
+- `k-navi.vercel.app` (배포)
+- 프리뷰를 쓰면 해당 `*.vercel.app` 도 추가
+- Streamlit 을 같이 쓰면 `localhost:8501`, `127.0.0.1:8501`
 
 ## Vercel 배포
 
@@ -52,8 +61,11 @@ npm run next:dev
 Git 을 나중에 연결하면 **그 시점의 커밋은 소급 배포되지 않습니다** — 다음 push 부터
 자동 배포됩니다. 바로 올리려면 대시보드에서 Redeploy 를 누르세요.
 
-키는 서버(API 라우트)에서만 읽습니다. 브라우저 번들에 들어가지 않으므로
+TMAP·REST·네이버 키는 서버(API 라우트)에서만 읽습니다. 이 키들에는
 `NEXT_PUBLIC_` 접두어를 붙이면 **안 됩니다**.
+
+로드뷰용 JavaScript 키만 `NEXT_PUBLIC_KAKAO_JAVASCRIPT_KEY` 입니다. Kakao JS SDK 가
+브라우저에서 호출하고, 카카오는 **허용 도메인**으로 막습니다. Admin Key 는 넣지 마세요.
 
 ## 구조
 
@@ -64,7 +76,10 @@ web/
     api/places/route.ts   장소 검색 프록시 (TMAP POI + 주소)
     api/route/route.ts    도보 경로 프록시 (TMAP 보행자)
   components/MapView.tsx  MapLibre 지도 + 경로 오버레이
+  components/Roadview.tsx 안내 중 카카오 로드뷰 (JS 키 있을 때만)
   lib/
+    kakaoJsKey.ts         NEXT_PUBLIC_KAKAO_JAVASCRIPT_KEY (로드뷰 전용)
+    kakao.ts              장소 검색 REST (서버 전용)
     tmap.ts               TMAP 호출·응답 파싱 (회전 30° 필터 포함)
     useGeolocation.ts     watchPosition / 나침반
     useNavigation.ts      엔진 구동 + 음성 안내 시점
@@ -81,7 +96,7 @@ web/
 Streamlit 판에 있고 여기 없는 것들입니다. 필요해지면 옮깁니다.
 
 - 대중교통(환승) 여정, 예약 경로, 즐겨찾기 관리
-- 랜드마크 음성 안내("CU편의점 지나 좌회전")와 후보 수집
+- 랜드마크 음성 안내("CU편의점 지나 좌회전")와 후보 수집 (제품 범위 밖 — 거리 모습은 로드뷰)
 - 자동 재탐색(현재는 이탈을 알리기만 하고 경로를 다시 만들지 않습니다)
 - 진단 로그 수집·요약
 - 개인정보 동의 화면 — 지금은 최근 목적지만 이 브라우저에 저장합니다

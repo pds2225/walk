@@ -30,6 +30,11 @@ Milestone 2 이후 실시간 내비게이션 페이지(`streamlit_walk_engine/pa
 
 이는 원본 Out-of-Scope 항목을 사용자 승인 하에 Milestone 2 범위로 확장한 결정이며, PROMPT.md L112가 "Streamlit 로컬 데모를 Milestone 2로 편입"한 선례와 동일한 성격이다. 키가 없거나 호출이 실패하면 OSM(Nominatim)·Valhalla 무료 폴백으로 자동 전환되어 데모는 키 없이도 동작한다. 비밀키는 환경변수·`st.secrets`·외부 마스터 `.env`로만 주입하며 로그/예외/UI에 노출하지 않는다.
 
+### 제품 결정 — 랜드마크 제외, 로드뷰로 대체 (2026-08-29)
+- 랜드마크 선정 엔진·출입구 DB·사진 저장소·운영 콘솔은 **더 이상 구현 대상이 아니다**.
+- 안내 중 거리 모습은 **카카오 로드뷰 API**(JavaScript 키, `getNearestPanoId`)로 본다. 코드는 이미 `kakao_roadview_component` + `1_Navigation` 지도/로드뷰 전환에 있다.
+- 목표 아키텍처: `docs/diagrams/navigation-architecture.svg`
+
 ## 3. Blockers encountered
 
 - 현재 미해결 블로커 없음(no blockers). 검증 명령 4종(M1) + pytest(M2) 모두 통과.

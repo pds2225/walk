@@ -16,6 +16,12 @@ import { moveCoordinateByMeters } from "@walk/route-engine";
 import type { Coordinate, RouteModel } from "@walk/route-engine";
 import Home from "./page";
 
+const jsKeyState = vi.hoisted(() => ({ current: null as string | null }));
+
+vi.mock("../lib/kakaoJsKey", () => ({
+  kakaoJavascriptKey: () => jsKeyState.current,
+}));
+
 vi.mock("next/dynamic", () => ({
   default: () => {
     function MockMapView() {
@@ -99,10 +105,21 @@ function installFetchMock() {
 }
 
 beforeEach(() => {
-  // '최근 목적지'는 localStorage 에 저장된다 — jsdom 의 window 는 테스트 파일
-  // 안에서 재사용되므로, 비우지 않으면 이전 테스트의 '경복궁'이 다음 테스트의
-  // 최근 목적지 칩으로 남아 검색 결과 버튼과 이름이 겹친다.
+  // Next 클라 번들이 window.localStorage 를 비우는 환경이 있어, 최근 목적지 저장용으로 다시 붙인다.
+  if (!window.localStorage) {
+    const store = new Map<string, string>();
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      value: {
+        getItem: (key: string) => store.get(key) ?? null,
+        setItem: (key: string, value: string) => { store.set(key, value); },
+        removeItem: (key: string) => { store.delete(key); },
+        clear: () => { store.clear(); },
+      },
+    });
+  }
   window.localStorage.clear();
+  jsKeyState.current = null;
   mockGetCurrentPosition.mockReset();
   mockWatchPosition.mockReset();
   mockClearWatch.mockReset();
@@ -244,5 +261,35 @@ describe("TEST D — 안내 중지는 워처를 반드시 해제한다", () => {
     watch.success?.(position(moveCoordinateByMeters(ORIGIN, 50, 0), 9999));
     expect(screen.queryByRole("button", { name: "안내 중지" })).toBeNull();
     expect(screen.getByText("어디로 갈까요?")).toBeTruthy();
+  });
+});
+
+describe("TEST E — 안내 중 로드뷰 토글은 JavaScript 키가 있을 때만", () => {
+  it("키가 없으면 로드뷰 버튼이 없다", async () => {
+    mockGetCurrentPosition.mockImplementation((success: SuccessCb) => success(position(ORIGIN, 1000)));
+    mockWatchPosition.mockImplementation(() => 42);
+    jsKeyState.current = null;
+
+    await pickDestination();
+    fireEvent.click(screen.getByRole("button", { name: "걷기" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "안내 중지" })).toBeTruthy());
+
+    expect(screen.queryByRole("button", { name: "로드뷰" })).toBeNull();
+    expect(screen.queryByRole("group", { name: "보기" })).toBeNull();
+  });
+
+  it("키가 있으면 보기 토글이 뜨고 로드뷰로 전환된다", async () => {
+    mockGetCurrentPosition.mockImplementation((success: SuccessCb) => success(position(ORIGIN, 1000)));
+    mockWatchPosition.mockImplementation(() => 42);
+    jsKeyState.current = "js-test-key";
+
+    await pickDestination();
+    fireEvent.click(screen.getByRole("button", { name: "걷기" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "로드뷰" })).toBeTruthy());
+
+    expect(screen.getByRole("group", { name: "보기" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "로드뷰" }));
+    expect(screen.getByRole("region", { name: "로드뷰" })).toBeTruthy();
+    expect(document.body.textContent).not.toContain("js-test-key");
   });
 });

@@ -521,6 +521,10 @@ def test_reroute_fetch_decoupled_from_interruptible_run():
     worker = source.index("def _work()")
     worker_block = source[worker:worker + 700]
     assert "st.session_state" not in worker_block
+    # 경로추천 점수 — 사용자 heading 을 fetch 에 넘긴다(워커는 캡처값만 사용).
+    assert "def _user_heading_for_routing(" in source
+    assert "user_heading_degrees=heading" in source
+    assert "user_heading_degrees=heading" in worker_block
 
 
 def test_transit_toggle_does_not_use_session_key_as_widget_key():

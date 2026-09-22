@@ -277,6 +277,21 @@ class TestRouteInfoExtraction:
         assert info.total_distance_meters == 435
         assert info.total_time_seconds == 392     # 435m ÷ (4km/h≈1.111m/s) ≈ 392초 ≈ 약 7분
 
+    def test_quality_fields_from_existing_tmap_properties(self):
+        """보도·갈림길·불편요소는 TMAP 기존 필드만 사용한다(차량 노출은 포함하지 않음)."""
+        _, info = _route_from_tmap_features([
+            _point(200, *A, totalDistance=200),
+            {**_line(A, B), "properties": {"distance": 80, "description": "보행자도로", "facilityType": 0}},
+            _point(11, *B, intersectionName="시청교차로"),
+            {**_line(B, C), "properties": {"distance": 40, "facilityType": 11}},  # 계단
+            _point(12, *C),
+            _line(C, D, E),
+        ])
+        assert info.fork_count >= 1
+        assert info.discomfort_count == 1
+        assert info.sidewalk_ratio is not None and info.sidewalk_ratio > 0
+        assert info.turn_angles_degrees  # C 는 실제 꺾임
+
 
 class TestEstimateWalkingSeconds:
     """도보 시간 추정 — 시속 4km(분당 약 67m, 사용자 지정 실사용 기준)."""
@@ -361,6 +376,58 @@ class TestFetchWalkingRouteDispatch:
         )
         origin, dest = expected.polyline
         assert route_builder.fetch_walking_route(origin, dest) is expected
+
+    def test_without_heading_still_single_tmap_call(self, monkeypatch):
+        expected = self._dummy_route()
+        calls = []
+
+        def _once(origin, dest, key, *, search_option="0"):
+            calls.append(search_option)
+            return expected, RouteInfo(total_distance_meters=100)
+
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: "test-key")
+        monkeypatch.setattr(route_builder, "_fetch_walking_route_tmap", _once)
+        origin, dest = expected.polyline
+        route, label, info = route_builder.fetch_walking_route_with_engine(origin, dest)
+        assert route is expected
+        assert calls == ["0"]
+        assert info.score_debug is None
+
+    def test_heading_ranks_tmap_candidate_set(self, monkeypatch):
+        east = RouteModel(
+            polyline=(
+                Coordinate(latitude=A[1], longitude=A[0]),
+                Coordinate(latitude=A[1], longitude=A[0] + 0.005),  # ~동, ~440m
+            ),
+            turn_points=(),
+        )
+        west = RouteModel(
+            polyline=(
+                Coordinate(latitude=A[1], longitude=A[0]),
+                Coordinate(latitude=A[1], longitude=A[0] - 0.0045),  # ~서, ~400m
+            ),
+            turn_points=(),
+        )
+        by_opt = {
+            "0": (east, RouteInfo(total_distance_meters=440)),
+            "10": (west, RouteInfo(total_distance_meters=400)),
+            "30": (east, RouteInfo(total_distance_meters=440)),
+        }
+
+        def _by_option(origin, dest, key, *, search_option="0"):
+            return by_opt[search_option]
+
+        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: "test-key")
+        monkeypatch.setattr(route_builder, "_fetch_walking_route_tmap", _by_option)
+        origin, dest = east.polyline[0], east.polyline[-1]
+        route, _label, info = route_builder.fetch_walking_route_with_engine(
+            origin, dest, user_heading_degrees=90.0, route_mode="편한길",
+        )
+        assert route is east
+        assert info.score_debug is not None
+        assert info.score_debug["user_heading_deg"] == 90.0
+        assert "initial_heading_diff_deg" in info.score_debug
+        assert "candidates" in info.score_debug
 
 
 class TestRouteEngineLabel:
