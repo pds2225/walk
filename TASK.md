@@ -2,8 +2,8 @@
 
 > Repository: `pds2225/walk`  
 > Product name: **K-Navi / 케이네비**  
-> Canonical task file: **repository root `TASK.md` only**  
-> Updated: **2026-09-10**  
+> Canonical task SSOT: **`origin/main:TASK.md` only**  
+> Updated: **2026-09-23**  
 > Status: **ACTIVE**
 
 
@@ -84,9 +84,11 @@
 
 # 0. TASK GOVERNANCE — SINGLE SOURCE OF TRUTH
 
-이 repository의 개발 할 일·후속작업·결함·검증·완료기록은 **루트 `TASK.md` 하나만** 기준으로 관리한다.
+이 repository의 개발 할 일·후속작업·결함·검증·완료기록은 **`origin/main:TASK.md` 하나만 공식 SSOT**로 관리한다. 작업 브랜치의 TASK 변경은 main에 머지된 뒤 공식 상태가 된다.
 
-사용자가 `TASK 읽어`, `task 봐`, `할 일 뭐야`라고 하면 **현재 작업 중인 repository의 루트 `TASK.md`를 가장 먼저 읽는다.**
+세션/자동개발 시작 시 `git fetch origin --prune` 후 **`origin/main:TASK.md`를 가장 먼저 읽는다.** 사용자의 새 요청은 이 파일에 등록한 뒤 실행한다.
+
+Dashboard·RESUME·HANDOFF·실행로그·파생 큐·외부 Drive/문서 미러는 표시/체크포인트/실행용일 뿐 TASK 상태·우선순위를 만들거나 덮어쓸 수 없다.
 
 다음 파일을 별도 기준 문서로 새로 만들지 않는다.
 
@@ -103,8 +105,8 @@
 
 내용 충돌 시:
 
-1. 현재 대화에서 사용자가 명시적으로 확정한 최신 지시
-2. 현재 repository 루트 `TASK.md`
+1. 사용자의 최신 명시적 요청을 `TASK.md`에 등록한 최신 상태
+2. `origin/main:TASK.md`
 3. 현재 repository의 실제 코드·테스트·배포 상태
 4. 최신 현장 테스트/재현 결과
 5. 최신 프로젝트 자료
@@ -125,6 +127,17 @@
 - `1 기능 = 1 TASK = 1 검증`을 기본으로 한다.
 - build/unit test 성공만으로 DONE 처리하지 않는다.
 - 실제 사용자 흐름과 Acceptance Criteria를 기준으로 완료 판단한다.
+
+---
+
+## 2026-09-23 SSOT 통일 완료
+
+- 사용자 요청: `v_up walk mail marketgate도 TASK.md 단일 SSOT로 통일해`
+- 공식 작업 SSOT: `origin/main:TASK.md` 하나
+- 시작 순서: `git fetch origin --prune` → TASK 확인 → 작업
+- 작업 브랜치의 TASK 변경은 main 머지 후 공식화
+- Dashboard/RESUME/HANDOFF/실행로그/외부 미러는 파생정보이며 TASK를 덮어쓰지 않음
+- 별도 TASK 파일 생성 금지
 
 ---
 
