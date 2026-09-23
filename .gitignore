@@ -32,4 +32,3 @@ packages/route-engine/dist/
 streamlit_walk_engine/data/landmarks.local.json
 streamlit_walk_engine/data/landmarks.local.history.jsonl
 streamlit_walk_engine/data/landmark_photos/
-.vercel
