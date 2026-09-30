@@ -12,6 +12,7 @@ vi.mock("./MangwonMarketMap", () => ({
 describe("MangwonDemo Mobile Screen 01", () => {
   afterEach(() => {
     cleanup();
+    vi.unstubAllEnvs();
     window.history.replaceState({}, "", "/");
   });
 
@@ -25,7 +26,7 @@ describe("MangwonDemo Mobile Screen 01", () => {
     expect(screen.getAllByText("옥수수호떡").length).toBeGreaterThan(0);
     expect(screen.getAllByText("1,500원").length).toBeGreaterThan(0);
     expect(screen.getByText("점포 안내")).toBeTruthy();
-    expect(screen.queryByTitle("훈훈호떡 Google Street View")).toBeNull();
+    expect(screen.queryByTitle("훈훈호떡 점포 근처 거리 뷰")).toBeNull();
     expect(screen.queryByTestId("mangwon-market-map")).toBeNull();
     expect(screen.queryByText(/37\.\d+/)).toBeNull();
   });
@@ -85,6 +86,7 @@ describe("MangwonDemo Mobile Screen 01", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /周辺の店舗 · 360 · 地図/ }));
     expect(screen.getByRole("heading", { name: "周辺の店舗" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "店舗付近のストリートビュー" })).toBeTruthy();
     expect(screen.getByText("利用できる店舗正面ビューがありません")).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "戻る" }));
@@ -118,14 +120,15 @@ describe("MangwonDemo Mobile Screen 01", () => {
     expect(screen.getAllByText("6,000원").length).toBeGreaterThan(0);
   });
 
-  it("Screen 02에서 Nearby 점포 선택이 지도·K-Navi CTA에 동일하게 연결되고 미검증 corridor pano는 정면뷰로 표시하지 않는다", async () => {
+  it("Screen 02에서 Nearby 점포 선택이 지도·K-Navi CTA에 연결되고 키가 없으면 거리뷰를 열지 않는다", async () => {
     const onStartWalking = vi.fn();
     render(<MangwonDemo locale="ko" onStartWalking={onStartWalking} />);
 
     fireEvent.click(screen.getByRole("button", { name: /주변 점포 · 360 · 지도/ }));
     expect(screen.getByRole("heading", { name: "주변 점포" })).toBeTruthy();
     expect(await screen.findByTestId("mangwon-market-map")).toBeTruthy();
-    expect(screen.queryByTitle("훈훈호떡 Google Street View")).toBeNull();
+    expect(screen.getByRole("heading", { name: "점포 근처 거리 뷰" })).toBeTruthy();
+    expect(screen.queryByTitle("훈훈호떡 점포 근처 거리 뷰")).toBeNull();
     expect(screen.getByText("사용 가능한 점포 정면뷰가 없습니다")).toBeTruthy();
 
     const wooyirakItem = screen.getAllByRole("listitem", { name: /우이락 망원본점/ })[0];
@@ -134,11 +137,36 @@ describe("MangwonDemo Mobile Screen 01", () => {
 
     const target = MANGWON_STORES.find((store) => store.nameKo === "우이락 망원본점");
     expect(screen.getByText("map:mangwon-wooyirak-main")).toBeTruthy();
-    expect(screen.queryByTitle("우이락 망원본점 Google Street View")).toBeNull();
+    expect(screen.queryByTitle("우이락 망원본점 점포 근처 거리 뷰")).toBeNull();
     expect(screen.getByText("사용 가능한 점포 정면뷰가 없습니다")).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "여기로 가기" }));
     expect(onStartWalking).toHaveBeenCalledWith({ name: "우이락 망원본점", coordinate: target?.navigationTarget });
+  });
+
+  it("키가 있으면 pano가 있는 점포는 그 pano를, 없는 점포는 점포 좌표를 거리뷰로 보여 준다", async () => {
+    vi.stubEnv("NEXT_PUBLIC_GOOGLE_MAPS_API_KEY", "test-maps-key");
+    render(<MangwonDemo locale="en" onStartWalking={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Nearby Shops · 360 · Map/ }));
+    const hunhun = await screen.findByTitle("Hunhun Hotteok Street View near this store");
+    const hunhunSrc = hunhun.getAttribute("src") ?? "";
+    expect(hunhunSrc.startsWith("https://www.google.com/maps/embed/v1/streetview?")).toBe(true);
+    expect(hunhunSrc).toContain("pano=yySLIeZga7pxywbtwdPysw");
+    expect(hunhunSrc).toContain("location=37.5559174%2C126.9063682");
+    expect(hunhunSrc).toContain("heading=0");
+    expect(screen.getByRole("heading", { name: "Street View near this store" })).toBeTruthy();
+    expect(screen.getByText("This is a street view near the selected store, not a confirmed storefront.")).toBeTruthy();
+    expect(screen.queryByText("Storefront view unavailable")).toBeNull();
+
+    const gukbap = screen.getAllByRole("listitem", { name: /Mangwon Jangteo Gukbap/ })[0];
+    if (!gukbap) throw new Error("망원장터국밥 listitem이 없습니다");
+    fireEvent.click(gukbap);
+    const frame = screen.getByTitle("Mangwon Jangteo Gukbap Street View near this store");
+    const src = frame.getAttribute("src") ?? "";
+    expect(src).toContain("location=37.5561026%2C126.906299");
+    expect(src).toContain("heading=0");
+    expect(src).not.toContain("pano=");
   });
 
   it("?store= deep link로 특정 점포 상세에 직접 진입하고 점포 변경 시 URL을 갱신한다", async () => {

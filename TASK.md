@@ -328,7 +328,7 @@ Roadview 실패 시 navigation은 계속되어야 한다.
 **Constraints**
 
 - 홈 화면을 Demo로 바꾸지 않는다. Demo는 기본값이 꺼진 별도 경로다.
-- **Google Street View 실제 연동은 §11 NON-GOALS다.** 검증되지 않은 corridor pano를 점포 정면뷰로 보여주지 않는다. 키 없는 `google.com/maps/embed?pb=` URL은 사용하지 않는다. 정면이 확인되고 Maps Embed API 키가 있을 때만 문서화된 streetview embed를 쓴다.
+- 키 없는 `google.com/maps/embed?pb=` URL은 사용하지 않는다. 소유자 결정으로, `streetView.available`인 점포는 `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`가 있을 때 문서화된 Maps Embed API streetview(`/maps/embed/v1/streetview`)를 점포 위치의 거리뷰로 보여 준다. pano ID가 있으면 그 pano를 쓰고, 없으면 점포 좌표와 heading을 쓴다. 정면 확인은 요구하지 않는다. 네 언어 문구는 점포 근처 거리뷰라고 밝히고 확인된 정면이라고 하지 않는다. 키가 없거나 영상이 없으면 기존 미표시 문구를 유지한다.
 - 확인되지 않은 대표 메뉴 가격을 다른 상품 가격으로 채우지 않는다. 가격이 없으면 미확인으로 표시한다.
 - 점포 위치 검증 상태는 점포별 `storeLocation.verificationStatus`를 따른다. 일괄 `MULTI_SOURCE_VERIFIED`로 올리지 않는다.
 - `cdn.imweb.me` 점포 이미지 사용권은 이 저장소에서 확인되지 않았다. `usageStatus = RIGHTS_CHECK_REQUIRED`는 법적 판단이 아니라 권리 근거가 없다는 표시다. 사용 여부는 소유자 확인이 필요하다.
@@ -338,7 +338,7 @@ Roadview 실패 시 navigation은 계속되어야 한다.
 - [ ] `/` 홈이 main과 같고 언어 선택이 ko/en/ja/zh를 유지한다
 - [ ] `/mangwon`에서 점포 상세와 주변 점포 흐름을 연다
 - [ ] 기존 navigation 회귀 테스트(TEST A–F)가 실행되고 통과한다
-- [ ] 미검증 가격·위치·정면뷰를 확인된 것처럼 표시하지 않는다
+- [ ] 미검증 가격·위치를 확인된 것처럼 표시하지 않는다. 거리뷰는 확인된 점포 정면이라고 부르지 않는다
 - [ ] 이미지 권리 질문은 소유자 확인 전까지 열어 둔다
 - [ ] `/mangwon` 헤더와 데모 UI 문자열이 ko/en/ja/zh를 모두 지원한다
 
@@ -1058,7 +1058,7 @@ PR =
 9. `TASK-009` — Journey reconstruction/export
 10. `TASK-010` — Data-enabled E2E
 11. `TASK-011` — Coupon hooks, conditional P2
-12. `KN-MANGWON-DEMO-01` — 망원시장 Demo on `/mangwon` (draft PR #136). Does not replace the next auto task. Real Google Street View integration remains a §11 non-goal.
+12. `KN-MANGWON-DEMO-01` — 망원시장 Demo on `/mangwon` (draft PR #136). Does not replace the next auto task. Nearby Street View uses the documented Embed API when imagery and `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` exist, and is labeled as a view near the store.
 
 ## Next auto task
 

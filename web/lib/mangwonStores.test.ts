@@ -65,16 +65,27 @@ describe("망원시장 리얼데이터 Demo 점포 데이터", () => {
     expect(getMangwonStore("mangwon-mat-itneun-jip")?.verification.prices).toBe("SINGLE_SOURCE_VERIFIED");
   });
 
-  it("정면 360은 확인된 pano와 정면 품질 또는 headingOverride가 모두 있어야 한다", () => {
-    for (const store of MANGWON_STORES) {
-      const confirmedFrontage = store.streetView.quality === "EXACT_FRONTAGE"
-        || store.streetView.quality === "NEARBY_VISIBLE"
-        || store.streetView.headingOverride !== null;
-      const eligible = store.streetView.available
-        && store.streetView.lastResolvedPanoId !== null
-        && confirmedFrontage;
-      expect(eligible).toBe(false);
-      expect(store.streetView.headingOverride).toBeNull();
-    }
+  it("13개 점포 모두 거리 수준 영상이 있어 키가 있으면 거리뷰 대상이다", () => {
+    expect(MANGWON_STORES).toHaveLength(13);
+    const withPano = MANGWON_STORES.filter((store) => store.streetView.lastResolvedPanoId);
+    const byLocation = MANGWON_STORES.filter((store) => !store.streetView.lastResolvedPanoId);
+    expect(MANGWON_STORES.every((store) => store.streetView.available)).toBe(true);
+    expect(withPano.map((store) => store.nameKo)).toEqual([
+      "훈훈호떡",
+      "맛있는집",
+      "부산대원어묵",
+      "큐스",
+      "우이락 망원본점",
+    ]);
+    expect(byLocation.map((store) => store.nameKo)).toEqual([
+      "망원시장손칼국수",
+      "망원장터국밥",
+      "망원튀맥집",
+      "오공찬",
+      "장충동한방족발",
+      "무침프로젝트",
+      "망원닭강정",
+      "훈이네 빈대떡",
+    ]);
   });
 });
