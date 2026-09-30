@@ -4,5 +4,6 @@
   "installCommand": "npm install",
   "outputDirectory": "web/.next",
   "framework": "nextjs",
-  "regions": ["icn1"]
+  "regions": ["icn1"],
+  "ignoreCommand": "node scripts/vercel-ignore.cjs"
 }
