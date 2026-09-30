@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getMangwonUiText, type Locale } from "../lib/i18n";
 import {
@@ -13,8 +14,11 @@ import {
 } from "../lib/mangwonStoreCopy";
 import { MANGWON_STORES, type MangwonStore, type StoreProduct } from "../lib/mangwonStores";
 import type { Coordinate } from "../lib/types";
-import MangwonMarketMap from "./MangwonMarketMap";
 import MangwonStorefront360 from "./MangwonStorefront360";
+
+// maplibre-gl touches window at import time. Load the market map only in the browser,
+// the same way the home page loads MapView, so node tests can import this module.
+const MangwonMarketMap = dynamic(() => import("./MangwonMarketMap"), { ssr: false });
 
 interface MangwonDemoProps {
   readonly locale: Locale;
@@ -117,19 +121,32 @@ function StoreSwitcher({ stores, selectedId, locale, onSelect }: {
   );
 }
 
+function representativeFact(store: MangwonStore): { name: string; price: number | null; priceLabel: string | null } {
+  const menu = store.representativeMenu;
+  if (menu) {
+    // A null menu price is unverified. Do not borrow another product's price.
+    return { name: menu.nameKo, price: menu.priceWon, priceLabel: null };
+  }
+  const firstProduct = store.products[0];
+  return {
+    name: firstProduct?.nameKo ?? "",
+    price: firstProduct?.priceKrw ?? null,
+    priceLabel: firstProduct?.priceLabel ?? null,
+  };
+}
+
 function StoreKeyFacts({ store, locale }: { readonly store: MangwonStore; readonly locale: Locale }) {
   const ui = getMangwonUiText(locale);
-  const menu = store.representativeMenu;
-  const firstProduct = store.products[0];
+  const signature = representativeFact(store);
   return (
     <dl className="mangwon-mobile-key-facts">
       <div>
         <dt><span aria-hidden="true">✦</span>{ui.representativeMenu}</dt>
-        <dd>{localizeProductName(menu?.nameKo ?? firstProduct?.nameKo ?? "", locale) || ui.unknown}</dd>
+        <dd>{localizeProductName(signature.name, locale) || ui.unknown}</dd>
       </div>
       <div>
         <dt><span aria-hidden="true">₩</span>{ui.price}</dt>
-        <dd>{priceText(menu?.priceWon ?? firstProduct?.priceKrw ?? null, firstProduct?.priceLabel ?? null, locale, ui.unknown)}</dd>
+        <dd>{priceText(signature.price, signature.priceLabel, locale, ui.unknown)}</dd>
       </div>
       <div>
         <dt><span aria-hidden="true">◷</span>{ui.hours}</dt>
@@ -285,26 +302,30 @@ function NearbyShopRail({ selectedId, locale, onSelect }: {
   readonly onSelect: (storeId: string) => void;
 }) {
   return (
-    <div className="mangwon-nearby-rail" role="list" aria-label={locale === "en" ? "Nearby Shops" : "주변 점포"}>
+    <ul className="mangwon-nearby-rail" aria-label={locale === "en" ? "Nearby Shops" : "주변 점포"}>
       {MANGWON_STORES.map((store) => {
         const image = store.storeImages[0];
         const selected = store.id === selectedId;
+        const name = localizeStoreName(store, locale);
         return (
-          <button
-            key={store.id}
-            type="button"
-            role="listitem"
-            className={selected ? "is-selected" : ""}
-            aria-pressed={selected}
-            onClick={() => onSelect(store.id)}
-          >
-            {image ? <img src={image.url} alt="" /> : <span className="mangwon-nearby-thumb-fallback" aria-hidden="true" />}
-            <strong>{localizeStoreName(store, locale)}</strong>
-            <small>{localizeCategory(store.category, locale)}</small>
-          </button>
+          <li key={store.id} aria-label={name} onClick={() => onSelect(store.id)}>
+            <button
+              type="button"
+              className={selected ? "is-selected" : ""}
+              aria-pressed={selected}
+              onClick={(event) => {
+                event.stopPropagation();
+                onSelect(store.id);
+              }}
+            >
+              {image ? <img src={image.url} alt="" /> : <span className="mangwon-nearby-thumb-fallback" aria-hidden="true" />}
+              <strong>{name}</strong>
+              <small>{localizeCategory(store.category, locale)}</small>
+            </button>
+          </li>
         );
       })}
-    </div>
+    </ul>
   );
 }
 

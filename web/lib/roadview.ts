@@ -356,34 +356,6 @@ export function googleStreetViewConfigured(): boolean {
   return googleMapsApiKey().length > 0;
 }
 
-/**
- * Google Maps Embed endpoint. It is intentionally a fallback only: the
- * JavaScript API remains the primary provider when a project key is present.
- * The embed endpoint can render the public panorama UI without exposing an
- * API key in this app, while unsupported locations still show Google's own
- * no-imagery state.
- */
-export function googleStreetViewEmbedUrl(
-  destination: Coordinate,
-  heading = 0,
-  panoId: string | null = null,
-): string | null {
-  if (!panoId) return null;
-  const pb = [
-    "!4v0",
-    "!6m8",
-    "!1m7",
-    `!1s${panoId}`,
-    "!2m2",
-    `!1d${destination.longitude}`,
-    `!2d${destination.latitude}`,
-    `!3f${Math.round(heading)}`,
-    "!4f0",
-    "!5f0",
-  ].join("");
-  return `https://www.google.com/maps/embed?pb=${pb}`;
-}
-
 function currentNaverMaps(): NaverMaps | null {
   const maps = naverWindow().naver?.maps;
   return maps?.Panorama && maps.Event ? maps : null;

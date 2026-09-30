@@ -108,29 +108,6 @@ describe("RoadviewViewer", () => {
     expect(screen.getAllByRole("button", { name: "지도 안내로 돌아가기" }).length).toBeGreaterThan(0);
   });
 
-  it("uses the Google Maps iframe fallback when the Google SDK key is unavailable", async () => {
-    const provider: RoadviewProvider = {
-      id: "google",
-      isConfigured: () => false,
-      open: vi.fn(() => Promise.reject(new RoadviewError("missing_key", "Google Maps API 키가 설정되지 않았습니다."))),
-    };
-
-    render(
-      <RoadviewViewer
-        destination={DEST}
-        destinationName="경복궁"
-        approachOrigin={null}
-        embedPanoId="test-pano"
-        locale="ko"
-        provider={provider}
-        onClose={() => undefined}
-      />,
-    );
-
-    await waitFor(() => expect(screen.getByTitle("목적지 주변 Roadview Google Maps Embed")).toBeTruthy());
-    expect(screen.getByTitle("목적지 주변 Roadview Google Maps Embed").getAttribute("src")).toContain("maps/embed");
-  });
-
   it("falls back to a session provider when none is injected", async () => {
     // provider 를 넘기지 않아도 뷰어가 스스로 고른다(키 없음 → 지도 안내 계속).
     render(

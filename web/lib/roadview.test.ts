@@ -4,7 +4,6 @@ import type { Coordinate } from "./types";
 import {
   bearingDegrees,
   KakaoRoadviewAdapter,
-  googleStreetViewEmbedUrl,
   openGoogleStreetView,
   openKakaoRoadview,
   openNaverPanorama,
@@ -24,19 +23,6 @@ afterEach(() => {
   delete (window as unknown as { naver?: unknown }).naver;
   delete (window as unknown as { google?: unknown }).google;
   vi.unstubAllEnvs();
-});
-
-describe("Google Street View embed fallback", () => {
-  it("creates an iframe-safe public embed URL without exposing a key", () => {
-    const url = googleStreetViewEmbedUrl(SEOUL, 91.4, "pano-test");
-    expect(url).toContain("https://www.google.com/maps/embed?pb=");
-    expect(url).toContain("!1spano-test");
-    expect(url).toContain("!1d126.978");
-    expect(url).toContain("!2d37.5665");
-    expect(url).toContain("!3f91");
-    expect(url).not.toContain("GOOGLE_MAPS_API_KEY");
-    expect(googleStreetViewEmbedUrl(SEOUL)).toBeNull();
-  });
 });
 
 describe("Kakao Roadview adapter", () => {

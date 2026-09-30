@@ -5,7 +5,7 @@ describe("망원시장 리얼데이터 Demo 점포 데이터", () => {
   it("훈훈호떡부터 우이락까지 조사된 corridor 점포와 5개 panorama 지점을 제공한다", () => {
     expect(MANGWON_STORES.length).toBeGreaterThan(5);
     expect(MANGWON_PANORAMA_POINTS).toHaveLength(5);
-    expect(MANGWON_PANORAMA_POINTS[0].label).toBe("훈훈호떡");
+    expect(MANGWON_PANORAMA_POINTS[0]?.label).toBe("훈훈호떡");
     expect(MANGWON_PANORAMA_POINTS.at(-1)?.label).toBe("우이락 망원본점");
     expect(getMangwonStore("mangwon-hunhun-hotteok")?.storeLocation).toEqual({
       latitude: 37.5559174,
@@ -45,5 +45,23 @@ describe("망원시장 리얼데이터 Demo 점포 데이터", () => {
     expect(getMangwonStore("mangwon-wooyirak-main")?.products).toEqual(
       expect.arrayContaining([expect.objectContaining({ nameKo: "오리지날 고추튀김", priceKrw: 12000 })]),
     );
+  });
+
+  it("위치·가격·이미지 상태는 확인된 값만 검증됨으로 표시한다", () => {
+    for (const store of MANGWON_STORES) {
+      expect(store.verification.location).toBe(store.storeLocation.verificationStatus);
+      const representativePrice = store.representativeMenu?.priceWon;
+      const hasPrice = typeof representativePrice === "number"
+        || store.products.some((item) => item.priceKrw !== null || item.priceLabel !== null);
+      expect(store.verification.prices).toBe(hasPrice ? "SINGLE_SOURCE_VERIFIED" : "UNKNOWN");
+      expect(store.verification.images).toBe("RIGHTS_CHECK_REQUIRED");
+      for (const storeImage of store.storeImages) {
+        expect(storeImage.usageStatus).toBe("RIGHTS_CHECK_REQUIRED");
+      }
+    }
+    expect(getMangwonStore("mangwon-jangteo-gukbap")?.verification.prices).toBe("UNKNOWN");
+    expect(getMangwonStore("mangwon-jangteo-gukbap")?.verification.location).toBe("SINGLE_SOURCE_VERIFIED");
+    expect(getMangwonStore("mangwon-mat-itneun-jip")?.representativeMenu?.priceWon).toBeNull();
+    expect(getMangwonStore("mangwon-mat-itneun-jip")?.verification.prices).toBe("SINGLE_SOURCE_VERIFIED");
   });
 });

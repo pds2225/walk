@@ -1,28 +1,8 @@
 "use client";
 
 import type { Locale } from "../lib/i18n";
+import { documentedStorefrontEmbedUrl } from "../lib/mangwonStorefrontEmbed";
 import type { MangwonStore } from "../lib/mangwonStores";
-
-function storefrontEmbedUrl(store: MangwonStore): string | null {
-  const panoId = store.streetView.lastResolvedPanoId;
-  if (!panoId) return null;
-  const target = store.streetViewLocation ?? store.navigationTarget;
-  const heading = store.streetView.headingOverride ?? store.streetView.headingAuto ?? 0;
-  const pitch = store.streetView.pitch ?? 0;
-  const pb = [
-    "!4v0",
-    "!6m8",
-    "!1m7",
-    `!1s${panoId}`,
-    "!2m2",
-    `!1d${target.longitude}`,
-    `!2d${target.latitude}`,
-    `!3f${Math.round(heading)}`,
-    `!4f${Math.round(pitch)}`,
-    "!5f0",
-  ].join("");
-  return `https://www.google.com/maps/embed?pb=${pb}`;
-}
 
 /**
  * Screen 02 calls this a storefront view, so a merely available corridor pano
@@ -40,7 +20,16 @@ export default function MangwonStorefront360({ store, locale }: {
   readonly store: MangwonStore;
   readonly locale: Locale;
 }) {
-  const embedUrl = storefrontFramingVerified(store) ? storefrontEmbedUrl(store) : null;
+  const target = store.streetViewLocation ?? store.navigationTarget;
+  const heading = store.streetView.headingOverride ?? store.streetView.headingAuto ?? 0;
+  const embedUrl = storefrontFramingVerified(store)
+    ? documentedStorefrontEmbedUrl({
+      panoId: store.streetView.lastResolvedPanoId ?? "",
+      coordinate: target,
+      heading,
+      pitch: store.streetView.pitch ?? 0,
+    })
+    : null;
 
   if (!embedUrl) {
     return (

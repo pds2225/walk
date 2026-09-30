@@ -122,7 +122,9 @@ function image(fileName: string, sourceUrl: string): StoreImage {
     sourceType: "OFFICIAL",
     sourceUrl,
     attribution: "망원시장 공식 점포 안내",
-    usageStatus: "OFFICIAL_SOURCE",
+    // The file is hotlinked from the market site CDN. This repo has no rights
+    // evidence, so the status stays "not checked" rather than approved or forbidden.
+    usageStatus: "RIGHTS_CHECK_REQUIRED",
   };
 }
 
@@ -144,18 +146,20 @@ function store(input: Omit<MangwonStore, "google" | "verification" | "phone" | "
   const { googleWebReference, googleMapsUrl, verificationMemo, phone = null, purchaseInfo = { takeout: null, dineIn: null, orderNote: null, sourceUrl: null }, ...value } = input;
   const hasHours = value.businessHours !== null;
   const hasMenu = value.representativeMenu !== null || value.products.length > 0;
-  const hasMenuPrice = value.representativeMenu?.priceWon !== null || value.products.some((item) => item.priceKrw !== null || item.priceLabel !== null);
+  const representativePrice = value.representativeMenu?.priceWon;
+  const hasMenuPrice = typeof representativePrice === "number"
+    || value.products.some((item) => item.priceKrw !== null || item.priceLabel !== null);
   return {
     ...value, phone, purchaseInfo,
     google: { placeId: null, webReference: googleWebReference, mapsUrl: googleMapsUrl, lastCheckedAt: CHECKED_AT },
     verification: {
       storeExistence: "MULTI_SOURCE_VERIFIED",
-      location: "MULTI_SOURCE_VERIFIED",
+      location: value.storeLocation.verificationStatus,
       navigationTarget: "FIELD_CHECK_REQUIRED",
       businessHours: hasHours ? "SINGLE_SOURCE_VERIFIED" : "UNKNOWN",
       products: hasMenu ? "SINGLE_SOURCE_VERIFIED" : "UNKNOWN",
       prices: hasMenuPrice ? "SINGLE_SOURCE_VERIFIED" : "UNKNOWN",
-      images: value.storeImages.length > 0 ? "OFFICIAL_VERIFIED" : "RIGHTS_CHECK_REQUIRED",
+      images: "RIGHTS_CHECK_REQUIRED",
       officialSource: value.officialSource ? "OFFICIAL_VERIFIED" : "UNKNOWN",
       lastVerifiedAt: CHECKED_AT,
       memo: verificationMemo,

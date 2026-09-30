@@ -74,18 +74,30 @@ describe("MangwonDemo Mobile Screen 01", () => {
     expect(screen.getByRole("button", { name: "공유" })).toBeTruthy();
   });
 
-  it("Screen 02에서 Nearby 점포 선택이 지도·K-Navi CTA에 동일하게 연결되고 미검증 corridor pano는 정면뷰로 표시하지 않는다", () => {
+  it("대표 메뉴 가격이 없으면 다른 상품 가격을 대표 가격으로 보여주지 않는다", () => {
+    render(<MangwonDemo locale="ko" onStartWalking={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "맛있는집" }));
+    const priceLabel = screen.getByText("가격");
+    const priceValue = priceLabel.closest("div")?.querySelector("dd");
+    expect(priceValue?.textContent).toBe("확인 필요");
+    expect(screen.getAllByText("오징어튀김 김밥").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("6,000원").length).toBeGreaterThan(0);
+  });
+
+  it("Screen 02에서 Nearby 점포 선택이 지도·K-Navi CTA에 동일하게 연결되고 미검증 corridor pano는 정면뷰로 표시하지 않는다", async () => {
     const onStartWalking = vi.fn();
     render(<MangwonDemo locale="ko" onStartWalking={onStartWalking} />);
 
     fireEvent.click(screen.getByRole("button", { name: /주변 점포 · 360 · 지도/ }));
     expect(screen.getByRole("heading", { name: "주변 점포" })).toBeTruthy();
-    expect(screen.getByTestId("mangwon-market-map")).toBeTruthy();
+    expect(await screen.findByTestId("mangwon-market-map")).toBeTruthy();
     expect(screen.queryByTitle("훈훈호떡 Google Street View")).toBeNull();
     expect(screen.getByText("사용 가능한 점포 정면뷰가 없습니다")).toBeTruthy();
 
-    const wooyirakItems = screen.getAllByRole("listitem", { name: /우이락 망원본점/ });
-    fireEvent.click(wooyirakItems[0]);
+    const wooyirakItem = screen.getAllByRole("listitem", { name: /우이락 망원본점/ })[0];
+    if (!wooyirakItem) throw new Error("우이락 망원본점 listitem이 없습니다");
+    fireEvent.click(wooyirakItem);
 
     const target = MANGWON_STORES.find((store) => store.nameKo === "우이락 망원본점");
     expect(screen.getByText("map:mangwon-wooyirak-main")).toBeTruthy();

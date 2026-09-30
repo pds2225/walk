@@ -1,18 +1,5 @@
-/* Screen 01 visual-fidelity overrides.
-   Keep the existing data/navigation implementation intact while matching the
-   approved mobile Shop Detail(Main) hierarchy more closely. */
-
-/* The shop-detail demo is the initial consumer-facing screen. Keep the legacy
-   destination-search controls in code, but do not render them visually below
-   the approved Screen 01 surface. Navigation itself is unchanged. */
-.home > .dest-input,
-.home > .hint,
-.home > .hits,
-.home > .chips,
-.home > .primary,
-.home > .error {
-  display: none;
-}
+/* Screen 01 visual-fidelity overrides for the /mangwon route.
+   These rules must not hide the production home search or language controls. */
 
 /* Match the approved composition: header -> hero/detail -> menu/about.
    Keep the temporary shop switcher available for QA, but move it below the
@@ -210,10 +197,17 @@
   display: flex;
   gap: 10px;
   width: 100%;
+  margin: 0;
   padding: 8px 18px 18px;
   overflow-x: auto;
   scroll-snap-type: x proximity;
   scrollbar-width: none;
+  list-style: none;
+}
+
+.mangwon-nearby-rail > li {
+  flex: 0 0 128px;
+  scroll-snap-align: start;
 }
 
 .mangwon-nearby-rail::-webkit-scrollbar {
@@ -221,8 +215,7 @@
 }
 
 .mangwon-nearby-rail button {
-  flex: 0 0 128px;
-  scroll-snap-align: start;
+  width: 100%;
   padding: 0 0 10px;
   overflow: hidden;
   border: 1px solid #e5e9ef;
@@ -414,7 +407,7 @@
     margin: 0 auto;
   }
 
-  .mangwon-nearby-rail button {
+  .mangwon-nearby-rail > li {
     flex-basis: 148px;
   }
 }
