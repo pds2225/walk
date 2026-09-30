@@ -39,9 +39,9 @@ function routeFingerprint(response: RouteResponse): string {
 }
 
 /**
- * Walking session for a store the World Cup Market demo already selected.
+ * Walking session for a store the Mangwon demo already selected.
  * It follows the same location → route → watch → reroute lifecycle as the home
- * guide, and it lives only on /worldcup-market so the production home stays unchanged.
+ * guide, and it lives only on /mangwon so the production home stays unchanged.
  */
 export default function DestinationWalk({ locale, onLocaleChange, target, onStop }: DestinationWalkProps) {
   const ui = getUiText(locale);

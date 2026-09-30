@@ -1,23 +1,23 @@
-/* Screen 01 visual-fidelity overrides for the /worldcup-market route.
+/* Screen 01 visual-fidelity overrides for the /mangwon route.
    These rules must not hide the production home search or language controls. */
 
 /* Match the approved composition: header -> hero/detail -> menu/about.
    Keep the temporary shop switcher available for QA, but move it below the
    actual Screen 01 content so it does not compete with the hero image. */
-.worldcup-market-mobile-screen {
+.mangwon-mobile-screen {
   display: flex;
   flex-direction: column;
 }
 
-.worldcup-market-mobile-header {
+.mangwon-mobile-header {
   order: 0;
 }
 
-.worldcup-market-mobile-detail {
+.mangwon-mobile-detail {
   order: 1;
 }
 
-.worldcup-market-mobile-screen > .worldcup-market-store-switcher {
+.mangwon-mobile-screen > .mangwon-store-switcher {
   order: 2;
   margin-top: 26px;
   padding: 16px 16px 4px;
@@ -25,27 +25,27 @@
 }
 
 /* Header fidelity */
-.worldcup-market-back-button {
+.mangwon-back-button {
   color: var(--blue);
 }
 
-.worldcup-market-mobile-brand strong {
+.mangwon-mobile-brand strong {
   color: var(--blue);
   font-size: 22px;
   font-weight: 900;
   letter-spacing: -0.04em;
 }
 
-.worldcup-market-mobile-brand span {
+.mangwon-mobile-brand span {
   color: #35547d;
   font-weight: 700;
 }
 
-.worldcup-market-locale-switcher {
+.mangwon-locale-switcher {
   gap: 5px;
 }
 
-.worldcup-market-locale-switcher button {
+.mangwon-locale-switcher button {
   min-width: 30px;
   min-height: 36px;
   padding: 0 4px;
@@ -55,74 +55,74 @@
   font-size: 11px;
 }
 
-.worldcup-market-locale-switcher button.is-active {
+.mangwon-locale-switcher button.is-active {
   background: var(--blue);
   color: #fff;
 }
 
 /* The approved mockup starts directly with the shop name below the image.
    "Selected store" is internal context, not consumer-facing copy. */
-.worldcup-market-mobile-eyebrow {
+.mangwon-mobile-eyebrow {
   display: none;
 }
 
-.worldcup-market-mobile-detail-body {
+.mangwon-mobile-detail-body {
   padding-top: 18px;
 }
 
-.worldcup-market-mobile-detail-body h2 {
+.mangwon-mobile-detail-body h2 {
   font-size: clamp(28px, 7.6vw, 32px);
   line-height: 1.08;
 }
 
-.worldcup-market-mobile-description {
+.mangwon-mobile-description {
   margin-top: 12px;
   line-height: 1.5;
 }
 
 /* Open three-column fact row instead of three dashboard-like mini cards. */
-.worldcup-market-mobile-key-facts {
+.mangwon-mobile-key-facts {
   gap: 14px;
   margin-top: 22px;
 }
 
-.worldcup-market-mobile-key-facts div {
+.mangwon-mobile-key-facts div {
   padding: 0;
   border-radius: 0;
   background: transparent;
 }
 
-.worldcup-market-mobile-key-facts dt {
+.mangwon-mobile-key-facts dt {
   color: #596579;
   font-size: 10px;
 }
 
-.worldcup-market-mobile-key-facts dd {
+.mangwon-mobile-key-facts dd {
   margin-top: 7px;
   font-size: 13px;
 }
 
 /* Strong primary action, quiet secondary actions. */
-.worldcup-market-mobile-primary {
+.mangwon-mobile-primary {
   min-height: 54px;
   border-radius: 10px;
   box-shadow: 0 8px 20px rgba(27, 100, 218, 0.16);
 }
 
-.worldcup-market-mobile-secondary-actions button {
+.mangwon-mobile-secondary-actions button {
   border-color: transparent;
   background: #f5f8fc;
 }
 
 /* Show enough of the next menu card to make horizontal swiping obvious. */
-.worldcup-market-menu-card {
+.mangwon-menu-card {
   flex-basis: 124px;
   min-height: 116px;
   padding: 13px;
 }
 
 /* About panel follows the light-blue information panel treatment in the mockup. */
-.worldcup-market-about-shop {
+.mangwon-about-shop {
   margin: 24px 16px 0;
   padding: 17px 16px 18px;
   border-top: 0;
@@ -130,21 +130,21 @@
   background: #f3f7fd;
 }
 
-.worldcup-market-about-shop > p {
+.mangwon-about-shop > p {
   margin-top: 10px;
 }
 
-.worldcup-market-about-shop .worldcup-market-purchase-facts div {
+.mangwon-about-shop .mangwon-purchase-facts div {
   background: #fff;
 }
 
 /* Screen 01 -> Screen 02 entry stays below the information hierarchy so the
    approved hero/CTA composition is preserved. */
-.worldcup-market-nearby-entry {
+.mangwon-nearby-entry {
   padding: 16px 16px 0;
 }
 
-.worldcup-market-nearby-entry button {
+.mangwon-nearby-entry button {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -160,14 +160,14 @@
   cursor: pointer;
 }
 
-.worldcup-market-nearby-entry button span:last-child {
+.mangwon-nearby-entry button span:last-child {
   color: var(--blue);
   font-size: 24px;
   line-height: 1;
 }
 
 /* ── Mobile Screen 02: Nearby Shops + Storefront 360 + Map ─────────────── */
-.worldcup-market-nearby-screen {
+.mangwon-nearby-screen {
   width: 100%;
   min-height: 100dvh;
   background: #fff;
@@ -175,11 +175,11 @@
   padding-bottom: calc(96px + env(safe-area-inset-bottom));
 }
 
-.worldcup-market-nearby-heading {
+.mangwon-nearby-heading {
   padding: 20px 18px 10px;
 }
 
-.worldcup-market-nearby-heading p {
+.mangwon-nearby-heading p {
   margin: 0 0 5px;
   color: var(--blue);
   font-size: 10px;
@@ -187,14 +187,14 @@
   letter-spacing: .11em;
 }
 
-.worldcup-market-nearby-heading h2 {
+.mangwon-nearby-heading h2 {
   margin: 0;
   font-size: 28px;
   line-height: 1.08;
   letter-spacing: -0.04em;
 }
 
-.worldcup-market-nearby-rail {
+.mangwon-nearby-rail {
   display: flex;
   gap: 10px;
   width: 100%;
@@ -206,16 +206,16 @@
   list-style: none;
 }
 
-.worldcup-market-nearby-rail > li {
+.mangwon-nearby-rail > li {
   flex: 0 0 128px;
   scroll-snap-align: start;
 }
 
-.worldcup-market-nearby-rail::-webkit-scrollbar {
+.mangwon-nearby-rail::-webkit-scrollbar {
   display: none;
 }
 
-.worldcup-market-nearby-rail button {
+.mangwon-nearby-rail button {
   width: 100%;
   padding: 0 0 10px;
   overflow: hidden;
@@ -228,13 +228,13 @@
   cursor: pointer;
 }
 
-.worldcup-market-nearby-rail button.is-selected {
+.mangwon-nearby-rail button.is-selected {
   border-color: var(--blue);
   box-shadow: 0 0 0 1px var(--blue), 0 7px 20px rgba(27, 100, 218, .10);
 }
 
-.worldcup-market-nearby-rail img,
-.worldcup-market-nearby-thumb-fallback {
+.mangwon-nearby-rail img,
+.mangwon-nearby-thumb-fallback {
   display: block;
   width: 100%;
   height: 92px;
@@ -242,8 +242,8 @@
   background: #eef2f7;
 }
 
-.worldcup-market-nearby-rail strong,
-.worldcup-market-nearby-rail small {
+.mangwon-nearby-rail strong,
+.mangwon-nearby-rail small {
   display: block;
   padding: 0 10px;
   overflow: hidden;
@@ -251,19 +251,19 @@
   white-space: nowrap;
 }
 
-.worldcup-market-nearby-rail strong {
+.mangwon-nearby-rail strong {
   margin-top: 9px;
   font-size: 13px;
   font-weight: 850;
 }
 
-.worldcup-market-nearby-rail small {
+.mangwon-nearby-rail small {
   margin-top: 3px;
   color: var(--muted);
   font-size: 11px;
 }
 
-.worldcup-market-nearby-selected {
+.mangwon-nearby-selected {
   display: grid;
   grid-template-columns: 72px minmax(0, 1fr);
   gap: 12px;
@@ -273,32 +273,32 @@
   background: #f5f8fc;
 }
 
-.worldcup-market-nearby-selected > img {
+.mangwon-nearby-selected > img {
   width: 72px;
   height: 72px;
   border-radius: 12px;
   object-fit: cover;
 }
 
-.worldcup-market-nearby-selected h3,
-.worldcup-market-nearby-selected p,
-.worldcup-market-nearby-selected span {
+.mangwon-nearby-selected h3,
+.mangwon-nearby-selected p,
+.mangwon-nearby-selected span {
   margin: 0;
 }
 
-.worldcup-market-nearby-selected h3 {
+.mangwon-nearby-selected h3 {
   font-size: 18px;
   line-height: 1.2;
 }
 
-.worldcup-market-nearby-selected p {
+.mangwon-nearby-selected p {
   margin-top: 4px;
   color: var(--blue);
   font-size: 12px;
   font-weight: 800;
 }
 
-.worldcup-market-nearby-selected span {
+.mangwon-nearby-selected span {
   display: -webkit-box;
   margin-top: 7px;
   overflow: hidden;
@@ -309,11 +309,11 @@
   -webkit-box-orient: vertical;
 }
 
-.worldcup-market-nearby-block {
+.mangwon-nearby-block {
   margin: 0 18px 26px;
 }
 
-.worldcup-market-nearby-block-heading {
+.mangwon-nearby-block-heading {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
@@ -321,23 +321,23 @@
   margin-bottom: 10px;
 }
 
-.worldcup-market-nearby-block-heading h3 {
+.mangwon-nearby-block-heading h3 {
   margin: 0;
   font-size: 19px;
   letter-spacing: -0.02em;
 }
 
-.worldcup-market-nearby-block-heading span {
+.mangwon-nearby-block-heading span {
   color: var(--muted);
   font-size: 11px;
   font-weight: 700;
 }
 
-.worldcup-market-nearby-block .roadview-heading {
+.mangwon-nearby-block .roadview-heading {
   display: none;
 }
 
-.worldcup-market-nearby-block .roadview-frame {
+.mangwon-nearby-block .roadview-frame {
   height: min(46dvh, 420px);
   min-height: 300px;
   border: 0;
@@ -345,7 +345,7 @@
   box-shadow: none;
 }
 
-.worldcup-market-storefront-unavailable {
+.mangwon-storefront-unavailable {
   display: grid;
   place-content: center;
   min-height: 230px;
@@ -355,18 +355,18 @@
   text-align: center;
 }
 
-.worldcup-market-storefront-unavailable strong {
+.mangwon-storefront-unavailable strong {
   font-size: 15px;
 }
 
-.worldcup-market-storefront-unavailable span {
+.mangwon-storefront-unavailable span {
   margin-top: 8px;
   color: var(--muted);
   font-size: 12px;
   line-height: 1.45;
 }
 
-.worldcup-market-nearby-block .worldcup-market-market-map {
+.mangwon-nearby-block .mangwon-market-map {
   width: 100%;
   height: 310px;
   overflow: hidden;
@@ -374,7 +374,7 @@
   border-radius: 16px;
 }
 
-.worldcup-market-nearby-cta {
+.mangwon-nearby-cta {
   position: sticky;
   bottom: 0;
   z-index: 20;
@@ -384,7 +384,7 @@
   backdrop-filter: blur(12px);
 }
 
-.worldcup-market-nearby-cta button {
+.mangwon-nearby-cta button {
   width: 100%;
   min-height: 56px;
   border: 0;
@@ -398,17 +398,17 @@
 }
 
 @media (min-width: 641px) {
-  .worldcup-market-about-shop {
+  .mangwon-about-shop {
     margin-left: 28px;
     margin-right: 28px;
   }
 
-  .worldcup-market-nearby-screen {
+  .mangwon-nearby-screen {
     max-width: 720px;
     margin: 0 auto;
   }
 
-  .worldcup-market-nearby-rail > li {
+  .mangwon-nearby-rail > li {
     flex-basis: 148px;
   }
 }

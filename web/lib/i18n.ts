@@ -227,7 +227,7 @@ export function getUiText(locale: Locale): UiText {
   return UI[locale] ?? UI.ko;
 }
 
-export interface WorldCupMarketUiText {
+export interface MangwonUiText {
   readonly title: string;
   readonly subtitle: string;
   readonly back: string;
@@ -283,12 +283,12 @@ export interface WorldCupMarketUiText {
   readonly panoramaUnavailable: string;
 }
 
-const WORLD_CUP_MARKET_UI: Record<Locale, WorldCupMarketUiText> = {
+const MANGWON_UI: Record<Locale, MangwonUiText> = {
   ko: {
-    title: "월드컵시장 점포 안내",
+    title: "망원시장 점포 안내",
     subtitle: "점포 정보를 먼저 보고, 아래에서 점포 근처 거리 뷰와 위치를 확인하세요.",
     back: "뒤로",
-    market: "월드컵시장",
+    market: "망원시장",
     language: "언어",
     chooseLanguage: "언어 선택",
     shopPhoto: "대표 이미지",
@@ -299,7 +299,7 @@ const WORLD_CUP_MARKET_UI: Record<Locale, WorldCupMarketUiText> = {
     storefrontUnavailable: "사용 가능한 점포 정면뷰가 없습니다",
     storefrontFallback: "지도와 K-Navi 도보안내는 계속 사용할 수 있습니다.",
     locationTitle: "위치",
-    marketMap: "월드컵시장 지도",
+    marketMap: "망원시장 지도",
     selectOnMap: "지도에서 선택",
     selectShop: "시장 점포 선택",
     panoramaTab: "점포 정보",
@@ -340,10 +340,10 @@ const WORLD_CUP_MARKET_UI: Record<Locale, WorldCupMarketUiText> = {
     panoramaUnavailable: "Street View를 사용할 수 없어 안내 카드만 표시합니다.",
   },
   en: {
-    title: "World Cup Market Stores",
+    title: "Mangwon Market Stores",
     subtitle: "See store details first, then check the street view near the store and the map.",
     back: "Back",
-    market: "World Cup Market",
+    market: "Mangwon Market",
     language: "Language",
     chooseLanguage: "Choose language",
     shopPhoto: "shop photo",
@@ -354,7 +354,7 @@ const WORLD_CUP_MARKET_UI: Record<Locale, WorldCupMarketUiText> = {
     storefrontUnavailable: "Storefront view unavailable",
     storefrontFallback: "You can still check the map and start the walking guide.",
     locationTitle: "Location",
-    marketMap: "World Cup Market map",
+    marketMap: "Mangwon Market map",
     selectOnMap: "Select on the map",
     selectShop: "Choose a market shop",
     panoramaTab: "Store details",
@@ -395,10 +395,10 @@ const WORLD_CUP_MARKET_UI: Record<Locale, WorldCupMarketUiText> = {
     panoramaUnavailable: "Street View is unavailable; the store card remains available.",
   },
   ja: {
-    title: "ワールドカップ市場 店舗案内",
+    title: "望遠市場 店舗案内",
     subtitle: "先に店舗情報を確認し、その下で店舗付近のストリートビューと位置を見られます。",
     back: "戻る",
-    market: "ワールドカップ市場",
+    market: "望遠市場",
     language: "言語",
     chooseLanguage: "言語を選択",
     shopPhoto: "代表画像",
@@ -409,7 +409,7 @@ const WORLD_CUP_MARKET_UI: Record<Locale, WorldCupMarketUiText> = {
     storefrontUnavailable: "利用できる店舗正面ビューがありません",
     storefrontFallback: "地図とK-Naviの徒歩案内は引き続き使えます。",
     locationTitle: "位置",
-    marketMap: "ワールドカップ市場の地図",
+    marketMap: "望遠市場の地図",
     selectOnMap: "地図で選択",
     selectShop: "市場の店舗を選択",
     panoramaTab: "店舗情報",
@@ -450,10 +450,10 @@ const WORLD_CUP_MARKET_UI: Record<Locale, WorldCupMarketUiText> = {
     panoramaUnavailable: "Street Viewを利用できないため、店舗カードを表示します。",
   },
   zh: {
-    title: "世界杯市场店铺指南",
+    title: "望远市场店铺指南",
     subtitle: "先查看店铺信息，再在下方查看店铺附近的街景和位置。",
     back: "返回",
-    market: "世界杯市场",
+    market: "望远市场",
     language: "语言",
     chooseLanguage: "选择语言",
     shopPhoto: "代表图片",
@@ -464,7 +464,7 @@ const WORLD_CUP_MARKET_UI: Record<Locale, WorldCupMarketUiText> = {
     storefrontUnavailable: "没有可用的店铺正面视图",
     storefrontFallback: "仍可查看地图并开始步行导航。",
     locationTitle: "位置",
-    marketMap: "世界杯市场地图",
+    marketMap: "望远市场地图",
     selectOnMap: "在地图上选择",
     selectShop: "选择市场店铺",
     panoramaTab: "店铺信息",
@@ -506,8 +506,8 @@ const WORLD_CUP_MARKET_UI: Record<Locale, WorldCupMarketUiText> = {
   },
 };
 
-export function getWorldCupMarketUiText(locale: Locale): WorldCupMarketUiText {
-  return WORLD_CUP_MARKET_UI[locale] ?? WORLD_CUP_MARKET_UI.ko;
+export function getMangwonUiText(locale: Locale): MangwonUiText {
+  return MANGWON_UI[locale] ?? MANGWON_UI.ko;
 }
 
 export function localeToSpeechLanguage(locale: Locale): string {

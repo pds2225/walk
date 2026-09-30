@@ -2,10 +2,10 @@
 
 import { useEffect, useRef } from "react";
 import maplibregl from "maplibre-gl";
-import { getWorldCupMarketUiText, type Locale } from "../lib/i18n";
-import { localizeCategory, localizeStoreName } from "../lib/worldCupMarketStoreCopy";
+import { getMangwonUiText, type Locale } from "../lib/i18n";
+import { localizeCategory, localizeStoreName } from "../lib/mangwonStoreCopy";
 import type { Coordinate } from "../lib/types";
-import type { VerifiedLocation, WorldCupMarketStore } from "../lib/worldCupMarketStores";
+import type { MangwonStore } from "../lib/mangwonStores";
 
 const STYLE_URL = "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json";
 const ZOOM = 17;
@@ -15,51 +15,47 @@ const FALLBACK_STYLE: maplibregl.StyleSpecification = {
   layers: [{ id: "background", type: "background", paint: { "background-color": "#eef1f5" } }],
 };
 
-export interface WorldCupMarketMapProps {
-  readonly stores: readonly WorldCupMarketStore[];
+export interface MangwonMarketMapProps {
+  readonly stores: readonly MangwonStore[];
   readonly selectedId: string;
   readonly here: Coordinate | null;
   readonly onSelect: (storeId: string) => void;
   readonly locale: Locale;
 }
 
-function locatedStores(stores: readonly WorldCupMarketStore[]): Array<WorldCupMarketStore & { readonly storeLocation: VerifiedLocation }> {
-  return stores.filter((store): store is WorldCupMarketStore & { readonly storeLocation: VerifiedLocation } => store.storeLocation !== null);
-}
-
-function fillStoreMarker(button: HTMLElement, store: WorldCupMarketStore, locale: Locale): void {
-  const ui = getWorldCupMarketUiText(locale);
+function fillStoreMarker(button: HTMLElement, store: MangwonStore, locale: Locale): void {
+  const ui = getMangwonUiText(locale);
   const name = localizeStoreName(store, locale);
   const category = localizeCategory(store.category, locale);
   button.setAttribute("aria-label", `${name} ${ui.selectOnMap}`);
-  const nameNode = button.querySelector(".worldcup-market-map-marker-name");
+  const nameNode = button.querySelector(".mangwon-map-marker-name");
   const categoryNode = button.querySelector("small");
   if (nameNode) nameNode.textContent = name;
   if (categoryNode) categoryNode.textContent = category;
 }
 
-function makeStoreMarker(store: WorldCupMarketStore, locale: Locale, onSelect: (id: string) => void): HTMLElement {
+function makeStoreMarker(store: MangwonStore, locale: Locale, onSelect: (id: string) => void): HTMLElement {
   const wrapper = document.createElement("div");
-  wrapper.className = "worldcup-market-map-marker-wrap";
+  wrapper.className = "mangwon-map-marker-wrap";
   const button = document.createElement("button");
   button.type = "button";
-  button.className = "worldcup-market-map-marker";
+  button.className = "mangwon-map-marker";
   const image = store.storeImages[0];
   if (image) {
     const img = document.createElement("img");
-    img.className = "worldcup-market-map-marker-image";
+    img.className = "mangwon-map-marker-image";
     img.src = image.url;
     img.alt = "";
     button.appendChild(img);
   }
   const copy = document.createElement("span");
-  copy.className = "worldcup-market-map-marker-copy";
+  copy.className = "mangwon-map-marker-copy";
   const nameNode = document.createElement("strong");
-  nameNode.className = "worldcup-market-map-marker-name";
+  nameNode.className = "mangwon-map-marker-name";
   const categoryNode = document.createElement("small");
   copy.append(nameNode, categoryNode);
   const pin = document.createElement("span");
-  pin.className = "worldcup-market-map-pin";
+  pin.className = "mangwon-map-pin";
   pin.setAttribute("aria-hidden", "true");
   pin.textContent = "●";
   button.append(copy, pin);
@@ -69,7 +65,7 @@ function makeStoreMarker(store: WorldCupMarketStore, locale: Locale, onSelect: (
   return wrapper;
 }
 
-export default function WorldCupMarketMap({ stores, selectedId, here, onSelect, locale }: WorldCupMarketMapProps) {
+export default function MangwonMarketMap({ stores, selectedId, here, onSelect, locale }: MangwonMarketMapProps) {
   const container = useRef<HTMLDivElement | null>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const storeMarkers = useRef(new Map<string, maplibregl.Marker>());
@@ -80,11 +76,10 @@ export default function WorldCupMarketMap({ stores, selectedId, here, onSelect, 
   selectedRef.current = selectedId;
   storesRef.current = stores;
   localeRef.current = locale;
-  const pins = locatedStores(stores);
 
   useEffect(() => {
-    const first = locatedStores(storesRef.current)[0]?.storeLocation;
-    if (!container.current || map.current || !first) return;
+    if (!container.current || map.current) return;
+    const first = storesRef.current[0]?.storeLocation ?? { latitude: 37.5562, longitude: 126.9062 };
     const instance = new maplibregl.Map({
       container: container.current,
       style: STYLE_URL,
@@ -99,9 +94,9 @@ export default function WorldCupMarketMap({ stores, selectedId, here, onSelect, 
       for (const marker of storeMarkers.current.values()) marker.remove();
       storeMarkers.current.clear();
       const bounds = new maplibregl.LngLatBounds();
-      for (const store of locatedStores(storesRef.current)) {
+      for (const store of storesRef.current) {
         const element = makeStoreMarker(store, localeRef.current, onSelect);
-        element.querySelector(".worldcup-market-map-marker")?.classList.toggle("is-selected", store.id === selectedRef.current);
+        element.querySelector(".mangwon-map-marker")?.classList.toggle("is-selected", store.id === selectedRef.current);
         const marker = new maplibregl.Marker({ element, anchor: "bottom" })
           .setLngLat([store.storeLocation.longitude, store.storeLocation.latitude])
           .addTo(instance);
@@ -114,7 +109,7 @@ export default function WorldCupMarketMap({ stores, selectedId, here, onSelect, 
     instance.on("error", (event) => {
       if (usedFallback || instance.isStyleLoaded()) return;
       usedFallback = true;
-      console.warn("월드컵시장 지도 타일을 불러오지 못해 마커만 표시합니다.", event?.error?.message ?? "");
+      console.warn("망원시장 지도 타일을 불러오지 못해 마커만 표시합니다.", event?.error?.message ?? "");
       instance.setStyle(FALLBACK_STYLE);
     });
     instance.on("load", renderMarkers);
@@ -131,13 +126,13 @@ export default function WorldCupMarketMap({ stores, selectedId, here, onSelect, 
 
   useEffect(() => {
     for (const [id, marker] of storeMarkers.current) {
-      marker.getElement().querySelector(".worldcup-market-map-marker")?.classList.toggle("is-selected", id === selectedId);
+      marker.getElement().querySelector(".mangwon-map-marker")?.classList.toggle("is-selected", id === selectedId);
     }
   }, [selectedId]);
 
   useEffect(() => {
     for (const store of stores) {
-      const button = storeMarkers.current.get(store.id)?.getElement().querySelector(".worldcup-market-map-marker");
+      const button = storeMarkers.current.get(store.id)?.getElement().querySelector(".mangwon-map-marker");
       if (button instanceof HTMLElement) fillStoreMarker(button, store, locale);
     }
   }, [locale, stores]);
@@ -147,17 +142,12 @@ export default function WorldCupMarketMap({ stores, selectedId, here, onSelect, 
     if (!instance || !here) return;
     if (!hereMarker.current) {
       const element = document.createElement("div");
-      element.className = "worldcup-market-here-marker";
-      element.innerHTML = '<span class="worldcup-market-here-dot"></span><span class="worldcup-market-here-pulse"></span>';
+      element.className = "mangwon-here-marker";
+      element.innerHTML = '<span class="mangwon-here-dot"></span><span class="mangwon-here-pulse"></span>';
       hereMarker.current = new maplibregl.Marker({ element, anchor: "center" }).addTo(instance);
     }
     hereMarker.current.setLngLat([here.longitude, here.latitude]);
   }, [here]);
 
-  const ui = getWorldCupMarketUiText(locale);
-  if (pins.length === 0) {
-    return <div className="worldcup-market-market-map" role="status" aria-label={ui.marketMap}>{ui.unknown}</div>;
-  }
-
-  return <div ref={container} className="worldcup-market-market-map" aria-label={ui.marketMap} />;
+  return <div ref={container} className="mangwon-market-map" aria-label={getMangwonUiText(locale).marketMap} />;
 }
