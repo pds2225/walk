@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react";
 import DestinationWalk from "../../components/DestinationWalk";
-import MangwonDemo from "../../components/MangwonDemo";
+import WorldCupMarketDemo from "../../components/WorldCupMarketDemo";
 import type { Locale } from "../../lib/i18n";
 import type { Coordinate } from "../../lib/types";
 import { primeSpeech } from "../../lib/voice";
@@ -15,7 +15,7 @@ function requestDeviceOrientationPermission(): void {
   void ctor?.requestPermission?.().catch(() => undefined);
 }
 
-export default function MangwonDemoPage() {
+export default function WorldCupMarketDemoPage() {
   const [locale, setLocale] = useState<Locale>("ko");
   const [target, setTarget] = useState<{ name: string; coordinate: Coordinate } | null>(null);
 
@@ -38,7 +38,7 @@ export default function MangwonDemoPage() {
 
   return (
     <main>
-      <MangwonDemo locale={locale} onLocaleChange={setLocale} onStartWalking={startWalking} />
+      <WorldCupMarketDemo locale={locale} onLocaleChange={setLocale} onStartWalking={startWalking} />
     </main>
   );
 }

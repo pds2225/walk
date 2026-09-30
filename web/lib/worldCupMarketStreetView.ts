@@ -8,6 +8,8 @@ import type { Coordinate } from "./types";
  * NEXT_PUBLIC_GOOGLE_MAPS_API_KEY this returns null. A pano ID selects that
  * panorama; otherwise the store coordinate and heading select the nearest
  * street-level imagery. This is a view near the store, not a confirmed frontage.
+ * The World Cup Market posts do not include coordinates or pano IDs, so the
+ * demo does not call this until both exist.
  */
 const STREET_VIEW_EMBED_ENDPOINT = "https://www.google.com/maps/embed/v1/streetview";
 

@@ -311,7 +311,7 @@ Roadview 실패 시 navigation은 계속되어야 한다.
 
 ---
 
-### [ ] KN-MANGWON-DEMO-01 — 망원시장 리얼데이터 모바일 Demo (별도 경로)
+### [ ] KN-MANGWON-DEMO-01 — 월드컵시장 리얼데이터 모바일 Demo (별도 경로)
 
 `PRIORITY = P1`
 
@@ -323,24 +323,27 @@ Roadview 실패 시 navigation은 계속되어야 한다.
 
 **Goal**
 
-망원시장 점포 상세·주변 점포·지도 Demo를 `/mangwon`에서만 제공한다. 프로덕션 홈(`/`)의 기존 도보 안내와 4개 언어 선택(ko/en/ja/zh, `KN-20260826-04`)은 유지한다.
+망원동월드컵시장(화면 표기 월드컵시장) 점포 상세·주변 점포·지도 Demo를 `/worldcup-market`에서만 제공한다. 점포는 소유자 블로그 https://m.blog.naver.com/mwwdc 의 매장 글만 포함한다. 프로덕션 홈(`/`)의 기존 도보 안내와 4개 언어 선택(ko/en/ja/zh, `KN-20260826-04`)은 유지한다.
 
 **Constraints**
 
 - 홈 화면을 Demo로 바꾸지 않는다. Demo는 기본값이 꺼진 별도 경로다.
-- 키 없는 `google.com/maps/embed?pb=` URL은 사용하지 않는다. 소유자 결정으로, `streetView.available`인 점포는 `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`가 있을 때 문서화된 Maps Embed API streetview(`/maps/embed/v1/streetview`)를 점포 위치의 거리뷰로 보여 준다. pano ID가 있으면 그 pano를 쓰고, 없으면 점포 좌표와 heading을 쓴다. 정면 확인은 요구하지 않는다. 네 언어 문구는 점포 근처 거리뷰라고 밝히고 확인된 정면이라고 하지 않는다. 키가 없거나 영상이 없으면 기존 미표시 문구를 유지한다.
+- 블로그에 없는 점포는 넣지 않는다. Google, 네이버 플레이스, 카카오맵 등 다른 출처로 점포를 추가하거나 미확인 점포로 나열하지 않는다.
+- 블로그 글에 없는 좌표, 파노라마 ID, 가격은 만들지 않는다. 좌표가 없으면 지도 핀, 도보 안내 시작, 거리뷰를 열지 않는다.
+- 키 없는 `google.com/maps/embed?pb=` URL은 사용하지 않는다. 좌표와 `streetView.available`이 있는 점포만 `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`가 있을 때 문서화된 Maps Embed API streetview(`/maps/embed/v1/streetview`)를 점포 근처 거리뷰로 보여 준다. pano ID가 있으면 그 pano를 쓰고, 없으면 점포 좌표와 heading을 쓴다. 정면 확인은 요구하지 않는다. 네 언어 문구는 점포 근처 거리뷰라고 밝히고 확인된 정면이라고 하지 않는다. 키가 없거나 좌표·영상이 없으면 기존 미표시 문구를 유지한다.
 - 확인되지 않은 대표 메뉴 가격을 다른 상품 가격으로 채우지 않는다. 가격이 없으면 미확인으로 표시한다.
-- 점포 위치 검증 상태는 점포별 `storeLocation.verificationStatus`를 따른다. 일괄 `MULTI_SOURCE_VERIFIED`로 올리지 않는다.
-- `cdn.imweb.me` 점포 이미지 사용권은 이 저장소에서 확인되지 않았다. `usageStatus = RIGHTS_CHECK_REQUIRED`는 법적 판단이 아니라 권리 근거가 없다는 표시다. 사용 여부는 소유자 확인이 필요하다.
+- 점포 위치 검증 상태는 좌표가 있을 때만 그 좌표의 `verificationStatus`를 따른다. 좌표가 없으면 `UNKNOWN`이다.
+- 블로그 이미지의 `usageStatus = RIGHTS_CHECK_REQUIRED`는 법적 판단이 아니라 사용 권리 근거가 없다는 표시다. 출처는 소유자 블로그로 적는다. 사용 여부는 소유자 확인이 필요하다.
+- 일본어 점포명처럼 블로그에 없는 번역은 만들지 않고 한국어 원문을 유지한다.
 
 **Acceptance**
 
 - [ ] `/` 홈이 main과 같고 언어 선택이 ko/en/ja/zh를 유지한다
-- [ ] `/mangwon`에서 점포 상세와 주변 점포 흐름을 연다
+- [ ] `/worldcup-market`에서 블로그 점포 상세와 주변 점포 흐름을 연다
 - [ ] 기존 navigation 회귀 테스트(TEST A–F)가 실행되고 통과한다
-- [ ] 미검증 가격·위치를 확인된 것처럼 표시하지 않는다. 거리뷰는 확인된 점포 정면이라고 부르지 않는다
+- [ ] 미검증 가격·좌표를 확인된 것처럼 표시하지 않는다. 거리뷰는 확인된 점포 정면이라고 부르지 않는다
 - [ ] 이미지 권리 질문은 소유자 확인 전까지 열어 둔다
-- [ ] `/mangwon` 헤더와 데모 UI 문자열이 ko/en/ja/zh를 모두 지원한다
+- [ ] `/worldcup-market` 헤더와 데모 UI 문자열이 ko/en/ja/zh를 모두 지원한다
 
 ---
 
@@ -1058,7 +1061,7 @@ PR =
 9. `TASK-009` — Journey reconstruction/export
 10. `TASK-010` — Data-enabled E2E
 11. `TASK-011` — Coupon hooks, conditional P2
-12. `KN-MANGWON-DEMO-01` — 망원시장 Demo on `/mangwon` (draft PR #136). Does not replace the next auto task. Nearby Street View uses the documented Embed API when imagery and `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` exist, and is labeled as a view near the store.
+12. `KN-MANGWON-DEMO-01` — World Cup Market (망원동월드컵시장) demo on `/worldcup-market` (draft PR #136). Stores come only from https://m.blog.naver.com/mwwdc. Does not replace the next auto task. Nearby Street View uses the documented Embed API only when a store coordinate and `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` exist, and is labeled as a view near the store.
 
 ## Next auto task
 
