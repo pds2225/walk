@@ -46,12 +46,13 @@
 }
 
 .mangwon-locale-switcher button {
-  min-width: 38px;
+  min-width: 30px;
   min-height: 36px;
+  padding: 0 4px;
   border-radius: 999px;
   background: #f3f5f8;
   color: #667085;
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .mangwon-locale-switcher button.is-active {

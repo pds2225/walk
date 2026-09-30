@@ -62,6 +62,39 @@ describe("MangwonDemo Mobile Screen 01", () => {
     expect(screen.getAllByText("₩1,500").length).toBeGreaterThan(0);
     expect(screen.getByText("Popular Menu")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Start Walking Guide" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "JA" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "ZH" })).toBeTruthy();
+  });
+
+  it("JA와 ZH 헤더로 바꾸면 점포·메뉴·가격·CTA가 해당 언어로 바뀐다", () => {
+    let locale: Locale = "ko";
+    const onLocaleChange = vi.fn((nextLocale: Locale) => { locale = nextLocale; });
+    const onStartWalking = vi.fn();
+    const { rerender } = render(<MangwonDemo locale={locale} onLocaleChange={onLocaleChange} onStartWalking={onStartWalking} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "JA" }));
+    expect(onLocaleChange).toHaveBeenCalledWith("ja");
+    rerender(<MangwonDemo locale={locale} onLocaleChange={onLocaleChange} onStartWalking={onStartWalking} />);
+
+    expect(screen.getByRole("heading", { name: "フンフンホットク" })).toBeTruthy();
+    expect(screen.getByText("ホットク・デザート")).toBeTruthy();
+    expect(screen.getAllByText("トウモロコシホットク").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("₩1,500").length).toBeGreaterThan(0);
+    expect(screen.getByText("人気メニュー")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "ここへ歩いて行く" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: /周辺の店舗 · 360 · 地図/ }));
+    expect(screen.getByRole("heading", { name: "周辺の店舗" })).toBeTruthy();
+    expect(screen.getByText("利用できる店舗正面ビューがありません")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "戻る" }));
+    fireEvent.click(screen.getByRole("button", { name: "ZH" }));
+    rerender(<MangwonDemo locale="zh" onLocaleChange={onLocaleChange} onStartWalking={onStartWalking} />);
+    expect(screen.getByRole("heading", { name: "熏熏糖饼" })).toBeTruthy();
+    expect(screen.getByText("糖饼·甜点")).toBeTruthy();
+    expect(screen.getAllByText("玉米糖饼").length).toBeGreaterThan(0);
+    expect(screen.getByText("热门菜单")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "开始步行导航" })).toBeTruthy();
   });
 
   it("저장·공유와 Popular Menu 전체 보기를 제공한다", () => {

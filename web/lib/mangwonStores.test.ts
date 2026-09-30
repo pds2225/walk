@@ -64,4 +64,17 @@ describe("망원시장 리얼데이터 Demo 점포 데이터", () => {
     expect(getMangwonStore("mangwon-mat-itneun-jip")?.representativeMenu?.priceWon).toBeNull();
     expect(getMangwonStore("mangwon-mat-itneun-jip")?.verification.prices).toBe("SINGLE_SOURCE_VERIFIED");
   });
+
+  it("정면 360은 확인된 pano와 정면 품질 또는 headingOverride가 모두 있어야 한다", () => {
+    for (const store of MANGWON_STORES) {
+      const confirmedFrontage = store.streetView.quality === "EXACT_FRONTAGE"
+        || store.streetView.quality === "NEARBY_VISIBLE"
+        || store.streetView.headingOverride !== null;
+      const eligible = store.streetView.available
+        && store.streetView.lastResolvedPanoId !== null
+        && confirmedFrontage;
+      expect(eligible).toBe(false);
+      expect(store.streetView.headingOverride).toBeNull();
+    }
+  });
 });

@@ -2,8 +2,9 @@
 
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { getMangwonUiText, type Locale } from "../lib/i18n";
+import { getMangwonUiText, LOCALE_OPTIONS, type Locale } from "../lib/i18n";
 import {
+  formatKrwPrice,
   localizeCategory,
   localizeDescription,
   localizeHours,
@@ -30,15 +31,19 @@ type ShareState = "idle" | "done" | "unavailable";
 type DisplayProduct = StoreProduct;
 type DemoScreen = "detail" | "nearby";
 
+const LOCALE_CODES: Record<Locale, string> = { ko: "KO", en: "EN", ja: "JA", zh: "ZH" };
+
+function walkLabel(locale: Locale, ui: ReturnType<typeof getMangwonUiText>): string {
+  return locale === "ko" ? ui.goThere : ui.startWalkingGuide;
+}
+
 function priceText(
   price: number | null,
   priceLabel: string | null,
   locale: Locale,
   unknown: string,
 ): string {
-  if (price !== null) {
-    return locale === "en" ? `₩${price.toLocaleString("ko-KR")}` : `${price.toLocaleString("ko-KR")}원`;
-  }
+  if (price !== null) return formatKrwPrice(price, locale);
   return localizePriceLabel(priceLabel, locale) ?? unknown;
 }
 
@@ -88,10 +93,19 @@ function MangwonMobileHeader({ locale, onLocaleChange, onBack }: {
         <strong>K-Navi</strong>
         <span>{ui.market}</span>
       </div>
-      <div className="mangwon-locale-switcher" role="group" aria-label={`${ui.language} 선택`}>
+      <div className="mangwon-locale-switcher" role="group" aria-label={ui.chooseLanguage}>
         <span className="mangwon-globe" aria-hidden="true">🌐</span>
-        <button type="button" className={locale === "ko" ? "is-active" : ""} aria-pressed={locale === "ko"} onClick={() => onLocaleChange?.("ko")}>KO</button>
-        <button type="button" className={locale === "en" ? "is-active" : ""} aria-pressed={locale === "en"} onClick={() => onLocaleChange?.("en")}>EN</button>
+        {LOCALE_OPTIONS.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            className={locale === option.value ? "is-active" : ""}
+            aria-pressed={locale === option.value}
+            onClick={() => onLocaleChange?.(option.value)}
+          >
+            {LOCALE_CODES[option.value]}
+          </button>
+        ))}
       </div>
     </header>
   );
@@ -173,7 +187,11 @@ function StorePrimaryActions({ store, locale, onStartWalking }: {
     };
     try {
       if (typeof browserNavigator.share === "function") {
-        await browserNavigator.share({ title: store.nameKo, text: store.descriptionKo ?? "", url: window.location.href });
+        await browserNavigator.share({
+          title: localizeStoreName(store, locale),
+          text: localizeDescription(store.descriptionKo, locale) ?? "",
+          url: window.location.href,
+        });
         setShareState("done");
         return;
       }
@@ -193,9 +211,9 @@ function StorePrimaryActions({ store, locale, onStartWalking }: {
       <button
         type="button"
         className="mangwon-mobile-primary"
-        onClick={() => onStartWalking({ name: store.nameKo, coordinate: store.navigationTarget })}
+        onClick={() => onStartWalking({ name: localizeStoreName(store, locale), coordinate: store.navigationTarget })}
       >
-        {locale === "en" ? ui.startWalkingGuide : ui.goThere}
+        {walkLabel(locale, ui)}
       </button>
       <div className="mangwon-mobile-secondary-actions">
         <button type="button" className={saved ? "is-selected" : ""} aria-pressed={saved} onClick={() => setSaved((value) => !value)}>
@@ -275,7 +293,7 @@ function StoreDetail({ store, locale, onStartWalking, onOpenNearby }: {
   return (
     <article className="mangwon-mobile-detail" aria-labelledby="mangwon-selected-title">
       <div className="mangwon-mobile-hero-image">
-        {image ? <img src={image.url} alt={`${name} ${locale === "en" ? "shop photo" : "대표 이미지"}`} loading="eager" /> : <div className="mangwon-store-image-fallback" role="img" aria-label={`${name} ${ui.aboutShop}`}><span>{localizeCategory(store.category, locale)}</span></div>}
+        {image ? <img src={image.url} alt={`${name} ${ui.shopPhoto}`} loading="eager" /> : <div className="mangwon-store-image-fallback" role="img" aria-label={`${name} ${ui.aboutShop}`}><span>{localizeCategory(store.category, locale)}</span></div>}
       </div>
       <div className="mangwon-mobile-detail-body">
         <h2 id="mangwon-selected-title">{name}</h2>
@@ -288,7 +306,7 @@ function StoreDetail({ store, locale, onStartWalking, onOpenNearby }: {
       <StoreAbout store={store} locale={locale} />
       <div className="mangwon-nearby-entry">
         <button type="button" onClick={onOpenNearby}>
-          <span>{locale === "en" ? "Nearby Shops · 360 · Map" : "주변 점포 · 360 · 지도"}</span>
+          <span>{ui.nearbyEntry}</span>
           <span aria-hidden="true">›</span>
         </button>
       </div>
@@ -301,8 +319,9 @@ function NearbyShopRail({ selectedId, locale, onSelect }: {
   readonly locale: Locale;
   readonly onSelect: (storeId: string) => void;
 }) {
+  const ui = getMangwonUiText(locale);
   return (
-    <ul className="mangwon-nearby-rail" aria-label={locale === "en" ? "Nearby Shops" : "주변 점포"}>
+    <ul className="mangwon-nearby-rail" aria-label={ui.nearbyTitle}>
       {MANGWON_STORES.map((store) => {
         const image = store.storeImages[0];
         const selected = store.id === selectedId;
@@ -345,8 +364,8 @@ function NearbyScreen({ store, selectedId, locale, onLocaleChange, onSelect, onB
     <section className="mangwon-nearby-screen" aria-labelledby="mangwon-nearby-title">
       <MangwonMobileHeader locale={locale} onLocaleChange={onLocaleChange} onBack={onBack} />
       <div className="mangwon-nearby-heading">
-        <p>{locale === "en" ? "EXPLORE AROUND YOU" : "주변 둘러보기"}</p>
-        <h2 id="mangwon-nearby-title">{locale === "en" ? "Nearby Shops" : "주변 점포"}</h2>
+        <p>{ui.nearbyEyebrow}</p>
+        <h2 id="mangwon-nearby-title">{ui.nearbyTitle}</h2>
       </div>
       <NearbyShopRail selectedId={selectedId} locale={locale} onSelect={onSelect} />
 
@@ -361,7 +380,7 @@ function NearbyScreen({ store, selectedId, locale, onLocaleChange, onSelect, onB
 
       <section className="mangwon-nearby-block" aria-labelledby="mangwon-storefront-title">
         <div className="mangwon-nearby-block-heading">
-          <h3 id="mangwon-storefront-title">{locale === "en" ? "Storefront 360" : "점포 앞 360"}</h3>
+          <h3 id="mangwon-storefront-title">{ui.storefrontTitle}</h3>
           <span>Google Street View</span>
         </div>
         <MangwonStorefront360 key={`storefront-${store.id}`} store={store} locale={locale} />
@@ -369,15 +388,15 @@ function NearbyScreen({ store, selectedId, locale, onLocaleChange, onSelect, onB
 
       <section className="mangwon-nearby-block" aria-labelledby="mangwon-location-map-title">
         <div className="mangwon-nearby-block-heading">
-          <h3 id="mangwon-location-map-title">{locale === "en" ? "Location" : "위치"}</h3>
-          <span>{locale === "en" ? "Mangwon Market" : "망원시장"}</span>
+          <h3 id="mangwon-location-map-title">{ui.locationTitle}</h3>
+          <span>{ui.market}</span>
         </div>
         <MangwonMarketMap stores={MANGWON_STORES} selectedId={selectedId} here={null} onSelect={onSelect} locale={locale} />
       </section>
 
       <div className="mangwon-nearby-cta">
-        <button type="button" onClick={() => onStartWalking({ name: store.nameKo, coordinate: store.navigationTarget })}>
-          {locale === "en" ? ui.startWalkingGuide : ui.goThere}
+        <button type="button" onClick={() => onStartWalking({ name: localizeStoreName(store, locale), coordinate: store.navigationTarget })}>
+          {walkLabel(locale, ui)}
         </button>
       </div>
     </section>

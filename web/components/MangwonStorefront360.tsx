@@ -1,7 +1,8 @@
 "use client";
 
-import type { Locale } from "../lib/i18n";
+import { getMangwonUiText, type Locale } from "../lib/i18n";
 import { documentedStorefrontEmbedUrl } from "../lib/mangwonStorefrontEmbed";
+import { localizeStoreName } from "../lib/mangwonStoreCopy";
 import type { MangwonStore } from "../lib/mangwonStores";
 
 /**
@@ -20,6 +21,7 @@ export default function MangwonStorefront360({ store, locale }: {
   readonly store: MangwonStore;
   readonly locale: Locale;
 }) {
+  const ui = getMangwonUiText(locale);
   const target = store.streetViewLocation ?? store.navigationTarget;
   const heading = store.streetView.headingOverride ?? store.streetView.headingAuto ?? 0;
   const embedUrl = storefrontFramingVerified(store)
@@ -34,8 +36,8 @@ export default function MangwonStorefront360({ store, locale }: {
   if (!embedUrl) {
     return (
       <div className="mangwon-storefront-unavailable" role="status">
-        <strong>{locale === "en" ? "Storefront view unavailable" : "사용 가능한 점포 정면뷰가 없습니다"}</strong>
-        <span>{locale === "en" ? "You can still check the map and start the walking guide." : "지도와 K-Navi 도보안내는 계속 사용할 수 있습니다."}</span>
+        <strong>{ui.storefrontUnavailable}</strong>
+        <span>{ui.storefrontFallback}</span>
       </div>
     );
   }
@@ -44,7 +46,7 @@ export default function MangwonStorefront360({ store, locale }: {
     <div className="mangwon-storefront-embed-wrap">
       <iframe
         className="mangwon-storefront-embed"
-        title={`${store.nameKo} Google Street View`}
+        title={`${localizeStoreName(store, locale)} Google Street View`}
         src={embedUrl}
         allow="fullscreen"
         allowFullScreen

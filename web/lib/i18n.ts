@@ -233,6 +233,17 @@ export interface MangwonUiText {
   readonly back: string;
   readonly market: string;
   readonly language: string;
+  readonly chooseLanguage: string;
+  readonly shopPhoto: string;
+  readonly nearbyEntry: string;
+  readonly nearbyEyebrow: string;
+  readonly nearbyTitle: string;
+  readonly storefrontTitle: string;
+  readonly storefrontUnavailable: string;
+  readonly storefrontFallback: string;
+  readonly locationTitle: string;
+  readonly marketMap: string;
+  readonly selectOnMap: string;
   readonly selectShop: string;
   readonly panoramaTab: string;
   readonly mapTab: string;
@@ -279,6 +290,17 @@ const MANGWON_UI: Record<Locale, MangwonUiText> = {
     back: "뒤로",
     market: "망원시장",
     language: "언어",
+    chooseLanguage: "언어 선택",
+    shopPhoto: "대표 이미지",
+    nearbyEntry: "주변 점포 · 360 · 지도",
+    nearbyEyebrow: "주변 둘러보기",
+    nearbyTitle: "주변 점포",
+    storefrontTitle: "점포 앞 360",
+    storefrontUnavailable: "사용 가능한 점포 정면뷰가 없습니다",
+    storefrontFallback: "지도와 K-Navi 도보안내는 계속 사용할 수 있습니다.",
+    locationTitle: "위치",
+    marketMap: "망원시장 지도",
+    selectOnMap: "지도에서 선택",
     selectShop: "시장 점포 선택",
     panoramaTab: "점포 정보",
     mapTab: "일반 지도",
@@ -323,6 +345,17 @@ const MANGWON_UI: Record<Locale, MangwonUiText> = {
     back: "Back",
     market: "Mangwon Market",
     language: "Language",
+    chooseLanguage: "Choose language",
+    shopPhoto: "shop photo",
+    nearbyEntry: "Nearby Shops · 360 · Map",
+    nearbyEyebrow: "EXPLORE AROUND YOU",
+    nearbyTitle: "Nearby Shops",
+    storefrontTitle: "Storefront 360",
+    storefrontUnavailable: "Storefront view unavailable",
+    storefrontFallback: "You can still check the map and start the walking guide.",
+    locationTitle: "Location",
+    marketMap: "Mangwon Market map",
+    selectOnMap: "Select on the map",
     selectShop: "Choose a market shop",
     panoramaTab: "Store details",
     mapTab: "Standard map",
@@ -367,6 +400,17 @@ const MANGWON_UI: Record<Locale, MangwonUiText> = {
     back: "戻る",
     market: "望遠市場",
     language: "言語",
+    chooseLanguage: "言語を選択",
+    shopPhoto: "代表画像",
+    nearbyEntry: "周辺の店舗 · 360 · 地図",
+    nearbyEyebrow: "周辺を見る",
+    nearbyTitle: "周辺の店舗",
+    storefrontTitle: "店舗前の360",
+    storefrontUnavailable: "利用できる店舗正面ビューがありません",
+    storefrontFallback: "地図とK-Naviの徒歩案内は引き続き使えます。",
+    locationTitle: "位置",
+    marketMap: "望遠市場の地図",
+    selectOnMap: "地図で選択",
     selectShop: "市場の店舗を選択",
     panoramaTab: "店舗情報",
     mapTab: "通常地図",
@@ -411,6 +455,17 @@ const MANGWON_UI: Record<Locale, MangwonUiText> = {
     back: "返回",
     market: "望远市场",
     language: "语言",
+    chooseLanguage: "选择语言",
+    shopPhoto: "代表图片",
+    nearbyEntry: "附近店铺 · 360 · 地图",
+    nearbyEyebrow: "看看周边",
+    nearbyTitle: "附近店铺",
+    storefrontTitle: "店铺门前360",
+    storefrontUnavailable: "没有可用的店铺正面视图",
+    storefrontFallback: "仍可查看地图并开始步行导航。",
+    locationTitle: "位置",
+    marketMap: "望远市场地图",
+    selectOnMap: "在地图上选择",
     selectShop: "选择市场店铺",
     panoramaTab: "店铺信息",
     mapTab: "普通地图",

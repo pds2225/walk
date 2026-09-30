@@ -2,6 +2,8 @@
 
 import { useEffect, useRef } from "react";
 import maplibregl from "maplibre-gl";
+import { getMangwonUiText, type Locale } from "../lib/i18n";
+import { localizeCategory, localizeStoreName } from "../lib/mangwonStoreCopy";
 import type { Coordinate } from "../lib/types";
 import type { MangwonStore } from "../lib/mangwonStores";
 
@@ -18,22 +20,46 @@ export interface MangwonMarketMapProps {
   readonly selectedId: string;
   readonly here: Coordinate | null;
   readonly onSelect: (storeId: string) => void;
-  readonly locale: "ko" | "en" | "ja" | "zh";
+  readonly locale: Locale;
 }
 
-function markerLabel(store: MangwonStore, locale: MangwonMarketMapProps["locale"]): string {
-  return locale === "ko" ? store.nameKo : `${store.nameKo} · ${store.category}`;
+function fillStoreMarker(button: HTMLElement, store: MangwonStore, locale: Locale): void {
+  const ui = getMangwonUiText(locale);
+  const name = localizeStoreName(store, locale);
+  const category = localizeCategory(store.category, locale);
+  button.setAttribute("aria-label", `${name} ${ui.selectOnMap}`);
+  const nameNode = button.querySelector(".mangwon-map-marker-name");
+  const categoryNode = button.querySelector("small");
+  if (nameNode) nameNode.textContent = name;
+  if (categoryNode) categoryNode.textContent = category;
 }
 
-function makeStoreMarker(store: MangwonStore, locale: MangwonMarketMapProps["locale"], onSelect: (id: string) => void): HTMLElement {
+function makeStoreMarker(store: MangwonStore, locale: Locale, onSelect: (id: string) => void): HTMLElement {
   const wrapper = document.createElement("div");
   wrapper.className = "mangwon-map-marker-wrap";
   const button = document.createElement("button");
   button.type = "button";
   button.className = "mangwon-map-marker";
-  button.setAttribute("aria-label", `${markerLabel(store, locale)} 지도에서 선택`);
   const image = store.storeImages[0];
-  button.innerHTML = `${image ? `<img class="mangwon-map-marker-image" src="${image.url}" alt="" />` : ""}<span class="mangwon-map-marker-copy"><strong class="mangwon-map-marker-name">${store.nameKo}</strong><small>${store.category}</small></span><span class="mangwon-map-pin" aria-hidden="true">●</span>`;
+  if (image) {
+    const img = document.createElement("img");
+    img.className = "mangwon-map-marker-image";
+    img.src = image.url;
+    img.alt = "";
+    button.appendChild(img);
+  }
+  const copy = document.createElement("span");
+  copy.className = "mangwon-map-marker-copy";
+  const nameNode = document.createElement("strong");
+  nameNode.className = "mangwon-map-marker-name";
+  const categoryNode = document.createElement("small");
+  copy.append(nameNode, categoryNode);
+  const pin = document.createElement("span");
+  pin.className = "mangwon-map-pin";
+  pin.setAttribute("aria-hidden", "true");
+  pin.textContent = "●";
+  button.append(copy, pin);
+  fillStoreMarker(button, store, locale);
   button.addEventListener("click", () => onSelect(store.id));
   wrapper.appendChild(button);
   return wrapper;
@@ -105,6 +131,13 @@ export default function MangwonMarketMap({ stores, selectedId, here, onSelect, l
   }, [selectedId]);
 
   useEffect(() => {
+    for (const store of stores) {
+      const button = storeMarkers.current.get(store.id)?.getElement().querySelector(".mangwon-map-marker");
+      if (button instanceof HTMLElement) fillStoreMarker(button, store, locale);
+    }
+  }, [locale, stores]);
+
+  useEffect(() => {
     const instance = map.current;
     if (!instance || !here) return;
     if (!hereMarker.current) {
@@ -116,5 +149,5 @@ export default function MangwonMarketMap({ stores, selectedId, here, onSelect, l
     hereMarker.current.setLngLat([here.longitude, here.latitude]);
   }, [here]);
 
-  return <div ref={container} className="mangwon-market-map" aria-label="망원시장 실제 지도" />;
+  return <div ref={container} className="mangwon-market-map" aria-label={getMangwonUiText(locale).marketMap} />;
 }

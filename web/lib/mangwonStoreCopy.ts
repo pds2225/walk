@@ -1,9 +1,28 @@
 import type { Locale } from "./i18n";
 import type { MangwonStore, StoreProduct } from "./mangwonStores";
+import {
+  CATEGORY_JA,
+  CATEGORY_ZH,
+  DESCRIPTION_JA,
+  DESCRIPTION_ZH,
+  HOURS_JA,
+  HOURS_ZH,
+  MENU_JA,
+  MENU_ZH,
+  ORDER_NOTE_JA,
+  ORDER_NOTE_ZH,
+  PRICE_LABEL_JA,
+  PRICE_LABEL_ZH,
+  STORE_NAME_JA,
+  STORE_NAME_ZH,
+} from "./mangwonStoreTranslations";
+
+type ForeignLocale = Exclude<Locale, "ko">;
 
 /**
- * 모바일 Shop Detail 화면용 영어 copy다. 사실 데이터는 MANGWON_STORES에서
- * 읽고, 이 파일은 이미 확인된 한국어 값을 화면 언어에 맞게 번역만 한다.
+ * 모바일 Shop Detail 화면용 번역 copy다. 사실 데이터는 MANGWON_STORES에서
+ * 읽고, 이 파일은 이미 확인된 한국어 값을 ko/en/ja/zh 화면 언어에 맞게 번역만 한다.
+ * ja/zh에 사전이 없으면 영어로 대체하지 않고 한국어 원문을 그대로 둔다.
  */
 const STORE_NAME_EN: Record<string, string> = {
   "mangwon-hunhun-hotteok": "Hunhun Hotteok",
@@ -184,40 +203,56 @@ const MENU_EN: Record<string, string> = {
   김치찜: "Kimchi Stew",
 };
 
+function foreignCopy(
+  locale: Locale,
+  tables: Record<ForeignLocale, Record<string, string>>,
+  source: string,
+): string {
+  if (locale === "ko") return source;
+  return tables[locale][source] ?? source;
+}
+
+export function formatKrwPrice(amount: number, locale: Locale): string {
+  const formatted = amount.toLocaleString("ko-KR");
+  return locale === "ko" ? `${formatted}원` : `₩${formatted}`;
+}
+
 export function localizeStoreName(store: MangwonStore, locale: Locale): string {
-  return locale === "en" ? (store.nameEn ?? STORE_NAME_EN[store.id] ?? store.nameKo) : store.nameKo;
+  if (locale === "ko") return store.nameKo;
+  if (locale === "en") return store.nameEn ?? STORE_NAME_EN[store.id] ?? store.nameKo;
+  const table = locale === "ja" ? STORE_NAME_JA : STORE_NAME_ZH;
+  return table[store.id] ?? store.nameKo;
 }
 
 export function localizeCategory(category: string, locale: Locale): string {
-  return locale === "en" ? (CATEGORY_EN[category] ?? category) : category;
+  return foreignCopy(locale, { en: CATEGORY_EN, ja: CATEGORY_JA, zh: CATEGORY_ZH }, category);
 }
 
 export function localizeDescription(description: string | null, locale: Locale): string | null {
   if (!description) return null;
-  return locale === "en" ? (DESCRIPTION_EN[description] ?? description) : description;
+  return foreignCopy(locale, { en: DESCRIPTION_EN, ja: DESCRIPTION_JA, zh: DESCRIPTION_ZH }, description);
 }
 
 export function localizeHours(hours: string | null, locale: Locale): string | null {
   if (!hours) return null;
-  return locale === "en" ? (HOURS_EN[hours] ?? hours) : hours;
+  return foreignCopy(locale, { en: HOURS_EN, ja: HOURS_JA, zh: HOURS_ZH }, hours);
 }
 
 export function localizeOrderNote(note: string | null, locale: Locale): string | null {
   if (!note) return null;
-  return locale === "en" ? (ORDER_NOTE_EN[note] ?? note) : note;
+  return foreignCopy(locale, { en: ORDER_NOTE_EN, ja: ORDER_NOTE_JA, zh: ORDER_NOTE_ZH }, note);
 }
 
 export function localizeProductName(name: string, locale: Locale): string {
-  return locale === "en" ? (MENU_EN[name] ?? name) : name;
+  return foreignCopy(locale, { en: MENU_EN, ja: MENU_JA, zh: MENU_ZH }, name);
 }
 
 export function localizePriceLabel(label: string | null, locale: Locale): string | null {
   if (!label) return null;
-  return locale === "en" ? (PRICE_LABEL_EN[label] ?? label) : label;
+  return foreignCopy(locale, { en: PRICE_LABEL_EN, ja: PRICE_LABEL_JA, zh: PRICE_LABEL_ZH }, label);
 }
 
 export function localizeProduct(product: StoreProduct, locale: Locale): StoreProduct {
-  return locale === "en"
-    ? { ...product, nameKo: localizeProductName(product.nameKo, locale) }
-    : product;
+  if (locale === "ko") return product;
+  return { ...product, nameKo: localizeProductName(product.nameKo, locale) };
 }
