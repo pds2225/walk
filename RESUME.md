@@ -1,16 +1,16 @@
 # RESUME.md — walk 현재 작업 체크포인트
 
-> 갱신: 2026-10-03 10:06 KST. 작업 기준은 TASK.md이며 이 파일은 재개용이다.
+> 갱신: 2026-10-03 21:15 KST. 작업 기준은 TASK.md이며 이 파일은 재개용이다.
 
 ## 0. 30초 컨텍스트
-TASK-012의 `passed_turn` 억제 수정, `[walk:tick]` 디버그 플래그 적용, TASK.md 등록을 로컬에서 완료했다.
-기존 PR #130의 웹 GPS 보정 코드를 재사용했고 신뢰 가능한 회전 미이행을 횡거리 gate에서 제외했다.
+현재 요청: PR #130 `claude/path-deviation-logs-jq8h4o`의 정확한 head `3e1dcef6b240c16bda521975ce3eac50c7e42917`에서 `npm run simulate`를 실행하고 시나리오별 PASS/FAIL 및 실패 원인만 보고한다. 코드 수정·commit·push·merge 금지.
+GitHub 커넥터로 head와 OPEN/unmerged 상태를 확인했다. 기존 로컬 변경을 보존하며 별도 폴더에서 실행 준비 중이다.
 
 ## 1. 작업 위치와 재개
 - Root: `D:\walk`; origin: `https://github.com/pds2225/walk.git`.
 - Branch: `fix/passed-turn-debug-20261003`; base: `40daf37` (origin/main 캐시).
 - 원격 main 실측: `404c5a8` (2026-10-03). 캐시 이후 차이는 Vercel 격리 설정 2개뿐이며 TASK/웹 소스는 동일하다.
-- 재사용 코드: PR #130, head `5b657f1`; 웹 파일 4개를 작업 브랜치로 가져왔다.
+- 이전 TASK-012 재사용 코드: PR #130 당시 head `5b657f1`; 웹 파일 4개를 작업 브랜치로 가져왔다. 이번 검증 대상 head와 구분한다.
 
 ```powershell
 Set-Location -LiteralPath D:\walk
@@ -29,6 +29,7 @@ npm run test:run
 - `git diff --check` PASS. 테스트 서버 3108은 종료했다. commit/push/PR/merge 없음.
 
 ## 3. 남은 작업
+- 현재 요청: 별도 폴더에 PR head를 확보 → 원본 simulator 실행 → 시나리오별 결과와 실패 원인 보고. 아직 simulate 미실행.
 - 현장 GPS·실기기와 운영 배포는 미검증. TASK-012는 VERIFIED(LOCAL_CONTROLLED), FIELD_TEST_REQUIRED다.
 - Git 반영 요청 시 기존 PR #130 head와 최신 main을 다시 확인하고 이번 수정·TASK 등록만 안전하게 반영한다.
 - debug는 `$env:NEXT_PUBLIC_WALK_DEBUG='true'` 후 `npm run next:dev`; production에는 빌드 전에 설정한다. 기본값은 꺼짐.
@@ -37,7 +38,7 @@ npm run test:run
 - 프로젝트 walk, 기존 화면/엔진/음성·재탐색 구조를 유지한다. Streamlit 페이지는 변경하지 않는다.
 - `.env*`, `.github/workflows/*`, 사용자 미추적 파일·worktree·stash는 보존한다.
 - commit/push/PR/merge는 이번 요청에서 별도 실행하지 않는다.
-- `git fetch`는 손상된 원격 백업 ref 때문에 실패했다. 기존 ref 삭제/복구는 수행하지 않는다.
+- 이번 `git fetch origin --prune`도 `refs/remotes/origin/backup/WIN-K20QOC29TOB`의 bad object로 실패했다. ref 삭제/복구는 수행하지 않는다. `gh` 조회는 HTTP 401이며 GitHub 커넥터 조회는 성공했다.
 - 테스트 입력 GPS/API 대체 성공과 실제 현장 GPS·배포 검증을 구분한다.
 
 ## 5. 핵심 파일
