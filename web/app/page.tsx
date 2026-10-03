@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getCurrentPositionOnce, isDeviationFixReliable, useCompass, useWatchPosition } from "../lib/useGeolocation";
+import { getCurrentPositionOnce, isDeviationFixReliable, useCompass, useSmoothedFix, useWatchPosition } from "../lib/useGeolocation";
 import type { Fix } from "../lib/useGeolocation";
 import { useNavigation } from "../lib/useNavigation";
 import type { Coordinate, PlaceHit, RouteResponse } from "../lib/types";
@@ -112,6 +112,8 @@ export default function Home() {
   const { fix, error: geoError } = useWatchPosition(wantWatch);
   const { headingDegrees: compass, request: requestCompass } = useCompass(wantWatch);
   const currentFix = fix ?? originFix;
+  // 지도 핀 표시 전용 — 판정(useNavigation)·재탐색·Roadview 는 currentFix(raw)를 그대로 쓴다.
+  const displayFix = useSmoothedFix(currentFix);
 
   // 도착 화면에서는 새 GPS를 받지 않지만 마지막 active route와 arrival 결과는
   // 유지해야 한다. null을 넘기면 hook이 arrival 상태까지 초기화하기 때문이다.
@@ -379,7 +381,7 @@ export default function Home() {
 
         <MapView
           route={routeResponse.route}
-          here={currentFix}
+          here={displayFix ?? currentFix}
           viewHeadingDegrees={compass}
           movementHeadingDegrees={nav.movementHeadingDegrees ?? currentFix?.headingDegrees ?? null}
           headingUp={headingUp}
