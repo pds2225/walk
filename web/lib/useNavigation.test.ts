@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { DeviationState, EngineResult } from "@walk/route-engine";
+import { createRouteDeviationEngine, moveCoordinateByMeters } from "@walk/route-engine";
+import type { Coordinate, DeviationState, EngineResult, PositionSample, RouteModel } from "@walk/route-engine";
 import { applyDeviationAccuracyGate } from "./useNavigation";
 
 function makeResult(state: DeviationState, distanceFromRouteMeters: number): EngineResult {
@@ -59,6 +60,43 @@ describe("applyDeviationAccuracyGate", () => {
     const decision = applyDeviationAccuracyGate(makeResult("passed_turn", 8), 25);
 
     expect(decision.fixReliable).toBe(true);
+    expect(decision.distanceClearsAccuracy).toBe(false);
+    expect(decision.result.state).toBe("passed_turn");
+    expect(decision.result.suggestedNextAction).toBe("reroute_candidate");
+  });
+
+
+
+  it("실제 missed-turn trace도 25m accuracy 때문에 passed_turn 감지가 늦어지지 않는다", () => {
+    const origin: Coordinate = { latitude: 37.5665, longitude: 126.978 };
+    const turn = moveCoordinateByMeters(origin, 40, 0);
+    const route: RouteModel = {
+      polyline: [origin, turn, moveCoordinateByMeters(origin, 40, 40)],
+      turnPoints: [{ id: "turn-left-1", coordinate: turn, routeIndex: 1, direction: "left" }],
+    };
+    const sample = (eastMeters: number, northMeters: number, timestampMs: number): PositionSample => ({
+      ...moveCoordinateByMeters(origin, eastMeters, northMeters),
+      headingDegrees: 90,
+      speedMetersPerSecond: 1.4,
+      timestampMs,
+    });
+
+    const engine = createRouteDeviationEngine(route);
+    const trace = [
+      sample(20, 0, 0),
+      sample(30, 0, 2_000),
+      sample(38, 0, 4_000),
+      sample(42, 0, 6_000),
+      sample(47, 4, 8_000),
+      sample(52, 0, 10_000),
+    ];
+    let raw = engine.processSample(trace[0]);
+    for (const current of trace.slice(1)) raw = engine.processSample(current);
+
+    expect(raw.state).toBe("passed_turn");
+    expect(raw.metrics.distanceFromRouteMeters).toBeLessThan(25);
+
+    const decision = applyDeviationAccuracyGate(raw, 25);
     expect(decision.distanceClearsAccuracy).toBe(false);
     expect(decision.result.state).toBe("passed_turn");
     expect(decision.result.suggestedNextAction).toBe("reroute_candidate");
