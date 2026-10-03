@@ -1,55 +1,46 @@
 # RESUME.md — walk 현재 작업 체크포인트
 
-> 갱신: 2026-10-03 21:15 KST. 작업 기준은 TASK.md이며 이 파일은 재개용이다.
+> 갱신: 2026-10-03 21:27 KST. 작업 SSOT는 origin/main:TASK.md이며 이 파일은 재개용이다.
 
 ## 0. 30초 컨텍스트
-현재 요청: PR #130 `claude/path-deviation-logs-jq8h4o`의 정확한 head `3e1dcef6b240c16bda521975ce3eac50c7e42917`에서 `npm run simulate`를 실행하고 시나리오별 PASS/FAIL 및 실패 원인만 보고한다. 코드 수정·commit·push·merge 금지.
-GitHub 커넥터로 head와 OPEN/unmerged 상태를 확인했다. 기존 로컬 변경을 보존하며 별도 폴더에서 실행 준비 중이다.
+PR #130의 claude/path-deviation-logs-jq8h4o head 3e1dcef6b240c16bda521975ce3eac50c7e42917에서 npm run simulate를 실제 실행했다.
+4개 시나리오 모두 설명과 일치하여 PASS. 사용자 요청에 따라 코드 수정·commit·push·merge 없음. 이번 검증 요청의 실행과 판정 완료.
 
-## 1. 작업 위치와 재개
-- Root: `D:\walk`; origin: `https://github.com/pds2225/walk.git`.
-- Branch: `fix/passed-turn-debug-20261003`; base: `40daf37` (origin/main 캐시).
-- 원격 main 실측: `404c5a8` (2026-10-03). 캐시 이후 차이는 Vercel 격리 설정 2개뿐이며 TASK/웹 소스는 동일하다.
-- 이전 TASK-012 재사용 코드: PR #130 당시 head `5b657f1`; 웹 파일 4개를 작업 브랜치로 가져왔다. 이번 검증 대상 head와 구분한다.
-
+## 1. 빠른 재개
 ```powershell
-Set-Location -LiteralPath D:\walk
-.\scripts\maintenance\git-change-monitor.ps1 -Once
-npm run test:run
+Set-Location -LiteralPath D:\walk\.worktrees\pr130-simulate-3e1dcef
+npm run simulate
 ```
+- 원본 root: D:\walk; origin: https://github.com/pds2225/walk.git.
+- 원본 branch: fix/passed-turn-debug-20261003, base 40daf37. 기존 dirty 변경은 그대로 보존.
+- 검증 clone: D:\walk\.worktrees\pr130-simulate-3e1dcef. 독립 clone이며 linked worktree가 아니다.
 
-## 2. 완료된 것
-- repo root/origin/main, 규칙, worktree/stash, 열린 PR과 기존 구현을 확인했다.
-- 정확도 25/30m에서 회전 미이행이 drifting으로 낮아지고 debug 비활성에서도 로그가 출력되는 것을 실제 엔진/hook 테스트로 재현·수정했다.
-- 최신 main TASK는 GitHub API와 origin/main 캐시로 교차 확인했다.
-- 재탐색도 보정된 상태를 확인하게 수정했다. GPS 오차 안의 이탈은 raw candidate만으로 재탐색하지 않는다.
-- 웹 149개 PASS, engine/web typecheck·기존 lint·Next production build PASS.
-- Streamlit 기본 회귀는 597 PASS + 로컬 secrets 존재 때문에 1 기존 실패. 테스트 프로세스의 secrets만 격리하면 598 PASS.
-- 실제 Chromium(390×844) + 로컬 production에서 4개 통제 입력 시나리오 PASS: 회전 미이행 재탐색 1회, 나머지 재탐색 없음, tick 로그/page error 각 0, 안내 중지 정상.
-- `git diff --check` PASS. 테스트 서버 3108은 종료했다. commit/push/PR/merge 없음.
+## 2. 완료된 작업
+- GitHub 커넥터로 PR #130 OPEN/unmerged 및 정확한 head 확인. 실행 후 ls-remote도 같은 SHA.
+- npm run simulate exit 0. normal walking: on_route/none, mild drift: drifting/monitor, strong deviation: deviated/warn_user, missed turn: passed_turn/reroute_candidate.
+- simulator는 assertion/자동 PASS·FAIL 출력을 하지 않는다. 판정은 시나리오 설명과 실제 상태 전이를 대조한 결과이며 웹 GPS wrapper·실기기 검증은 포함하지 않는다.
+- simulator는 clone의 상대경로 engine 소스를 사용하고 실행 도구 tsx는 기존 D:\walk\node_modules에서 재사용했다. 의존성/lockfile 수정 없음.
+- 검증 clone의 Git 변경 없음. 원본 기존 수정 7개 파일의 SHA256 전후 동일 확인.
 
 ## 3. 남은 작업
-- 현재 요청: 별도 폴더에 PR head를 확보 → 원본 simulator 실행 → 시나리오별 결과와 실패 원인 보고. 아직 simulate 미실행.
-- 현장 GPS·실기기와 운영 배포는 미검증. TASK-012는 VERIFIED(LOCAL_CONTROLLED), FIELD_TEST_REQUIRED다.
-- Git 반영 요청 시 기존 PR #130 head와 최신 main을 다시 확인하고 이번 수정·TASK 등록만 안전하게 반영한다.
-- debug는 `$env:NEXT_PUBLIC_WALK_DEBUG='true'` 후 `npm run next:dev`; production에는 빌드 전에 설정한다. 기본값은 꺼짐.
+- 현재 요청에서 추가 실행할 작업 없음. 실패 원인 없음. 코드 수정·PR 병합은 명시적으로 금지되어 있다.
+- 이전 TASK-012는 VERIFIED(LOCAL_CONTROLLED), FIELD_TEST_REQUIRED. 현장 GPS·실기기·운영 배포는 여전히 미검증.
+- Street View provider/Cloud 비용·키 및 실제 Chrome 위치→navigation→RoadviewViewer 검증은 이전 범위의 미완료 항목이다.
 
-## 4. 결정·제약
-- 프로젝트 walk, 기존 화면/엔진/음성·재탐색 구조를 유지한다. Streamlit 페이지는 변경하지 않는다.
-- `.env*`, `.github/workflows/*`, 사용자 미추적 파일·worktree·stash는 보존한다.
-- commit/push/PR/merge는 이번 요청에서 별도 실행하지 않는다.
-- 이번 `git fetch origin --prune`도 `refs/remotes/origin/backup/WIN-K20QOC29TOB`의 bad object로 실패했다. ref 삭제/복구는 수행하지 않는다. `gh` 조회는 HTTP 401이며 GitHub 커넥터 조회는 성공했다.
-- 테스트 입력 GPS/API 대체 성공과 실제 현장 GPS·배포 검증을 구분한다.
+## 4. 핵심 결정·제약
+- 기존 사용자 변경·worktree·stash·망원 점포/메뉴 데이터를 보존. rollback/reset/clean 금지.
+- .env* 및 .github/workflows/* 수정·값 출력 금지. 실제 발송·비용·운영변경 금지.
+- 원본 git fetch origin --prune는 refs/remotes/origin/backup/WIN-K20QOC29TOB bad object로 실패. ref 복구/삭제 없이 별도 clone으로 검증했다.
+- gh 조회는 HTTP 401. GitHub 커넥터로 최신 main TASK와 PR을 확인했다. 읽기 전용 검증이므로 TASK 등록/수정 없음.
 
-## 5. 핵심 파일
-- `TASK.md`: 작업 등록 및 검증 결과.
-- `web/lib/useNavigation.ts`: 정확도 보정, tick 로그, 음성 상태.
-- `web/app/page.test.tsx`: GPS→UI→재탐색 사용자 흐름 회귀.
-- `web/lib/useNavigation.test.tsx`: 회전 미이행 음성·정확도 gate·플래그 회귀.
-- `web/lib/useGeolocation.ts`: 기존 fix 품질 및 화면 위치 보정.
-- `C:\Users\ekth3\AppData\Local\Temp\walk-passed-turn-20261003.cjs`: 로컬 production 브라우저 smoke. 상세 명령·조건은 TASK-012 참조.
+## 5. 핵심 파일 인덱스
+- D:\walk\.worktrees\pr130-simulate-3e1dcef.log: 이번 npm run simulate 원본 출력.
+- 검증 clone의 packages/route-engine/src/simulator/runSimulator.ts 및 scenarios.ts: 실행과 판정 기준.
+- 원본 TASK.md: 이전 TASK-012 등록·상세 검증.
+- 원본 web/lib/useNavigation.ts 및 useNavigation.test.tsx: 이전 passed_turn/디버그 수정(미커밋).
+- SESSION_RECAP.md, .omc/wiki/, 기존 PR #135/#136: 이전 작업 상세.
 
-## 6. 이전 작업 보존사항
-- 망원 점포/메뉴·모바일 UI 데이터와 기존 worktree를 보존한다. `4c8a7cf`로 rollback 금지.
-- Street View provider 설정/Cloud 비용·키 작업, 실제 Chrome 위치→navigation→RoadviewViewer 및 현장 검증은 미완료다.
-- 이전 관련 상세는 `SESSION_RECAP.md`, `.omc/wiki/`, 기존 PR #135/#136을 참조한다. 이번 작업 범위 밖이다.
+## 6. 이전 작업 보존 기록
+TASK-012는 당시 PR #130 head 5b657f1을 재사용해 웹 GPS 보정·passed_turn gate·debug 플래그·재탐색을 로컬 수정했다.
+이전 검증: 웹 149 PASS, typecheck/lint/build PASS, Streamlit secrets 격리 시 598 PASS, 로컬 production Chromium 통제 GPS 4개 시나리오 PASS. 현장/운영 검증과 구분한다.
+이전 3108 테스트 서버는 종료됐으며 commit/push/PR/merge 없이 변경이 원본 작업 폴더에 남아 있다.
