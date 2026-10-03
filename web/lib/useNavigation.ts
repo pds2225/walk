@@ -17,6 +17,47 @@ const TURN_ANNOUNCE_M = 10;
 const DRIFT_REPEAT_COOLDOWN_MS = 20_000;
 const VOICE_RETRY_DELAY_MS = 1_500;
 const VOICE_MAX_ATTEMPTS = 2;
+/** Tick diagnostics are opt-in. Undefined/0/false keeps production console quiet. */
+const WALK_TICK_DEBUG_ENABLED = process.env.NEXT_PUBLIC_WALK_TICK_DEBUG === "1";
+
+export interface AccuracyGateDecision {
+  readonly result: EngineResult;
+  readonly fixReliable: boolean;
+  readonly distanceClearsAccuracy: boolean;
+}
+
+/**
+ * Cross-track distance is only strong deviation evidence when it clears the
+ * current GNSS uncertainty radius. Missed-turn detection is different: the
+ * route engine already requires passing the turn plus conflicting post-turn
+ * movement, so applying distance>=accuracy again can delay a valid passed_turn
+ * by tens of metres. The existing 30m fix-quality gate still applies to both.
+ */
+export function applyDeviationAccuracyGate(
+  rawResult: EngineResult,
+  accuracyMeters: number | null,
+): AccuracyGateDecision {
+  const fixReliable = isDeviationFixReliable(accuracyMeters);
+  const distanceClearsAccuracy =
+    accuracyMeters === null ||
+    rawResult.metrics.distanceFromRouteMeters >= accuracyMeters;
+
+  const downgradeDeviation =
+    rawResult.state === "deviated" &&
+    (!fixReliable || !distanceClearsAccuracy);
+  const downgradePassedTurn =
+    rawResult.state === "passed_turn" &&
+    !fixReliable;
+
+  return {
+    result:
+      downgradeDeviation || downgradePassedTurn
+        ? { ...rawResult, state: "drifting", suggestedNextAction: "monitor" }
+        : rawResult,
+    fixReliable,
+    distanceClearsAccuracy,
+  };
+}
 
 export interface NavigationSnapshot {
   readonly result: EngineResult | null;
@@ -194,21 +235,10 @@ export function useNavigation(
 
     const rawResult = engine.processSample(sample);
 
-    // 정확도가 나쁜 fix 로는 말하지 않는다 — GPS 가 튄 것을 이탈로 알리면 신뢰를 잃는다.
-    const accurate = isDeviationFixReliable(fix.accuracyMeters);
-    // 거리가 GPS 정확도 반경보다 작으면 '이탈'이 아니라 GPS 오차일 수 있다 — 예:
-    // 정확도 25m인데 경로에서 16m 떨어진 경우, 그 차이가 오차범위 안이라 확정 이탈로
-    // 보기엔 근거가 약하다(TASK.md 02-F: cross-track은 accuracy와 함께 해석). 거리가
-    // 정확도를 넘어서야만 deviated/passed_turn 을 그대로 인정하고, 아니면 drifting 으로
-    // 완화한다(신규 상태를 만들지 않고 기존 완화 상태를 재사용).
-    const distanceClearsAccuracy =
-      fix.accuracyMeters == null ||
-      rawResult.metrics.distanceFromRouteMeters >= fix.accuracyMeters;
-    const confirmedByAccuracy = accurate && distanceClearsAccuracy;
-    const next: EngineResult =
-      (rawResult.state === "deviated" || rawResult.state === "passed_turn") && !confirmedByAccuracy
-        ? { ...rawResult, state: "drifting" }
-        : rawResult;
+    const accuracyGate = applyDeviationAccuracyGate(rawResult, fix.accuracyMeters);
+    const accurate = accuracyGate.fixReliable;
+    const distanceClearsAccuracy = accuracyGate.distanceClearsAccuracy;
+    const next = accuracyGate.result;
     setResult(next);
 
     const dest = routeResponse.route.polyline[routeResponse.route.polyline.length - 1];
@@ -222,32 +252,31 @@ export function useNavigation(
       return;
     }
 
-    // 진단용: 매 판정의 실제 근거 수치를 콘솔에 남긴다. "미세한 차이로 이탈했다" 같은
-    // 사후 신고를 검증할 방법이 지금까지 전혀 없었다(웹앱 쪽엔 로그가 없었음).
-    // 콘솔에서 "[walk:tick]"으로 검색하면 해당 판정의 거리/정확도/임계값을 볼 수 있다.
-    // (Streamlit 데모의 walk_diag.py tick 레코드와 같은 목적, 같은 필드명 계열.)
-    const cfg = engine.getConfig();
-    console.info("[walk:tick]", {
-      t: fix.timestampMs,
-      rawState: rawResult.state,
-      state: next.state,
-      score: next.score,
-      reasons: next.reasons,
-      distFromRouteM: next.metrics.distanceFromRouteMeters,
-      headingDiffDeg: next.metrics.headingDifferenceDegrees,
-      speedMps: sample.speedMetersPerSecond,
-      accuracyM: fix.accuracyMeters,
-      fixReliable: accurate,
-      distanceClearsAccuracy,
-      consecutiveBreaches: next.metrics.consecutiveThresholdBreaches,
-      driftDurationMs: next.metrics.driftDurationMs,
-      thresholds: {
-        driftM: cfg.routeDriftDistanceThresholdMeters,
-        deviationM: cfg.routeDeviationDistanceThresholdMeters,
-        strongM: cfg.strongDeviationDistanceThresholdMeters,
-        headingDeg: cfg.headingDifferenceThresholdDegrees,
-      },
-    });
+    // Opt-in field diagnostics. Production/default builds do not emit one log per GPS tick.
+    if (WALK_TICK_DEBUG_ENABLED) {
+      const cfg = engine.getConfig();
+      console.info("[walk:tick]", {
+        t: fix.timestampMs,
+        rawState: rawResult.state,
+        state: next.state,
+        score: next.score,
+        reasons: next.reasons,
+        distFromRouteM: next.metrics.distanceFromRouteMeters,
+        headingDiffDeg: next.metrics.headingDifferenceDegrees,
+        speedMps: sample.speedMetersPerSecond,
+        accuracyM: fix.accuracyMeters,
+        fixReliable: accurate,
+        distanceClearsAccuracy,
+        consecutiveBreaches: next.metrics.consecutiveThresholdBreaches,
+        driftDurationMs: next.metrics.driftDurationMs,
+        thresholds: {
+          driftM: cfg.routeDriftDistanceThresholdMeters,
+          deviationM: cfg.routeDeviationDistanceThresholdMeters,
+          strongM: cfg.strongDeviationDistanceThresholdMeters,
+          headingDeg: cfg.headingDifferenceThresholdDegrees,
+        },
+      });
+    }
 
     if (accurate) {
       const state = next.state;
