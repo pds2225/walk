@@ -1,10 +1,10 @@
 # RESUME.md — walk 현재 작업 체크포인트
 
-> 갱신: 2026-10-03 09:52 KST. 작업 기준은 TASK.md이며 이 파일은 재개용이다.
+> 갱신: 2026-10-03 10:06 KST. 작업 기준은 TASK.md이며 이 파일은 재개용이다.
 
 ## 0. 30초 컨텍스트
-`passed_turn` 억제 문제 해결, `[walk:tick]` 로그 디버그 플래그 적용, TASK.md 등록을 진행 중이다.
-기존 PR #130의 웹 GPS 보정 코드를 재사용한다. 회전 미이행을 횡거리/정확도 비교로 완화하는 것이 재현 대상이다.
+TASK-012의 `passed_turn` 억제 수정, `[walk:tick]` 디버그 플래그 적용, TASK.md 등록을 로컬에서 완료했다.
+기존 PR #130의 웹 GPS 보정 코드를 재사용했고 신뢰 가능한 회전 미이행을 횡거리 gate에서 제외했다.
 
 ## 1. 작업 위치와 재개
 - Root: `D:\walk`; origin: `https://github.com/pds2225/walk.git`.
@@ -20,14 +20,18 @@ npm run test:run
 
 ## 2. 완료된 것
 - repo root/origin/main, 규칙, worktree/stash, 열린 PR과 기존 구현을 확인했다.
-- 근본 원인 후보는 `useNavigation.ts`의 `passed_turn` 횡거리 gate와 상시 tick 로그다.
+- 정확도 25/30m에서 회전 미이행이 drifting으로 낮아지고 debug 비활성에서도 로그가 출력되는 것을 실제 엔진/hook 테스트로 재현·수정했다.
 - 최신 main TASK는 GitHub API와 origin/main 캐시로 교차 확인했다.
+- 재탐색도 보정된 상태를 확인하게 수정했다. GPS 오차 안의 이탈은 raw candidate만으로 재탐색하지 않는다.
+- 웹 149개 PASS, engine/web typecheck·기존 lint·Next production build PASS.
+- Streamlit 기본 회귀는 597 PASS + 로컬 secrets 존재 때문에 1 기존 실패. 테스트 프로세스의 secrets만 격리하면 598 PASS.
+- 실제 Chromium(390×844) + 로컬 production에서 4개 통제 입력 시나리오 PASS: 회전 미이행 재탐색 1회, 나머지 재탐색 없음, tick 로그/page error 각 0, 안내 중지 정상.
+- `git diff --check` PASS. 테스트 서버 3108은 종료했다. commit/push/PR/merge 없음.
 
 ## 3. 남은 작업
-- TASK.md에 사용자 요청·범위·검증·PR #130 재사용 관계를 등록한다.
-- 실제 엔진 회전 미이행 재현 테스트로 현재 실패를 확인하고 최소 수정한다.
-- tick 로그는 명시적인 디버그 플래그가 켜질 때만 출력한다.
-- 관련 웹 사용자 흐름, typecheck/lint/build 및 Streamlit 회귀를 확인하고 결과를 TASK에 기록한다.
+- 현장 GPS·실기기와 운영 배포는 미검증. TASK-012는 VERIFIED(LOCAL_CONTROLLED), FIELD_TEST_REQUIRED다.
+- Git 반영 요청 시 기존 PR #130 head와 최신 main을 다시 확인하고 이번 수정·TASK 등록만 안전하게 반영한다.
+- debug는 `$env:NEXT_PUBLIC_WALK_DEBUG='true'` 후 `npm run next:dev`; production에는 빌드 전에 설정한다. 기본값은 꺼짐.
 
 ## 4. 결정·제약
 - 프로젝트 walk, 기존 화면/엔진/음성·재탐색 구조를 유지한다. Streamlit 페이지는 변경하지 않는다.
@@ -40,7 +44,9 @@ npm run test:run
 - `TASK.md`: 작업 등록 및 검증 결과.
 - `web/lib/useNavigation.ts`: 정확도 보정, tick 로그, 음성 상태.
 - `web/app/page.test.tsx`: GPS→UI→재탐색 사용자 흐름 회귀.
+- `web/lib/useNavigation.test.tsx`: 회전 미이행 음성·정확도 gate·플래그 회귀.
 - `web/lib/useGeolocation.ts`: 기존 fix 품질 및 화면 위치 보정.
+- `C:\Users\ekth3\AppData\Local\Temp\walk-passed-turn-20261003.cjs`: 로컬 production 브라우저 smoke. 상세 명령·조건은 TASK-012 참조.
 
 ## 6. 이전 작업 보존사항
 - 망원 점포/메뉴·모바일 UI 데이터와 기존 worktree를 보존한다. `4c8a7cf`로 rollback 금지.
