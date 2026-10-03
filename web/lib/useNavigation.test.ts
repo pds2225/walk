@@ -90,7 +90,7 @@ describe("applyDeviationAccuracyGate", () => {
       sample(47, 4, 8_000),
       sample(52, 0, 10_000),
     ];
-    let raw = engine.processSample(trace[0]);
+    let raw = engine.processSample(trace[0]!);
     for (const current of trace.slice(1)) raw = engine.processSample(current);
 
     expect(raw.state).toBe("passed_turn");
