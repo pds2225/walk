@@ -47,7 +47,6 @@ export function useNavigation(
   const [arrived, setArrived] = useState(false);
   const [sampleCount, setSampleCount] = useState(0);
   const [elapsedSinceStartMs, setElapsedSinceStartMs] = useState(0);
-  const [lastFixReliable, setLastFixReliable] = useState(true);
   const [movementHeadingDegrees, setMovementHeadingDegrees] = useState<number | null>(null);
 
   const engine = useMemo(
@@ -127,7 +126,6 @@ export function useNavigation(
     setArrived(false);
     setSampleCount(0);
     setElapsedSinceStartMs(0);
-    setLastFixReliable(true);
     setMovementHeadingDegrees(null);
     lastFixTs.current = null;
     firstFixTs.current = null;
@@ -164,7 +162,6 @@ export function useNavigation(
     if (!engine || !prepared || !routeResponse || !fix || arrived) return;
     if (lastFixTs.current !== null && fix.timestampMs <= lastFixTs.current) return;   // stale/same fix 무시
     lastFixTs.current = fix.timestampMs;
-    setLastFixReliable(isDeviationFixReliable(fix.accuracyMeters));
 
     if (firstFixTs.current === null) firstFixTs.current = fix.timestampMs;
     acceptedSampleCount.current += 1;
@@ -195,7 +192,23 @@ export function useNavigation(
     };
     prevSample.current = sample;
 
-    const next = engine.processSample(sample);
+    const rawResult = engine.processSample(sample);
+
+    // 정확도가 나쁜 fix 로는 말하지 않는다 — GPS 가 튄 것을 이탈로 알리면 신뢰를 잃는다.
+    const accurate = isDeviationFixReliable(fix.accuracyMeters);
+    // 거리가 GPS 정확도 반경보다 작으면 '이탈'이 아니라 GPS 오차일 수 있다 — 예:
+    // 정확도 25m인데 경로에서 16m 떨어진 경우, 그 차이가 오차범위 안이라 확정 이탈로
+    // 보기엔 근거가 약하다(TASK.md 02-F: cross-track은 accuracy와 함께 해석).
+    // passed_turn은 회전점 통과·진행 방향이 근거라 횡거리 gate를 적용하지 않는다.
+    // 두 확정 상태 모두 기존 fix 품질 gate는 유지한다.
+    const distanceClearsAccuracy =
+      fix.accuracyMeters == null ||
+      rawResult.metrics.distanceFromRouteMeters >= fix.accuracyMeters;
+    const confirmedByAccuracy = accurate && (rawResult.state === "passed_turn" || distanceClearsAccuracy);
+    const next: EngineResult =
+      (rawResult.state === "deviated" || rawResult.state === "passed_turn") && !confirmedByAccuracy
+        ? { ...rawResult, state: "drifting" }
+        : rawResult;
     setResult(next);
 
     const dest = routeResponse.route.polyline[routeResponse.route.polyline.length - 1];
@@ -209,8 +222,32 @@ export function useNavigation(
       return;
     }
 
-    // 정확도가 나쁜 fix 로는 말하지 않는다 — GPS 가 튄 것을 이탈로 알리면 신뢰를 잃는다.
-    const accurate = isDeviationFixReliable(fix.accuracyMeters);
+    // NEXT_PUBLIC_WALK_DEBUG=true로 빌드/실행할 때만 판정 근거를 기록한다.
+    if (process.env.NEXT_PUBLIC_WALK_DEBUG === "true") {
+      const cfg = engine.getConfig();
+      console.info("[walk:tick]", {
+        t: fix.timestampMs,
+        rawState: rawResult.state,
+        state: next.state,
+        score: next.score,
+        reasons: next.reasons,
+        distFromRouteM: next.metrics.distanceFromRouteMeters,
+        headingDiffDeg: next.metrics.headingDifferenceDegrees,
+        speedMps: sample.speedMetersPerSecond,
+        accuracyM: fix.accuracyMeters,
+        fixReliable: accurate,
+        distanceClearsAccuracy,
+        confirmedByAccuracy,
+        consecutiveBreaches: next.metrics.consecutiveThresholdBreaches,
+        driftDurationMs: next.metrics.driftDurationMs,
+        thresholds: {
+          driftM: cfg.routeDriftDistanceThresholdMeters,
+          deviationM: cfg.routeDeviationDistanceThresholdMeters,
+          strongM: cfg.strongDeviationDistanceThresholdMeters,
+          headingDeg: cfg.headingDifferenceThresholdDegrees,
+        },
+      });
+    }
 
     if (accurate) {
       const state = next.state;
@@ -267,11 +304,9 @@ export function useNavigation(
     return Math.max(0, Math.round(total - result.metrics.routeDistanceAlongMeters));
   }, [prepared, result]);
 
-  const rawState = result?.state ?? "on_route";
+  // 정확도 보정(위 tick 이펙트)이 이미 result.state 에 반영돼 있어 여기서 다시 완화할 필요는 없다.
+  const state = result?.state ?? "on_route";
   const ui = getUiText(options.locale);
-  const state = !lastFixReliable && (rawState === "deviated" || rawState === "passed_turn")
-    ? "drifting"
-    : rawState;
   const banner = arrived ? ui.arrived : ui.state(state);
 
   return {

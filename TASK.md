@@ -2,17 +2,93 @@
 
 > Repository: `pds2225/walk`  
 > Product name: **K-Navi / 케이네비**  
-> Canonical task file: **repository root `TASK.md` only**  
-> Updated: **2026-09-10**  
+> Canonical task SSOT: **`origin/main:TASK.md` only**  
+> Updated: **2026-09-23**  
 > Status: **ACTIVE**
+
+
+# GLOBAL DEFAULT GUARDRAILS — 모든 TASK 기본 안전장치
+
+> 아래 규칙은 이 저장소의 **모든 현재/미래 TASK와 실행 프롬프트에 자동 적용**한다.
+> 새 TASK마다 같은 문구를 반복 복사할 필요는 없다.
+> TASK별로 더 강한 안전조건을 추가할 수는 있지만, 사용자의 명시적 승인 없이 아래 기본값을 약화하지 않는다.
+
+## 1) 자율수행 / 사용자 개입 최소화
+- 조사 → 분석 → 구현 → 테스트 → 회귀검증 → 문서화 → commit → push → PR → Checks 확인 → 허용된 자동병합까지 안전하게 가능한 범위는 AI가 연속 수행한다.
+- 중간 진행상황 확인만을 이유로 사용자를 호출하지 않는다.
+- 코드·테스트·데이터·기존 아키텍처 근거로 안전하게 결정 가능한 선택은 AI가 스스로 결정한다.
+- 사용자 판단/입력이 정말 필요한 항목만 `HUMAN_BATCH`에 누적해 가능한 한 한 번에 요청한다.
+- 개발자가 스스로 해결할 수 있는 Git 상태, 테스트 실패, 일반 오류는 HUMAN_BATCH에 넣지 않는다.
+
+## 2) 즉시 사용자 승인이 필요한 예외
+- 데이터 손실 위험
+- Secret/보안/개인정보 문제
+- 실제 비용 발생
+- 외부 시스템의 되돌리기 어려운 운영 변경
+- 제품/사업정책을 바꾸는 결정
+- 법적·계약상 명시적 승인 필요 작업
+
+## 3) 중단/재개 안전성
+- 장시간·다단계 TASK는 단계별 CHECKPOINT를 남긴다.
+- CHECKPOINT에는 최소 TASK_ID, 기준 base/code SHA, 완료 단계, 다음 단계, 핵심 산출물 위치를 재구성할 수 있는 정보가 있어야 한다.
+- 세션 만료, 컨텍스트 손실, PC 종료 후에도 최신 remote 상태와 TASK.md만 읽고 안전하게 재개 가능해야 한다.
+- 가능한 경우 의미 있는 단계 완료마다 이번 TASK 관련 파일만 commit/push한다.
+
+## 4) 재실행 / 중복 방지
+- 반복 실행 가능성이 있는 작업은 가능한 한 idempotent하게 구현한다.
+- 동일 입력을 다시 실행해 데이터 중복 추가, 지표 이중계산, 규칙 중복적용, 동일 파일 중복생성이 발생하지 않게 한다.
+- 필요한 경우 input snapshot/fingerprint, code/config SHA, run_id를 기록한다.
+- 이미 완료·검증된 단계를 발견하면 재사용하고 불필요하게 처음부터 다시 하지 않는다.
+
+## 5) 무한루프 / 과도한 자동개발 방지
+- retry/agent loop/자동개선은 반드시 종료조건을 둔다.
+- TASK에 수치가 없으면 합리적인 bounded retry/cycle을 정해 기록한다.
+- 동일 실패를 근거 없이 무한 반복하지 않는다.
+- 한 후보/한 실험의 실패 때문에 이미 검증된 전체 checkpoint를 되돌리지 않는다. 가능한 경우 실패 단위만 폐기한다.
+
+## 6) Git / 사용자 데이터 보존
+- 사용자 변경 삭제 금지.
+- `git reset --hard`, force push, `git clean -fd`, 무단 stash/drop 금지.
+- `git add -A` 금지. 이번 TASK에 필요한 파일만 stage한다.
+- 위험한 main 직접수정보다 작업 브랜치 + PR을 기본으로 한다.
+- 원격 main이 작업 중 바뀌면 최신 상태를 확인하고 안전하게 통합한 뒤 필요한 검증을 다시 한다.
+- 충돌을 무조건 ours/theirs로 해결하지 않는다.
+- 기존 사용자 데이터·정답 데이터·운영 설정은 명시적 근거 없이 덮어쓰거나 삭제하지 않는다.
+
+## 7) Secret / 외부효과 / 비용
+- Secret, 토큰, 비밀번호, 개인정보를 출력·커밋하지 않는다.
+- 실제 이메일 발송, 삭제, 결제, 유료 API, production 데이터 변경 등 외부효과가 있는 작업은 명시적으로 허용되지 않은 한 dry-run/preview/staging을 우선한다.
+- 비용이 발생하거나 되돌리기 어려운 외부 작업은 사용자 승인 전에 실행하지 않는다.
+
+## 8) 검증 / DONE 기준
+- 코드 작성, 테스트 PASS, build PASS, PR 생성만으로 DONE 처리하지 않는다.
+- 사용자 요청이 실제로 해결됐는지 USER_E2E 또는 그에 준하는 실제 경로로 확인한다.
+- 정상경로, 주요 경계값, 오류상태, 관련 회귀를 검증한다.
+- 데이터/평가/모델 성능 TASK는 가능한 범위에서 tuning 데이터와 최종 평가 데이터를 분리해 leakage를 방지한다.
+- 수치 개선은 동일 기준 데이터/동일 조건에서 변경 전후를 비교한다.
+- 실패·목표 미달 수치를 숨기거나 유리한 표본만 골라 보고하지 않는다.
+
+## 9) 부분 장애
+- CI 실패, 외부 사이트 일시 오류, 일부 데이터 미접근 등 부분 장애가 발생해도 안전하게 가능한 독립 작업은 계속한다.
+- 이미 검증된 산출물과 checkpoint를 보존한다.
+- 정말 사용자 입력이 필요한 항목만 `HUMAN_BATCH` 또는 `BLOCKED_INPUT`으로 분리한다.
+- 한 의존성의 실패 때문에 관련 없는 독립 작업까지 전부 중단하지 않는다.
+
+## 10) 새 TASK 생성 규칙
+- 모든 새 TASK/실행 프롬프트는 이 전역 안전장치를 자동 상속한다.
+- TASK 특성상 필요한 추가 안전장치(checkpoint/resume, idempotency, bounded retry, rollback, HUMAN_BATCH, dry-run, reproducibility)를 DETAILS/VERIFY/DONE에 필요한 만큼만 보강한다.
+- 단순 문서 수정처럼 특정 안전장치가 의미 없으면 억지 구현하지 않고 N/A로 판단한다.
+- 전역 안전장치를 약화하거나 예외 처리하려면 사용자의 명시적 요청과 이유를 TASK에 남긴다.
 
 ---
 
 # 0. TASK GOVERNANCE — SINGLE SOURCE OF TRUTH
 
-이 repository의 개발 할 일·후속작업·결함·검증·완료기록은 **루트 `TASK.md` 하나만** 기준으로 관리한다.
+이 repository의 개발 할 일·후속작업·결함·검증·완료기록은 **`origin/main:TASK.md` 하나만 공식 SSOT**로 관리한다. 작업 브랜치의 TASK 변경은 main에 머지된 뒤 공식 상태가 된다.
 
-사용자가 `TASK 읽어`, `task 봐`, `할 일 뭐야`라고 하면 **현재 작업 중인 repository의 루트 `TASK.md`를 가장 먼저 읽는다.**
+세션/자동개발 시작 시 `git fetch origin --prune` 후 **`origin/main:TASK.md`를 가장 먼저 읽는다.** 사용자의 새 요청은 이 파일에 등록한 뒤 실행한다.
+
+Dashboard·RESUME·HANDOFF·실행로그·파생 큐·외부 Drive/문서 미러는 표시/체크포인트/실행용일 뿐 TASK 상태·우선순위를 만들거나 덮어쓸 수 없다.
 
 다음 파일을 별도 기준 문서로 새로 만들지 않는다.
 
@@ -29,8 +105,8 @@
 
 내용 충돌 시:
 
-1. 현재 대화에서 사용자가 명시적으로 확정한 최신 지시
-2. 현재 repository 루트 `TASK.md`
+1. 사용자의 최신 명시적 요청을 `TASK.md`에 등록한 최신 상태
+2. `origin/main:TASK.md`
 3. 현재 repository의 실제 코드·테스트·배포 상태
 4. 최신 현장 테스트/재현 결과
 5. 최신 프로젝트 자료
@@ -51,6 +127,17 @@
 - `1 기능 = 1 TASK = 1 검증`을 기본으로 한다.
 - build/unit test 성공만으로 DONE 처리하지 않는다.
 - 실제 사용자 흐름과 Acceptance Criteria를 기준으로 완료 판단한다.
+
+---
+
+## 2026-09-23 SSOT 통일 완료
+
+- 사용자 요청: `v_up walk mail marketgate도 TASK.md 단일 SSOT로 통일해`
+- 공식 작업 SSOT: `origin/main:TASK.md` 하나
+- 시작 순서: `git fetch origin --prune` → TASK 확인 → 작업
+- 작업 브랜치의 TASK 변경은 main 머지 후 공식화
+- Dashboard/RESUME/HANDOFF/실행로그/외부 미러는 파생정보이며 TASK를 덮어쓰지 않음
+- 별도 TASK 파일 생성 금지
 
 ---
 
@@ -202,6 +289,30 @@ Roadview 실패 시 navigation은 계속되어야 한다.
 
 # 4. CURRENT ACTIVE QUEUE
 
+## [ ] TASK-012 — passed_turn 억제 수정 및 tick 디버그 로그
+
+`PRIORITY = P0`
+
+`STATUS = IN_PROGRESS`
+
+- 사용자 요청 (2026-10-03): `passed_turn` 억제 문제 해결, `[walk:tick]` 로그는 디버그 플래그 뒤로, TASK.md 작업 등록.
+- 작업 브랜치: `fix/passed-turn-debug-20261003`; base `40daf37`.
+- 최신 원격 main은 `404c5a8`이며 base 이후 TASK/웹 소스 변경은 없다. fetch는 기존 손상된 백업 ref로 실패해 GitHub API로 최신성을 확인했다.
+- 재사용: 열린 PR [#130](https://github.com/pds2225/walk/pull/130), head `5b657f1`의 GPS 정확도 보정·표시 위치 smoothing 코드를 유지한다.
+- 범위: `web/lib/useNavigation.ts`의 회전 미이행 정확도 gate 및 tick 로그, 관련 hook/사용자 흐름 회귀 테스트.
+- 제약: `deviated`의 횡거리/정확도 비교, 저정확도 fix 억제, 음성·재탐색·도착 정책 유지. Streamlit 페이지, `.env*`, workflow, 사용자 데이터 변경 금지.
+- Git: 이번 요청은 로컬 수정/검증/작업 등록까지. commit/push/PR/merge는 실행하지 않는다. main 공식 SSOT 반영은 후속 병합 시점이다.
+
+**Acceptance / Verify**
+
+- [ ] 신뢰 가능한 GPS에서 `passed_turn`은 횡거리가 accuracy보다 작아도 유지한다.
+- [ ] GPS 정확도가 기존 gate보다 나쁘면 `passed_turn` 확정을 계속 억제한다.
+- [ ] `deviated`는 횡거리/accuracy 비교를 유지하며 실제 이탈 재탐색은 작동한다.
+- [ ] 기본값에서 tick 로그 없음; `NEXT_PUBLIC_WALK_DEBUG=true`일 때만 진단 로그 출력.
+- [ ] 실제 엔진 회전 미이행과 사용자 UI/재탐색 흐름, 정상 회전·저정확도·기존 기능 회귀 확인.
+- [ ] 웹 typecheck/lint/build 및 `python -m pytest streamlit_walk_engine\tests -q` 결과 기록.
+- [ ] 실제 현장 GPS/배포 검증은 자동화 입력 검증과 구분한다.
+
 ## P0 — 현장검증 잔여
 
 ### [ ] TASK-001-FIELD — 지하철 승·하차 최적 출입구 실기기 현장검증
@@ -313,7 +424,13 @@ P2:
 - deviation/reroute lifecycle
 - arrival lifecycle
 - POI/destination model
-- place/menu UI
+- 시장 overview / 점포카드 / 점포상세 / menu UI
+- QR → 점포/POI 매핑
+- storeLocation / entrance / navigationTarget / streetViewLocation 분리 여부
+- 다국어 점포·메뉴·주재료·알레르기 정보
+- place/menu/QR/navigation 이벤트 연결 가능 여부
+- verified visit(location + QR 등) 판정 가능 여부
+- multi-store journey 연결 가능 여부
 - backend/API
 - DB/storage
 - existing analytics/logging
@@ -524,17 +641,26 @@ POI 반경 내 연속 체류시간 계산.
 
 필수:
 
+- `market_overview_view`
+- `store_card_view`
 - `place_view`
 - `place_select`
+- `qr_scan`
+- `store_detail_view`
 - `menu_view`
+- `route_start`
 - `next_place_select`
+- `verified_visit` — 위치 + QR 등 별도 검증수단이 있을 때만
 
 **Acceptance**
 
 - [ ] 기존 UI에 tracker를 최소 침습으로 연결
-- [ ] 관련 poi/content ID 연결
-- [ ] rerender로 `place_view` 중복 폭증 방지
+- [ ] 관련 poi/store/content ID 연결
+- [ ] QR이 정확한 store_id/poi_id와 연결되고 동일 QR 재스캔 중복폭증 방지
+- [ ] rerender로 `place_view`/`store_card_view` 중복 폭증 방지
+- [ ] `verified_visit`은 GNSS 위치만으로 확정하지 않고 QR/쿠폰/별도 인증 신호와 결합
 - [ ] `next_place_select` 후 새 `route_start`와 동일 session으로 연결
+- [ ] 한 session 안에서 점포1 → 점포2 → 점포3 이동을 재구성 가능
 - [ ] 언어 변경이 session을 끊지 않음
 
 ---
@@ -553,18 +679,21 @@ POI 반경 내 연속 체류시간 계산.
 
 목표 sequence:
 
-`place_view`
-→ `place_select`
-→ `route_start`
+`market_overview_view`
+→ `store_card_view`
+→ `place_view / place_select`
+→ `qr_scan 또는 route_start`
 → `movement`
 → `route_deviation`
 → `reroute`
 → `poi_approach`
 → `arrival`
 → `dwell`
-→ `menu_view`
+→ `store_detail_view / menu_view`
+→ 조건 충족 시 `verified_visit`
 → `next_place_select`
 → `new route_start`
+→ 다점포 Journey
 
 **Acceptance**
 
@@ -593,18 +722,22 @@ POI 반경 내 연속 체류시간 계산.
 필수 시나리오:
 
 `session_start`
-→ `place_view`
-→ `place_select`
-→ `route_start`
+→ `market_overview_view`
+→ `store_card_view`
+→ `place_view / place_select`
+→ `qr_scan`
+→ `store_detail_view / menu_view`
+→ 필요 시 `route_start`
 → `movement samples`
 → `route_deviation`
 → `reroute`
 → `poi_approach`
 → `arrival`
 → `dwell`
-→ `menu_view`
+→ 조건 충족 시 `verified_visit`
 → `next_place_select`
 → `new route_start`
+→ 두 번째 점포까지 동일 session으로 연결
 
 **Acceptance**
 
@@ -615,6 +748,9 @@ POI 반경 내 연속 체류시간 계산.
 - [ ] arrival 1회
 - [ ] dwell 계산
 - [ ] 다음 장소 이동 연결
+- [ ] QR/점포상세/메뉴 이벤트와 이동·방문 이벤트 연결
+- [ ] verified_visit은 별도 검증수단이 없으면 미확정 상태로 남김
+- [ ] 최소 2개 점포의 multi-store Journey 재구성
 - [ ] Journey 완전 재구성
 - [ ] 데이터 저장 실패 시 navigation 계속
 - [ ] 직접 식별정보와 raw movement 미결합
@@ -872,6 +1008,20 @@ PR =
 핵심 데이터 flow 불가:
 
 `K_NAVI_DATA_POC_READY = NO`
+
+---
+
+## 2026-09-20 TASK REVIEW
+
+검토 결론:
+
+- 현재 TASK-002~010의 데이터 파이프라인 순서는 유지한다.
+- 단, 기존 문서는 도보 내비게이션 로그 중심이라 실제 사용자 흐름인 시장 overview → 점포 탐색 → QR → 점포/메뉴 정보 → 필요 시 길안내 → 실제 방문 → 다음 점포 흐름이 부족했다.
+- TASK-002 audit 범위를 점포/QR/다국어/좌표 분리/verified visit/multi-store까지 확장했다.
+- TASK-008~010에 QR, 점포상세, verified_visit, multi-store Journey를 반영했다.
+- 구매는 위치만으로 추정하지 않는다. 쿠폰/QR 구매인증/POS 등 별도 검증수단이 있을 때만 구매 전환으로 기록한다.
+- 기존 navigation state machine과 GNSS 데이터 수집 TASK는 그대로 유지한다.
+- 별도 신규 TASK를 남발하지 않고 기존 데이터 TASK에 사용자 행동 흐름을 통합한다.
 
 ---
 
