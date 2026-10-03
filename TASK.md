@@ -1039,3 +1039,26 @@ PR =
 2026-08-26~2026-09-09의 상세 구현·테스트·PR 기록은 Git commit/PR history에 남아 있다. 이 파일은 **현재 실행할 할 일과 현재 상태를 빠르게 읽을 수 있는 active source of truth**로 유지한다.
 
 과거 상세 기록이 필요하면 해당 PR/commit을 조회한다. 완료된 과거 TASK의 장문 로그를 다시 이 파일에 중복 누적하지 않는다.
+
+
+---
+
+## TASK REGISTRATION — PR #130 deviation accuracy hardening (2026-10-03)
+
+`TASK_ID = WALK-PR130-DEVIATION-ACCURACY-HARDENING-20261003`
+
+`STATUS = IN_PROGRESS`
+
+`PR = #130 (draft 유지, merge 금지, PR 본문 수정 금지)`
+
+`BRANCH = claude/path-deviation-logs-jq8h4o`
+
+`BASE_INTEGRATION = 최신 origin/main을 rebase 없이 merge 방식으로 통합`
+
+`SCOPE = (1) PR #130에서 useSmoothedFix/display smoothing 변경 분리 (2) distanceFromRouteMeters < GNSS accuracy일 때 deviated를 drifting으로 완화하되 확정 이탈은 유지 (3) 기존 30m deviation accuracy gate 유지 (4) passed_turn이 distance-vs-accuracy 규칙 때문에 정상 missed-turn 감지가 지연/차단되지 않도록 검증·보완 (5) [walk:tick] console 진단 로그를 production 기본 OFF debug flag로 제한 (6) 관련 테스트 및 전체 회귀 검증`
+
+`SEPARATE_PR = display smoothing은 main 기준 별도 branch/draft PR로 관리`
+
+`ACCEPTANCE = deviated: distance < accuracy => drifting/monitor; deviated: distance >= accuracy + reliable fix => 확정 유지; accuracy > 30m => hard deviation/reroute 억제; passed_turn: reliable fix에서는 distance < accuracy만으로 downgrade하지 않음; [walk:tick] 기본 미출력; smoothing diff는 PR #130에서 제거; 요구 validation commands 및 CI 확인`
+
+`FORBIDDEN = PR #130 merge; draft 해제; PR #130 body 수정; force push; .github/workflows 수정; unrelated refactor`
