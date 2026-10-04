@@ -1,27 +1,22 @@
-# RESUME.md — walk 작업 체크포인트
+# RESUME.md — walk 현재 작업
 
-> 2026-10-04 10:31 KST. 공식 개발 SSOT는 origin/main:TASK.md.
+> 2026-10-04 11:22 KST. 공식 SSOT는 origin/main:TASK.md.
 
-## 현재 목표
-feat/worldcup-market-demo / draft PR #143를 최신 main에서 월드컵시장 변경만 재구성한다. 홈 /는 main 동일, 4개 언어 유지. 데이터 45개 점포는 원문 그대로 유지.
-main 병합·Ready 전환·다른 기존 브랜치 수정 금지. 원래 head를 backup/worldcup-market-demo-20261004로 보존한 뒤 대상 브랜치만 force-with-lease 및 PR 본문 갱신 허용.
+## 목표·현재 상태
+PR #143 / feat/worldcup-market-demo의 블로그 점포45개에 주소 근거 기반 좌표를 채우고 지도 핀·길찾기·거리뷰를 실제 검증한다.
+원격 head b8bfdfce264350a83b27248086c0c91411685d94 확인. 원격 main404c5a8 유지. 과거 강제갱신 때문에 stale remote-tracking6200e12를 fetch로 최신화했다. 현재 force push 금지, 일반commit/push만 허용. main 병합·Ready 전환 금지.
 
-## 확인된 상태
-- 원본 D:\walk: fix/passed-turn-debug-20261003 / 40daf37, 이전 TASK-012 미커밋 변경 7개 보존. root TASK.md는 이번 작업에서 수정하지 않는다.
-- 원격 main: 404c5a8c2d3e70a1e808e1d0f3410fd65234f37d.
-- 원격/PR #143 head: 6200e12fbc3e49bde8e5c9d2834003829bec51c4, draft/open, 37커밋·23파일. 별도 fetch 결과 일치. 대상 로컬 브랜치/ref는 원본에 없음. 목록에서 10:23 이후 추가 커밋 없음.
-- 원본 fetch는 기존 bad object refs/remotes/origin/backup/WIN-K20QOC29TOB로 실패. 삭제/복구하지 않고 독립 clone 사용.
-- 작업 clone: D:\walk\.worktrees\worldcup-market-clean-20261004. origin/main 및 origin/feat/worldcup-market-demo fetch 완료, 아직 재구성 전.
+## 위치
+독립 clone D:\walk\.worktrees\worldcup-market-clean-20261004, 로컬 feat/worldcup-market-demo / b8bfdfc, 작업 시작 전clean.
+원본 D:\walk의 fix/passed-turn-debug-20261003 dirty7개는 보존. root TASK는 수정하지 않고 clone TASK에 이번 항목1개 추가 예정.
 
-## 다음 액션
-1. 원래 head 백업 → main에서 새 cleanup 브랜치 → 월드컵 전용 파일/필수 공통 변경만 재구성 → TASK 항목 1개 추가.
-2. web npm ci/lint/build, 기존 테스트, simulate, 홈/데모 smoke 및 데이터 blob 동일 검증.
-3. 원격 SHA 변동 없을 때만 대상 branch force-with-lease → PR 본문 갱신, draft 유지 확인.
+## 진행·다음 액션
+- AGENTS 및 main TASK 확인, remotehead gate 통과. 기존 45개 데이터·좌표null·UI·routeAPI 구조 확인.
+- Naver Maps 로컬 설정과 TMAP 로컬 설정 존재(값 비출력). 추가 로컬 env 경로를 발견하여 Google키 유무 점검 예정. env에만 로드하고 소스/로그/커밋 금지.
+- 블로그45개 글의 주소·호수 단서 수집 → Naver/Google/Kakao 주소 geocode → 시장 bounding box 밖 reject → 근거/확인날짜 기록.
+- 같은주소 같은좌표는 그대로 유지하며 임의분산 금지. 근거없으면null/미확인.
+- UI/fallback·좌표출처/range테스트 → 설치/lint/build/test/typecheck/simulate → Chrome390×844 실제API/픽셀 확인 → 일반commit/push·PR본문갱신.
 
-## 제약·데이터
-m.blog.naver.com/mwwdc 블로그에 있는 점포만, 각 출처 글 URL, 없는 정보 미확인. 점포 데이터 내용 수정 금지. 좌표/pano 없음은 남은 제한으로 보고한다.
-.env* / .github/workflows/* 값 출력·수정 금지. 사용자 worktree/stash/망원 데이터 보존.
-
-## 이전 기록
-PR #130 head 3e1dcef simulate 4개 PASS, 코드 수정·commit·push·merge 없음. 로그: .worktrees/pr130-simulate-3e1dcef.log.
-TASK-012 이전 로컬 검증은 웹149/Streamlit secrets격리598/production 통제GPS4개 PASS. 현장 GPS·실기기·운영 검증은 미완료. TASK.md·SESSION_RECAP.md·.omc/wiki/ 참조.
+## 이전 완료
+PR #143정리:37커밋23파일→3커밋19파일. 데이터원본blob d817396 유지, 홈/layout/globals main동일. local150tests/4simulate/build/lint/typecheck/Chromesmoke 및 Actions test/docs-gatePASS.
+backup/worldcup-market-demo-20261004=6200e12는 그대로 보존. 상세 .worktrees/worldcup-market-audit-20261004.md.
