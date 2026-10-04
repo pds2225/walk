@@ -1039,3 +1039,41 @@ PR =
 2026-08-26~2026-09-09의 상세 구현·테스트·PR 기록은 Git commit/PR history에 남아 있다. 이 파일은 **현재 실행할 할 일과 현재 상태를 빠르게 읽을 수 있는 active source of truth**로 유지한다.
 
 과거 상세 기록이 필요하면 해당 PR/commit을 조회한다. 완료된 과거 TASK의 장문 로그를 다시 이 파일에 중복 누적하지 않는다.
+
+---
+
+## [ ] KN-WORLDCUP-DEMO-CLEANUP-01 — 월드컵시장 데모 브랜치 정리
+
+`STATUS = VERIFIED (LOCAL_PRODUCTION_SMOKE)`
+
+`BRANCH = feat/worldcup-market-demo`
+
+`PR = #143 (draft 유지, main 병합 금지)`
+
+`BASE_COMMIT = 404c5a8c2d3e70a1e808e1d0f3410fd65234f37d`
+
+`ORIGINAL_HEAD = 6200e12fbc3e49bde8e5c9d2834003829bec51c4`
+
+`BACKUP_BRANCH = backup/worldcup-market-demo-20261004`
+
+**Goal / Scope**
+
+- 최신 main에서 `/worldcup-market` 라우트·점포 UI·필수 공통 코드만 몇 개의 커밋으로 재구성한다.
+- 망원 전용 라우트·점포 데이터·스트리트뷰 및 과거 데모/배포 이력은 포함하지 않는다. 기존 TASK 본문과 망원 항목은 수정하지 않는다.
+- `/` 홈, 기본 layout/globals.css와 ko/en/ja/zh 선택기를 main 그대로 보존한다. 데모 CSS는 월드컵시장 라우트에서만 가져온다.
+- `worldCupMarketStores.ts`의 45개 점포 내용은 원래 head와 동일하게 유지한다. 소유자 블로그 `https://m.blog.naver.com/mwwdc`의 각 출처 글 URL을 보존하고 미확인 좌표·가격·pano를 만들지 않는다.
+- 사용자 요청으로 이 브랜치에 한해 백업 확인 후 원래 head를 지정한 force-with-lease를 허용한다. 다른 브랜치 수정·main 병합·PR Ready 전환은 금지한다.
+
+**Verification / Acceptance**
+
+- [x] web 폴더에서 `npm ci`, `npm ci --include-workspace-root --include=dev`, `npm run build` 통과; lockfile 변경 없음
+- [x] web에서 `npm --prefix .. run lint`, `npm --prefix .. run test:run`(150 PASS), `npm --prefix .. run simulate`(4개 시나리오 설명과 실제 상태 일치) 통과
+- [x] root/web `npm run typecheck` 통과. main의 CommonJS 스크립트 lint 오류는 `scripts/**/*.cjs`에 한해 타입 규칙을 비활성화하고 일반 JS 검사를 유지하여 해결
+- [x] 로컬 production 127.0.0.1:3114 + 실제 Chrome(390×844): 홈·45개 점포 선택·4개 언어·주변/뒤로·deep link 통과, pageerror 0. 외부 이미지 요청은 smoke에서 차단했고 이미지/현장 검증과 구분
+- [x] 점포 데이터 blob `d81739601f0795a68aea4ac57386742aceb8742f` 원본 동일. 홈/layout/globals.css blob main 동일
+- [x] TASK는 이 항목 1개만 추가, 기존 본문 동일; 독립 정적 안전 검토 PASS, Secret/보호파일 변경 없음
+- [x] 원격 백업 head 원본 동일 확인; force-with-lease의 expected head는 ORIGINAL_HEAD로 고정. 외부 반영 결과는 PR #143 최신 head/본문에서 확인하며 draft를 유지한다
+
+**Known limitations**
+
+45개 점포의 좌표·navigation target·파노라마 ID·상품 가격은 미확인이다. 지도 핀·길찾기 시작·실제 스트리트뷰는 제공되지 않으며 검증 성공과 구분한다. 이미지 사용 권리 확인 및 실기기/현장 검증은 미완료 상태로 유지한다.
