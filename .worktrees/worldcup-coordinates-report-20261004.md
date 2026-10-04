@@ -2,6 +2,12 @@
 
 확인일: 2026-10-04. 시작 head b8bfdfce264350a83b27248086c0c91411685d94. 일반 commit/push, draft 유지, main 병합/Ready/force push 없음.
 
+최종 커밋: [77707a403de2e5be9a4ae7904a92e998617b9d28](https://github.com/pds2225/walk/commit/77707a403de2e5be9a4ae7904a92e998617b9d28). feat/worldcup-market-demo 일반 push 완료. [PR143](https://github.com/pds2225/walk/pull/143) 본문 갱신, OPEN/draft=true/merged=false 확인. 작업 clone clean, main404c5a8 유지. 이번10파일 +659/-68, main 대비4커밋/19파일.
+
+새커밋 GitHub Actions: [test PASS](https://github.com/pds2225/walk/actions/runs/37189924154), [docs-gate PASS](https://github.com/pds2225/walk/actions/runs/37189924125). test의 의존성 설치·테스트·lint·packages typecheck·route-engine build·web typecheck/build 전 단계 성공.
+
+수정 파일: TASK.md(항목1개); web/components/WorldCupMarketDemo.tsx 및 .test.tsx(위치/선택/비활성 안내); WorldCupMarketMap.tsx(공유 좌표 표시); WorldCupMarketStreetView.tsx 및 .test.tsx(NAVER 실제 거리뷰/실패 상태); web/lib/i18n.ts(시장 근처 거리뷰 문구); worldCupMarketStores.ts 및 .test.ts(주소 근거 좌표/파노 및 범위·출처 검사); worldCupMarketStreetView.ts(provider 설명). 기존 홈·layout·globals·공유 roadview 구현 및 원본 D:\walk의 미커밋7파일은 보존했다.
+
 좌표45/45, NAVER 근처 파노45/45(고유 ID13). 못 넣은 점포 없음. 블로그 본문17개/정보 이미지 실제픽셀28개 확인, Naver Geocoding 건물18개, 같은 좌표12그룹39점포. 파노와 건물 거리 최대29.08m, 모든 저장 파노50m이내. 점포 이름/ID/출처뿐 아니라 기존 stall 입력45개 전 필드가 시작head와 동일.
 
 ## 공유 좌표 (임의 분산 없음)

@@ -1,13 +1,13 @@
 # RESUME.md — walk 현재 작업
 
-> 2026-10-04 재개. 공식 SSOT는 origin/main:TASK.md.
+> 2026-10-04 17:46 KST. 공식 SSOT는 origin/main:TASK.md.
 
 ## 목표·현재 상태
 PR #143 / feat/worldcup-market-demo의 블로그 점포45개에 주소 근거 기반 좌표를 채우고 지도 핀·길찾기·거리뷰를 실제 검증한다.
-원격 head b8bfdfce264350a83b27248086c0c91411685d94 확인. 원격 main404c5a8 유지. 과거 강제갱신 때문에 stale remote-tracking6200e12를 fetch로 최신화했다. 현재 force push 금지, 일반commit/push만 허용. main 병합·Ready 전환 금지.
+시작 head b8bfdfce264350a83b27248086c0c91411685d94 gate 통과 후 일반 커밋·push 완료. 현재 원격/local head 77707a403de2e5be9a4ae7904a92e998617b9d28. 원격 main404c5a8 유지. force push·main 병합·Ready 전환 없음.
 
 ## 위치
-독립 clone D:\walk\.worktrees\worldcup-market-clean-20261004, 로컬 feat/worldcup-market-demo / b8bfdfc, 작업 시작 전clean.
+독립 clone D:\walk\.worktrees\worldcup-market-clean-20261004, 로컬 feat/worldcup-market-demo / 77707a4, 작업 트리 clean.
 원본 D:\walk의 fix/passed-turn-debug-20261003 dirty7개는 SHA256 대조로 보존 확인. root TASK는 수정하지 않았고 clone TASK에 KN-WORLDCUP-COORDINATES-01 항목1개를 추가했다.
 
 ## 진행·다음 액션
@@ -18,7 +18,9 @@ PR #143 / feat/worldcup-market-demo의 블로그 점포45개에 주소 근거 �
 - 기존 Naver SDK로18좌표 모두 실제 파노 응답확보(45/45, 최대29.08m, 13개pano ID). NAVER provider 표시 및 기존 어댑터 재사용 UI 완료. 근처 거리뷰이며 점포 정면이나 출입구 실측을 보장하지 않는다.
 - npm ci/lint/build/typecheck PASS, simulate4시나리오 PASS. 최종 test:run 기본 명령169개/20파일 PASS(12:13:29 실행), maxWorkers=2도169개 PASS. 이전 고부하 기본 실행의 5초 timeout은 최종 기본 명령에서 재현되지 않았다.
 - 실제 Chrome390×844: 점포01/45의 핀·TMAP HTTP200 도보경로(132m/99m)·경로선·Naver 거리뷰 실제 픽셀 PASS, pageErrors0. 위치는 제어값이며 현장GPS 검증 아님. 원시metadata, 사진, 명령 로그 및 상세보고서 .worktrees/worldcup-coordinates-report-20261004.md 보관.
-- 사용자가 재개와 일반 commit/push 및 PR143본문 갱신을 명시 승인했다. 수정10파일 및 PR본문 최종안 준비 완료. 최종 lint 및 기본 test:run169개 PASS를 TASK/상세보고서에 반영했다. 원격head=b8bfdfc 재확인 → 일반commit/push → PR143본문 갱신·draft 유지 → 새커밋 GitHub test/docs-gate 확인 → 새SHA와 결과 보고. force push·Ready 전환·main 병합 금지는 유지한다.
+- 재개 승인 후 원격head=b8bfdfc를 다시 확인하고 77707a4(10파일, +659/-68)를 일반 commit/push했다. PR143본문에 좌표·NAVER 파노 결과, 공유 좌표 12그룹, 검증, 건물/근처 영상/현장 GPS/배포 제한을 반영했다. OPEN·draft=true·merged=false·mergeable=true 및 본문 일치 확인 완료.
+- 새커밋 GitHub Actions test 성공: https://github.com/pds2225/walk/actions/runs/37189924154 (tests/lint/root·web typecheck/route-engine·web build 전 단계 PASS). docs-gate 성공: https://github.com/pds2225/walk/actions/runs/37189924125. main 대비4커밋/19파일이다.
+- 요청한 개발·일반 push·PR본문 갱신·GitHub 게이트 보고 준비까지 완료. 다음 별도 확인은 배포 환경 설정·현장 GPS 및 점포 입구 실측이며 현재 PR은 draft로 유지한다. 원본 미커밋7파일의 SHA256 보존 확인.
 
 ## 이전 완료
 PR #143정리:37커밋23파일→3커밋19파일. 데이터원본blob d817396 유지, 홈/layout/globals main동일. local150tests/4simulate/build/lint/typecheck/Chromesmoke 및 Actions test/docs-gatePASS.
