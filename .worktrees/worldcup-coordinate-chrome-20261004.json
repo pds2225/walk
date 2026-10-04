@@ -1,0 +1,34 @@
+{
+  "browser": "Installed Google Chrome",
+  "viewport": "390x844",
+  "geolocation": "Controlled Chrome position at source-geocoded store 07 (not physical GPS)",
+  "network": "Real map tiles and TMAP route; no API interception",
+  "results": [
+    "PASS home four languages",
+    "PASS 부부야채 map45pins, exact shared location note and real map selection",
+    "StreetView 부부야채: UNVERIFIED (no local Google API key; accurate fallback)",
+    "PASS 부부야채 walking started with live TMAP HTTP200",
+    "PASS 장터국밥 map45pins, exact shared location note and real map selection",
+    "StreetView 장터국밥: UNVERIFIED (no local Google API key; accurate fallback)",
+    "PASS 장터국밥 walking started with live TMAP HTTP200",
+    "PASS real map tile responses and zero page errors"
+  ],
+  "routeCalls": [
+    {
+      "store": "worldcup-market-01",
+      "status": 200,
+      "polylinePoints": 7,
+      "totalDistance": 132,
+      "error": null
+    },
+    {
+      "store": "worldcup-market-45",
+      "status": 200,
+      "polylinePoints": 5,
+      "totalDistance": 99,
+      "error": null
+    }
+  ],
+  "pageErrors": [],
+  "tileResponses": 36
+}

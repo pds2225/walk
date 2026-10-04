@@ -1,0 +1,3025 @@
+{
+  "checkedAt": "2026-10-04",
+  "bounds": {
+    "minLatitude": 37.554,
+    "maxLatitude": 37.5625,
+    "minLongitude": 126.9,
+    "maxLongitude": 126.91
+  },
+  "uniqueQueries": 18,
+  "records": [
+    {
+      "id": "worldcup-market-01",
+      "nameKo": "부부야채",
+      "sourceUrl": "https://m.blog.naver.com/mwwdc/224412430654",
+      "originalAddress": "서울 마포구 망원로7길 31",
+      "checkedAt": "2026-10-04",
+      "locationClues": [
+        "위치: 서울 마포구 망원로7길 31"
+      ],
+      "evidenceAddress": "서울 마포구 망원로7길 31",
+      "blogVerified": true,
+      "reason": null,
+      "geocodeQuery": "서울특별시 마포구 망원로7길 31",
+      "location": {
+        "latitude": 37.5587334,
+        "longitude": 126.9050734,
+        "source": "https://maps.apigw.ntruss.com/map-geocode/v2/geocode",
+        "coordSource": "blog-address+naver-geocode",
+        "evidenceAddress": "서울 마포구 망원로7길 31",
+        "sourceUrl": "https://m.blog.naver.com/mwwdc/224412430654",
+        "geocodedAddress": "서울특별시 마포구 망원로7길 31",
+        "verifiedAt": "2026-10-04",
+        "verificationStatus": "SINGLE_SOURCE_VERIFIED",
+        "evidenceType": "BLOG_TEXT",
+        "evidenceImageUrl": null
+      },
+      "jibunAddress": "서울특별시 마포구 망원동 424-7",
+      "evidenceType": "BLOG_TEXT"
+    },
+    {
+      "id": "worldcup-market-02",
+      "nameKo": "가락농산물",
+      "sourceUrl": "https://m.blog.naver.com/mwwdc/224412440846",
+      "originalAddress": "서울 마포구 망원로7길 23",
+      "checkedAt": "2026-10-04",
+      "locationClues": [
+        "📍 마포구 망원로7길 23 (08:00~21:00)"
+      ],
+      "evidenceAddress": "📍 마포구 망원로7길 23 (08:00~21:00)",
+      "blogVerified": true,
+      "reason": null,
+      "geocodeQuery": "서울특별시 마포구 망원로7길 23",
+      "location": {
+        "latitude": 37.5585682,
+        "longitude": 126.9051778,
+        "source": "https://maps.apigw.ntruss.com/map-geocode/v2/geocode",
+        "coordSource": "blog-address+naver-geocode",
+        "evidenceAddress": "📍 마포구 망원로7길 23 (08:00~21:00)",
+        "sourceUrl": "https://m.blog.naver.com/mwwdc/224412440846",
+        "geocodedAddress": "서울특별시 마포구 망원로7길 23",
+        "verifiedAt": "2026-10-04",
+        "verificationStatus": "SINGLE_SOURCE_VERIFIED",
+        "evidenceType": "BLOG_TEXT",
+        "evidenceImageUrl": null
+      },
+      "jibunAddress": "서울특별시 마포구 망원동 424-16",
+      "evidenceType": "BLOG_TEXT"
+    },
+    {
+      "id": "worldcup-market-03",
+      "nameKo": "흥부건어물",
+      "sourceUrl": "https://m.blog.naver.com/mwwdc/224412449101",
+      "originalAddress": "서울 마포구 망원로7길 7",
+      "checkedAt": "2026-10-04",
+      "locationClues": [
+        "📍 마포구 망원로7길 7 (09:00~19:40)"
+      ],
+      "evidenceAddress": "📍 마포구 망원로7길 7 (09:00~19:40)",
+      "blogVerified": true,
+      "reason": null,
+      "geocodeQuery": "서울특별시 마포구 망원로7길 7",
+      "location": {
+        "latitude": 37.557926,
+        "longitude": 126.9054881,
+        "source": "https://maps.apigw.ntruss.com/map-geocode/v2/geocode",
+        "coordSource": "blog-address+naver-geocode",
+        "evidenceAddress": "📍 마포구 망원로7길 7 (09:00~19:40)",
+        "sourceUrl": "https://m.blog.naver.com/mwwdc/224412449101",
+        "geocodedAddress": "서울특별시 마포구 망원로7길 7",
+        "verifiedAt": "2026-10-04",
+        "verificationStatus": "SINGLE_SOURCE_VERIFIED",
+        "evidenceType": "BLOG_TEXT",
+        "evidenceImageUrl": null
+      },
+      "jibunAddress": "서울특별시 마포구 망원동 423-12",
+      "evidenceType": "BLOG_TEXT"
+    },
+    {
+      "id": "worldcup-market-04",
+      "nameKo": "무진장전집",
+      "sourceUrl": "https://m.blog.naver.com/mwwdc/224412451212",
+      "originalAddress": "서울 마포구 망원로7길 20",
+      "checkedAt": "2026-10-04",
+      "locationClues": [
+        "위치: 서울 마포구 망원로7길 20"
+      ],
+      "evidenceAddress": "서울 마포구 망원로7길 20",
+      "blogVerified": true,
+      "reason": null,
+      "geocodeQuery": "서울특별시 마포구 망원로7길 20",
+      "location": {
+        "latitude": 37.5585035,
+        "longitude": 126.9055274,
+        "source": "https://maps.apigw.ntruss.com/map-geocode/v2/geocode",
+        "coordSource": "blog-address+naver-geocode",
+        "evidenceAddress": "서울 마포구 망원로7길 20",
+        "sourceUrl": "https://m.blog.naver.com/mwwdc/224412451212",
+        "geocodedAddress": "서울특별시 마포구 망원로7길 20",
+        "verifiedAt": "2026-10-04",
+        "verificationStatus": "SINGLE_SOURCE_VERIFIED",
+        "evidenceType": "BLOG_TEXT",
+        "evidenceImageUrl": null
+      },
+      "jibunAddress": "서울특별시 마포구 망원동 479-66",
+      "evidenceType": "BLOG_TEXT"
+    },
+    {
+      "id": "worldcup-market-05",
+      "nameKo": "돌쇠떡고을",
+      "sourceUrl": "https://m.blog.naver.com/mwwdc/224412453183",
+      "originalAddress": "서울 마포구 망원로7길 3 1층",
+      "checkedAt": "2026-10-04",
+      "locationClues": [
+        "위치: 서울 마포구 망원로7길 3 1층"
+      ],
+      "evidenceAddress": "서울 마포구 망원로7길 3 1층",
+      "blogVerified": true,
+      "reason": null,
+      "geocodeQuery": "서울특별시 마포구 망원로7길 3",
+      "location": {
+        "latitude": 37.557778,
+        "longitude": 126.9055477,
+        "source": "https://maps.apigw.ntruss.com/map-geocode/v2/geocode",
+        "coordSource": "blog-address+naver-geocode",
+        "evidenceAddress": "서울 마포구 망원로7길 3 1층",
+        "sourceUrl": "https://m.blog.naver.com/mwwdc/224412453183",
+        "geocodedAddress": "서울특별시 마포구 망원로7길 3",
+        "verifiedAt": "2026-10-04",
+        "verificationStatus": "SINGLE_SOURCE_VERIFIED",
+        "evidenceType": "BLOG_TEXT",
+        "evidenceImageUrl": null
+      },
+      "jibunAddress": "서울특별시 마포구 망원동 423-13",
+      "evidenceType": "BLOG_TEXT"
+    },
+    {
+      "id": "worldcup-market-06",
+      "nameKo": "금계옥수수",
+      "sourceUrl": "https://m.blog.naver.com/mwwdc/224412457251",
+      "originalAddress": "서울 마포구 망원로7길 6 제1층",
+      "checkedAt": "2026-10-04",
+      "locationClues": [],
+      "evidenceAddress": "서울 마포구 망원로7길 6 제1층",
+      "blogVerified": true,
+      "reason": null,
+      "sourceImages": [
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTVfMTYw/MDAxNzg5NDQ5MzM5ODIz.ndibVy-YrZtE9J_UWS4ukB4OmAkmxM2vd95oRCU3qf8g.1abcldShVqGrA6_D1_26Ho3WPAfvOuhNAyhdxkFKYmIg.PNG/1.png?type=w800",
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTVfMTQg/MDAxNzg5NDQ5MzM5OTM0.LNxOymGNdyYcx5tD3BO8zsllrGwJR8Sn18HtEPV2ic0g.CyiqQ2SxAFYgH6RUX1hjwJVpGeALsxWyqFUqRWhh3pIg.PNG/2.png?type=w800",
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTVfMTU3/MDAxNzg5NDQ5MzM5MzE2.ipct3LCm66wQbGiA38FuB_VU-xAUWSLqCtDkest3vIwg.-6rNimSai0_4zXc6MnhPc0vuJ3Hw6KbUi4J6rulfYPQg.PNG/3.png?type=w800"
+      ],
+      "addressImageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTVfMTU3/MDAxNzg5NDQ5MzM5MzE2.ipct3LCm66wQbGiA38FuB_VU-xAUWSLqCtDkest3vIwg.-6rNimSai0_4zXc6MnhPc0vuJ3Hw6KbUi4J6rulfYPQg.PNG/3.png?type=w800",
+      "addressImagePath": "D:\\walk\\.worktrees\\worldcup-blog-location-images-20261004\\worldcup-market-06-3.png",
+      "evidenceType": "BLOG_IMAGE",
+      "geocodeQuery": "서울특별시 마포구 망원로7길 6",
+      "location": {
+        "latitude": 37.5578586,
+        "longitude": 126.9057376,
+        "source": "https://maps.apigw.ntruss.com/map-geocode/v2/geocode",
+        "coordSource": "blog-address+naver-geocode",
+        "evidenceAddress": "서울 마포구 망원로7길 6 제1층",
+        "sourceUrl": "https://m.blog.naver.com/mwwdc/224412457251",
+        "geocodedAddress": "서울특별시 마포구 망원로7길 6",
+        "verifiedAt": "2026-10-04",
+        "verificationStatus": "SINGLE_SOURCE_VERIFIED",
+        "evidenceType": "BLOG_IMAGE",
+        "evidenceImageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTVfMTU3/MDAxNzg5NDQ5MzM5MzE2.ipct3LCm66wQbGiA38FuB_VU-xAUWSLqCtDkest3vIwg.-6rNimSai0_4zXc6MnhPc0vuJ3Hw6KbUi4J6rulfYPQg.PNG/3.png?type=w800"
+      },
+      "jibunAddress": "서울특별시 마포구 망원동 483-15"
+    },
+    {
+      "id": "worldcup-market-07",
+      "nameKo": "송가한우마을",
+      "sourceUrl": "https://m.blog.naver.com/mwwdc/224412460197",
+      "originalAddress": "서울 마포구 망원로 79 1층",
+      "checkedAt": "2026-10-04",
+      "locationClues": [],
+      "evidenceAddress": "서울 마포구 망원로 79 1층",
+      "blogVerified": true,
+      "reason": null,
+      "sourceImages": [
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTVfMTU0/MDAxNzg5NDQ5NDg5MDk4.MwiZdAaTN8At4a42ne9EVyo2H1Xr2Qb5hcPCzy68amwg.5tPtg_lziKt0Gw5wFVzD8plDtlpC5WKbQw4vp5atiOUg.PNG/1.png?type=w800",
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTVfMTg4/MDAxNzg5NDQ5NDg5MTU5._gXxcN0bfe538nwHrzuelKdXCmMw5Wm3QsfOOGoCYOMg.75Fp0NjqyalFH1gwx6CmK2djnKHKONei4sziYqzFkTAg.PNG/2.png?type=w800",
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTVfMTA4/MDAxNzg5NDQ5NDg4NTQ4.6sa1H0JP3IlizZiaj9HzCAaDHmAGh7zwaGkzLIYvhBog.7eaE-v5QpgsALHIW2MZTlu_6-fj-KDar6r9053UXjBsg.PNG/3.png?type=w800"
+      ],
+      "addressImageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTVfMTA4/MDAxNzg5NDQ5NDg4NTQ4.6sa1H0JP3IlizZiaj9HzCAaDHmAGh7zwaGkzLIYvhBog.7eaE-v5QpgsALHIW2MZTlu_6-fj-KDar6r9053UXjBsg.PNG/3.png?type=w800",
+      "addressImagePath": "D:\\walk\\.worktrees\\worldcup-blog-location-images-20261004\\worldcup-market-07-3.png",
+      "evidenceType": "BLOG_IMAGE",
+      "geocodeQuery": "서울특별시 마포구 망원로 79",
+      "location": {
+        "latitude": 37.5576343,
+        "longitude": 126.9055895,
+        "source": "https://maps.apigw.ntruss.com/map-geocode/v2/geocode",
+        "coordSource": "blog-address+naver-geocode",
+        "evidenceAddress": "서울 마포구 망원로 79 1층",
+        "sourceUrl": "https://m.blog.naver.com/mwwdc/224412460197",
+        "geocodedAddress": "서울특별시 마포구 망원로 79",
+        "verifiedAt": "2026-10-04",
+        "verificationStatus": "SINGLE_SOURCE_VERIFIED",
+        "evidenceType": "BLOG_IMAGE",
+        "evidenceImageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTVfMTA4/MDAxNzg5NDQ5NDg4NTQ4.6sa1H0JP3IlizZiaj9HzCAaDHmAGh7zwaGkzLIYvhBog.7eaE-v5QpgsALHIW2MZTlu_6-fj-KDar6r9053UXjBsg.PNG/3.png?type=w800"
+      },
+      "jibunAddress": "서울특별시 마포구 망원동 423-15"
+    },
+    {
+      "id": "worldcup-market-08",
+      "nameKo": "충남수산",
+      "sourceUrl": "https://m.blog.naver.com/mwwdc/224412478736",
+      "originalAddress": "서울 마포구 망원로7길 4",
+      "checkedAt": "2026-10-04",
+      "locationClues": [],
+      "evidenceAddress": "서울 마포구 망원로7길 4",
+      "blogVerified": true,
+      "reason": null,
+      "sourceImages": [
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTVfNTMg/MDAxNzg5NDUwMzI5Mjg2.zscq3RYHZbtMEggqZgzHV8J0MTdBXGMz110qO0pAGxEg.e2YTs1RKYwBx7gRy54xtSHHt9PJr_zeoQSEuGqcu-J0g.PNG/1.png?type=w800",
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTVfNTkg/MDAxNzg5NDUwMzI5MTc5.kSIkxV5OOkwAMZfJUVF1Shc8dXOEGrZfDe1OxWBVQukg.LBimraKSVggc1cUd9EVmw9utIAab-T5LbBL66undUvAg.PNG/2.png?type=w800",
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTVfMTI1/MDAxNzg5NDUwMzI5MDI2.0dYX1uji8fbgCVOxq4zz6pZM-rvcnJeTLn1ixiKio00g.xY8D3ZrClDGpb3ikkSQ0CBn0mFVLoMmGBEE8vSyi95Qg.PNG/3.png?type=w800"
+      ],
+      "addressImageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTVfMTI1/MDAxNzg5NDUwMzI5MDI2.0dYX1uji8fbgCVOxq4zz6pZM-rvcnJeTLn1ixiKio00g.xY8D3ZrClDGpb3ikkSQ0CBn0mFVLoMmGBEE8vSyi95Qg.PNG/3.png?type=w800",
+      "addressImagePath": "D:\\walk\\.worktrees\\worldcup-blog-location-images-20261004\\worldcup-market-08-3.png",
+      "evidenceType": "BLOG_IMAGE",
+      "geocodeQuery": "서울특별시 마포구 망원로7길 4",
+      "location": {
+        "latitude": 37.5577619,
+        "longitude": 126.9057674,
+        "source": "https://maps.apigw.ntruss.com/map-geocode/v2/geocode",
+        "coordSource": "blog-address+naver-geocode",
+        "evidenceAddress": "서울 마포구 망원로7길 4",
+        "sourceUrl": "https://m.blog.naver.com/mwwdc/224412478736",
+        "geocodedAddress": "서울특별시 마포구 망원로7길 4",
+        "verifiedAt": "2026-10-04",
+        "verificationStatus": "SINGLE_SOURCE_VERIFIED",
+        "evidenceType": "BLOG_IMAGE",
+        "evidenceImageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTVfMTI1/MDAxNzg5NDUwMzI5MDI2.0dYX1uji8fbgCVOxq4zz6pZM-rvcnJeTLn1ixiKio00g.xY8D3ZrClDGpb3ikkSQ0CBn0mFVLoMmGBEE8vSyi95Qg.PNG/3.png?type=w800"
+      },
+      "jibunAddress": "서울특별시 마포구 망원동 483-14"
+    },
+    {
+      "id": "worldcup-market-09",
+      "nameKo": "패션타운",
+      "sourceUrl": "https://m.blog.naver.com/mwwdc/224412482001",
+      "originalAddress": "서울 마포구 망원로7길 13",
+      "checkedAt": "2026-10-04",
+      "locationClues": [],
+      "evidenceAddress": "서울 마포구 망원로7길 13",
+      "blogVerified": true,
+      "reason": null,
+      "sourceImages": [
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfNTMg/MDAxNzg5NTM1Nzk4MzIy.dVHxfLekylghmVJbAGFlFmY0N9GRBTjQXabFJUyuYXog.gHE9q5PMrj1oAcY4ZukhNjwxOU9oYHdTi49R3EJO69gg.PNG/SE-83c502e6-7602-4e41-8b31-43e8f8bdae80.png?type=w800",
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTVfODYg/MDAxNzg5NDUwNTYwNTI1.vekpgKtPcTjDP892D9wJ4kyfddesjK-xlkuFx0q35rkg.LHifz4tAAuEUN1plDRAZrfesjxYsdMEscBDUVwKjcQAg.PNG/2.png?type=w800",
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTVfMTY3/MDAxNzg5NDUwNTU5OTEw.-bdLb3Bly31GDGdVU41dFZ0ljbDtNjsU_Z2dZESxv_Ig.6BCP2gbApuMJAE0fNkjx11bhAWmm6yUVoExaPEoUrNQg.PNG/3.png?type=w800"
+      ],
+      "addressImageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTVfMTY3/MDAxNzg5NDUwNTU5OTEw.-bdLb3Bly31GDGdVU41dFZ0ljbDtNjsU_Z2dZESxv_Ig.6BCP2gbApuMJAE0fNkjx11bhAWmm6yUVoExaPEoUrNQg.PNG/3.png?type=w800",
+      "addressImagePath": "D:\\walk\\.worktrees\\worldcup-blog-location-images-20261004\\worldcup-market-09-3.png",
+      "evidenceType": "BLOG_IMAGE",
+      "geocodeQuery": "서울특별시 마포구 망원로7길 13",
+      "location": {
+        "latitude": 37.558114,
+        "longitude": 126.9054151,
+        "source": "https://maps.apigw.ntruss.com/map-geocode/v2/geocode",
+        "coordSource": "blog-address+naver-geocode",
+        "evidenceAddress": "서울 마포구 망원로7길 13",
+        "sourceUrl": "https://m.blog.naver.com/mwwdc/224412482001",
+        "geocodedAddress": "서울특별시 마포구 망원로7길 13",
+        "verifiedAt": "2026-10-04",
+        "verificationStatus": "SINGLE_SOURCE_VERIFIED",
+        "evidenceType": "BLOG_IMAGE",
+        "evidenceImageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTVfMTY3/MDAxNzg5NDUwNTU5OTEw.-bdLb3Bly31GDGdVU41dFZ0ljbDtNjsU_Z2dZESxv_Ig.6BCP2gbApuMJAE0fNkjx11bhAWmm6yUVoExaPEoUrNQg.PNG/3.png?type=w800"
+      },
+      "jibunAddress": "서울특별시 마포구 망원동 424-33"
+    },
+    {
+      "id": "worldcup-market-10",
+      "nameKo": "윤아네",
+      "sourceUrl": "https://m.blog.naver.com/mwwdc/224412557185",
+      "originalAddress": "서울시 마포구 망원로7길 13",
+      "checkedAt": "2026-10-04",
+      "locationClues": [],
+      "evidenceAddress": "서울시 마포구 망원로7길 13",
+      "blogVerified": true,
+      "reason": null,
+      "sourceImages": [
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTVfMjMy/MDAxNzg5NDUzOTEyNDAx.XKkIoJ1z8481XyBeRSzLnpO739U_cwV8Lsrvoz66Jd0g.cR_aQ3slhVhUjF10A74pdGAGJSmGOdbniz_JT_fBHUsg.PNG/1.png?type=w800",
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTVfMTEx/MDAxNzg5NDUzOTEyNTA5.20smVMn8ZTZ6Klvr6Kc2KI6jTQ_ZbgpA1HspxCL9Cpkg.JEsGcKdOE9oEyZTQ1WEWaCFj2MIFaTQIuEkhj1UmVQ0g.PNG/2.png?type=w800",
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTVfNDgg/MDAxNzg5NDUzOTEyNDUz.0laP8ITKtjzMwpiTNPTzDYyC0n-wo-FxPDXefdY4uEkg.qD77HT1rwrhXMqe2YlMaC6Msqe96sdEsTKXhw6J4ovQg.PNG/3.png?type=w800"
+      ],
+      "addressImageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTVfNDgg/MDAxNzg5NDUzOTEyNDUz.0laP8ITKtjzMwpiTNPTzDYyC0n-wo-FxPDXefdY4uEkg.qD77HT1rwrhXMqe2YlMaC6Msqe96sdEsTKXhw6J4ovQg.PNG/3.png?type=w800",
+      "addressImagePath": "D:\\walk\\.worktrees\\worldcup-blog-location-images-20261004\\worldcup-market-10-3.png",
+      "evidenceType": "BLOG_IMAGE",
+      "geocodeQuery": "서울특별시 마포구 망원로7길 13",
+      "location": {
+        "latitude": 37.558114,
+        "longitude": 126.9054151,
+        "source": "https://maps.apigw.ntruss.com/map-geocode/v2/geocode",
+        "coordSource": "blog-address+naver-geocode",
+        "evidenceAddress": "서울시 마포구 망원로7길 13",
+        "sourceUrl": "https://m.blog.naver.com/mwwdc/224412557185",
+        "geocodedAddress": "서울특별시 마포구 망원로7길 13",
+        "verifiedAt": "2026-10-04",
+        "verificationStatus": "SINGLE_SOURCE_VERIFIED",
+        "evidenceType": "BLOG_IMAGE",
+        "evidenceImageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTVfNDgg/MDAxNzg5NDUzOTEyNDUz.0laP8ITKtjzMwpiTNPTzDYyC0n-wo-FxPDXefdY4uEkg.qD77HT1rwrhXMqe2YlMaC6Msqe96sdEsTKXhw6J4ovQg.PNG/3.png?type=w800"
+      },
+      "jibunAddress": "서울특별시 마포구 망원동 424-33"
+    },
+    {
+      "id": "worldcup-market-11",
+      "nameKo": "달인수제한방족발",
+      "sourceUrl": "https://m.blog.naver.com/mwwdc/224413698434",
+      "originalAddress": "서울 마포구 망원로7길 24",
+      "checkedAt": "2026-10-04",
+      "locationClues": [],
+      "evidenceAddress": "서울 마포구 망원로7길 24",
+      "blogVerified": true,
+      "reason": null,
+      "sourceImages": [
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjkz/MDAxNzg5NTM1NTcxNTQ2.zyyscpWjNdN_9XIMXV2oljW4g3AcGVUhWdUVAgiT0RMg.dwfRhKdNIwuX4CnfSJfCUHWZPMnJ3kwKk_3Qpxx-gw8g.PNG/1.png?type=w800",
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjY0/MDAxNzg5NTM1NTcxNTM2.6r807Ol_iqqS03UyOfsrekjIvXS6S8nPvWquWNLNzcgg.t73fC3-Gy7J8echbMGwipsUbjJovPYNM-4VIHnHUahMg.PNG/2.png?type=w800",
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMzQg/MDAxNzg5NTM1NTcxMjI2.QXa2a0kOkLgfbfx5KSwyS4HtF6OtgeS8fqeKJx8AxJcg.iOfjiN3BRtnGcWQ6Fo0bmboc5GiVoJzC8VVD0--hRI8g.PNG/3.png?type=w800"
+      ],
+      "addressImageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMzQg/MDAxNzg5NTM1NTcxMjI2.QXa2a0kOkLgfbfx5KSwyS4HtF6OtgeS8fqeKJx8AxJcg.iOfjiN3BRtnGcWQ6Fo0bmboc5GiVoJzC8VVD0--hRI8g.PNG/3.png?type=w800",
+      "addressImagePath": "D:\\walk\\.worktrees\\worldcup-blog-location-images-20261004\\worldcup-market-11-3.png",
+      "evidenceType": "BLOG_IMAGE",
+      "geocodeQuery": "서울특별시 마포구 망원로7길 24",
+      "location": {
+        "latitude": 37.5586569,
+        "longitude": 126.9054136,
+        "source": "https://maps.apigw.ntruss.com/map-geocode/v2/geocode",
+        "coordSource": "blog-address+naver-geocode",
+        "evidenceAddress": "서울 마포구 망원로7길 24",
+        "sourceUrl": "https://m.blog.naver.com/mwwdc/224413698434",
+        "geocodedAddress": "서울특별시 마포구 망원로7길 24 한일주택",
+        "verifiedAt": "2026-10-04",
+        "verificationStatus": "SINGLE_SOURCE_VERIFIED",
+        "evidenceType": "BLOG_IMAGE",
+        "evidenceImageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMzQg/MDAxNzg5NTM1NTcxMjI2.QXa2a0kOkLgfbfx5KSwyS4HtF6OtgeS8fqeKJx8AxJcg.iOfjiN3BRtnGcWQ6Fo0bmboc5GiVoJzC8VVD0--hRI8g.PNG/3.png?type=w800"
+      },
+      "jibunAddress": "서울특별시 마포구 망원동 479-63 한일주택"
+    },
+    {
+      "id": "worldcup-market-12",
+      "nameKo": "토종한우백화점",
+      "sourceUrl": "https://m.blog.naver.com/mwwdc/224413700679",
+      "originalAddress": "서울 마포구 망원로7길 30 토종한우백화점",
+      "checkedAt": "2026-10-04",
+      "locationClues": [],
+      "evidenceAddress": "서울 마포구 망원로7길 30 토종한우백화점",
+      "blogVerified": true,
+      "reason": null,
+      "sourceImages": [
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfNTgg/MDAxNzg5NTM1NjYzMTEz.08g9aj0m9GQP44k-_dBwMDaXpF1zznZ7wC-NBpKELegg.mqBwDBNd_dMTzAIvHHZOB3Ocse2eOeUgi0_h4zE6TS4g.PNG/1.png?type=w800",
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjQy/MDAxNzg5NTM1NjYzMjEy.4-Zz1cJ-BqrhRv8--Cd2lSvnv2DFzPoJoPiNd0BEU0sg.BNkNvciRDyuegE9x4Mm1rAe7f7OMfrNfo_GoQwROGBcg.PNG/2.png?type=w800",
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjU0/MDAxNzg5NTM1NjYyODc2.hKaCyLg3V5OWS6OINVhrbQ7afrc2Ce_jUscr5Emby48g._zOB2L3b6L9uNXTzf3g4UvoWhbmYxw0InIztPtuG0Vgg.PNG/3.png?type=w800"
+      ],
+      "addressImageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjU0/MDAxNzg5NTM1NjYyODc2.hKaCyLg3V5OWS6OINVhrbQ7afrc2Ce_jUscr5Emby48g._zOB2L3b6L9uNXTzf3g4UvoWhbmYxw0InIztPtuG0Vgg.PNG/3.png?type=w800",
+      "addressImagePath": "D:\\walk\\.worktrees\\worldcup-blog-location-images-20261004\\worldcup-market-12-3.png",
+      "evidenceType": "BLOG_IMAGE",
+      "geocodeQuery": "서울특별시 마포구 망원로7길 30",
+      "location": {
+        "latitude": 37.5588576,
+        "longitude": 126.9052472,
+        "source": "https://maps.apigw.ntruss.com/map-geocode/v2/geocode",
+        "coordSource": "blog-address+naver-geocode",
+        "evidenceAddress": "서울 마포구 망원로7길 30 토종한우백화점",
+        "sourceUrl": "https://m.blog.naver.com/mwwdc/224413700679",
+        "geocodedAddress": "서울특별시 마포구 망원로7길 30",
+        "verifiedAt": "2026-10-04",
+        "verificationStatus": "SINGLE_SOURCE_VERIFIED",
+        "evidenceType": "BLOG_IMAGE",
+        "evidenceImageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjU0/MDAxNzg5NTM1NjYyODc2.hKaCyLg3V5OWS6OINVhrbQ7afrc2Ce_jUscr5Emby48g._zOB2L3b6L9uNXTzf3g4UvoWhbmYxw0InIztPtuG0Vgg.PNG/3.png?type=w800"
+      },
+      "jibunAddress": "서울특별시 마포구 망원동 479-61"
+    },
+    {
+      "id": "worldcup-market-13",
+      "nameKo": "무진장맛집",
+      "sourceUrl": "https://m.blog.naver.com/mwwdc/224413711378",
+      "originalAddress": "서울시 마포구 망원로7길 13",
+      "checkedAt": "2026-10-04",
+      "locationClues": [],
+      "evidenceAddress": "서울시 마포구 망원로7길 13",
+      "blogVerified": true,
+      "reason": null,
+      "sourceImages": [
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfNDAg/MDAxNzg5NTM2MTE1MjEz.Ov5tsErSarhCFdQ-L0IIwDbbr_myxCv26xAtgRFLaowg.8yHlLXMhRnVYk3fM4kpYizdUOE2pKGgI37NIsMbwoqog.PNG/1.png?type=w800",
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfODAg/MDAxNzg5NTM2MTE0OTU5.TObrP6mJnebfC6BSIWZldoWTWn6gj6WlGNnmuTP_vrUg.rjD9X1GNl3fkk95cteSJeKohs024CbKs8z0nsXtiKxUg.PNG/2.png?type=w800",
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMTQ2/MDAxNzg5NTM2MTE0ODM2.dkACoYEq9JdZhfDjoNiuIHy1SxzIKl7whE2pPuc9Yj0g.8Up-_qW9s9sPp-jEzNsPSwmRz2z-FQ5tpauLwe0TaKgg.PNG/3.png?type=w800"
+      ],
+      "addressImageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMTQ2/MDAxNzg5NTM2MTE0ODM2.dkACoYEq9JdZhfDjoNiuIHy1SxzIKl7whE2pPuc9Yj0g.8Up-_qW9s9sPp-jEzNsPSwmRz2z-FQ5tpauLwe0TaKgg.PNG/3.png?type=w800",
+      "addressImagePath": "D:\\walk\\.worktrees\\worldcup-blog-location-images-20261004\\worldcup-market-13-3.png",
+      "evidenceType": "BLOG_IMAGE",
+      "geocodeQuery": "서울특별시 마포구 망원로7길 13",
+      "location": {
+        "latitude": 37.558114,
+        "longitude": 126.9054151,
+        "source": "https://maps.apigw.ntruss.com/map-geocode/v2/geocode",
+        "coordSource": "blog-address+naver-geocode",
+        "evidenceAddress": "서울시 마포구 망원로7길 13",
+        "sourceUrl": "https://m.blog.naver.com/mwwdc/224413711378",
+        "geocodedAddress": "서울특별시 마포구 망원로7길 13",
+        "verifiedAt": "2026-10-04",
+        "verificationStatus": "SINGLE_SOURCE_VERIFIED",
+        "evidenceType": "BLOG_IMAGE",
+        "evidenceImageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMTQ2/MDAxNzg5NTM2MTE0ODM2.dkACoYEq9JdZhfDjoNiuIHy1SxzIKl7whE2pPuc9Yj0g.8Up-_qW9s9sPp-jEzNsPSwmRz2z-FQ5tpauLwe0TaKgg.PNG/3.png?type=w800"
+      },
+      "jibunAddress": "서울특별시 마포구 망원동 424-33"
+    },
+    {
+      "id": "worldcup-market-14",
+      "nameKo": "애기수산",
+      "sourceUrl": "https://m.blog.naver.com/mwwdc/224413713111",
+      "originalAddress": "서울 마포구 망원로7길 17 102호",
+      "checkedAt": "2026-10-04",
+      "locationClues": [],
+      "evidenceAddress": "서울 마포구 망원로7길 17 102호",
+      "blogVerified": true,
+      "reason": null,
+      "sourceImages": [
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjcy/MDAxNzg5NTM2MjEzMjIy.TGPV0KHYmEdb-d4-dGg9pWuZ_QWsq2DSGZy4ixltLusg.CELQh7rgRvcJAKvmsOYdiGrVn0wtSYZgtCm59OyRfxkg.PNG/1.png?type=w800",
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfNjIg/MDAxNzg5NTM2MjEzMTgx.ZaLI3FoYa6OAad6Iyt3LH7f65YSLf7y0TYGmnv8u_Lcg.tUcEdxiBi9cIpo3EsL8Sccjly_jfKLUVqwd5rIS11U0g.PNG/2.png?type=w800",
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjk0/MDAxNzg5NTM2MjEyNjIz.CkdPL-t0Qq5_e37nGpShg38e0KXLYKSV8V4TsiZ0q84g.obqzS9NMpe5S6VjEEU2WFOm_LLAuLAVeL8ox0-6dXvYg.PNG/3.png?type=w800"
+      ],
+      "addressImageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjk0/MDAxNzg5NTM2MjEyNjIz.CkdPL-t0Qq5_e37nGpShg38e0KXLYKSV8V4TsiZ0q84g.obqzS9NMpe5S6VjEEU2WFOm_LLAuLAVeL8ox0-6dXvYg.PNG/3.png?type=w800",
+      "addressImagePath": "D:\\walk\\.worktrees\\worldcup-blog-location-images-20261004\\worldcup-market-14-3.png",
+      "evidenceType": "BLOG_IMAGE",
+      "geocodeQuery": "서울특별시 마포구 망원로7길 17",
+      "location": {
+        "latitude": 37.5582506,
+        "longitude": 126.9053372,
+        "source": "https://maps.apigw.ntruss.com/map-geocode/v2/geocode",
+        "coordSource": "blog-address+naver-geocode",
+        "evidenceAddress": "서울 마포구 망원로7길 17 102호",
+        "sourceUrl": "https://m.blog.naver.com/mwwdc/224413713111",
+        "geocodedAddress": "서울특별시 마포구 망원로7길 17 지상빌딩",
+        "verifiedAt": "2026-10-04",
+        "verificationStatus": "SINGLE_SOURCE_VERIFIED",
+        "evidenceType": "BLOG_IMAGE",
+        "evidenceImageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjk0/MDAxNzg5NTM2MjEyNjIz.CkdPL-t0Qq5_e37nGpShg38e0KXLYKSV8V4TsiZ0q84g.obqzS9NMpe5S6VjEEU2WFOm_LLAuLAVeL8ox0-6dXvYg.PNG/3.png?type=w800"
+      },
+      "jibunAddress": "서울특별시 마포구 망원동 424-32 지상빌딩"
+    },
+    {
+      "id": "worldcup-market-15",
+      "nameKo": "명성족발",
+      "sourceUrl": "https://m.blog.naver.com/mwwdc/224413714916",
+      "originalAddress": "서울특별시 마포구 월드컵로25길 35",
+      "checkedAt": "2026-10-04",
+      "locationClues": [],
+      "evidenceAddress": "서울특별시 마포구 월드컵로25길 35",
+      "blogVerified": true,
+      "reason": null,
+      "sourceImages": [
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMTI1/MDAxNzg5NTM2MjkyMDMw.cEkeeVe8M5TGx7RfS7cQ3JFxTBxqF35RwY-CCCtn6wgg.PUqMr_QwQaoiDa8FAzlH-yYPp0398u9e5NWS7r86eM4g.PNG/1.png?type=w800",
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjUg/MDAxNzg5NTM2MjkxODE2.69Fd71_PmdLAir5yBeI09yh9xuQOIQY3e7js4nRM5xIg.nvFn4vNT24P0cPfm3eNkzGobR_4kUVeoodvTmhKsB64g.PNG/2.png?type=w800",
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMTMg/MDAxNzg5NTM2MjkxODM3.N3zVht2srL_cQuIPxexFMITxO-aBhEMpHX5g4M3ZwNcg.NMPJMNA1WDupjpaZ9xE3aO4gS7ezNPmiavFWMzMDG1Ag.PNG/3.png?type=w800"
+      ],
+      "addressImageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMTMg/MDAxNzg5NTM2MjkxODM3.N3zVht2srL_cQuIPxexFMITxO-aBhEMpHX5g4M3ZwNcg.NMPJMNA1WDupjpaZ9xE3aO4gS7ezNPmiavFWMzMDG1Ag.PNG/3.png?type=w800",
+      "addressImagePath": "D:\\walk\\.worktrees\\worldcup-blog-location-images-20261004\\worldcup-market-15-3.png",
+      "evidenceType": "BLOG_IMAGE",
+      "geocodeQuery": "서울특별시 마포구 월드컵로25길 35",
+      "location": {
+        "latitude": 37.5579801,
+        "longitude": 126.9057035,
+        "source": "https://maps.apigw.ntruss.com/map-geocode/v2/geocode",
+        "coordSource": "blog-address+naver-geocode",
+        "evidenceAddress": "서울특별시 마포구 월드컵로25길 35",
+        "sourceUrl": "https://m.blog.naver.com/mwwdc/224413714916",
+        "geocodedAddress": "서울특별시 마포구 월드컵로25길 35",
+        "verifiedAt": "2026-10-04",
+        "verificationStatus": "SINGLE_SOURCE_VERIFIED",
+        "evidenceType": "BLOG_IMAGE",
+        "evidenceImageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMTMg/MDAxNzg5NTM2MjkxODM3.N3zVht2srL_cQuIPxexFMITxO-aBhEMpHX5g4M3ZwNcg.NMPJMNA1WDupjpaZ9xE3aO4gS7ezNPmiavFWMzMDG1Ag.PNG/3.png?type=w800"
+      },
+      "jibunAddress": "서울특별시 마포구 망원동 483-16"
+    },
+    {
+      "id": "worldcup-market-16",
+      "nameKo": "아부찌부대찌개",
+      "sourceUrl": "https://m.blog.naver.com/mwwdc/224413716257",
+      "originalAddress": "서울 마포구 망원로7길 7, 1층 3호",
+      "checkedAt": "2026-10-04",
+      "locationClues": [
+        "위치: 서울 마포구 망원로7길 7, 1층 3호"
+      ],
+      "evidenceAddress": "서울 마포구 망원로7길 7, 1층 3호",
+      "blogVerified": true,
+      "reason": null,
+      "geocodeQuery": "서울특별시 마포구 망원로7길 7",
+      "location": {
+        "latitude": 37.557926,
+        "longitude": 126.9054881,
+        "source": "https://maps.apigw.ntruss.com/map-geocode/v2/geocode",
+        "coordSource": "blog-address+naver-geocode",
+        "evidenceAddress": "서울 마포구 망원로7길 7, 1층 3호",
+        "sourceUrl": "https://m.blog.naver.com/mwwdc/224413716257",
+        "geocodedAddress": "서울특별시 마포구 망원로7길 7",
+        "verifiedAt": "2026-10-04",
+        "verificationStatus": "SINGLE_SOURCE_VERIFIED",
+        "evidenceType": "BLOG_TEXT",
+        "evidenceImageUrl": null
+      },
+      "jibunAddress": "서울특별시 마포구 망원동 423-12",
+      "evidenceType": "BLOG_TEXT"
+    },
+    {
+      "id": "worldcup-market-17",
+      "nameKo": "수산킹",
+      "sourceUrl": "https://m.blog.naver.com/mwwdc/224413717875",
+      "originalAddress": "서울 마포구 월드컵로25길 35",
+      "checkedAt": "2026-10-04",
+      "locationClues": [
+        "위치: 서울 마포구 월드컵로25길 35"
+      ],
+      "evidenceAddress": "서울 마포구 월드컵로25길 35",
+      "blogVerified": true,
+      "reason": null,
+      "geocodeQuery": "서울특별시 마포구 월드컵로25길 35",
+      "location": {
+        "latitude": 37.5579801,
+        "longitude": 126.9057035,
+        "source": "https://maps.apigw.ntruss.com/map-geocode/v2/geocode",
+        "coordSource": "blog-address+naver-geocode",
+        "evidenceAddress": "서울 마포구 월드컵로25길 35",
+        "sourceUrl": "https://m.blog.naver.com/mwwdc/224413717875",
+        "geocodedAddress": "서울특별시 마포구 월드컵로25길 35",
+        "verifiedAt": "2026-10-04",
+        "verificationStatus": "SINGLE_SOURCE_VERIFIED",
+        "evidenceType": "BLOG_TEXT",
+        "evidenceImageUrl": null
+      },
+      "jibunAddress": "서울특별시 마포구 망원동 483-16",
+      "evidenceType": "BLOG_TEXT"
+    },
+    {
+      "id": "worldcup-market-18",
+      "nameKo": "거두식품",
+      "sourceUrl": "https://m.blog.naver.com/mwwdc/224413720695",
+      "originalAddress": "서울 마포구 망원로7길 20",
+      "checkedAt": "2026-10-04",
+      "locationClues": [
+        "위치: 서울 마포구 망원로7길 20"
+      ],
+      "evidenceAddress": "서울 마포구 망원로7길 20",
+      "blogVerified": true,
+      "reason": null,
+      "geocodeQuery": "서울특별시 마포구 망원로7길 20",
+      "location": {
+        "latitude": 37.5585035,
+        "longitude": 126.9055274,
+        "source": "https://maps.apigw.ntruss.com/map-geocode/v2/geocode",
+        "coordSource": "blog-address+naver-geocode",
+        "evidenceAddress": "서울 마포구 망원로7길 20",
+        "sourceUrl": "https://m.blog.naver.com/mwwdc/224413720695",
+        "geocodedAddress": "서울특별시 마포구 망원로7길 20",
+        "verifiedAt": "2026-10-04",
+        "verificationStatus": "SINGLE_SOURCE_VERIFIED",
+        "evidenceType": "BLOG_TEXT",
+        "evidenceImageUrl": null
+      },
+      "jibunAddress": "서울특별시 마포구 망원동 479-66",
+      "evidenceType": "BLOG_TEXT"
+    },
+    {
+      "id": "worldcup-market-19",
+      "nameKo": "미향이네",
+      "sourceUrl": "https://m.blog.naver.com/mwwdc/224413722923",
+      "originalAddress": "서울시 마포구 망원로7길 13",
+      "checkedAt": "2026-10-04",
+      "locationClues": [
+        "위치: 서울시 마포구 망원로7길 13"
+      ],
+      "evidenceAddress": "서울시 마포구 망원로7길 13",
+      "blogVerified": true,
+      "reason": null,
+      "geocodeQuery": "서울특별시 마포구 망원로7길 13",
+      "location": {
+        "latitude": 37.558114,
+        "longitude": 126.9054151,
+        "source": "https://maps.apigw.ntruss.com/map-geocode/v2/geocode",
+        "coordSource": "blog-address+naver-geocode",
+        "evidenceAddress": "서울시 마포구 망원로7길 13",
+        "sourceUrl": "https://m.blog.naver.com/mwwdc/224413722923",
+        "geocodedAddress": "서울특별시 마포구 망원로7길 13",
+        "verifiedAt": "2026-10-04",
+        "verificationStatus": "SINGLE_SOURCE_VERIFIED",
+        "evidenceType": "BLOG_TEXT",
+        "evidenceImageUrl": null
+      },
+      "jibunAddress": "서울특별시 마포구 망원동 424-33",
+      "evidenceType": "BLOG_TEXT"
+    },
+    {
+      "id": "worldcup-market-20",
+      "nameKo": "월드컵신발",
+      "sourceUrl": "https://m.blog.naver.com/mwwdc/224413724445",
+      "originalAddress": "서울시 마포구 망원로7길 13",
+      "checkedAt": "2026-10-04",
+      "locationClues": [],
+      "evidenceAddress": "서울시 마포구 망원로7길 13",
+      "blogVerified": true,
+      "reason": null,
+      "sourceImages": [
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMTY2/MDAxNzg5NTM2NzQ2NTE2.wElhn_Viq8Z8aZW5MmLEGkatDGfXlrnJ8I-0Icxrc_Ag.OrhpRh1Hg0AZZsbGGW2F1QxaOvah7mpxQ3S0RLZEGzMg.PNG/1.png?type=w800",
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMTY1/MDAxNzg5NTM2NzQ2NTUz.tWgxpyZZFvcj_Xapj1rZoSiFn2KZLPwPA6wDjy4Hfxgg.mgz3N2-_zrmRyNgXrrTVhV6s9s46f23f7eXgMK7ru1cg.PNG/2.png?type=w800",
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjky/MDAxNzg5NTM2NzQ1OTU5.mFM0eBSkz55LJ_0HI6nM7bmpz_8PsKICzRJYdpTR_Kog.qugbopFuxaFNdzamT1q09es858_VoAHtQd3ihpxSt64g.PNG/3.png?type=w800"
+      ],
+      "addressImageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjky/MDAxNzg5NTM2NzQ1OTU5.mFM0eBSkz55LJ_0HI6nM7bmpz_8PsKICzRJYdpTR_Kog.qugbopFuxaFNdzamT1q09es858_VoAHtQd3ihpxSt64g.PNG/3.png?type=w800",
+      "addressImagePath": "D:\\walk\\.worktrees\\worldcup-blog-location-images-20261004\\worldcup-market-20-3.png",
+      "evidenceType": "BLOG_IMAGE",
+      "geocodeQuery": "서울특별시 마포구 망원로7길 13",
+      "location": {
+        "latitude": 37.558114,
+        "longitude": 126.9054151,
+        "source": "https://maps.apigw.ntruss.com/map-geocode/v2/geocode",
+        "coordSource": "blog-address+naver-geocode",
+        "evidenceAddress": "서울시 마포구 망원로7길 13",
+        "sourceUrl": "https://m.blog.naver.com/mwwdc/224413724445",
+        "geocodedAddress": "서울특별시 마포구 망원로7길 13",
+        "verifiedAt": "2026-10-04",
+        "verificationStatus": "SINGLE_SOURCE_VERIFIED",
+        "evidenceType": "BLOG_IMAGE",
+        "evidenceImageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjky/MDAxNzg5NTM2NzQ1OTU5.mFM0eBSkz55LJ_0HI6nM7bmpz_8PsKICzRJYdpTR_Kog.qugbopFuxaFNdzamT1q09es858_VoAHtQd3ihpxSt64g.PNG/3.png?type=w800"
+      },
+      "jibunAddress": "서울특별시 마포구 망원동 424-33"
+    },
+    {
+      "id": "worldcup-market-21",
+      "nameKo": "예그린식품",
+      "sourceUrl": "https://m.blog.naver.com/mwwdc/224413728095",
+      "originalAddress": "서울 마포구 망원로7길 17",
+      "checkedAt": "2026-10-04",
+      "locationClues": [],
+      "evidenceAddress": "서울 마포구 망원로7길 17",
+      "blogVerified": true,
+      "reason": null,
+      "sourceImages": [
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjg1/MDAxNzg5NTM2ODIwOTc2.OPKBY77QbjcyuQ4RnlHhASCUXcKNn8NlFWOwLNsmDNEg.hINrHU9IhIIRKXNe-wYEKsrc09Tc2nJVaaashRstJ2Eg.PNG/1.png?type=w800",
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfNjEg/MDAxNzg5NTM2ODIwOTgw.eX1mq-cmRiA8bI1YI3YYFvtt26leayK_4R3i3Ysumrwg.PgoNyhSgg1MZlp8BFsyB6ftTIp_aQUXxn3u0Pk5Percg.PNG/2.png?type=w800",
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMTM3/MDAxNzg5NTM2ODIwNDgz.-GKaAIhUwq1rkiv4rxOGmxWu5m-JVh2ZXqsJr2Af7fEg.rYrCGdSHa2Df1bnqpKLG9ySPyQo9W0eCIjHmy2Ci7W0g.PNG/3.png?type=w800"
+      ],
+      "addressImageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMTM3/MDAxNzg5NTM2ODIwNDgz.-GKaAIhUwq1rkiv4rxOGmxWu5m-JVh2ZXqsJr2Af7fEg.rYrCGdSHa2Df1bnqpKLG9ySPyQo9W0eCIjHmy2Ci7W0g.PNG/3.png?type=w800",
+      "addressImagePath": "D:\\walk\\.worktrees\\worldcup-blog-location-images-20261004\\worldcup-market-21-3.png",
+      "evidenceType": "BLOG_IMAGE",
+      "geocodeQuery": "서울특별시 마포구 망원로7길 17",
+      "location": {
+        "latitude": 37.5582506,
+        "longitude": 126.9053372,
+        "source": "https://maps.apigw.ntruss.com/map-geocode/v2/geocode",
+        "coordSource": "blog-address+naver-geocode",
+        "evidenceAddress": "서울 마포구 망원로7길 17",
+        "sourceUrl": "https://m.blog.naver.com/mwwdc/224413728095",
+        "geocodedAddress": "서울특별시 마포구 망원로7길 17 지상빌딩",
+        "verifiedAt": "2026-10-04",
+        "verificationStatus": "SINGLE_SOURCE_VERIFIED",
+        "evidenceType": "BLOG_IMAGE",
+        "evidenceImageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMTM3/MDAxNzg5NTM2ODIwNDgz.-GKaAIhUwq1rkiv4rxOGmxWu5m-JVh2ZXqsJr2Af7fEg.rYrCGdSHa2Df1bnqpKLG9ySPyQo9W0eCIjHmy2Ci7W0g.PNG/3.png?type=w800"
+      },
+      "jibunAddress": "서울특별시 마포구 망원동 424-32 지상빌딩"
+    },
+    {
+      "id": "worldcup-market-22",
+      "nameKo": "동명식자재",
+      "sourceUrl": "https://m.blog.naver.com/mwwdc/224413730052",
+      "originalAddress": "서울 마포구 망원로7길 23",
+      "checkedAt": "2026-10-04",
+      "locationClues": [
+        "위치: 서울 마포구 망원로7길 23"
+      ],
+      "evidenceAddress": "서울 마포구 망원로7길 23",
+      "blogVerified": true,
+      "reason": null,
+      "geocodeQuery": "서울특별시 마포구 망원로7길 23",
+      "location": {
+        "latitude": 37.5585682,
+        "longitude": 126.9051778,
+        "source": "https://maps.apigw.ntruss.com/map-geocode/v2/geocode",
+        "coordSource": "blog-address+naver-geocode",
+        "evidenceAddress": "서울 마포구 망원로7길 23",
+        "sourceUrl": "https://m.blog.naver.com/mwwdc/224413730052",
+        "geocodedAddress": "서울특별시 마포구 망원로7길 23",
+        "verifiedAt": "2026-10-04",
+        "verificationStatus": "SINGLE_SOURCE_VERIFIED",
+        "evidenceType": "BLOG_TEXT",
+        "evidenceImageUrl": null
+      },
+      "jibunAddress": "서울특별시 마포구 망원동 424-16",
+      "evidenceType": "BLOG_TEXT"
+    },
+    {
+      "id": "worldcup-market-23",
+      "nameKo": "삼해수산",
+      "sourceUrl": "https://m.blog.naver.com/mwwdc/224413731957",
+      "originalAddress": "서울 마포구 망원로7길 31",
+      "checkedAt": "2026-10-04",
+      "locationClues": [
+        "위치: 서울 마포구 망원로7길 31 (망원동월드컵시장)"
+      ],
+      "evidenceAddress": "서울 마포구 망원로7길 31 (망원동월드컵시장)",
+      "blogVerified": true,
+      "reason": null,
+      "geocodeQuery": "서울특별시 마포구 망원로7길 31",
+      "location": {
+        "latitude": 37.5587334,
+        "longitude": 126.9050734,
+        "source": "https://maps.apigw.ntruss.com/map-geocode/v2/geocode",
+        "coordSource": "blog-address+naver-geocode",
+        "evidenceAddress": "서울 마포구 망원로7길 31 (망원동월드컵시장)",
+        "sourceUrl": "https://m.blog.naver.com/mwwdc/224413731957",
+        "geocodedAddress": "서울특별시 마포구 망원로7길 31",
+        "verifiedAt": "2026-10-04",
+        "verificationStatus": "SINGLE_SOURCE_VERIFIED",
+        "evidenceType": "BLOG_TEXT",
+        "evidenceImageUrl": null
+      },
+      "jibunAddress": "서울특별시 마포구 망원동 424-7",
+      "evidenceType": "BLOG_TEXT"
+    },
+    {
+      "id": "worldcup-market-24",
+      "nameKo": "남도청과",
+      "sourceUrl": "https://m.blog.naver.com/mwwdc/224413734092",
+      "originalAddress": "서울 마포구 망원로7길 28",
+      "checkedAt": "2026-10-04",
+      "locationClues": [
+        "위치: 서울 마포구 망원로7길 28 (망원동월드컵시장)"
+      ],
+      "evidenceAddress": "서울 마포구 망원로7길 28 (망원동월드컵시장)",
+      "blogVerified": true,
+      "reason": null,
+      "geocodeQuery": "서울특별시 마포구 망원로7길 28",
+      "location": {
+        "latitude": 37.5587974,
+        "longitude": 126.9053991,
+        "source": "https://maps.apigw.ntruss.com/map-geocode/v2/geocode",
+        "coordSource": "blog-address+naver-geocode",
+        "evidenceAddress": "서울 마포구 망원로7길 28 (망원동월드컵시장)",
+        "sourceUrl": "https://m.blog.naver.com/mwwdc/224413734092",
+        "geocodedAddress": "서울특별시 마포구 망원로7길 28",
+        "verifiedAt": "2026-10-04",
+        "verificationStatus": "SINGLE_SOURCE_VERIFIED",
+        "evidenceType": "BLOG_TEXT",
+        "evidenceImageUrl": null
+      },
+      "jibunAddress": "서울특별시 마포구 망원동 479-62",
+      "evidenceType": "BLOG_TEXT"
+    },
+    {
+      "id": "worldcup-market-25",
+      "nameKo": "월드축산물",
+      "sourceUrl": "https://m.blog.naver.com/mwwdc/224413754660",
+      "originalAddress": "서울 마포구 망원로7길 24",
+      "checkedAt": "2026-10-04",
+      "locationClues": [
+        "위치: 서울 마포구 망원로7길 24 (망원동월드컵시장)"
+      ],
+      "evidenceAddress": "서울 마포구 망원로7길 24 (망원동월드컵시장)",
+      "blogVerified": true,
+      "reason": null,
+      "geocodeQuery": "서울특별시 마포구 망원로7길 24",
+      "location": {
+        "latitude": 37.5586569,
+        "longitude": 126.9054136,
+        "source": "https://maps.apigw.ntruss.com/map-geocode/v2/geocode",
+        "coordSource": "blog-address+naver-geocode",
+        "evidenceAddress": "서울 마포구 망원로7길 24 (망원동월드컵시장)",
+        "sourceUrl": "https://m.blog.naver.com/mwwdc/224413754660",
+        "geocodedAddress": "서울특별시 마포구 망원로7길 24 한일주택",
+        "verifiedAt": "2026-10-04",
+        "verificationStatus": "SINGLE_SOURCE_VERIFIED",
+        "evidenceType": "BLOG_TEXT",
+        "evidenceImageUrl": null
+      },
+      "jibunAddress": "서울특별시 마포구 망원동 479-63 한일주택",
+      "evidenceType": "BLOG_TEXT"
+    },
+    {
+      "id": "worldcup-market-26",
+      "nameKo": "어사또",
+      "sourceUrl": "https://m.blog.naver.com/mwwdc/224413757089",
+      "originalAddress": "서울 마포구 망원로7길 20",
+      "checkedAt": "2026-10-04",
+      "locationClues": [
+        "📍 서울 마포구 망원로7길 20"
+      ],
+      "evidenceAddress": "📍 서울 마포구 망원로7길 20",
+      "blogVerified": true,
+      "reason": null,
+      "geocodeQuery": "서울특별시 마포구 망원로7길 20",
+      "location": {
+        "latitude": 37.5585035,
+        "longitude": 126.9055274,
+        "source": "https://maps.apigw.ntruss.com/map-geocode/v2/geocode",
+        "coordSource": "blog-address+naver-geocode",
+        "evidenceAddress": "📍 서울 마포구 망원로7길 20",
+        "sourceUrl": "https://m.blog.naver.com/mwwdc/224413757089",
+        "geocodedAddress": "서울특별시 마포구 망원로7길 20",
+        "verifiedAt": "2026-10-04",
+        "verificationStatus": "SINGLE_SOURCE_VERIFIED",
+        "evidenceType": "BLOG_TEXT",
+        "evidenceImageUrl": null
+      },
+      "jibunAddress": "서울특별시 마포구 망원동 479-66",
+      "evidenceType": "BLOG_TEXT"
+    },
+    {
+      "id": "worldcup-market-27",
+      "nameKo": "다나와생활용품 망원점",
+      "sourceUrl": "https://m.blog.naver.com/mwwdc/224413759980",
+      "originalAddress": "서울 마포구 망원로7길 19",
+      "checkedAt": "2026-10-04",
+      "locationClues": [
+        "📍 서울 마포구 망원로7길 19"
+      ],
+      "evidenceAddress": "📍 서울 마포구 망원로7길 19",
+      "blogVerified": true,
+      "reason": null,
+      "geocodeQuery": "서울특별시 마포구 망원로7길 19",
+      "location": {
+        "latitude": 37.5584128,
+        "longitude": 126.9052835,
+        "source": "https://maps.apigw.ntruss.com/map-geocode/v2/geocode",
+        "coordSource": "blog-address+naver-geocode",
+        "evidenceAddress": "📍 서울 마포구 망원로7길 19",
+        "sourceUrl": "https://m.blog.naver.com/mwwdc/224413759980",
+        "geocodedAddress": "서울특별시 마포구 망원로7길 19 명빌딩",
+        "verifiedAt": "2026-10-04",
+        "verificationStatus": "SINGLE_SOURCE_VERIFIED",
+        "evidenceType": "BLOG_TEXT",
+        "evidenceImageUrl": null
+      },
+      "jibunAddress": "서울특별시 마포구 망원동 424-25 명빌딩",
+      "evidenceType": "BLOG_TEXT"
+    },
+    {
+      "id": "worldcup-market-28",
+      "nameKo": "만물고추방앗간",
+      "sourceUrl": "https://m.blog.naver.com/mwwdc/224413770324",
+      "originalAddress": "서울 마포구 망원로7길 20",
+      "checkedAt": "2026-10-04",
+      "locationClues": [
+        "📍 서울 마포구 망원로7길 20"
+      ],
+      "evidenceAddress": "📍 서울 마포구 망원로7길 20",
+      "blogVerified": true,
+      "reason": null,
+      "geocodeQuery": "서울특별시 마포구 망원로7길 20",
+      "location": {
+        "latitude": 37.5585035,
+        "longitude": 126.9055274,
+        "source": "https://maps.apigw.ntruss.com/map-geocode/v2/geocode",
+        "coordSource": "blog-address+naver-geocode",
+        "evidenceAddress": "📍 서울 마포구 망원로7길 20",
+        "sourceUrl": "https://m.blog.naver.com/mwwdc/224413770324",
+        "geocodedAddress": "서울특별시 마포구 망원로7길 20",
+        "verifiedAt": "2026-10-04",
+        "verificationStatus": "SINGLE_SOURCE_VERIFIED",
+        "evidenceType": "BLOG_TEXT",
+        "evidenceImageUrl": null
+      },
+      "jibunAddress": "서울특별시 마포구 망원동 479-66",
+      "evidenceType": "BLOG_TEXT"
+    },
+    {
+      "id": "worldcup-market-29",
+      "nameKo": "강화풍물",
+      "sourceUrl": "https://m.blog.naver.com/mwwdc/224413774926",
+      "originalAddress": "서울 마포구 망원로7길 13",
+      "checkedAt": "2026-10-04",
+      "locationClues": [
+        "📍 서울 마포구 망원로7길 13"
+      ],
+      "evidenceAddress": "📍 서울 마포구 망원로7길 13",
+      "blogVerified": true,
+      "reason": null,
+      "geocodeQuery": "서울특별시 마포구 망원로7길 13",
+      "location": {
+        "latitude": 37.558114,
+        "longitude": 126.9054151,
+        "source": "https://maps.apigw.ntruss.com/map-geocode/v2/geocode",
+        "coordSource": "blog-address+naver-geocode",
+        "evidenceAddress": "📍 서울 마포구 망원로7길 13",
+        "sourceUrl": "https://m.blog.naver.com/mwwdc/224413774926",
+        "geocodedAddress": "서울특별시 마포구 망원로7길 13",
+        "verifiedAt": "2026-10-04",
+        "verificationStatus": "SINGLE_SOURCE_VERIFIED",
+        "evidenceType": "BLOG_TEXT",
+        "evidenceImageUrl": null
+      },
+      "jibunAddress": "서울특별시 마포구 망원동 424-33",
+      "evidenceType": "BLOG_TEXT"
+    },
+    {
+      "id": "worldcup-market-30",
+      "nameKo": "반찬나라",
+      "sourceUrl": "https://m.blog.naver.com/mwwdc/224413776566",
+      "originalAddress": "서울 마포구 월드컵로25길 33 1층",
+      "checkedAt": "2026-10-04",
+      "locationClues": [],
+      "evidenceAddress": "서울 마포구 월드컵로25길 33 1층",
+      "blogVerified": true,
+      "reason": null,
+      "sourceImages": [
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjQ0/MDAxNzg5NTM5MTE2MDg5._cqCkBZI3b6PXjsrU5Z8qoe65zZUN66SmhHpJOBLOqsg.yCmQbcQlgACZdfXghbG6Nsm-jTXLVeaS1CEHxtxdYocg.PNG/1.png?type=w800",
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjU1/MDAxNzg5NTM5MTE2MDk1.qaM0MUqWqn0dKDY0ZmfDZBR91kZrMy5PqNxe6iNoDpIg.36un8qpWIs0amiDv8hGVnCPNnFM02wkjBPMEUwJ9pNsg.PNG/2.png?type=w800",
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjcx/MDAxNzg5NTM5MTE1NjU5.XrTbhZ52IQiMj0rFlN_fDczLMSzs3CW5GSuiGj8XWn0g.2rvHyxjFZt_cOLXIQQxtql1XoR3hxb-ZBPSeVogPe_Ag.PNG/3.png?type=w800"
+      ],
+      "addressImageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjcx/MDAxNzg5NTM5MTE1NjU5.XrTbhZ52IQiMj0rFlN_fDczLMSzs3CW5GSuiGj8XWn0g.2rvHyxjFZt_cOLXIQQxtql1XoR3hxb-ZBPSeVogPe_Ag.PNG/3.png?type=w800",
+      "addressImagePath": "D:\\walk\\.worktrees\\worldcup-blog-location-images-20261004\\worldcup-market-30-3.png",
+      "evidenceType": "BLOG_IMAGE",
+      "geocodeQuery": "서울특별시 마포구 월드컵로25길 33",
+      "location": {
+        "latitude": 37.5580202,
+        "longitude": 126.9058551,
+        "source": "https://maps.apigw.ntruss.com/map-geocode/v2/geocode",
+        "coordSource": "blog-address+naver-geocode",
+        "evidenceAddress": "서울 마포구 월드컵로25길 33 1층",
+        "sourceUrl": "https://m.blog.naver.com/mwwdc/224413776566",
+        "geocodedAddress": "서울특별시 마포구 월드컵로25길 33",
+        "verifiedAt": "2026-10-04",
+        "verificationStatus": "SINGLE_SOURCE_VERIFIED",
+        "evidenceType": "BLOG_IMAGE",
+        "evidenceImageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjcx/MDAxNzg5NTM5MTE1NjU5.XrTbhZ52IQiMj0rFlN_fDczLMSzs3CW5GSuiGj8XWn0g.2rvHyxjFZt_cOLXIQQxtql1XoR3hxb-ZBPSeVogPe_Ag.PNG/3.png?type=w800"
+      },
+      "jibunAddress": "서울특별시 마포구 망원동 483-17"
+    },
+    {
+      "id": "worldcup-market-31",
+      "nameKo": "대왕주단이불",
+      "sourceUrl": "https://m.blog.naver.com/mwwdc/224413778155",
+      "originalAddress": "서울 마포구 월드컵로25길 35",
+      "checkedAt": "2026-10-04",
+      "locationClues": [],
+      "evidenceAddress": "서울 마포구 월드컵로25길 35",
+      "blogVerified": true,
+      "reason": null,
+      "sourceImages": [
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjM5/MDAxNzg5NTM5MjAwMDQ0.qOcYHbv-CJxm5s6yLll80cXDHJF6Ng6BA4zT1oBSUGIg.G9DP0RHEDHsMvgrUtFkvQWWMgOszfZk83u5PcDmIBSIg.PNG/1.png?type=w800",
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMTg5/MDAxNzg5NTM5MjAwMDE0.vS_ngvjeDADo6jxEh5q0ZLvfeHJGg0fSEMxeozJFPUUg.EZIwmhsDBWpD5XOrNuQMjYstsij982GzF8BMOzHHBuAg.PNG/2.png?type=w800",
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfNSAg/MDAxNzg5NTM5MTk5ODYw.YrgsYYo9sivP3PzpGxxfgwAsfceDvhkheCwrFWGGjRsg.xXtULM8H2MIS8PODe_7XerpnmG5TB1q-g4oV5v2Vtggg.PNG/3.png?type=w800"
+      ],
+      "addressImageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfNSAg/MDAxNzg5NTM5MTk5ODYw.YrgsYYo9sivP3PzpGxxfgwAsfceDvhkheCwrFWGGjRsg.xXtULM8H2MIS8PODe_7XerpnmG5TB1q-g4oV5v2Vtggg.PNG/3.png?type=w800",
+      "addressImagePath": "D:\\walk\\.worktrees\\worldcup-blog-location-images-20261004\\worldcup-market-31-3.png",
+      "evidenceType": "BLOG_IMAGE",
+      "geocodeQuery": "서울특별시 마포구 월드컵로25길 35",
+      "location": {
+        "latitude": 37.5579801,
+        "longitude": 126.9057035,
+        "source": "https://maps.apigw.ntruss.com/map-geocode/v2/geocode",
+        "coordSource": "blog-address+naver-geocode",
+        "evidenceAddress": "서울 마포구 월드컵로25길 35",
+        "sourceUrl": "https://m.blog.naver.com/mwwdc/224413778155",
+        "geocodedAddress": "서울특별시 마포구 월드컵로25길 35",
+        "verifiedAt": "2026-10-04",
+        "verificationStatus": "SINGLE_SOURCE_VERIFIED",
+        "evidenceType": "BLOG_IMAGE",
+        "evidenceImageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfNSAg/MDAxNzg5NTM5MTk5ODYw.YrgsYYo9sivP3PzpGxxfgwAsfceDvhkheCwrFWGGjRsg.xXtULM8H2MIS8PODe_7XerpnmG5TB1q-g4oV5v2Vtggg.PNG/3.png?type=w800"
+      },
+      "jibunAddress": "서울특별시 마포구 망원동 483-16"
+    },
+    {
+      "id": "worldcup-market-32",
+      "nameKo": "월드컵기름",
+      "sourceUrl": "https://m.blog.naver.com/mwwdc/224413779906",
+      "originalAddress": "서울 마포구 월드컵로25길 35",
+      "checkedAt": "2026-10-04",
+      "locationClues": [],
+      "evidenceAddress": "서울 마포구 월드컵로25길 35",
+      "blogVerified": true,
+      "reason": null,
+      "sourceImages": [
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjQ3/MDAxNzg5NTM5MjY2MDkw.U1e0lStOV2_6PHq6JH9v7pqGk84w9m4FyWHjIZEHfrsg.PYeWzU2Eb9cR3Q8ll6yqcJrubKlhI-q2h7bh9rlTMGMg.PNG/1.png?type=w800",
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMTIy/MDAxNzg5NTM5MjY2MjE3.SIRiGOjY13_m3i8kDwn-AN5T9UaRCSBrbPdH1g6Iex0g.-UPIC1cLAKdsIP3WjiabYe-Jnu1GRNhUqcGRP1SVLy0g.PNG/2.png?type=w800",
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjY4/MDAxNzg5NTM5MjY2MjYx.H8m8D5_jhs3aIUpsd5HF2T29DkERcA-4LQ7Tnmif90og.qR__RFYxP9UYQ0v8voePxh1sxbQcmZqtcXizw4gbCn0g.PNG/3.png?type=w800"
+      ],
+      "addressImageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjY4/MDAxNzg5NTM5MjY2MjYx.H8m8D5_jhs3aIUpsd5HF2T29DkERcA-4LQ7Tnmif90og.qR__RFYxP9UYQ0v8voePxh1sxbQcmZqtcXizw4gbCn0g.PNG/3.png?type=w800",
+      "addressImagePath": "D:\\walk\\.worktrees\\worldcup-blog-location-images-20261004\\worldcup-market-32-3.png",
+      "evidenceType": "BLOG_IMAGE",
+      "geocodeQuery": "서울특별시 마포구 월드컵로25길 35",
+      "location": {
+        "latitude": 37.5579801,
+        "longitude": 126.9057035,
+        "source": "https://maps.apigw.ntruss.com/map-geocode/v2/geocode",
+        "coordSource": "blog-address+naver-geocode",
+        "evidenceAddress": "서울 마포구 월드컵로25길 35",
+        "sourceUrl": "https://m.blog.naver.com/mwwdc/224413779906",
+        "geocodedAddress": "서울특별시 마포구 월드컵로25길 35",
+        "verifiedAt": "2026-10-04",
+        "verificationStatus": "SINGLE_SOURCE_VERIFIED",
+        "evidenceType": "BLOG_IMAGE",
+        "evidenceImageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjY4/MDAxNzg5NTM5MjY2MjYx.H8m8D5_jhs3aIUpsd5HF2T29DkERcA-4LQ7Tnmif90og.qR__RFYxP9UYQ0v8voePxh1sxbQcmZqtcXizw4gbCn0g.PNG/3.png?type=w800"
+      },
+      "jibunAddress": "서울특별시 마포구 망원동 483-16"
+    },
+    {
+      "id": "worldcup-market-33",
+      "nameKo": "디자인데코",
+      "sourceUrl": "https://m.blog.naver.com/mwwdc/224413782369",
+      "originalAddress": "서울 마포구 망원로7길 13 1층",
+      "checkedAt": "2026-10-04",
+      "locationClues": [],
+      "evidenceAddress": "서울 마포구 망원로7길 13 1층",
+      "blogVerified": true,
+      "reason": null,
+      "sourceImages": [
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjk2/MDAxNzg5NTM5MzQzMTUw.camg-RazGp4ZcE9hpEv-towZAufxZ1TPFB7Feqv08mwg.a8m5-bCa1-1NKq3Isj-PLeLJY7mn8vofVBSfAePyWZ0g.PNG/1.png?type=w800",
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMTg4/MDAxNzg5NTM5MzQzMTQw.foQFJUZDMY6BShaLNO95WoXStsKR-IzY-0AabFFHI7wg.dWHlt2DTTnNMjxjCL-VasG_hx896RfoWtmMjU_ffiIYg.PNG/2.png?type=w800",
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMTg2/MDAxNzg5NTM5MzgxNjQw.2RxAg5wyn7oiuvMsLUnFOWLU-rMR1l2VJunfMy_jj7cg.eOhhS6X73fP1Ahp5TE8uNKgmWXQodckt-DQ_LdHj-jsg.PNG/SE-26691ff0-7c6c-42e1-81aa-58c1c6d23c9e.png?type=w800"
+      ],
+      "addressImageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMTg2/MDAxNzg5NTM5MzgxNjQw.2RxAg5wyn7oiuvMsLUnFOWLU-rMR1l2VJunfMy_jj7cg.eOhhS6X73fP1Ahp5TE8uNKgmWXQodckt-DQ_LdHj-jsg.PNG/SE-26691ff0-7c6c-42e1-81aa-58c1c6d23c9e.png?type=w800",
+      "addressImagePath": "D:\\walk\\.worktrees\\worldcup-blog-location-images-20261004\\worldcup-market-33-3.png",
+      "evidenceType": "BLOG_IMAGE",
+      "geocodeQuery": "서울특별시 마포구 망원로7길 13",
+      "location": {
+        "latitude": 37.558114,
+        "longitude": 126.9054151,
+        "source": "https://maps.apigw.ntruss.com/map-geocode/v2/geocode",
+        "coordSource": "blog-address+naver-geocode",
+        "evidenceAddress": "서울 마포구 망원로7길 13 1층",
+        "sourceUrl": "https://m.blog.naver.com/mwwdc/224413782369",
+        "geocodedAddress": "서울특별시 마포구 망원로7길 13",
+        "verifiedAt": "2026-10-04",
+        "verificationStatus": "SINGLE_SOURCE_VERIFIED",
+        "evidenceType": "BLOG_IMAGE",
+        "evidenceImageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMTg2/MDAxNzg5NTM5MzgxNjQw.2RxAg5wyn7oiuvMsLUnFOWLU-rMR1l2VJunfMy_jj7cg.eOhhS6X73fP1Ahp5TE8uNKgmWXQodckt-DQ_LdHj-jsg.PNG/SE-26691ff0-7c6c-42e1-81aa-58c1c6d23c9e.png?type=w800"
+      },
+      "jibunAddress": "서울특별시 마포구 망원동 424-33"
+    },
+    {
+      "id": "worldcup-market-34",
+      "nameKo": "경남장식",
+      "sourceUrl": "https://m.blog.naver.com/mwwdc/224413783734",
+      "originalAddress": "서울 마포구 망원로7길 7",
+      "checkedAt": "2026-10-04",
+      "locationClues": [],
+      "evidenceAddress": "서울 마포구 망원로7길 7",
+      "blogVerified": true,
+      "reason": null,
+      "sourceImages": [
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjY3/MDAxNzg5NTM5NDQ5Njg5.kzXsB2GJ0JMDfCAcayf01TxhQ9uMuGYRLg7bRJMgUFUg.JzJpaRYa9LXRaMLup6UK5rL7hoofVNWLOcfcVb3j1ocg.PNG/1.png?type=w800",
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjUx/MDAxNzg5NTM5NDQ5NTQx.R9tIVgs7CTsi8a7khLtj53Xt8YkA8MQ84kkB6VYcP5gg.DhBjPcRK7KK8PCqTSQDsT83bSSHvPTZK08TDvZQqFLkg.PNG/2.png?type=w800",
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMTEw/MDAxNzg5NTM5NDQ5MTYx.XlVsY2vT7T94Bb1FFYbceWtzztfF5C5knGDQwmj2EUAg.z6pDLhSlQ4ZdMtuDYviJjseYyyHe9gwpZngSBr62uP4g.PNG/3.png?type=w800"
+      ],
+      "addressImageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMTEw/MDAxNzg5NTM5NDQ5MTYx.XlVsY2vT7T94Bb1FFYbceWtzztfF5C5knGDQwmj2EUAg.z6pDLhSlQ4ZdMtuDYviJjseYyyHe9gwpZngSBr62uP4g.PNG/3.png?type=w800",
+      "addressImagePath": "D:\\walk\\.worktrees\\worldcup-blog-location-images-20261004\\worldcup-market-34-3.png",
+      "evidenceType": "BLOG_IMAGE",
+      "geocodeQuery": "서울특별시 마포구 망원로7길 7",
+      "location": {
+        "latitude": 37.557926,
+        "longitude": 126.9054881,
+        "source": "https://maps.apigw.ntruss.com/map-geocode/v2/geocode",
+        "coordSource": "blog-address+naver-geocode",
+        "evidenceAddress": "서울 마포구 망원로7길 7",
+        "sourceUrl": "https://m.blog.naver.com/mwwdc/224413783734",
+        "geocodedAddress": "서울특별시 마포구 망원로7길 7",
+        "verifiedAt": "2026-10-04",
+        "verificationStatus": "SINGLE_SOURCE_VERIFIED",
+        "evidenceType": "BLOG_IMAGE",
+        "evidenceImageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMTEw/MDAxNzg5NTM5NDQ5MTYx.XlVsY2vT7T94Bb1FFYbceWtzztfF5C5knGDQwmj2EUAg.z6pDLhSlQ4ZdMtuDYviJjseYyyHe9gwpZngSBr62uP4g.PNG/3.png?type=w800"
+      },
+      "jibunAddress": "서울특별시 마포구 망원동 423-12"
+    },
+    {
+      "id": "worldcup-market-35",
+      "nameKo": "쫑이네 야채",
+      "sourceUrl": "https://m.blog.naver.com/mwwdc/224413788865",
+      "originalAddress": "서울 마포구 망원로7길 7",
+      "checkedAt": "2026-10-04",
+      "locationClues": [],
+      "evidenceAddress": "서울 마포구 망원로7길 7",
+      "blogVerified": true,
+      "reason": null,
+      "sourceImages": [
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfODMg/MDAxNzg5NTM5Njg1MDY3.Kh3uWmTpz8rJrdJVz-4EfYGq41CZYSkIMgaPnnxPOtEg.pZjCHpDjO2rhXaQUwZY636a5v0OHGNRMKRfW2Hs6cp8g.PNG/1.png?type=w800",
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjU2/MDAxNzg5NTM5Njg1MDEx.9UXHkVoB7mjbDKsOLLpb37fru9BwaVt43XmYJs1IAqwg.TzkcrhpDfs3-NBrjAsSQzIpXgUfajXsCUHcFWMdzGNUg.PNG/2.png?type=w800",
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjA0/MDAxNzg5NTM5Njg0Njk3.p-mPBNG7SNc96AJK_uFz3Fmu9QDazxZfKSarGbZ3R1Qg.yIM1nQyA12OWh5C5Dweqil_ySo-oDqAfb15zFwmxRnMg.PNG/3.png?type=w800"
+      ],
+      "addressImageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjA0/MDAxNzg5NTM5Njg0Njk3.p-mPBNG7SNc96AJK_uFz3Fmu9QDazxZfKSarGbZ3R1Qg.yIM1nQyA12OWh5C5Dweqil_ySo-oDqAfb15zFwmxRnMg.PNG/3.png?type=w800",
+      "addressImagePath": "D:\\walk\\.worktrees\\worldcup-blog-location-images-20261004\\worldcup-market-35-3.png",
+      "evidenceType": "BLOG_IMAGE",
+      "geocodeQuery": "서울특별시 마포구 망원로7길 7",
+      "location": {
+        "latitude": 37.557926,
+        "longitude": 126.9054881,
+        "source": "https://maps.apigw.ntruss.com/map-geocode/v2/geocode",
+        "coordSource": "blog-address+naver-geocode",
+        "evidenceAddress": "서울 마포구 망원로7길 7",
+        "sourceUrl": "https://m.blog.naver.com/mwwdc/224413788865",
+        "geocodedAddress": "서울특별시 마포구 망원로7길 7",
+        "verifiedAt": "2026-10-04",
+        "verificationStatus": "SINGLE_SOURCE_VERIFIED",
+        "evidenceType": "BLOG_IMAGE",
+        "evidenceImageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjA0/MDAxNzg5NTM5Njg0Njk3.p-mPBNG7SNc96AJK_uFz3Fmu9QDazxZfKSarGbZ3R1Qg.yIM1nQyA12OWh5C5Dweqil_ySo-oDqAfb15zFwmxRnMg.PNG/3.png?type=w800"
+      },
+      "jibunAddress": "서울특별시 마포구 망원동 423-12"
+    },
+    {
+      "id": "worldcup-market-36",
+      "nameKo": "우리축산",
+      "sourceUrl": "https://m.blog.naver.com/mwwdc/224413794826",
+      "originalAddress": "서울 마포구 망원로 82",
+      "checkedAt": "2026-10-04",
+      "locationClues": [],
+      "evidenceAddress": "서울 마포구 망원로 82",
+      "blogVerified": true,
+      "reason": null,
+      "sourceImages": [
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMTkg/MDAxNzg5NTM5OTQ3MDEx.veKXCfW__vZPIxfmCUlZ8kumpxNVOtNQ-NQM4M8yW8gg.R2Zx8ptrScPCvsmS8YhAY5LmB4JqyjzesExUuFvLC8kg.PNG/1.png?type=w800",
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfNyAg/MDAxNzg5NTM5OTQ2Nzk0.Od08KNZMIwebOAZwXr01lgyEt4mfbu-fhmoU9q5QMe4g.libW7fBT6_CjUhnI22AJHgskVOhUei_I01KK_V_e3HAg.PNG/2.png?type=w800",
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjI3/MDAxNzg5NTM5OTc1MzI4.YbMBRFjarBPKQtpn0MC_XN1QAZVus-zFbKqKI9hVbdIg.5LyS2cIVwFm3K__5B5gu9JkwEZFkmaeMRbdd_ZfZuAgg.PNG/SE-2db9b45d-b343-445a-ab17-ed2c91056cd6.png?type=w800"
+      ],
+      "addressImageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjI3/MDAxNzg5NTM5OTc1MzI4.YbMBRFjarBPKQtpn0MC_XN1QAZVus-zFbKqKI9hVbdIg.5LyS2cIVwFm3K__5B5gu9JkwEZFkmaeMRbdd_ZfZuAgg.PNG/SE-2db9b45d-b343-445a-ab17-ed2c91056cd6.png?type=w800",
+      "addressImagePath": "D:\\walk\\.worktrees\\worldcup-blog-location-images-20261004\\worldcup-market-36-3.png",
+      "evidenceType": "BLOG_IMAGE",
+      "geocodeQuery": "서울특별시 마포구 망원로 82",
+      "location": {
+        "latitude": 37.5574056,
+        "longitude": 126.9058836,
+        "source": "https://maps.apigw.ntruss.com/map-geocode/v2/geocode",
+        "coordSource": "blog-address+naver-geocode",
+        "evidenceAddress": "서울 마포구 망원로 82",
+        "sourceUrl": "https://m.blog.naver.com/mwwdc/224413794826",
+        "geocodedAddress": "서울특별시 마포구 망원로 82",
+        "verifiedAt": "2026-10-04",
+        "verificationStatus": "SINGLE_SOURCE_VERIFIED",
+        "evidenceType": "BLOG_IMAGE",
+        "evidenceImageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjI3/MDAxNzg5NTM5OTc1MzI4.YbMBRFjarBPKQtpn0MC_XN1QAZVus-zFbKqKI9hVbdIg.5LyS2cIVwFm3K__5B5gu9JkwEZFkmaeMRbdd_ZfZuAgg.PNG/SE-2db9b45d-b343-445a-ab17-ed2c91056cd6.png?type=w800"
+      },
+      "jibunAddress": "서울특별시 마포구 망원동 486-39"
+    },
+    {
+      "id": "worldcup-market-37",
+      "nameKo": "소문난상회",
+      "sourceUrl": "https://m.blog.naver.com/mwwdc/224413796680",
+      "originalAddress": "서울 마포구 망원로7길 3",
+      "checkedAt": "2026-10-04",
+      "locationClues": [],
+      "evidenceAddress": "서울 마포구 망원로7길 3",
+      "blogVerified": true,
+      "reason": null,
+      "sourceImages": [
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjMx/MDAxNzg5NTQwMDUwOTUw.AMHBR9mEvvpngvDbxYOH-a5Z9aKrsIG60-gsjVz6Nmsg.BZSXdAQzFNC6sbdwjJP7-Mnup7abbSMC_iB5lRQjoiog.PNG/1.png?type=w800",
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMTE3/MDAxNzg5NTQwMDUwODQ4.O15zhJax8YFSmWSkmIyeR98jaPoYvTTaMYXUPqu9VNMg.c-U2KYCTLFRcKVWJKtQn0buuFMwYNXPMW0aa4cMkN8cg.PNG/2.png?type=w800",
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjE3/MDAxNzg5NTQwMDUwNzkw.GX2nkcaztnXBBPtiqLty679ckhDV3jQnQqty29s_yLwg.PUsRCE4pCfSlmT9lJ-_hZGGHR4ndJW6CuR22HlteE8Yg.PNG/3.png?type=w800"
+      ],
+      "addressImageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjE3/MDAxNzg5NTQwMDUwNzkw.GX2nkcaztnXBBPtiqLty679ckhDV3jQnQqty29s_yLwg.PUsRCE4pCfSlmT9lJ-_hZGGHR4ndJW6CuR22HlteE8Yg.PNG/3.png?type=w800",
+      "addressImagePath": "D:\\walk\\.worktrees\\worldcup-blog-location-images-20261004\\worldcup-market-37-3.png",
+      "evidenceType": "BLOG_IMAGE",
+      "geocodeQuery": "서울특별시 마포구 망원로7길 3",
+      "location": {
+        "latitude": 37.557778,
+        "longitude": 126.9055477,
+        "source": "https://maps.apigw.ntruss.com/map-geocode/v2/geocode",
+        "coordSource": "blog-address+naver-geocode",
+        "evidenceAddress": "서울 마포구 망원로7길 3",
+        "sourceUrl": "https://m.blog.naver.com/mwwdc/224413796680",
+        "geocodedAddress": "서울특별시 마포구 망원로7길 3",
+        "verifiedAt": "2026-10-04",
+        "verificationStatus": "SINGLE_SOURCE_VERIFIED",
+        "evidenceType": "BLOG_IMAGE",
+        "evidenceImageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjE3/MDAxNzg5NTQwMDUwNzkw.GX2nkcaztnXBBPtiqLty679ckhDV3jQnQqty29s_yLwg.PUsRCE4pCfSlmT9lJ-_hZGGHR4ndJW6CuR22HlteE8Yg.PNG/3.png?type=w800"
+      },
+      "jibunAddress": "서울특별시 마포구 망원동 423-13"
+    },
+    {
+      "id": "worldcup-market-38",
+      "nameKo": "곽가네기깔난게장 망원점",
+      "sourceUrl": "https://m.blog.naver.com/mwwdc/224413864625",
+      "originalAddress": "서울 마포구 망원로7길 4 1층",
+      "checkedAt": "2026-10-04",
+      "locationClues": [],
+      "evidenceAddress": "서울 마포구 망원로7길 4 1층",
+      "blogVerified": true,
+      "reason": null,
+      "sourceImages": [
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMTAz/MDAxNzg5NTQwMTk4NjUw.IQ1io91-UCZBPbX-NyHx-BO0MgdMTg1Tr9BeSDnQ-Swg.hJEEpf1GJulGw42X2wZAPeUc8KtgDTQqOEwLZfGyP4Ag.PNG/1.png?type=w800",
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfNzEg/MDAxNzg5NTQwMTk4OTYz.A1qKqPiGcj9S30pwvANXeaYsm20Fc4k8hfB3ejwUx1gg.C4-BPqfjLVQ72A2rVAB0YH9Tpe0Bw-tRG_72r2K3qS4g.PNG/2.png?type=w800",
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfOTUg/MDAxNzg5NTQwMTk4MzY2.Xz07cJJGUdEZBFX7CQ--KqyOpBawB_LKGbAEzMLL1oMg.IIEhioIy7U5Uw56QUA4FE3HVJ_pDwYlQI3_lLS5oEq8g.PNG/3.png?type=w800"
+      ],
+      "addressImageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfOTUg/MDAxNzg5NTQwMTk4MzY2.Xz07cJJGUdEZBFX7CQ--KqyOpBawB_LKGbAEzMLL1oMg.IIEhioIy7U5Uw56QUA4FE3HVJ_pDwYlQI3_lLS5oEq8g.PNG/3.png?type=w800",
+      "addressImagePath": "D:\\walk\\.worktrees\\worldcup-blog-location-images-20261004\\worldcup-market-38-3.png",
+      "evidenceType": "BLOG_IMAGE",
+      "geocodeQuery": "서울특별시 마포구 망원로7길 4",
+      "location": {
+        "latitude": 37.5577619,
+        "longitude": 126.9057674,
+        "source": "https://maps.apigw.ntruss.com/map-geocode/v2/geocode",
+        "coordSource": "blog-address+naver-geocode",
+        "evidenceAddress": "서울 마포구 망원로7길 4 1층",
+        "sourceUrl": "https://m.blog.naver.com/mwwdc/224413864625",
+        "geocodedAddress": "서울특별시 마포구 망원로7길 4",
+        "verifiedAt": "2026-10-04",
+        "verificationStatus": "SINGLE_SOURCE_VERIFIED",
+        "evidenceType": "BLOG_IMAGE",
+        "evidenceImageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfOTUg/MDAxNzg5NTQwMTk4MzY2.Xz07cJJGUdEZBFX7CQ--KqyOpBawB_LKGbAEzMLL1oMg.IIEhioIy7U5Uw56QUA4FE3HVJ_pDwYlQI3_lLS5oEq8g.PNG/3.png?type=w800"
+      },
+      "jibunAddress": "서울특별시 마포구 망원동 483-14"
+    },
+    {
+      "id": "worldcup-market-39",
+      "nameKo": "스마일청과",
+      "sourceUrl": "https://m.blog.naver.com/mwwdc/224413866627",
+      "originalAddress": "서울 마포구 망원로 81",
+      "checkedAt": "2026-10-04",
+      "locationClues": [],
+      "evidenceAddress": "서울 마포구 망원로 81",
+      "blogVerified": true,
+      "reason": null,
+      "sourceImages": [
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjk2/MDAxNzg5NTQzMzI0NTc0.8kJwT1u2_GhCaPPV81cXxs3kQXQUic6qp0xY887YDn4g.Ef-nCrfy0mGySSQRyb8ojvsr6UaG6M_fuIlm-yWOVCkg.PNG/1.png?type=w800",
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjg4/MDAxNzg5NTQzMzI0NTE5.31ZT4Xh0n3315I19iSWkT1rRLe9Twzxmt26_Xkqr8Swg.G1mWzQUFUT82zU3-z_vZn4x3Z6jNHLqSCYeYvdR90Ucg.PNG/2.png?type=w800",
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjA2/MDAxNzg5NTQzMzI0MTAx.dt8Gce-gGf5fvMwiF8W4Y56_Dkym1hJs_VDQuV6-iyEg.8VCWswr9-aOiEjcacMtoBalKtwTaSLq91Sxhou0kzXEg.PNG/3.png?type=w800"
+      ],
+      "addressImageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjA2/MDAxNzg5NTQzMzI0MTAx.dt8Gce-gGf5fvMwiF8W4Y56_Dkym1hJs_VDQuV6-iyEg.8VCWswr9-aOiEjcacMtoBalKtwTaSLq91Sxhou0kzXEg.PNG/3.png?type=w800",
+      "addressImagePath": "D:\\walk\\.worktrees\\worldcup-blog-location-images-20261004\\worldcup-market-39-3.png",
+      "evidenceType": "BLOG_IMAGE",
+      "geocodeQuery": "서울특별시 마포구 망원로 81",
+      "location": {
+        "latitude": 37.5576672,
+        "longitude": 126.9057937,
+        "source": "https://maps.apigw.ntruss.com/map-geocode/v2/geocode",
+        "coordSource": "blog-address+naver-geocode",
+        "evidenceAddress": "서울 마포구 망원로 81",
+        "sourceUrl": "https://m.blog.naver.com/mwwdc/224413866627",
+        "geocodedAddress": "서울특별시 마포구 망원로 81",
+        "verifiedAt": "2026-10-04",
+        "verificationStatus": "SINGLE_SOURCE_VERIFIED",
+        "evidenceType": "BLOG_IMAGE",
+        "evidenceImageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjA2/MDAxNzg5NTQzMzI0MTAx.dt8Gce-gGf5fvMwiF8W4Y56_Dkym1hJs_VDQuV6-iyEg.8VCWswr9-aOiEjcacMtoBalKtwTaSLq91Sxhou0kzXEg.PNG/3.png?type=w800"
+      },
+      "jibunAddress": "서울특별시 마포구 망원동 483-13"
+    },
+    {
+      "id": "worldcup-market-40",
+      "nameKo": "재희네맛김",
+      "sourceUrl": "https://m.blog.naver.com/mwwdc/224413868244",
+      "originalAddress": "서울 마포구 망원로 81 1층",
+      "checkedAt": "2026-10-04",
+      "locationClues": [],
+      "evidenceAddress": "서울 마포구 망원로 81 1층",
+      "blogVerified": true,
+      "reason": null,
+      "sourceImages": [
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMTY1/MDAxNzg5NTQzNDA4MDY5.BzoOYp8EBvenKT2p8VMVK0Ym3URi9v0PIPbxpG0sBDog.XklQzdiRFYpp2VYXyAcGBKd5u05EPNo7PctMZXrz45Ug.PNG/1.png?type=w800",
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjA4/MDAxNzg5NTQzNDA3OTk1.w65F56-bAIqNfNB_rs0xU3PvdnArZ_xtyYkw7lVXDg4g.0Kquu4y8F1Oj9KgHlRwtH5wHmUzUfgFeQE6wHAdwhREg.PNG/2.png?type=w800",
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfNzAg/MDAxNzg5NTQzNDA3NjY4._jVaHPcXoQ9Dd0VyruIcWGA7vRV_xCRwjCyuxH2nRzMg.c4iIVLduJGWp2RGlw9Feimz8z4EvqY4o32Vm6Z3PPOQg.PNG/3.png?type=w800"
+      ],
+      "addressImageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfNzAg/MDAxNzg5NTQzNDA3NjY4._jVaHPcXoQ9Dd0VyruIcWGA7vRV_xCRwjCyuxH2nRzMg.c4iIVLduJGWp2RGlw9Feimz8z4EvqY4o32Vm6Z3PPOQg.PNG/3.png?type=w800",
+      "addressImagePath": "D:\\walk\\.worktrees\\worldcup-blog-location-images-20261004\\worldcup-market-40-3.png",
+      "evidenceType": "BLOG_IMAGE",
+      "geocodeQuery": "서울특별시 마포구 망원로 81",
+      "location": {
+        "latitude": 37.5576672,
+        "longitude": 126.9057937,
+        "source": "https://maps.apigw.ntruss.com/map-geocode/v2/geocode",
+        "coordSource": "blog-address+naver-geocode",
+        "evidenceAddress": "서울 마포구 망원로 81 1층",
+        "sourceUrl": "https://m.blog.naver.com/mwwdc/224413868244",
+        "geocodedAddress": "서울특별시 마포구 망원로 81",
+        "verifiedAt": "2026-10-04",
+        "verificationStatus": "SINGLE_SOURCE_VERIFIED",
+        "evidenceType": "BLOG_IMAGE",
+        "evidenceImageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfNzAg/MDAxNzg5NTQzNDA3NjY4._jVaHPcXoQ9Dd0VyruIcWGA7vRV_xCRwjCyuxH2nRzMg.c4iIVLduJGWp2RGlw9Feimz8z4EvqY4o32Vm6Z3PPOQg.PNG/3.png?type=w800"
+      },
+      "jibunAddress": "서울특별시 마포구 망원동 483-13"
+    },
+    {
+      "id": "worldcup-market-41",
+      "nameKo": "성산야채",
+      "sourceUrl": "https://m.blog.naver.com/mwwdc/224413870618",
+      "originalAddress": "서울 마포구 망원로7길 13",
+      "checkedAt": "2026-10-04",
+      "locationClues": [],
+      "evidenceAddress": "서울 마포구 망원로7길 13",
+      "blogVerified": true,
+      "reason": null,
+      "sourceImages": [
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMzAg/MDAxNzg5NTQzNTM3NzYx.KRJxAD5f1aUAkf8UgV0UqtHF5oEsnpDk_fYP1zUdkrgg.7QfeKyaTXoBOd4WRBSQT0EpU00sXuHurc-fIdj8c3esg.PNG/1.png?type=w800",
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjgy/MDAxNzg5NTQzNTM3ODc2.7U2TJK1XXm_Qdp9dJQSYQC9Z8yOFUE7ps4Eae0Ca1c4g.Fdpm2U0HBTcZpAkVj_sc7nMV6LHw8a_VKnnHmDA5-x8g.PNG/2.png?type=w800",
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjMy/MDAxNzg5NTQzNTM3NTA2.pB4XrVvy81nlkpIXvn29Uo-GGTPgnLxFhAAdTaXyiBog.0x00dJUJn03-UTr2WVCWLbcgT6Y5AedckIZgu6YC748g.PNG/3.png?type=w800"
+      ],
+      "addressImageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjMy/MDAxNzg5NTQzNTM3NTA2.pB4XrVvy81nlkpIXvn29Uo-GGTPgnLxFhAAdTaXyiBog.0x00dJUJn03-UTr2WVCWLbcgT6Y5AedckIZgu6YC748g.PNG/3.png?type=w800",
+      "addressImagePath": "D:\\walk\\.worktrees\\worldcup-blog-location-images-20261004\\worldcup-market-41-3.png",
+      "evidenceType": "BLOG_IMAGE",
+      "geocodeQuery": "서울특별시 마포구 망원로7길 13",
+      "location": {
+        "latitude": 37.558114,
+        "longitude": 126.9054151,
+        "source": "https://maps.apigw.ntruss.com/map-geocode/v2/geocode",
+        "coordSource": "blog-address+naver-geocode",
+        "evidenceAddress": "서울 마포구 망원로7길 13",
+        "sourceUrl": "https://m.blog.naver.com/mwwdc/224413870618",
+        "geocodedAddress": "서울특별시 마포구 망원로7길 13",
+        "verifiedAt": "2026-10-04",
+        "verificationStatus": "SINGLE_SOURCE_VERIFIED",
+        "evidenceType": "BLOG_IMAGE",
+        "evidenceImageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjMy/MDAxNzg5NTQzNTM3NTA2.pB4XrVvy81nlkpIXvn29Uo-GGTPgnLxFhAAdTaXyiBog.0x00dJUJn03-UTr2WVCWLbcgT6Y5AedckIZgu6YC748g.PNG/3.png?type=w800"
+      },
+      "jibunAddress": "서울특별시 마포구 망원동 424-33"
+    },
+    {
+      "id": "worldcup-market-42",
+      "nameKo": "백년손님 형제떡방",
+      "sourceUrl": "https://m.blog.naver.com/mwwdc/224413877020",
+      "originalAddress": "서울 마포구 망원로7길 28",
+      "checkedAt": "2026-10-04",
+      "locationClues": [],
+      "evidenceAddress": "서울 마포구 망원로7길 28",
+      "blogVerified": true,
+      "reason": null,
+      "sourceImages": [
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjQg/MDAxNzg5NTQzNjU4OTkz.ZzIA-8OWfSNRuwZdXOJH47oJKX3scA1DV3R9UsxT9JYg.pNTO60HMRc0GNCsxe9iATXxYMZN8ci1duGguP91hUlUg.PNG/1.png?type=w800",
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfNSAg/MDAxNzg5NTQzNjU4OTIz.lvvogALrzqnh4TSSEackUo08GMHUUczi3HoMjmQbn9gg.wQ9BJQ5eQCC9iK5uE4qUpMbH45WCHarjO5tiBLXMB8kg.PNG/2.png?type=w800",
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjQg/MDAxNzg5NTQzNjU4Mzgx.QvL84Dtdx7zTOEc8hEVyGZXLqmVRQwQqLcznFezeCKAg.5owpf_YHo46i3di1Dzy_RHZ6onLol40bJwapC2ssD7Ug.PNG/3.png?type=w800"
+      ],
+      "addressImageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjQg/MDAxNzg5NTQzNjU4Mzgx.QvL84Dtdx7zTOEc8hEVyGZXLqmVRQwQqLcznFezeCKAg.5owpf_YHo46i3di1Dzy_RHZ6onLol40bJwapC2ssD7Ug.PNG/3.png?type=w800",
+      "addressImagePath": "D:\\walk\\.worktrees\\worldcup-blog-location-images-20261004\\worldcup-market-42-3.png",
+      "evidenceType": "BLOG_IMAGE",
+      "geocodeQuery": "서울특별시 마포구 망원로7길 28",
+      "location": {
+        "latitude": 37.5587974,
+        "longitude": 126.9053991,
+        "source": "https://maps.apigw.ntruss.com/map-geocode/v2/geocode",
+        "coordSource": "blog-address+naver-geocode",
+        "evidenceAddress": "서울 마포구 망원로7길 28",
+        "sourceUrl": "https://m.blog.naver.com/mwwdc/224413877020",
+        "geocodedAddress": "서울특별시 마포구 망원로7길 28",
+        "verifiedAt": "2026-10-04",
+        "verificationStatus": "SINGLE_SOURCE_VERIFIED",
+        "evidenceType": "BLOG_IMAGE",
+        "evidenceImageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjQg/MDAxNzg5NTQzNjU4Mzgx.QvL84Dtdx7zTOEc8hEVyGZXLqmVRQwQqLcznFezeCKAg.5owpf_YHo46i3di1Dzy_RHZ6onLol40bJwapC2ssD7Ug.PNG/3.png?type=w800"
+      },
+      "jibunAddress": "서울특별시 마포구 망원동 479-62"
+    },
+    {
+      "id": "worldcup-market-43",
+      "nameKo": "갱상도시래기",
+      "sourceUrl": "https://m.blog.naver.com/mwwdc/224413879128",
+      "originalAddress": "서울 마포구 망원로7길 20 1층",
+      "checkedAt": "2026-10-04",
+      "locationClues": [],
+      "evidenceAddress": "서울 마포구 망원로7길 20 1층",
+      "blogVerified": true,
+      "reason": null,
+      "sourceImages": [
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMTIx/MDAxNzg5NTQzOTY3ODI2.UdaoGc9XOvOuYmMMWsLmN2ysAWQxo1C8zKzQ6uyFYg4g.8eeAFwfzezQYhtd32mUPsRV8ykUIYWlJ8YqE9AF6S1cg.PNG/1.png?type=w800",
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMTM5/MDAxNzg5NTQzOTY3Njk4.1GrNB3mC4GP91bPfrLGBoC1d-jtqBIyDnK8AW2MjULIg.gP8xNVYCLmCUedMwj1bQ7ZQQxtLqJpWggNRQRh86r3og.PNG/2.png?type=w800",
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfNCAg/MDAxNzg5NTQzOTY3NTI3.f3HH0Vgc28BqePUf41-m9H4SIs4PTImmTvhh9XVgcrog.plCKRDKYDwq_t0CNgVoRc3cv1LvW8gAQp2Go5_BO1gwg.PNG/3.png?type=w800"
+      ],
+      "addressImageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfNCAg/MDAxNzg5NTQzOTY3NTI3.f3HH0Vgc28BqePUf41-m9H4SIs4PTImmTvhh9XVgcrog.plCKRDKYDwq_t0CNgVoRc3cv1LvW8gAQp2Go5_BO1gwg.PNG/3.png?type=w800",
+      "addressImagePath": "D:\\walk\\.worktrees\\worldcup-blog-location-images-20261004\\worldcup-market-43-3.png",
+      "evidenceType": "BLOG_IMAGE",
+      "geocodeQuery": "서울특별시 마포구 망원로7길 20",
+      "location": {
+        "latitude": 37.5585035,
+        "longitude": 126.9055274,
+        "source": "https://maps.apigw.ntruss.com/map-geocode/v2/geocode",
+        "coordSource": "blog-address+naver-geocode",
+        "evidenceAddress": "서울 마포구 망원로7길 20 1층",
+        "sourceUrl": "https://m.blog.naver.com/mwwdc/224413879128",
+        "geocodedAddress": "서울특별시 마포구 망원로7길 20",
+        "verifiedAt": "2026-10-04",
+        "verificationStatus": "SINGLE_SOURCE_VERIFIED",
+        "evidenceType": "BLOG_IMAGE",
+        "evidenceImageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfNCAg/MDAxNzg5NTQzOTY3NTI3.f3HH0Vgc28BqePUf41-m9H4SIs4PTImmTvhh9XVgcrog.plCKRDKYDwq_t0CNgVoRc3cv1LvW8gAQp2Go5_BO1gwg.PNG/3.png?type=w800"
+      },
+      "jibunAddress": "서울특별시 마포구 망원동 479-66"
+    },
+    {
+      "id": "worldcup-market-44",
+      "nameKo": "한성커텐",
+      "sourceUrl": "https://m.blog.naver.com/mwwdc/224413880510",
+      "originalAddress": "서울 마포구 망원로7길 13",
+      "checkedAt": "2026-10-04",
+      "locationClues": [],
+      "evidenceAddress": "서울 마포구 망원로7길 13",
+      "blogVerified": true,
+      "reason": null,
+      "sourceImages": [
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMTc0/MDAxNzg5NTQ0MDMzODY1.arrgr6pvtNh2lftOtIh-usoCh5viCHCRnNSTGyd8P7Eg.W9PxD7Q5IfVc-xUgFuhtuOHqPkO-bBjv_AhGdVdlAkMg.PNG/1.png?type=w800",
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfODAg/MDAxNzg5NTQ0MDMzNjkw.Dr2Em8b_Fuv17AJ1c8qwJn1Gjh9a3odIrrTR7IOg8Gog.iG_9mgcvWCUm6aTcF76ostjCk67_L5wpbd8TqFA7brAg.PNG/2.png?type=w800",
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfNjAg/MDAxNzg5NTQ0MDMzNjAz.wuaPT_7ysfLNJ-kcQeG9I3tIgKWIdkFbOh7Gf-PkMxUg.01XxCgm3h3fp1GYUubrJm00tjz35Ms45r3n302H8APsg.PNG/3.png?type=w800"
+      ],
+      "addressImageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfNjAg/MDAxNzg5NTQ0MDMzNjAz.wuaPT_7ysfLNJ-kcQeG9I3tIgKWIdkFbOh7Gf-PkMxUg.01XxCgm3h3fp1GYUubrJm00tjz35Ms45r3n302H8APsg.PNG/3.png?type=w800",
+      "addressImagePath": "D:\\walk\\.worktrees\\worldcup-blog-location-images-20261004\\worldcup-market-44-3.png",
+      "evidenceType": "BLOG_IMAGE",
+      "geocodeQuery": "서울특별시 마포구 망원로7길 13",
+      "location": {
+        "latitude": 37.558114,
+        "longitude": 126.9054151,
+        "source": "https://maps.apigw.ntruss.com/map-geocode/v2/geocode",
+        "coordSource": "blog-address+naver-geocode",
+        "evidenceAddress": "서울 마포구 망원로7길 13",
+        "sourceUrl": "https://m.blog.naver.com/mwwdc/224413880510",
+        "geocodedAddress": "서울특별시 마포구 망원로7길 13",
+        "verifiedAt": "2026-10-04",
+        "verificationStatus": "SINGLE_SOURCE_VERIFIED",
+        "evidenceType": "BLOG_IMAGE",
+        "evidenceImageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfNjAg/MDAxNzg5NTQ0MDMzNjAz.wuaPT_7ysfLNJ-kcQeG9I3tIgKWIdkFbOh7Gf-PkMxUg.01XxCgm3h3fp1GYUubrJm00tjz35Ms45r3n302H8APsg.PNG/3.png?type=w800"
+      },
+      "jibunAddress": "서울특별시 마포구 망원동 424-33"
+    },
+    {
+      "id": "worldcup-market-45",
+      "nameKo": "장터국밥",
+      "sourceUrl": "https://m.blog.naver.com/mwwdc/224413884748",
+      "originalAddress": "서울 마포구 망원로7길 20",
+      "checkedAt": "2026-10-04",
+      "locationClues": [],
+      "evidenceAddress": "서울 마포구 망원로7길 20",
+      "blogVerified": true,
+      "reason": null,
+      "sourceImages": [
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMTM2/MDAxNzg5NTQ0MjA2Nzk0.EV24RofopjLtfUE1TJ1LyCYqQcqtt7i44H4IkymoC4og.gw7wfLvcFDXC3-XYkLXTZSCbwo8-LHL_f4DtMLcyGc8g.PNG/1.png?type=w800",
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMTk5/MDAxNzg5NTQ0MjA3MDQw.sQY6bTA10l9cOlREwKhCZvBCRJuLD3Puvt95_JVfpisg.S4B02LCvDGkMwJlLzyBU7gNBmSxjiK0stavhT7ieyHQg.PNG/2.png?type=w800",
+        "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfNzQg/MDAxNzg5NTQ0MjA2NzEw.MzlGP8ZfGGjl0Qgyvvb2IVF5wos_rpfxyuu34B4yOxQg.XmQpKu-EZkRkhdFiMj65wjOC-J8DRx78angrePyx4Zkg.PNG/3.png?type=w800"
+      ],
+      "addressImageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfNzQg/MDAxNzg5NTQ0MjA2NzEw.MzlGP8ZfGGjl0Qgyvvb2IVF5wos_rpfxyuu34B4yOxQg.XmQpKu-EZkRkhdFiMj65wjOC-J8DRx78angrePyx4Zkg.PNG/3.png?type=w800",
+      "addressImagePath": "D:\\walk\\.worktrees\\worldcup-blog-location-images-20261004\\worldcup-market-45-3.png",
+      "evidenceType": "BLOG_IMAGE",
+      "geocodeQuery": "서울특별시 마포구 망원로7길 20",
+      "location": {
+        "latitude": 37.5585035,
+        "longitude": 126.9055274,
+        "source": "https://maps.apigw.ntruss.com/map-geocode/v2/geocode",
+        "coordSource": "blog-address+naver-geocode",
+        "evidenceAddress": "서울 마포구 망원로7길 20",
+        "sourceUrl": "https://m.blog.naver.com/mwwdc/224413884748",
+        "geocodedAddress": "서울특별시 마포구 망원로7길 20",
+        "verifiedAt": "2026-10-04",
+        "verificationStatus": "SINGLE_SOURCE_VERIFIED",
+        "evidenceType": "BLOG_IMAGE",
+        "evidenceImageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfNzQg/MDAxNzg5NTQ0MjA2NzEw.MzlGP8ZfGGjl0Qgyvvb2IVF5wos_rpfxyuu34B4yOxQg.XmQpKu-EZkRkhdFiMj65wjOC-J8DRx78angrePyx4Zkg.PNG/3.png?type=w800"
+      },
+      "jibunAddress": "서울특별시 마포구 망원동 479-66"
+    }
+  ],
+  "geocodeResponses": {
+    "서울특별시 마포구 망원로7길 31": {
+      "status": "OK",
+      "addresses": [
+        {
+          "roadAddress": "서울특별시 마포구 망원로7길 31",
+          "jibunAddress": "서울특별시 마포구 망원동 424-7",
+          "englishAddress": "31, Mangwon-ro 7-gil, Mapo-gu, Seoul, Republic of Korea",
+          "addressElements": [
+            {
+              "types": [
+                "SIDO"
+              ],
+              "longName": "서울특별시",
+              "shortName": "서울특별시",
+              "code": ""
+            },
+            {
+              "types": [
+                "SIGUGUN"
+              ],
+              "longName": "마포구",
+              "shortName": "마포구",
+              "code": ""
+            },
+            {
+              "types": [
+                "DONGMYUN"
+              ],
+              "longName": "망원동",
+              "shortName": "망원동",
+              "code": ""
+            },
+            {
+              "types": [
+                "RI"
+              ],
+              "longName": "",
+              "shortName": "",
+              "code": ""
+            },
+            {
+              "types": [
+                "ROAD_NAME"
+              ],
+              "longName": "망원로7길",
+              "shortName": "망원로7길",
+              "code": ""
+            },
+            {
+              "types": [
+                "BUILDING_NUMBER"
+              ],
+              "longName": "31",
+              "shortName": "31",
+              "code": ""
+            },
+            {
+              "types": [
+                "BUILDING_NAME"
+              ],
+              "longName": "",
+              "shortName": "",
+              "code": ""
+            },
+            {
+              "types": [
+                "LAND_NUMBER"
+              ],
+              "longName": "424-7",
+              "shortName": "424-7",
+              "code": ""
+            },
+            {
+              "types": [
+                "POSTAL_CODE"
+              ],
+              "longName": "03964",
+              "shortName": "03964",
+              "code": ""
+            }
+          ],
+          "x": "126.9050734",
+          "y": "37.5587334",
+          "distance": 0.0
+        }
+      ]
+    },
+    "서울특별시 마포구 망원로7길 23": {
+      "status": "OK",
+      "addresses": [
+        {
+          "roadAddress": "서울특별시 마포구 망원로7길 23",
+          "jibunAddress": "서울특별시 마포구 망원동 424-16",
+          "englishAddress": "23, Mangwon-ro 7-gil, Mapo-gu, Seoul, Republic of Korea",
+          "addressElements": [
+            {
+              "types": [
+                "SIDO"
+              ],
+              "longName": "서울특별시",
+              "shortName": "서울특별시",
+              "code": ""
+            },
+            {
+              "types": [
+                "SIGUGUN"
+              ],
+              "longName": "마포구",
+              "shortName": "마포구",
+              "code": ""
+            },
+            {
+              "types": [
+                "DONGMYUN"
+              ],
+              "longName": "망원동",
+              "shortName": "망원동",
+              "code": ""
+            },
+            {
+              "types": [
+                "RI"
+              ],
+              "longName": "",
+              "shortName": "",
+              "code": ""
+            },
+            {
+              "types": [
+                "ROAD_NAME"
+              ],
+              "longName": "망원로7길",
+              "shortName": "망원로7길",
+              "code": ""
+            },
+            {
+              "types": [
+                "BUILDING_NUMBER"
+              ],
+              "longName": "23",
+              "shortName": "23",
+              "code": ""
+            },
+            {
+              "types": [
+                "BUILDING_NAME"
+              ],
+              "longName": "",
+              "shortName": "",
+              "code": ""
+            },
+            {
+              "types": [
+                "LAND_NUMBER"
+              ],
+              "longName": "424-16",
+              "shortName": "424-16",
+              "code": ""
+            },
+            {
+              "types": [
+                "POSTAL_CODE"
+              ],
+              "longName": "03964",
+              "shortName": "03964",
+              "code": ""
+            }
+          ],
+          "x": "126.9051778",
+          "y": "37.5585682",
+          "distance": 0.0
+        }
+      ]
+    },
+    "서울특별시 마포구 망원로7길 7": {
+      "status": "OK",
+      "addresses": [
+        {
+          "roadAddress": "서울특별시 마포구 망원로7길 7",
+          "jibunAddress": "서울특별시 마포구 망원동 423-12",
+          "englishAddress": "7, Mangwon-ro 7-gil, Mapo-gu, Seoul, Republic of Korea",
+          "addressElements": [
+            {
+              "types": [
+                "SIDO"
+              ],
+              "longName": "서울특별시",
+              "shortName": "서울특별시",
+              "code": ""
+            },
+            {
+              "types": [
+                "SIGUGUN"
+              ],
+              "longName": "마포구",
+              "shortName": "마포구",
+              "code": ""
+            },
+            {
+              "types": [
+                "DONGMYUN"
+              ],
+              "longName": "망원동",
+              "shortName": "망원동",
+              "code": ""
+            },
+            {
+              "types": [
+                "RI"
+              ],
+              "longName": "",
+              "shortName": "",
+              "code": ""
+            },
+            {
+              "types": [
+                "ROAD_NAME"
+              ],
+              "longName": "망원로7길",
+              "shortName": "망원로7길",
+              "code": ""
+            },
+            {
+              "types": [
+                "BUILDING_NUMBER"
+              ],
+              "longName": "7",
+              "shortName": "7",
+              "code": ""
+            },
+            {
+              "types": [
+                "BUILDING_NAME"
+              ],
+              "longName": "",
+              "shortName": "",
+              "code": ""
+            },
+            {
+              "types": [
+                "LAND_NUMBER"
+              ],
+              "longName": "423-12",
+              "shortName": "423-12",
+              "code": ""
+            },
+            {
+              "types": [
+                "POSTAL_CODE"
+              ],
+              "longName": "03964",
+              "shortName": "03964",
+              "code": ""
+            }
+          ],
+          "x": "126.9054881",
+          "y": "37.5579260",
+          "distance": 0.0
+        }
+      ]
+    },
+    "서울특별시 마포구 망원로7길 20": {
+      "status": "OK",
+      "addresses": [
+        {
+          "roadAddress": "서울특별시 마포구 망원로7길 20",
+          "jibunAddress": "서울특별시 마포구 망원동 479-66",
+          "englishAddress": "20, Mangwon-ro 7-gil, Mapo-gu, Seoul, Republic of Korea",
+          "addressElements": [
+            {
+              "types": [
+                "SIDO"
+              ],
+              "longName": "서울특별시",
+              "shortName": "서울특별시",
+              "code": ""
+            },
+            {
+              "types": [
+                "SIGUGUN"
+              ],
+              "longName": "마포구",
+              "shortName": "마포구",
+              "code": ""
+            },
+            {
+              "types": [
+                "DONGMYUN"
+              ],
+              "longName": "망원동",
+              "shortName": "망원동",
+              "code": ""
+            },
+            {
+              "types": [
+                "RI"
+              ],
+              "longName": "",
+              "shortName": "",
+              "code": ""
+            },
+            {
+              "types": [
+                "ROAD_NAME"
+              ],
+              "longName": "망원로7길",
+              "shortName": "망원로7길",
+              "code": ""
+            },
+            {
+              "types": [
+                "BUILDING_NUMBER"
+              ],
+              "longName": "20",
+              "shortName": "20",
+              "code": ""
+            },
+            {
+              "types": [
+                "BUILDING_NAME"
+              ],
+              "longName": "",
+              "shortName": "",
+              "code": ""
+            },
+            {
+              "types": [
+                "LAND_NUMBER"
+              ],
+              "longName": "479-66",
+              "shortName": "479-66",
+              "code": ""
+            },
+            {
+              "types": [
+                "POSTAL_CODE"
+              ],
+              "longName": "03964",
+              "shortName": "03964",
+              "code": ""
+            }
+          ],
+          "x": "126.9055274",
+          "y": "37.5585035",
+          "distance": 0.0
+        }
+      ]
+    },
+    "서울특별시 마포구 망원로7길 3": {
+      "status": "OK",
+      "addresses": [
+        {
+          "roadAddress": "서울특별시 마포구 망원로7길 3",
+          "jibunAddress": "서울특별시 마포구 망원동 423-13",
+          "englishAddress": "3, Mangwon-ro 7-gil, Mapo-gu, Seoul, Republic of Korea",
+          "addressElements": [
+            {
+              "types": [
+                "SIDO"
+              ],
+              "longName": "서울특별시",
+              "shortName": "서울특별시",
+              "code": ""
+            },
+            {
+              "types": [
+                "SIGUGUN"
+              ],
+              "longName": "마포구",
+              "shortName": "마포구",
+              "code": ""
+            },
+            {
+              "types": [
+                "DONGMYUN"
+              ],
+              "longName": "망원동",
+              "shortName": "망원동",
+              "code": ""
+            },
+            {
+              "types": [
+                "RI"
+              ],
+              "longName": "",
+              "shortName": "",
+              "code": ""
+            },
+            {
+              "types": [
+                "ROAD_NAME"
+              ],
+              "longName": "망원로7길",
+              "shortName": "망원로7길",
+              "code": ""
+            },
+            {
+              "types": [
+                "BUILDING_NUMBER"
+              ],
+              "longName": "3",
+              "shortName": "3",
+              "code": ""
+            },
+            {
+              "types": [
+                "BUILDING_NAME"
+              ],
+              "longName": "",
+              "shortName": "",
+              "code": ""
+            },
+            {
+              "types": [
+                "LAND_NUMBER"
+              ],
+              "longName": "423-13",
+              "shortName": "423-13",
+              "code": ""
+            },
+            {
+              "types": [
+                "POSTAL_CODE"
+              ],
+              "longName": "03964",
+              "shortName": "03964",
+              "code": ""
+            }
+          ],
+          "x": "126.9055477",
+          "y": "37.5577780",
+          "distance": 0.0
+        }
+      ]
+    },
+    "서울특별시 마포구 월드컵로25길 35": {
+      "status": "OK",
+      "addresses": [
+        {
+          "roadAddress": "서울특별시 마포구 월드컵로25길 35",
+          "jibunAddress": "서울특별시 마포구 망원동 483-16",
+          "englishAddress": "35, World Cup-ro 25-gil, Mapo-gu, Seoul, Republic of Korea",
+          "addressElements": [
+            {
+              "types": [
+                "SIDO"
+              ],
+              "longName": "서울특별시",
+              "shortName": "서울특별시",
+              "code": ""
+            },
+            {
+              "types": [
+                "SIGUGUN"
+              ],
+              "longName": "마포구",
+              "shortName": "마포구",
+              "code": ""
+            },
+            {
+              "types": [
+                "DONGMYUN"
+              ],
+              "longName": "망원동",
+              "shortName": "망원동",
+              "code": ""
+            },
+            {
+              "types": [
+                "RI"
+              ],
+              "longName": "",
+              "shortName": "",
+              "code": ""
+            },
+            {
+              "types": [
+                "ROAD_NAME"
+              ],
+              "longName": "월드컵로25길",
+              "shortName": "월드컵로25길",
+              "code": ""
+            },
+            {
+              "types": [
+                "BUILDING_NUMBER"
+              ],
+              "longName": "35",
+              "shortName": "35",
+              "code": ""
+            },
+            {
+              "types": [
+                "BUILDING_NAME"
+              ],
+              "longName": "",
+              "shortName": "",
+              "code": ""
+            },
+            {
+              "types": [
+                "LAND_NUMBER"
+              ],
+              "longName": "483-16",
+              "shortName": "483-16",
+              "code": ""
+            },
+            {
+              "types": [
+                "POSTAL_CODE"
+              ],
+              "longName": "03964",
+              "shortName": "03964",
+              "code": ""
+            }
+          ],
+          "x": "126.9057035",
+          "y": "37.5579801",
+          "distance": 0.0
+        }
+      ]
+    },
+    "서울특별시 마포구 망원로7길 13": {
+      "status": "OK",
+      "addresses": [
+        {
+          "roadAddress": "서울특별시 마포구 망원로7길 13",
+          "jibunAddress": "서울특별시 마포구 망원동 424-33",
+          "englishAddress": "13, Mangwon-ro 7-gil, Mapo-gu, Seoul, Republic of Korea",
+          "addressElements": [
+            {
+              "types": [
+                "SIDO"
+              ],
+              "longName": "서울특별시",
+              "shortName": "서울특별시",
+              "code": ""
+            },
+            {
+              "types": [
+                "SIGUGUN"
+              ],
+              "longName": "마포구",
+              "shortName": "마포구",
+              "code": ""
+            },
+            {
+              "types": [
+                "DONGMYUN"
+              ],
+              "longName": "망원동",
+              "shortName": "망원동",
+              "code": ""
+            },
+            {
+              "types": [
+                "RI"
+              ],
+              "longName": "",
+              "shortName": "",
+              "code": ""
+            },
+            {
+              "types": [
+                "ROAD_NAME"
+              ],
+              "longName": "망원로7길",
+              "shortName": "망원로7길",
+              "code": ""
+            },
+            {
+              "types": [
+                "BUILDING_NUMBER"
+              ],
+              "longName": "13",
+              "shortName": "13",
+              "code": ""
+            },
+            {
+              "types": [
+                "BUILDING_NAME"
+              ],
+              "longName": "",
+              "shortName": "",
+              "code": ""
+            },
+            {
+              "types": [
+                "LAND_NUMBER"
+              ],
+              "longName": "424-33",
+              "shortName": "424-33",
+              "code": ""
+            },
+            {
+              "types": [
+                "POSTAL_CODE"
+              ],
+              "longName": "03964",
+              "shortName": "03964",
+              "code": ""
+            }
+          ],
+          "x": "126.9054151",
+          "y": "37.5581140",
+          "distance": 0.0
+        }
+      ]
+    },
+    "서울특별시 마포구 망원로7길 28": {
+      "status": "OK",
+      "addresses": [
+        {
+          "roadAddress": "서울특별시 마포구 망원로7길 28",
+          "jibunAddress": "서울특별시 마포구 망원동 479-62",
+          "englishAddress": "28, Mangwon-ro 7-gil, Mapo-gu, Seoul, Republic of Korea",
+          "addressElements": [
+            {
+              "types": [
+                "SIDO"
+              ],
+              "longName": "서울특별시",
+              "shortName": "서울특별시",
+              "code": ""
+            },
+            {
+              "types": [
+                "SIGUGUN"
+              ],
+              "longName": "마포구",
+              "shortName": "마포구",
+              "code": ""
+            },
+            {
+              "types": [
+                "DONGMYUN"
+              ],
+              "longName": "망원동",
+              "shortName": "망원동",
+              "code": ""
+            },
+            {
+              "types": [
+                "RI"
+              ],
+              "longName": "",
+              "shortName": "",
+              "code": ""
+            },
+            {
+              "types": [
+                "ROAD_NAME"
+              ],
+              "longName": "망원로7길",
+              "shortName": "망원로7길",
+              "code": ""
+            },
+            {
+              "types": [
+                "BUILDING_NUMBER"
+              ],
+              "longName": "28",
+              "shortName": "28",
+              "code": ""
+            },
+            {
+              "types": [
+                "BUILDING_NAME"
+              ],
+              "longName": "",
+              "shortName": "",
+              "code": ""
+            },
+            {
+              "types": [
+                "LAND_NUMBER"
+              ],
+              "longName": "479-62",
+              "shortName": "479-62",
+              "code": ""
+            },
+            {
+              "types": [
+                "POSTAL_CODE"
+              ],
+              "longName": "03964",
+              "shortName": "03964",
+              "code": ""
+            }
+          ],
+          "x": "126.9053991",
+          "y": "37.5587974",
+          "distance": 0.0
+        }
+      ]
+    },
+    "서울특별시 마포구 망원로7길 24": {
+      "status": "OK",
+      "addresses": [
+        {
+          "roadAddress": "서울특별시 마포구 망원로7길 24 한일주택",
+          "jibunAddress": "서울특별시 마포구 망원동 479-63 한일주택",
+          "englishAddress": "24, Mangwon-ro 7-gil, Mapo-gu, Seoul, Republic of Korea",
+          "addressElements": [
+            {
+              "types": [
+                "SIDO"
+              ],
+              "longName": "서울특별시",
+              "shortName": "서울특별시",
+              "code": ""
+            },
+            {
+              "types": [
+                "SIGUGUN"
+              ],
+              "longName": "마포구",
+              "shortName": "마포구",
+              "code": ""
+            },
+            {
+              "types": [
+                "DONGMYUN"
+              ],
+              "longName": "망원동",
+              "shortName": "망원동",
+              "code": ""
+            },
+            {
+              "types": [
+                "RI"
+              ],
+              "longName": "",
+              "shortName": "",
+              "code": ""
+            },
+            {
+              "types": [
+                "ROAD_NAME"
+              ],
+              "longName": "망원로7길",
+              "shortName": "망원로7길",
+              "code": ""
+            },
+            {
+              "types": [
+                "BUILDING_NUMBER"
+              ],
+              "longName": "24",
+              "shortName": "24",
+              "code": ""
+            },
+            {
+              "types": [
+                "BUILDING_NAME"
+              ],
+              "longName": "한일주택",
+              "shortName": "한일주택",
+              "code": ""
+            },
+            {
+              "types": [
+                "LAND_NUMBER"
+              ],
+              "longName": "479-63",
+              "shortName": "479-63",
+              "code": ""
+            },
+            {
+              "types": [
+                "POSTAL_CODE"
+              ],
+              "longName": "03964",
+              "shortName": "03964",
+              "code": ""
+            }
+          ],
+          "x": "126.9054136",
+          "y": "37.5586569",
+          "distance": 0.0
+        }
+      ]
+    },
+    "서울특별시 마포구 망원로7길 19": {
+      "status": "OK",
+      "addresses": [
+        {
+          "roadAddress": "서울특별시 마포구 망원로7길 19 명빌딩",
+          "jibunAddress": "서울특별시 마포구 망원동 424-25 명빌딩",
+          "englishAddress": "19, Mangwon-ro 7-gil, Mapo-gu, Seoul, Republic of Korea",
+          "addressElements": [
+            {
+              "types": [
+                "SIDO"
+              ],
+              "longName": "서울특별시",
+              "shortName": "서울특별시",
+              "code": ""
+            },
+            {
+              "types": [
+                "SIGUGUN"
+              ],
+              "longName": "마포구",
+              "shortName": "마포구",
+              "code": ""
+            },
+            {
+              "types": [
+                "DONGMYUN"
+              ],
+              "longName": "망원동",
+              "shortName": "망원동",
+              "code": ""
+            },
+            {
+              "types": [
+                "RI"
+              ],
+              "longName": "",
+              "shortName": "",
+              "code": ""
+            },
+            {
+              "types": [
+                "ROAD_NAME"
+              ],
+              "longName": "망원로7길",
+              "shortName": "망원로7길",
+              "code": ""
+            },
+            {
+              "types": [
+                "BUILDING_NUMBER"
+              ],
+              "longName": "19",
+              "shortName": "19",
+              "code": ""
+            },
+            {
+              "types": [
+                "BUILDING_NAME"
+              ],
+              "longName": "명빌딩",
+              "shortName": "명빌딩",
+              "code": ""
+            },
+            {
+              "types": [
+                "LAND_NUMBER"
+              ],
+              "longName": "424-25",
+              "shortName": "424-25",
+              "code": ""
+            },
+            {
+              "types": [
+                "POSTAL_CODE"
+              ],
+              "longName": "03964",
+              "shortName": "03964",
+              "code": ""
+            }
+          ],
+          "x": "126.9052835",
+          "y": "37.5584128",
+          "distance": 0.0
+        }
+      ]
+    },
+    "서울특별시 마포구 망원로7길 6": {
+      "status": "OK",
+      "addresses": [
+        {
+          "roadAddress": "서울특별시 마포구 망원로7길 6",
+          "jibunAddress": "서울특별시 마포구 망원동 483-15",
+          "englishAddress": "6, Mangwon-ro 7-gil, Mapo-gu, Seoul, Republic of Korea",
+          "addressElements": [
+            {
+              "types": [
+                "SIDO"
+              ],
+              "longName": "서울특별시",
+              "shortName": "서울특별시",
+              "code": ""
+            },
+            {
+              "types": [
+                "SIGUGUN"
+              ],
+              "longName": "마포구",
+              "shortName": "마포구",
+              "code": ""
+            },
+            {
+              "types": [
+                "DONGMYUN"
+              ],
+              "longName": "망원동",
+              "shortName": "망원동",
+              "code": ""
+            },
+            {
+              "types": [
+                "RI"
+              ],
+              "longName": "",
+              "shortName": "",
+              "code": ""
+            },
+            {
+              "types": [
+                "ROAD_NAME"
+              ],
+              "longName": "망원로7길",
+              "shortName": "망원로7길",
+              "code": ""
+            },
+            {
+              "types": [
+                "BUILDING_NUMBER"
+              ],
+              "longName": "6",
+              "shortName": "6",
+              "code": ""
+            },
+            {
+              "types": [
+                "BUILDING_NAME"
+              ],
+              "longName": "",
+              "shortName": "",
+              "code": ""
+            },
+            {
+              "types": [
+                "LAND_NUMBER"
+              ],
+              "longName": "483-15",
+              "shortName": "483-15",
+              "code": ""
+            },
+            {
+              "types": [
+                "POSTAL_CODE"
+              ],
+              "longName": "03964",
+              "shortName": "03964",
+              "code": ""
+            }
+          ],
+          "x": "126.9057376",
+          "y": "37.5578586",
+          "distance": 0.0
+        }
+      ]
+    },
+    "서울특별시 마포구 망원로 79": {
+      "status": "OK",
+      "addresses": [
+        {
+          "roadAddress": "서울특별시 마포구 망원로 79",
+          "jibunAddress": "서울특별시 마포구 망원동 423-15",
+          "englishAddress": "79, Mangwon-ro, Mapo-gu, Seoul, Republic of Korea",
+          "addressElements": [
+            {
+              "types": [
+                "SIDO"
+              ],
+              "longName": "서울특별시",
+              "shortName": "서울특별시",
+              "code": ""
+            },
+            {
+              "types": [
+                "SIGUGUN"
+              ],
+              "longName": "마포구",
+              "shortName": "마포구",
+              "code": ""
+            },
+            {
+              "types": [
+                "DONGMYUN"
+              ],
+              "longName": "망원동",
+              "shortName": "망원동",
+              "code": ""
+            },
+            {
+              "types": [
+                "RI"
+              ],
+              "longName": "",
+              "shortName": "",
+              "code": ""
+            },
+            {
+              "types": [
+                "ROAD_NAME"
+              ],
+              "longName": "망원로",
+              "shortName": "망원로",
+              "code": ""
+            },
+            {
+              "types": [
+                "BUILDING_NUMBER"
+              ],
+              "longName": "79",
+              "shortName": "79",
+              "code": ""
+            },
+            {
+              "types": [
+                "BUILDING_NAME"
+              ],
+              "longName": "",
+              "shortName": "",
+              "code": ""
+            },
+            {
+              "types": [
+                "LAND_NUMBER"
+              ],
+              "longName": "423-15",
+              "shortName": "423-15",
+              "code": ""
+            },
+            {
+              "types": [
+                "POSTAL_CODE"
+              ],
+              "longName": "03964",
+              "shortName": "03964",
+              "code": ""
+            }
+          ],
+          "x": "126.9055895",
+          "y": "37.5576343",
+          "distance": 0.0
+        }
+      ]
+    },
+    "서울특별시 마포구 망원로7길 4": {
+      "status": "OK",
+      "addresses": [
+        {
+          "roadAddress": "서울특별시 마포구 망원로7길 4",
+          "jibunAddress": "서울특별시 마포구 망원동 483-14",
+          "englishAddress": "4, Mangwon-ro 7-gil, Mapo-gu, Seoul, Republic of Korea",
+          "addressElements": [
+            {
+              "types": [
+                "SIDO"
+              ],
+              "longName": "서울특별시",
+              "shortName": "서울특별시",
+              "code": ""
+            },
+            {
+              "types": [
+                "SIGUGUN"
+              ],
+              "longName": "마포구",
+              "shortName": "마포구",
+              "code": ""
+            },
+            {
+              "types": [
+                "DONGMYUN"
+              ],
+              "longName": "망원동",
+              "shortName": "망원동",
+              "code": ""
+            },
+            {
+              "types": [
+                "RI"
+              ],
+              "longName": "",
+              "shortName": "",
+              "code": ""
+            },
+            {
+              "types": [
+                "ROAD_NAME"
+              ],
+              "longName": "망원로7길",
+              "shortName": "망원로7길",
+              "code": ""
+            },
+            {
+              "types": [
+                "BUILDING_NUMBER"
+              ],
+              "longName": "4",
+              "shortName": "4",
+              "code": ""
+            },
+            {
+              "types": [
+                "BUILDING_NAME"
+              ],
+              "longName": "",
+              "shortName": "",
+              "code": ""
+            },
+            {
+              "types": [
+                "LAND_NUMBER"
+              ],
+              "longName": "483-14",
+              "shortName": "483-14",
+              "code": ""
+            },
+            {
+              "types": [
+                "POSTAL_CODE"
+              ],
+              "longName": "03964",
+              "shortName": "03964",
+              "code": ""
+            }
+          ],
+          "x": "126.9057674",
+          "y": "37.5577619",
+          "distance": 0.0
+        }
+      ]
+    },
+    "서울특별시 마포구 망원로7길 30": {
+      "status": "OK",
+      "addresses": [
+        {
+          "roadAddress": "서울특별시 마포구 망원로7길 30",
+          "jibunAddress": "서울특별시 마포구 망원동 479-61",
+          "englishAddress": "30, Mangwon-ro 7-gil, Mapo-gu, Seoul, Republic of Korea",
+          "addressElements": [
+            {
+              "types": [
+                "SIDO"
+              ],
+              "longName": "서울특별시",
+              "shortName": "서울특별시",
+              "code": ""
+            },
+            {
+              "types": [
+                "SIGUGUN"
+              ],
+              "longName": "마포구",
+              "shortName": "마포구",
+              "code": ""
+            },
+            {
+              "types": [
+                "DONGMYUN"
+              ],
+              "longName": "망원동",
+              "shortName": "망원동",
+              "code": ""
+            },
+            {
+              "types": [
+                "RI"
+              ],
+              "longName": "",
+              "shortName": "",
+              "code": ""
+            },
+            {
+              "types": [
+                "ROAD_NAME"
+              ],
+              "longName": "망원로7길",
+              "shortName": "망원로7길",
+              "code": ""
+            },
+            {
+              "types": [
+                "BUILDING_NUMBER"
+              ],
+              "longName": "30",
+              "shortName": "30",
+              "code": ""
+            },
+            {
+              "types": [
+                "BUILDING_NAME"
+              ],
+              "longName": "",
+              "shortName": "",
+              "code": ""
+            },
+            {
+              "types": [
+                "LAND_NUMBER"
+              ],
+              "longName": "479-61",
+              "shortName": "479-61",
+              "code": ""
+            },
+            {
+              "types": [
+                "POSTAL_CODE"
+              ],
+              "longName": "03964",
+              "shortName": "03964",
+              "code": ""
+            }
+          ],
+          "x": "126.9052472",
+          "y": "37.5588576",
+          "distance": 0.0
+        }
+      ]
+    },
+    "서울특별시 마포구 망원로7길 17": {
+      "status": "OK",
+      "addresses": [
+        {
+          "roadAddress": "서울특별시 마포구 망원로7길 17 지상빌딩",
+          "jibunAddress": "서울특별시 마포구 망원동 424-32 지상빌딩",
+          "englishAddress": "17, Mangwon-ro 7-gil, Mapo-gu, Seoul, Republic of Korea",
+          "addressElements": [
+            {
+              "types": [
+                "SIDO"
+              ],
+              "longName": "서울특별시",
+              "shortName": "서울특별시",
+              "code": ""
+            },
+            {
+              "types": [
+                "SIGUGUN"
+              ],
+              "longName": "마포구",
+              "shortName": "마포구",
+              "code": ""
+            },
+            {
+              "types": [
+                "DONGMYUN"
+              ],
+              "longName": "망원동",
+              "shortName": "망원동",
+              "code": ""
+            },
+            {
+              "types": [
+                "RI"
+              ],
+              "longName": "",
+              "shortName": "",
+              "code": ""
+            },
+            {
+              "types": [
+                "ROAD_NAME"
+              ],
+              "longName": "망원로7길",
+              "shortName": "망원로7길",
+              "code": ""
+            },
+            {
+              "types": [
+                "BUILDING_NUMBER"
+              ],
+              "longName": "17",
+              "shortName": "17",
+              "code": ""
+            },
+            {
+              "types": [
+                "BUILDING_NAME"
+              ],
+              "longName": "지상빌딩",
+              "shortName": "지상빌딩",
+              "code": ""
+            },
+            {
+              "types": [
+                "LAND_NUMBER"
+              ],
+              "longName": "424-32",
+              "shortName": "424-32",
+              "code": ""
+            },
+            {
+              "types": [
+                "POSTAL_CODE"
+              ],
+              "longName": "03964",
+              "shortName": "03964",
+              "code": ""
+            }
+          ],
+          "x": "126.9053372",
+          "y": "37.5582506",
+          "distance": 0.0
+        }
+      ]
+    },
+    "서울특별시 마포구 월드컵로25길 33": {
+      "status": "OK",
+      "addresses": [
+        {
+          "roadAddress": "서울특별시 마포구 월드컵로25길 33",
+          "jibunAddress": "서울특별시 마포구 망원동 483-17",
+          "englishAddress": "33, World Cup-ro 25-gil, Mapo-gu, Seoul, Republic of Korea",
+          "addressElements": [
+            {
+              "types": [
+                "SIDO"
+              ],
+              "longName": "서울특별시",
+              "shortName": "서울특별시",
+              "code": ""
+            },
+            {
+              "types": [
+                "SIGUGUN"
+              ],
+              "longName": "마포구",
+              "shortName": "마포구",
+              "code": ""
+            },
+            {
+              "types": [
+                "DONGMYUN"
+              ],
+              "longName": "망원동",
+              "shortName": "망원동",
+              "code": ""
+            },
+            {
+              "types": [
+                "RI"
+              ],
+              "longName": "",
+              "shortName": "",
+              "code": ""
+            },
+            {
+              "types": [
+                "ROAD_NAME"
+              ],
+              "longName": "월드컵로25길",
+              "shortName": "월드컵로25길",
+              "code": ""
+            },
+            {
+              "types": [
+                "BUILDING_NUMBER"
+              ],
+              "longName": "33",
+              "shortName": "33",
+              "code": ""
+            },
+            {
+              "types": [
+                "BUILDING_NAME"
+              ],
+              "longName": "",
+              "shortName": "",
+              "code": ""
+            },
+            {
+              "types": [
+                "LAND_NUMBER"
+              ],
+              "longName": "483-17",
+              "shortName": "483-17",
+              "code": ""
+            },
+            {
+              "types": [
+                "POSTAL_CODE"
+              ],
+              "longName": "03964",
+              "shortName": "03964",
+              "code": ""
+            }
+          ],
+          "x": "126.9058551",
+          "y": "37.5580202",
+          "distance": 0.0
+        }
+      ]
+    },
+    "서울특별시 마포구 망원로 82": {
+      "status": "OK",
+      "addresses": [
+        {
+          "roadAddress": "서울특별시 마포구 망원로 82",
+          "jibunAddress": "서울특별시 마포구 망원동 486-39",
+          "englishAddress": "82, Mangwon-ro, Mapo-gu, Seoul, Republic of Korea",
+          "addressElements": [
+            {
+              "types": [
+                "SIDO"
+              ],
+              "longName": "서울특별시",
+              "shortName": "서울특별시",
+              "code": ""
+            },
+            {
+              "types": [
+                "SIGUGUN"
+              ],
+              "longName": "마포구",
+              "shortName": "마포구",
+              "code": ""
+            },
+            {
+              "types": [
+                "DONGMYUN"
+              ],
+              "longName": "망원동",
+              "shortName": "망원동",
+              "code": ""
+            },
+            {
+              "types": [
+                "RI"
+              ],
+              "longName": "",
+              "shortName": "",
+              "code": ""
+            },
+            {
+              "types": [
+                "ROAD_NAME"
+              ],
+              "longName": "망원로",
+              "shortName": "망원로",
+              "code": ""
+            },
+            {
+              "types": [
+                "BUILDING_NUMBER"
+              ],
+              "longName": "82",
+              "shortName": "82",
+              "code": ""
+            },
+            {
+              "types": [
+                "BUILDING_NAME"
+              ],
+              "longName": "",
+              "shortName": "",
+              "code": ""
+            },
+            {
+              "types": [
+                "LAND_NUMBER"
+              ],
+              "longName": "486-39",
+              "shortName": "486-39",
+              "code": ""
+            },
+            {
+              "types": [
+                "POSTAL_CODE"
+              ],
+              "longName": "04011",
+              "shortName": "04011",
+              "code": ""
+            }
+          ],
+          "x": "126.9058836",
+          "y": "37.5574056",
+          "distance": 0.0
+        }
+      ]
+    },
+    "서울특별시 마포구 망원로 81": {
+      "status": "OK",
+      "addresses": [
+        {
+          "roadAddress": "서울특별시 마포구 망원로 81",
+          "jibunAddress": "서울특별시 마포구 망원동 483-13",
+          "englishAddress": "81, Mangwon-ro, Mapo-gu, Seoul, Republic of Korea",
+          "addressElements": [
+            {
+              "types": [
+                "SIDO"
+              ],
+              "longName": "서울특별시",
+              "shortName": "서울특별시",
+              "code": ""
+            },
+            {
+              "types": [
+                "SIGUGUN"
+              ],
+              "longName": "마포구",
+              "shortName": "마포구",
+              "code": ""
+            },
+            {
+              "types": [
+                "DONGMYUN"
+              ],
+              "longName": "망원동",
+              "shortName": "망원동",
+              "code": ""
+            },
+            {
+              "types": [
+                "RI"
+              ],
+              "longName": "",
+              "shortName": "",
+              "code": ""
+            },
+            {
+              "types": [
+                "ROAD_NAME"
+              ],
+              "longName": "망원로",
+              "shortName": "망원로",
+              "code": ""
+            },
+            {
+              "types": [
+                "BUILDING_NUMBER"
+              ],
+              "longName": "81",
+              "shortName": "81",
+              "code": ""
+            },
+            {
+              "types": [
+                "BUILDING_NAME"
+              ],
+              "longName": "",
+              "shortName": "",
+              "code": ""
+            },
+            {
+              "types": [
+                "LAND_NUMBER"
+              ],
+              "longName": "483-13",
+              "shortName": "483-13",
+              "code": ""
+            },
+            {
+              "types": [
+                "POSTAL_CODE"
+              ],
+              "longName": "03964",
+              "shortName": "03964",
+              "code": ""
+            }
+          ],
+          "x": "126.9057937",
+          "y": "37.5576672",
+          "distance": 0.0
+        }
+      ]
+    }
+  }
+}
