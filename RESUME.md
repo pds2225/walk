@@ -1,6 +1,6 @@
 # RESUME.md — walk 현재 작업
 
-> 2026-10-04 12:17 KST. 공식 SSOT는 origin/main:TASK.md.
+> 2026-10-04 재개. 공식 SSOT는 origin/main:TASK.md.
 
 ## 목표·현재 상태
 PR #143 / feat/worldcup-market-demo의 블로그 점포45개에 주소 근거 기반 좌표를 채우고 지도 핀·길찾기·거리뷰를 실제 검증한다.
@@ -18,7 +18,7 @@ PR #143 / feat/worldcup-market-demo의 블로그 점포45개에 주소 근거 �
 - 기존 Naver SDK로18좌표 모두 실제 파노 응답확보(45/45, 최대29.08m, 13개pano ID). NAVER provider 표시 및 기존 어댑터 재사용 UI 완료. 근처 거리뷰이며 점포 정면이나 출입구 실측을 보장하지 않는다.
 - npm ci/lint/build/typecheck PASS, simulate4시나리오 PASS. 최종 test:run 기본 명령169개/20파일 PASS(12:13:29 실행), maxWorkers=2도169개 PASS. 이전 고부하 기본 실행의 5초 timeout은 최종 기본 명령에서 재현되지 않았다.
 - 실제 Chrome390×844: 점포01/45의 핀·TMAP HTTP200 도보경로(132m/99m)·경로선·Naver 거리뷰 실제 픽셀 PASS, pageErrors0. 위치는 제어값이며 현장GPS 검증 아님. 원시metadata, 사진, 명령 로그 및 상세보고서 .worktrees/worldcup-coordinates-report-20261004.md 보관.
-- 현재 수정10파일, 아직 commit/push 전. 최종 lint 재확인 PASS, 기본 test:run169개 PASS를 TASK/상세보고서에 반영했다. PR본문 최종안 준비 완료. 원격head=b8bfdfc 재확인 → 일반commit/push → PR143본문 갱신·draft 유지 → 새커밋 Actions 확인. 자동 세션 복원 지시에 따른 사용자 재개 확인 대기. 재개 질문을 표시했으며 아직 답변은 오지 않았다.
+- 사용자가 재개와 일반 commit/push 및 PR143본문 갱신을 명시 승인했다. 수정10파일 및 PR본문 최종안 준비 완료. 최종 lint 및 기본 test:run169개 PASS를 TASK/상세보고서에 반영했다. 원격head=b8bfdfc 재확인 → 일반commit/push → PR143본문 갱신·draft 유지 → 새커밋 GitHub test/docs-gate 확인 → 새SHA와 결과 보고. force push·Ready 전환·main 병합 금지는 유지한다.
 
 ## 이전 완료
 PR #143정리:37커밋23파일→3커밋19파일. 데이터원본blob d817396 유지, 홈/layout/globals main동일. local150tests/4simulate/build/lint/typecheck/Chromesmoke 및 Actions test/docs-gatePASS.
