@@ -1,5 +1,5 @@
 """Run local web commands with local credentials; redact secrets from child output."""
-import json,os,re,subprocess,sys,tomllib,urllib.request,urllib.parse
+import json,os,re,subprocess,sys,tomllib,urllib.request,urllib.parse,winreg
 from pathlib import Path
 BASE=Path(r'D:\walk\.worktrees');REPO=BASE/'worldcup-market-clean-20261004';WEB=REPO/'web'
 env=os.environ.copy()
@@ -7,8 +7,11 @@ for envpath in [Path(r'D:\walk\.claude\worktrees\web-vercel\web\.env.local'),WEB
     if envpath.exists():
         for line in envpath.read_text(encoding='utf-8-sig').splitlines():
             match=re.match(r'^\s*(?:export\s+)?([\w]+)\s*=\s*(.*?)\s*$',line)
-            if match and match[1] in ['TMAP_APP_KEY','NEXT_PUBLIC_GOOGLE_MAPS_API_KEY','GOOGLE_MAPS_API_KEY']:
+            if match and match[1] in ['TMAP_APP_KEY','NEXT_PUBLIC_GOOGLE_MAPS_API_KEY','GOOGLE_MAPS_API_KEY','NEXT_PUBLIC_NAVER_MAP_CLIENT_ID']:
                 env[match[1]]=match[2].strip('"\'')
+if not env.get('NEXT_PUBLIC_NAVER_MAP_CLIENT_ID'):
+    with winreg.OpenKey(winreg.HKEY_CURRENT_USER,'Environment') as settings:
+        env['NEXT_PUBLIC_NAVER_MAP_CLIENT_ID']=winreg.QueryValueEx(settings,'NAVER_MAPS_CLIENT_ID')[0]
 secretspath=Path(r'D:\walk\.streamlit\secrets.toml')
 if not env.get('TMAP_APP_KEY') and secretspath.exists():
     env['TMAP_APP_KEY']=tomllib.loads(secretspath.read_text(encoding='utf-8-sig')).get('TMAP_APP_KEY','')

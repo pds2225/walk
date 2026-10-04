@@ -60,3 +60,19 @@ npm run test:run -- web/components/WorldCupMarketDemo.test.tsx web/components/Wo
 ```
 
 Web typecheck PASS. Focused rerun after fixture guards: 2 files / 17 tests PASS. No Git mutation, data schema or production code change in this follow-up.
+
+## Follow-up — verified Naver panorama provider
+
+The updated design permits the live authenticated Naver provider using the existing shared NaverPanoramaAdapter. Market StreetView now contains a small provider-specific viewer that uses recorded streetViewLocation, shows visible loading state, handles missing key/metadata/network/pano failures with the existing accurate fallback and closes ready or late asynchronous sessions when unmounted. Recorded/runtime pano mismatch is described as a different nearby panorama, never confirmed storefront imagery. No guessed heading is passed to Naver.
+
+Changed market-only files: WorldCupMarketStreetView.tsx, WorldCupMarketStreetView.test.tsx, WorldCupMarketDemo.tsx (provider badge), i18n.ts (worldcup loading/update copy). Shared roadview.ts, home, CSS, data and TASK remain parent-owned/untouched.
+
+Google fixtures explicitly use provider GOOGLE so metadata switching to NAVER does not change old regression assumptions. New adapter mocks cover success without Google key, missing Naver key, missing panorama coordinate, provider failure, changed pano identity, ready close and close after late asynchronous resolution.
+
+Verification: focused UI 2 files / 24 tests PASS (StreetView 16, Demo 8); web npm run typecheck PASS; git diff --check PASS. Real Naver SDK credentials and Chrome panorama pixels are verified by the parent, separate from unit adapter mocks. No commit/push by this UI subagent.
+
+## Follow-up — isolated viewer failure recovery
+
+QA initially flagged failed-viewer recovery under direct unkeyed component rerender, then clarified the current NearbyScreen already keys outer StreetView by store.id and therefore the actual user transition was already safe. Before that clarification, the parent's minimal defensive-contract request added one inner viewer key based on store ID, panorama coordinates and recorded pano ID, plus one direct rerender regression test. This is defensive isolated-component behavior, not a claimed user-path bug fix.
+
+Focused --maxWorkers=2: 2 files / 25 tests PASS (StreetView 17, Demo 8). Web typecheck PASS after the key addition. Parent will decide whether to retain this small defensive change in final scope.

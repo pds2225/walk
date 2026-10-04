@@ -7,13 +7,15 @@ const evidence=JSON.parse(fs.readFileSync(artifacts+'worldcup-coordinate-evidenc
 const origin=evidence.records.find(s=>s.id==='worldcup-market-07').location;
 (async()=>{
  const browser=await chromium.launch({channel:'chrome',headless:true,args:['--use-angle=swiftshader','--enable-unsafe-swiftshader']});
- const report={browser:'Installed Google Chrome',viewport:'390x844',geolocation:'Controlled Chrome position at source-geocoded store 07 (not physical GPS)',network:'Real map tiles and TMAP route; no API interception',results:[],routeCalls:[],pageErrors:[]};
+ const report={browser:'Installed Google Chrome',viewport:'390x844',geolocation:'Controlled Chrome position at source-geocoded store 07 (not physical GPS)',network:'Real map tiles, NAVER panorama and TMAP route; no API interception',results:[],routeCalls:[],pageErrors:[]};
  try{
   const context=await browser.newContext({viewport:{width:390,height:844},geolocation:{latitude:origin.latitude,longitude:origin.longitude,accuracy:8},permissions:['geolocation']});
   const page=await context.newPage();
   page.on('pageerror',error=>report.pageErrors.push(error.name));
   const tileResponses=[];
+  const panoramaResponses=[];
   page.on('response',response=>{const url=new URL(response.url());if(/cartocdn/.test(url.hostname))tileResponses.push(response.status());});
+  page.on('response',response=>{const url=new URL(response.url());if(/naver\.com$|naver\.net$/.test(url.hostname))panoramaResponses.push({host:url.hostname,status:response.status()});});
   const response=await page.goto(base+'/',{waitUntil:'networkidle'});assert.equal(response.status(),200);
   assert.deepEqual(await page.getByRole('combobox').locator('option').evaluateAll(o=>o.map(x=>x.value)),['ko','en','ja','zh']);
   report.results.push('PASS home four languages');
@@ -24,6 +26,13 @@ const origin=evidence.records.find(s=>s.id==='worldcup-market-07').location;
    assert.equal(await page.getByRole('button',{name:'여기로 가기',exact:true}).isDisabled(),false);
    assert.equal(await page.locator('.worldcup-market-store-switcher button').count(),45);
    await page.getByRole('button',{name:'주변 점포 · 360 · 지도',exact:true}).click();
+   await page.locator('[data-panorama-provider="naver"]').waitFor();
+   await page.waitForFunction(()=>document.querySelector('.worldcup-market-storefront-embed-wrap')?.getAttribute('aria-busy')==='false',{},{timeout:20000});
+   const panorama=page.locator('.worldcup-market-storefront-embed-wrap');
+   await panorama.scrollIntoViewIfNeeded();await page.waitForTimeout(1500);
+   await panorama.screenshot({path:artifacts+'worldcup-coordinate-panorama-'+id.slice(-2)+'-20261004.png'});
+   assert.match(await panorama.textContent(),/NAVER Panorama/);
+   assert.equal(await page.locator('.worldcup-market-storefront-unavailable').count(),0);
    await page.locator('.worldcup-market-market-map').waitFor();
    await page.waitForFunction(()=>document.querySelectorAll('.worldcup-market-map-marker').length===45,{},{timeout:30000});
    const selected=page.locator('.worldcup-market-map-marker.is-selected');
@@ -38,9 +47,8 @@ const origin=evidence.records.find(s=>s.id==='worldcup-market-07').location;
    await map.screenshot({path:artifacts+'worldcup-coordinate-map-'+id.slice(-2)+'-20261004.png'});
    await page.screenshot({path:artifacts+'worldcup-coordinate-nearby-'+id.slice(-2)+'-20261004.png',fullPage:true});
    assert.equal(await page.locator('iframe').count(),0);
-   assert.match(await page.locator('.worldcup-market-storefront-unavailable').textContent(),/지도와 K-Navi 도보안내/);
    report.results.push('PASS '+store.nameKo+' map45pins, exact shared location note and real map selection');
-   report.results.push('StreetView '+store.nameKo+': UNVERIFIED (no local Google API key; accurate fallback)');
+   report.results.push('PASS '+store.nameKo+' real NAVER nearby panorama (not confirmed storefront)');
    const routePromise=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/route'&&r.request().method()==='POST',{timeout:30000});
    await page.getByRole('button',{name:'여기로 가기',exact:true}).click();
    const route=await routePromise;
@@ -57,9 +65,11 @@ const origin=evidence.records.find(s=>s.id==='worldcup-market-07').location;
    await page.getByRole('heading',{name:store.nameKo,exact:true}).waitFor();
   }
   assert.ok(tileResponses.some(status=>status===200));
+  assert.ok(panoramaResponses.some(item=>item.status===200));
   assert.deepEqual(report.pageErrors,[]);
   report.results.push('PASS real map tile responses and zero page errors');
   report.tileResponses=tileResponses.length;
+  report.panoramaResponses=panoramaResponses;
  }catch(error){report.failure=error.message;process.exitCode=1;}
  finally{await browser.close();fs.writeFileSync(artifacts+'worldcup-coordinate-chrome-20261004.json',JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2));}
 })().catch(error=>{console.error(error.name);process.exitCode=1;});

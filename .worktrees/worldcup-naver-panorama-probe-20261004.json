@@ -1,0 +1,435 @@
+{
+  "authenticated": true,
+  "panoramaAvailable": true,
+  "network": [
+    {
+      "host": "oapi.map.naver.com",
+      "status": 200
+    },
+    {
+      "host": "oapi.map.naver.com",
+      "status": 200
+    },
+    {
+      "host": "static.naver.net",
+      "status": 200
+    },
+    {
+      "host": "static.naver.net",
+      "status": 200
+    },
+    {
+      "host": "apis.naver.com",
+      "status": 200
+    },
+    {
+      "host": "apis.naver.com",
+      "status": 200
+    },
+    {
+      "host": "static.naver.net",
+      "status": 200
+    },
+    {
+      "host": "static.naver.net",
+      "status": 200
+    },
+    {
+      "host": "apis.naver.com",
+      "status": 200
+    },
+    {
+      "host": "apis.naver.com",
+      "status": 200
+    },
+    {
+      "host": "apis.naver.com",
+      "status": 200
+    },
+    {
+      "host": "apis.naver.com",
+      "status": 200
+    },
+    {
+      "host": "apis.naver.com",
+      "status": 200
+    },
+    {
+      "host": "apis.naver.com",
+      "status": 200
+    },
+    {
+      "host": "apis.naver.com",
+      "status": 200
+    },
+    {
+      "host": "apis.naver.com",
+      "status": 200
+    },
+    {
+      "host": "apis.naver.com",
+      "status": 200
+    },
+    {
+      "host": "apis.naver.com",
+      "status": 200
+    },
+    {
+      "host": "apis.naver.com",
+      "status": 200
+    },
+    {
+      "host": "apis.naver.com",
+      "status": 200
+    },
+    {
+      "host": "apis.naver.com",
+      "status": 200
+    },
+    {
+      "host": "apis.naver.com",
+      "status": 200
+    },
+    {
+      "host": "apis.naver.com",
+      "status": 200
+    },
+    {
+      "host": "apis.naver.com",
+      "status": 200
+    },
+    {
+      "host": "apis.naver.com",
+      "status": 200
+    },
+    {
+      "host": "apis.naver.com",
+      "status": 200
+    },
+    {
+      "host": "apis.naver.com",
+      "status": 200
+    },
+    {
+      "host": "apis.naver.com",
+      "status": 200
+    },
+    {
+      "host": "apis.naver.com",
+      "status": 200
+    },
+    {
+      "host": "apis.naver.com",
+      "status": 200
+    },
+    {
+      "host": "apis.naver.com",
+      "status": 200
+    },
+    {
+      "host": "apis.naver.com",
+      "status": 200
+    },
+    {
+      "host": "apis.naver.com",
+      "status": 200
+    },
+    {
+      "host": "apis.naver.com",
+      "status": 200
+    },
+    {
+      "host": "apis.naver.com",
+      "status": 200
+    },
+    {
+      "host": "apis.naver.com",
+      "status": 200
+    },
+    {
+      "host": "apis.naver.com",
+      "status": 200
+    },
+    {
+      "host": "apis.naver.com",
+      "status": 200
+    },
+    {
+      "host": "apis.naver.com",
+      "status": 200
+    },
+    {
+      "host": "apis.naver.com",
+      "status": 200
+    },
+    {
+      "host": "apis.naver.com",
+      "status": 200
+    },
+    {
+      "host": "apis.naver.com",
+      "status": 200
+    }
+  ],
+  "messages": [
+    "Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "sdk": {
+    "panorama": "function",
+    "serviceMethods": []
+  },
+  "panoramas": [
+    {
+      "id": "worldcup-market-23",
+      "storeCoordinate": {
+        "latitude": 37.5587334,
+        "longitude": 126.9050734
+      },
+      "reason": "OK",
+      "panoId": "4U8wQAvgbuNydJyDLXc4-w",
+      "latitude": 37.5588193,
+      "longitude": 126.9049995,
+      "captureDate": "2026-03-27 11:07:41",
+      "address": "서울 마포구 망원동",
+      "title": "망원로7길"
+    },
+    {
+      "id": "worldcup-market-22",
+      "storeCoordinate": {
+        "latitude": 37.5585682,
+        "longitude": 126.9051778
+      },
+      "reason": "OK",
+      "panoId": "2jTrCNGGMsrYG64u-FHqtg",
+      "latitude": 37.5584628,
+      "longitude": 126.9051506,
+      "captureDate": "2026-03-27 11:24:25",
+      "address": "서울 마포구 망원동",
+      "title": "망원로7길"
+    },
+    {
+      "id": "worldcup-market-35",
+      "storeCoordinate": {
+        "latitude": 37.557926,
+        "longitude": 126.9054881
+      },
+      "reason": "OK",
+      "panoId": "BYu-v3fBOtX0i15HKHtlGQ",
+      "latitude": 37.5580219,
+      "longitude": 126.9054784,
+      "captureDate": "2026-03-27 10:24:33",
+      "address": "서울 마포구 망원동",
+      "title": "월드컵로25길"
+    },
+    {
+      "id": "worldcup-market-45",
+      "storeCoordinate": {
+        "latitude": 37.5585035,
+        "longitude": 126.9055274
+      },
+      "reason": "OK",
+      "panoId": "9o7TkEzuO39eET_lHz6YIQ",
+      "latitude": 37.5584367,
+      "longitude": 126.9055915,
+      "captureDate": "2026-03-27 09:44:28",
+      "address": "서울 마포구 망원동",
+      "title": ""
+    },
+    {
+      "id": "worldcup-market-37",
+      "storeCoordinate": {
+        "latitude": 37.557778,
+        "longitude": 126.9055477
+      },
+      "reason": "OK",
+      "panoId": "BYu-v3fBOtX0i15HKHtlGQ",
+      "latitude": 37.5580219,
+      "longitude": 126.9054784,
+      "captureDate": "2026-03-27 10:24:33",
+      "address": "서울 마포구 망원동",
+      "title": "월드컵로25길"
+    },
+    {
+      "id": "worldcup-market-06",
+      "storeCoordinate": {
+        "latitude": 37.5578586,
+        "longitude": 126.9057376
+      },
+      "reason": "OK",
+      "panoId": "WLdLFlA_dnHmmcS_pZGXdw",
+      "latitude": 37.558076,
+      "longitude": 126.9057216,
+      "captureDate": "2026-03-27 09:44:12",
+      "address": "서울 마포구 망원동",
+      "title": "월드컵로25길"
+    },
+    {
+      "id": "worldcup-market-07",
+      "storeCoordinate": {
+        "latitude": 37.5576343,
+        "longitude": 126.9055895
+      },
+      "reason": "OK",
+      "panoId": "MW-uZn3bADlGPfHP-0itpw",
+      "latitude": 37.5574965,
+      "longitude": 126.9056096,
+      "captureDate": "2026-03-26 11:54:12",
+      "address": "서울 마포구 망원동",
+      "title": "망원로"
+    },
+    {
+      "id": "worldcup-market-38",
+      "storeCoordinate": {
+        "latitude": 37.5577619,
+        "longitude": 126.9057674
+      },
+      "reason": "OK",
+      "panoId": "MfT4SrmyP_Xi8TptVt4JEg",
+      "latitude": 37.5575415,
+      "longitude": 126.905824,
+      "captureDate": "2026-03-26 11:54:09",
+      "address": "서울 마포구 망원동",
+      "title": "망원로"
+    },
+    {
+      "id": "worldcup-market-44",
+      "storeCoordinate": {
+        "latitude": 37.558114,
+        "longitude": 126.9054151
+      },
+      "reason": "OK",
+      "panoId": "3f3KPu_qhVgGI2X4FcHAJg",
+      "latitude": 37.5580102,
+      "longitude": 126.905426,
+      "captureDate": "2026-03-27 10:24:32",
+      "address": "서울 마포구 망원동",
+      "title": "월드컵로25길"
+    },
+    {
+      "id": "worldcup-market-25",
+      "storeCoordinate": {
+        "latitude": 37.5586569,
+        "longitude": 126.9054136
+      },
+      "reason": "OK",
+      "panoId": "9o7TkEzuO39eET_lHz6YIQ",
+      "latitude": 37.5584367,
+      "longitude": 126.9055915,
+      "captureDate": "2026-03-27 09:44:28",
+      "address": "서울 마포구 망원동",
+      "title": ""
+    },
+    {
+      "id": "worldcup-market-12",
+      "storeCoordinate": {
+        "latitude": 37.5588576,
+        "longitude": 126.9052472
+      },
+      "reason": "OK",
+      "panoId": "N-DG5MgONI_v9FZlGjHxWA",
+      "latitude": 37.5589397,
+      "longitude": 126.9052354,
+      "captureDate": "2026-03-27 11:07:50",
+      "address": "서울 마포구 망원동",
+      "title": "망원로11길"
+    },
+    {
+      "id": "worldcup-market-21",
+      "storeCoordinate": {
+        "latitude": 37.5582506,
+        "longitude": 126.9053372
+      },
+      "reason": "OK",
+      "panoId": "C5uSl4uTuNQo81WK9kvrGA",
+      "latitude": 37.5583343,
+      "longitude": 126.9053206,
+      "captureDate": "2025-08-26 14:18:39",
+      "address": "서울 마포구 망원동",
+      "title": "망원로7길"
+    },
+    {
+      "id": "worldcup-market-32",
+      "storeCoordinate": {
+        "latitude": 37.5579801,
+        "longitude": 126.9057035
+      },
+      "reason": "OK",
+      "panoId": "WLdLFlA_dnHmmcS_pZGXdw",
+      "latitude": 37.558076,
+      "longitude": 126.9057216,
+      "captureDate": "2026-03-27 09:44:12",
+      "address": "서울 마포구 망원동",
+      "title": "월드컵로25길"
+    },
+    {
+      "id": "worldcup-market-42",
+      "storeCoordinate": {
+        "latitude": 37.5587974,
+        "longitude": 126.9053991
+      },
+      "reason": "OK",
+      "panoId": "ZMH73kHMhpMHhsG8gdopfQ",
+      "latitude": 37.5589655,
+      "longitude": 126.9052799,
+      "captureDate": "2026-03-27 11:07:51",
+      "address": "서울 마포구 망원동",
+      "title": "망원로11길"
+    },
+    {
+      "id": "worldcup-market-27",
+      "storeCoordinate": {
+        "latitude": 37.5584128,
+        "longitude": 126.9052835
+      },
+      "reason": "OK",
+      "panoId": "C5uSl4uTuNQo81WK9kvrGA",
+      "latitude": 37.5583343,
+      "longitude": 126.9053206,
+      "captureDate": "2025-08-26 14:18:39",
+      "address": "서울 마포구 망원동",
+      "title": "망원로7길"
+    },
+    {
+      "id": "worldcup-market-30",
+      "storeCoordinate": {
+        "latitude": 37.5580202,
+        "longitude": 126.9058551
+      },
+      "reason": "OK",
+      "panoId": "CPsRuJqwgxIRRGy4wFav_Q",
+      "latitude": 37.5580919,
+      "longitude": 126.9058392,
+      "captureDate": "2026-03-27 09:44:07",
+      "address": "서울 마포구 망원동",
+      "title": "월드컵로25길"
+    },
+    {
+      "id": "worldcup-market-36",
+      "storeCoordinate": {
+        "latitude": 37.5574056,
+        "longitude": 126.9058836
+      },
+      "reason": "OK",
+      "panoId": "1Fb6a-cXtlbkn8gaPF9syw",
+      "latitude": 37.5573938,
+      "longitude": 126.9057782,
+      "captureDate": "2023-09-21 13:16:32",
+      "address": "서울 마포구 망원동",
+      "title": ""
+    },
+    {
+      "id": "worldcup-market-40",
+      "storeCoordinate": {
+        "latitude": 37.5576672,
+        "longitude": 126.9057937
+      },
+      "reason": "OK",
+      "panoId": "MfT4SrmyP_Xi8TptVt4JEg",
+      "latitude": 37.5575415,
+      "longitude": 126.905824,
+      "captureDate": "2026-03-26 11:54:09",
+      "address": "서울 마포구 망원동",
+      "title": "망원로"
+    }
+  ]
+}
