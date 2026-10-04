@@ -1,5 +1,6 @@
 "use client";
 
+// Store details and nearby views reflect verified location availability.
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getWorldCupMarketUiText, LOCALE_OPTIONS, type Locale } from "../lib/i18n";
@@ -367,6 +368,12 @@ function NearbyScreen({ store, selectedId, locale, onLocaleChange, onSelect, onB
   const ui = getWorldCupMarketUiText(locale);
   const image = store.storeImages[0];
 
+  const sharedLocationCount = store.storeLocation
+    ? WORLD_CUP_MARKET_STORES.filter((item) => item.storeLocation
+      && item.storeLocation.latitude === store.storeLocation?.latitude
+      && item.storeLocation.longitude === store.storeLocation?.longitude).length
+    : 0;
+
   return (
     <section className="worldcup-market-nearby-screen" aria-labelledby="worldcup-market-nearby-title">
       <WorldCupMarketMobileHeader locale={locale} onLocaleChange={onLocaleChange} onBack={onBack} />
@@ -388,7 +395,7 @@ function NearbyScreen({ store, selectedId, locale, onLocaleChange, onSelect, onB
       <section className="worldcup-market-nearby-block" aria-labelledby="worldcup-market-storefront-title">
         <div className="worldcup-market-nearby-block-heading">
           <h3 id="worldcup-market-storefront-title">{ui.storefrontTitle}</h3>
-          <span>Google Street View</span>
+          <span>{store.streetView.provider === "NAVER" ? "NAVER Panorama" : "Google Street View"}</span>
         </div>
         <WorldCupMarketStreetView key={`storefront-${store.id}`} store={store} locale={locale} />
       </section>
@@ -399,6 +406,12 @@ function NearbyScreen({ store, selectedId, locale, onLocaleChange, onSelect, onB
           <span>{ui.market}</span>
         </div>
         <p>{store.address}</p>
+        {sharedLocationCount > 1 ? (
+          <p role="note">{ui.sharedLocationNotice.replace("{count}", String(sharedLocationCount))}</p>
+        ) : null}
+        {!store.storeLocation && WORLD_CUP_MARKET_STORES.some((item) => item.storeLocation) ? (
+          <p role="status">{ui.locationTitle}: {ui.unknown}</p>
+        ) : null}
         {WORLD_CUP_MARKET_STORES.some((item) => item.storeLocation) ? (
           <WorldCupMarketMap stores={WORLD_CUP_MARKET_STORES} selectedId={selectedId} here={null} onSelect={onSelect} locale={locale} />
         ) : (

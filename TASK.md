@@ -1077,3 +1077,24 @@ PR =
 **Known limitations**
 
 45개 점포의 좌표·navigation target·파노라마 ID·상품 가격은 미확인이다. 지도 핀·길찾기 시작·실제 스트리트뷰는 제공되지 않으며 검증 성공과 구분한다. 이미지 사용 권리 확인 및 실기기/현장 검증은 미완료 상태로 유지한다.
+
+## [ ] KN-WORLDCUP-COORDINATES-01 — 출처 주소 기반 45개 점포 위치 확인
+
+`STATUS = VERIFIED (LOCAL_PRODUCTION; CONTROLLED_GEOLOCATION)`
+
+`BRANCH = feat/worldcup-market-demo` / `START_HEAD = b8bfdfce264350a83b27248086c0c91411685d94` / `PR = #143 (draft)`
+
+- 소유자 블로그 45개 출처 글의 주소·호수만 수집하고 주소 지오코딩 결과가 망원동 월드컵시장 근처인지 확인한다. 근거 없는 위치는 null/미확인 유지한다.
+- 점포 ID·목록·이름·기존 출처 URL과 비위치 정보는 유지한다. 좌표마다 coordSource·근거 주소·출처 URL·확인 날짜를 기록한다. 같은 건물 좌표는 임의 분산하지 않고 공유 사실을 표시한다.
+- 가능하면 Street View 메타데이터로 파노를 확인하며 미확인 파노·정면 점포 품질을 추정하지 않는다. 위치/파노 상태에 맞춰 지도·도보·거리뷰와 fallback 안내를 검증한다.
+- 좌표 범위/출처 필수 테스트, web npm ci·lint·build·test:run·typecheck·simulate와 Chrome 390×844 실제 API/화면 검증을 수행한다. 제어한 브라우저 위치와 현장 GPS 확인은 구분한다.
+- API 키는 기존 로컬 설정에서 프로세스 env로만 사용하며 파일·커밋·로그에 기록하지 않는다. 일반 commit/push만 허용하고 force push·main 병합·PR Ready 전환은 금지한다.
+
+**결과 / 검증 (2026-10-04)**
+
+- 블로그 본문 17개와 첨부 정보 이미지 28개의 실제 픽셀에서 주소·호수를 확인했다. Naver Geocoding 실응답의 도로명·건물번호·마포구 망원동을 대조한 좌표 45/45, 건물 좌표 18개, 공유 좌표 12그룹(39점포)이며 범위 밖/주소 불일치 결과는 기록하지 않았다. 45개 기존 stall 입력은 시작 head와 전 필드 동일하다.
+- NAVER Panorama SDK의 실제 파노 ID·촬영 위치·촬영일을 확인했다. 근처 파노 45/45(고유 ID 13개), 건물에서 최대 29.08m로 50m 이내이며 provider/metadataSource/확인 날짜를 기록했다. Google 키는 미설정이며 Google 파노로 혼용하지 않는다. 점포 정면·출입구·실내 위치 실측은 미완료다.
+- 시장 라우트에서 기존 NaverPanoramaAdapter를 재사용한다. 키/영상 실패 시 실제 지도·도보 가용 상태별 안내를 유지하고, 공유 좌표는 그대로 두고 점포 목록 선택을 제공한다. 홈·기본 layout/globals·공유 roadview 코드는 main과 동일하다.
+- web에서 `npm ci --include-workspace-root --include=dev --no-audit`, `npm --prefix .. run lint`, `npm run build`, `npm --prefix .. run test:run`, root/web `typecheck`, `npm --prefix .. run simulate`가 통과했다. 최종 기본 병렬 테스트 20파일/169개 PASS이며 worker 2개 제한 실행도 동일하게 PASS다. 테스트 timeout/검사 생략 없이 검증했고 simulate 4개 시나리오 상태/행동을 확인했다.
+- 실제 Chrome 390×844, 로컬 production: 부부야채/장터국밥 핀 선택·공유 안내·NAVER 주변 영상·도보 안내 시작/중지를 확인했다. 실제 TMAP HTTP 200(132m/7점, 99m/5점), 실제 지도 타일/파노 영상, pageerror 0. 브라우저 위치는 출처 기반 좌표로 제어한 입력이며 현장 GPS 검증이 아니다.
+- 실행 환경은 `TMAP_APP_KEY`, `NEXT_PUBLIC_NAVER_MAP_CLIENT_ID`를 로컬 env로 제공한다. 로컬 검증과 배포 환경 설정·현장 방문 검증은 구분한다. 키 값은 기록하지 않는다.

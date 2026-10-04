@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { WORLD_CUP_MARKET_STORES, getWorldCupMarketStore } from "./worldCupMarketStores";
+import { WORLD_CUP_MARKET_STORES, getWorldCupMarketStore, isWorldCupMarketCoordinate } from "./worldCupMarketStores";
 
 const BLOG = "https://m.blog.naver.com/mwwdc/";
 
@@ -18,16 +18,27 @@ describe("월드컵시장 블로그 점포", () => {
     }
   });
 
-  it("글에 없는 좌표, 파노라마, 가격은 비워 둔다", () => {
+  it("글에 없는 가격·사진 권리와 미확인 파노 정보는 임의로 채우지 않는다", () => {
     for (const store of WORLD_CUP_MARKET_STORES) {
-      expect(store.storeLocation).toBeNull();
-      expect(store.navigationTarget).toBeNull();
-      expect(store.streetView.available).toBe(false);
-      expect(store.streetView.lastResolvedPanoId).toBeNull();
-      expect(store.streetView.latitude).toBeNull();
-      expect(store.streetView.longitude).toBeNull();
-      expect(store.verification.location).toBe("UNKNOWN");
-      expect(store.verification.navigationTarget).toBe("UNKNOWN");
+      if (store.streetView.available) {
+        expect(store.streetView.lastResolvedPanoId).toBeTruthy();
+        expect(store.streetViewLocation).not.toBeNull();
+        expect(isWorldCupMarketCoordinate(store.streetViewLocation!)).toBe(true);
+        expect(store.streetViewLocation).toEqual({ latitude: store.streetView.latitude, longitude: store.streetView.longitude });
+        expect(store.streetView.provider).toBe("NAVER");
+        expect(store.streetView.metadataSource).toContain("naver.maps.Panorama");
+        expect(store.streetView.captureDate).toMatch(/^\d{4}-\d{2}-\d{2}/);
+        expect(store.streetView.distanceFromStore).not.toBeNull();
+        expect(store.streetView.distanceFromStore).toBeGreaterThanOrEqual(0);
+        expect(store.streetView.distanceFromStore).toBeLessThanOrEqual(50);
+        expect(store.streetView.lastCheckedAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+        expect(store.streetView.quality).not.toBe("EXACT_FRONTAGE");
+      } else {
+        expect(store.streetView.lastResolvedPanoId).toBeNull();
+        expect(store.streetView.latitude).toBeNull();
+        expect(store.streetView.longitude).toBeNull();
+        expect(store.streetViewLocation).toBeNull();
+      }
       expect(store.verification.prices).toBe("UNKNOWN");
       expect(store.verification.images).toBe("RIGHTS_CHECK_REQUIRED");
       expect(store.representativeMenu?.priceWon ?? null).toBeNull();
@@ -42,6 +53,56 @@ describe("월드컵시장 블로그 점포", () => {
         expect(image.url).toContain("pstatic.net");
       }
     }
+  });
+
+  it("좌표는 시장 근처 범위이며 각 점포의 주소·출처·확인 날짜를 반드시 갖는다", () => {
+    for (const store of WORLD_CUP_MARKET_STORES) {
+      const location = store.storeLocation;
+      if (!location) {
+        expect(store.navigationTarget).toBeNull();
+        expect(store.verification.location).toBe("UNKNOWN");
+        continue;
+      }
+      expect(isWorldCupMarketCoordinate(location)).toBe(true);
+      expect(location.coordSource).toBe("blog-address+naver-geocode");
+      expect(location.evidenceAddress).toContain("마포구");
+      expect(location.geocodedAddress).toContain("서울특별시 마포구");
+      const roadAndNumber = store.address.match(/(망원로7길|망원로|월드컵로25길)\s*(\d+(?:-\d+)?)/);
+      expect(roadAndNumber).not.toBeNull();
+      expect(location.evidenceAddress).toContain(`${roadAndNumber![1]} ${roadAndNumber![2]}`);
+      expect(location.sourceUrl).toBe(store.officialSource);
+      expect(location.source).toBe("https://maps.apigw.ntruss.com/map-geocode/v2/geocode");
+      expect(location.verifiedAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      if (location.evidenceType === "BLOG_IMAGE") expect(location.evidenceImageUrl).toMatch(/^https:\/\/mblogthumb-phinf\.pstatic\.net\//);
+      expect(store.navigationTarget).toEqual(location);
+    }
+  });
+
+  it("범위 밖/잘못된 수치와 위경도를 바꿔 넣은 값은 거부한다", () => {
+    const valid = { latitude: 37.5587334, longitude: 126.9050734 };
+    expect(isWorldCupMarketCoordinate(valid)).toBe(true);
+    for (const invalid of [
+      { latitude: 37.5539, longitude: valid.longitude },
+      { latitude: 37.5626, longitude: valid.longitude },
+      { latitude: valid.latitude, longitude: 126.8999 },
+      { latitude: valid.latitude, longitude: 126.9101 },
+      { latitude: Number.NaN, longitude: valid.longitude },
+      { latitude: valid.latitude, longitude: Number.POSITIVE_INFINITY },
+      { latitude: valid.longitude, longitude: valid.latitude },
+    ]) expect(isWorldCupMarketCoordinate(invalid)).toBe(false);
+  });
+
+  it("같은 건물의 점포를 임의로 흩뜨리지 않고 호수 근거를 유지한다", () => {
+    const groups = new Map<string, { latitude: number; longitude: number }>();
+    for (const store of WORLD_CUP_MARKET_STORES) {
+      if (!store.storeLocation) continue;
+      const location = store.storeLocation;
+      const coordinate = { latitude: location.latitude, longitude: location.longitude };
+      const previous = groups.get(location.geocodedAddress);
+      if (previous) expect(coordinate).toEqual(previous);
+      groups.set(location.geocodedAddress, coordinate);
+    }
+    expect(getWorldCupMarketStore("worldcup-market-14")?.storeLocation?.evidenceAddress).toContain("102호");
   });
 
   it("부부야채와 장터국밥, 재희네맛김은 블로그 글의 주소·시간·전화만 담는다", () => {

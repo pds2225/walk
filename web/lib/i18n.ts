@@ -241,6 +241,10 @@ export interface WorldCupMarketUiText {
   readonly storefrontTitle: string;
   readonly storefrontUnavailable: string;
   readonly storefrontFallback: string;
+  readonly storefrontMapOnlyFallback: string;
+  readonly storefrontWalkingOnlyFallback: string;
+  readonly storefrontUnknownFallback: string;
+  readonly sharedLocationNotice: string;
   readonly locationTitle: string;
   readonly marketMap: string;
   readonly selectOnMap: string;
@@ -281,6 +285,8 @@ export interface WorldCupMarketUiText {
   readonly locationDenied: string;
   readonly unknown: string;
   readonly panoramaUnavailable: string;
+  readonly panoramaLoading: string;
+  readonly panoramaUpdatedNotice: string;
 }
 
 const WORLD_CUP_MARKET_UI: Record<Locale, WorldCupMarketUiText> = {
@@ -296,8 +302,12 @@ const WORLD_CUP_MARKET_UI: Record<Locale, WorldCupMarketUiText> = {
     nearbyEyebrow: "주변 둘러보기",
     nearbyTitle: "주변 점포",
     storefrontTitle: "점포 근처 거리 뷰",
-    storefrontUnavailable: "사용 가능한 점포 정면뷰가 없습니다",
+    storefrontUnavailable: "사용 가능한 점포 근처 거리 뷰가 없습니다",
     storefrontFallback: "지도와 K-Navi 도보안내는 계속 사용할 수 있습니다.",
+    storefrontMapOnlyFallback: "지도에서 위치를 볼 수 있습니다. 도보안내 목적지는 미확인입니다.",
+    storefrontWalkingOnlyFallback: "K-Navi 도보안내를 시작할 수 있습니다. 지도에 표시할 점포 위치는 미확인입니다.",
+    storefrontUnknownFallback: "점포 위치가 미확인이라 지도 핀과 도보안내를 사용할 수 없습니다.",
+    sharedLocationNotice: "같은 주소 좌표를 공유하는 점포 수: {count}. 실제 점포 입구 위치는 미확인입니다. 점포 목록에서 선택하세요.",
     locationTitle: "위치",
     marketMap: "월드컵시장 지도",
     selectOnMap: "지도에서 선택",
@@ -338,6 +348,8 @@ const WORLD_CUP_MARKET_UI: Record<Locale, WorldCupMarketUiText> = {
     locationDenied: "위치 권한을 허용하면 지도에 내 위치가 표시됩니다.",
     unknown: "미확인",
     panoramaUnavailable: "Street View를 사용할 수 없어 안내 카드만 표시합니다.",
+    panoramaLoading: "점포 근처 거리 뷰를 불러오는 중…",
+    panoramaUpdatedNotice: "기록된 파노와 다른 근처 거리 뷰가 표시됩니다.",
   },
   en: {
     title: "World Cup Market Stores",
@@ -351,8 +363,12 @@ const WORLD_CUP_MARKET_UI: Record<Locale, WorldCupMarketUiText> = {
     nearbyEyebrow: "EXPLORE AROUND YOU",
     nearbyTitle: "Nearby Shops",
     storefrontTitle: "Street View near this store",
-    storefrontUnavailable: "Storefront view unavailable",
+    storefrontUnavailable: "Street View near this store is unavailable",
     storefrontFallback: "You can still check the map and start the walking guide.",
+    storefrontMapOnlyFallback: "The location is shown on the map. The walking destination still needs checking.",
+    storefrontWalkingOnlyFallback: "You can start the walking guide. The store location for the map still needs checking.",
+    storefrontUnknownFallback: "The store location needs checking, so its map pin and walking guide are unavailable.",
+    sharedLocationNotice: "Stores sharing these address coordinates: {count}. Individual store entrances need checking. Select a store from the list.",
     locationTitle: "Location",
     marketMap: "World Cup Market map",
     selectOnMap: "Select on the map",
@@ -393,6 +409,8 @@ const WORLD_CUP_MARKET_UI: Record<Locale, WorldCupMarketUiText> = {
     locationDenied: "Allow location access to show your position on the map.",
     unknown: "Needs checking",
     panoramaUnavailable: "Street View is unavailable; the store card remains available.",
+    panoramaLoading: "Loading the street view near this store…",
+    panoramaUpdatedNotice: "The nearby panorama shown differs from the recorded panorama.",
   },
   ja: {
     title: "ワールドカップ市場 店舗案内",
@@ -406,8 +424,12 @@ const WORLD_CUP_MARKET_UI: Record<Locale, WorldCupMarketUiText> = {
     nearbyEyebrow: "周辺を見る",
     nearbyTitle: "周辺の店舗",
     storefrontTitle: "店舗付近のストリートビュー",
-    storefrontUnavailable: "利用できる店舗正面ビューがありません",
+    storefrontUnavailable: "利用できる店舗付近のストリートビューがありません",
     storefrontFallback: "地図とK-Naviの徒歩案内は引き続き使えます。",
+    storefrontMapOnlyFallback: "地図で位置を確認できます。徒歩案内の目的地は要確認です。",
+    storefrontWalkingOnlyFallback: "K-Naviの徒歩案内を開始できます。地図に表示する店舗位置は要確認です。",
+    storefrontUnknownFallback: "店舗位置が未確認のため、地図のピンと徒歩案内は利用できません。",
+    sharedLocationNotice: "同じ住所座標を共有する店舗数：{count}。各店舗の入口は要確認です。店舗一覧から選択してください。",
     locationTitle: "位置",
     marketMap: "ワールドカップ市場の地図",
     selectOnMap: "地図で選択",
@@ -448,6 +470,8 @@ const WORLD_CUP_MARKET_UI: Record<Locale, WorldCupMarketUiText> = {
     locationDenied: "位置情報を許可すると地図に現在地が表示されます。",
     unknown: "要確認",
     panoramaUnavailable: "Street Viewを利用できないため、店舗カードを表示します。",
+    panoramaLoading: "店舗付近のストリートビューを読み込み中…",
+    panoramaUpdatedNotice: "記録されたパノラマとは別の近くのストリートビューを表示しています。",
   },
   zh: {
     title: "世界杯市场店铺指南",
@@ -461,8 +485,12 @@ const WORLD_CUP_MARKET_UI: Record<Locale, WorldCupMarketUiText> = {
     nearbyEyebrow: "看看周边",
     nearbyTitle: "附近店铺",
     storefrontTitle: "店铺附近的街景",
-    storefrontUnavailable: "没有可用的店铺正面视图",
+    storefrontUnavailable: "没有可用的店铺附近街景",
     storefrontFallback: "仍可查看地图并开始步行导航。",
+    storefrontMapOnlyFallback: "可以在地图上查看位置。步行导航目的地仍需确认。",
+    storefrontWalkingOnlyFallback: "可以开始K-Navi步行导航。地图上的店铺位置仍需确认。",
+    storefrontUnknownFallback: "店铺位置仍需确认，因此无法显示地图标记或开始步行导航。",
+    sharedLocationNotice: "共享此地址坐标的店铺数：{count}。各店铺入口仍需确认，请从店铺列表中选择。",
     locationTitle: "位置",
     marketMap: "世界杯市场地图",
     selectOnMap: "在地图上选择",
@@ -503,6 +531,8 @@ const WORLD_CUP_MARKET_UI: Record<Locale, WorldCupMarketUiText> = {
     locationDenied: "允许位置权限后，地图会显示您的位置。",
     unknown: "需要确认",
     panoramaUnavailable: "Street View不可用，但仍可查看店铺卡片。",
+    panoramaLoading: "正在加载店铺附近的街景…",
+    panoramaUpdatedNotice: "显示的附近街景与已记录的全景不同。",
   },
 };
 

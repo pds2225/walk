@@ -1,5 +1,6 @@
 "use client";
 
+// Render exact store coordinates without spreading shared building locations.
 import { useEffect, useRef } from "react";
 import maplibregl from "maplibre-gl";
 import { getWorldCupMarketUiText, type Locale } from "../lib/i18n";
@@ -36,6 +37,12 @@ function fillStoreMarker(button: HTMLElement, store: WorldCupMarketStore, locale
   const categoryNode = button.querySelector("small");
   if (nameNode) nameNode.textContent = name;
   if (categoryNode) categoryNode.textContent = category;
+}
+
+function selectStoreMarker(element: HTMLElement, selected: boolean): void {
+  element.querySelector(".worldcup-market-map-marker")?.classList.toggle("is-selected", selected);
+  // Shared address coordinates stay exact; bring only the selected label forward.
+  element.style.zIndex = selected ? "1" : "0";
 }
 
 function makeStoreMarker(store: WorldCupMarketStore, locale: Locale, onSelect: (id: string) => void): HTMLElement {
@@ -101,7 +108,7 @@ export default function WorldCupMarketMap({ stores, selectedId, here, onSelect, 
       const bounds = new maplibregl.LngLatBounds();
       for (const store of locatedStores(storesRef.current)) {
         const element = makeStoreMarker(store, localeRef.current, onSelect);
-        element.querySelector(".worldcup-market-map-marker")?.classList.toggle("is-selected", store.id === selectedRef.current);
+        selectStoreMarker(element, store.id === selectedRef.current);
         const marker = new maplibregl.Marker({ element, anchor: "bottom" })
           .setLngLat([store.storeLocation.longitude, store.storeLocation.latitude])
           .addTo(instance);
@@ -131,7 +138,7 @@ export default function WorldCupMarketMap({ stores, selectedId, here, onSelect, 
 
   useEffect(() => {
     for (const [id, marker] of storeMarkers.current) {
-      marker.getElement().querySelector(".worldcup-market-map-marker")?.classList.toggle("is-selected", id === selectedId);
+      selectStoreMarker(marker.getElement(), id === selectedId);
     }
   }, [selectedId]);
 

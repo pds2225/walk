@@ -1,14 +1,53 @@
 // @vitest-environment jsdom
+// Cover store browsing with explicit unknown and located fixtures.
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Locale } from "../lib/i18n";
+import type { VerifiedLocation, WorldCupMarketStore } from "../lib/worldCupMarketStores";
 import WorldCupMarketDemo from "./WorldCupMarketDemo";
+
+const fixtures = vi.hoisted(() => ({ stores: [] as WorldCupMarketStore[], originals: [] as WorldCupMarketStore[] }));
+vi.mock("../lib/worldCupMarketStores", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../lib/worldCupMarketStores")>();
+  fixtures.originals.push(...actual.WORLD_CUP_MARKET_STORES);
+  return { ...actual, WORLD_CUP_MARKET_STORES: fixtures.stores };
+});
 
 vi.mock("./WorldCupMarketMap", () => ({
   default: ({ selectedId }: { selectedId: string }) => <div data-testid="worldcup-market-map">map:{selectedId}</div>,
 }));
 
+function locateStore(index: number, existing?: VerifiedLocation | null): WorldCupMarketStore {
+  const store = fixtures.stores[index];
+  if (!store) throw new Error("점포 fixture가 없습니다");
+  const sourceUrl = store.officialSource;
+  if (!sourceUrl) throw new Error("점포 fixture의 블로그 출처가 없습니다");
+  const location: VerifiedLocation = existing ?? {
+    latitude: 37.5579,
+    longitude: 126.9054,
+    source: "component test fixture",
+    coordSource: "component test fixture",
+    evidenceAddress: store.address,
+    sourceUrl,
+    geocodedAddress: store.address,
+    verifiedAt: "2026-10-04",
+    verificationStatus: "UNKNOWN",
+  };
+  const located = { ...store, storeLocation: location, navigationTarget: location };
+  fixtures.stores[index] = located;
+  return located;
+}
+
 describe("World Cup Market demo", () => {
+  beforeEach(() => {
+    fixtures.stores.splice(0, fixtures.stores.length, ...fixtures.originals.map((store) => ({
+      ...store,
+      storeLocation: null,
+      navigationTarget: null,
+      streetViewLocation: null,
+      streetView: { ...store.streetView, available: false, lastResolvedPanoId: null },
+    })));
+  });
   afterEach(() => {
     cleanup();
     vi.unstubAllEnvs();
@@ -103,7 +142,7 @@ describe("World Cup Market demo", () => {
     expect(screen.getByText("서울 마포구 망원로7길 31")).toBeTruthy();
     expect(screen.getByText("미확인")).toBeTruthy();
     expect(screen.queryByTestId("worldcup-market-map")).toBeNull();
-    expect(screen.getByText("사용 가능한 점포 정면뷰가 없습니다")).toBeTruthy();
+    expect(screen.getByText("사용 가능한 점포 근처 거리 뷰가 없습니다")).toBeTruthy();
     expect(screen.queryByTitle(/거리 뷰/)).toBeNull();
 
     const garak = screen.getAllByRole("listitem", { name: "가락농산물" })[0];
@@ -113,6 +152,35 @@ describe("World Cup Market demo", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "여기로 가기" }));
     expect(onStartWalking).not.toHaveBeenCalled();
+  });
+
+  it("좌표 있는 점포만 지도 핀·도보 목적지를 사용하며 공유 좌표를 그대로 안내한다", async () => {
+    const first = locateStore(0);
+    locateStore(1, first.storeLocation);
+    const onStartWalking = vi.fn();
+    render(<WorldCupMarketDemo locale="ko" onStartWalking={onStartWalking} />);
+    const walk = screen.getByRole("button", { name: "여기로 가기" }) as HTMLButtonElement;
+    expect(walk.disabled).toBe(false);
+    fireEvent.click(walk);
+    expect(onStartWalking).toHaveBeenLastCalledWith({ name: first.nameKo, coordinate: first.navigationTarget });
+
+    fireEvent.click(screen.getByRole("button", { name: /주변 점포 · 360 · 지도/ }));
+    expect(await screen.findByTestId("worldcup-market-map")).toBeTruthy();
+    expect(screen.getByRole("note").textContent).toContain("같은 주소 좌표를 공유하는 점포 수: 2");
+    expect(screen.getByText("지도와 K-Navi 도보안내는 계속 사용할 수 있습니다.")).toBeTruthy();
+    const second = fixtures.stores[1];
+    if (!second) throw new Error("점포 fixture가 없습니다");
+    fireEvent.click(screen.getByRole("listitem", { name: second.nameKo }));
+    fireEvent.click(screen.getByRole("button", { name: "여기로 가기" }));
+    expect(onStartWalking).toHaveBeenLastCalledWith({ name: second.nameKo, coordinate: second.navigationTarget });
+
+    const unknown = fixtures.stores[2];
+    if (!unknown) throw new Error("점포 fixture가 없습니다");
+    fireEvent.click(screen.getByRole("listitem", { name: unknown.nameKo }));
+    expect((screen.getByRole("button", { name: "여기로 가기" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByText("위치: 미확인")).toBeTruthy();
+    expect(screen.getByText("점포 위치가 미확인이라 지도 핀과 도보안내를 사용할 수 없습니다.")).toBeTruthy();
+    expect(screen.queryByRole("note")).toBeNull();
   });
 
   it("?store= deep link로 특정 점포 상세에 직접 진입하고 점포 변경 시 URL을 갱신한다", async () => {

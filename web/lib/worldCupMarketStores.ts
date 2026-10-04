@@ -46,11 +46,19 @@ export interface PurchaseInfo {
 
 export interface VerifiedLocation extends Coordinate {
   readonly source: string;
+  readonly coordSource: string;
+  readonly evidenceAddress: string;
+  readonly sourceUrl: string;
+  readonly geocodedAddress: string;
+  readonly evidenceType?: "BLOG_TEXT" | "BLOG_IMAGE";
+  readonly evidenceImageUrl?: string | null;
   readonly verifiedAt: string;
   readonly verificationStatus: VerificationStatus;
 }
 
 export interface StreetViewInfo {
+  readonly provider?: "GOOGLE" | "NAVER" | null;
+  readonly metadataSource?: string | null;
   readonly available: boolean;
   readonly latitude: number | null;
   readonly longitude: number | null;
@@ -58,7 +66,7 @@ export interface StreetViewInfo {
   readonly headingAuto: number | null;
   readonly headingOverride: number | null;
   readonly pitch: number;
-  /** Street View pano ID는 런타임 조회 캐시일 뿐 점포 식별자가 아니다. */
+  /** 해당 provider의 pano ID 캐시. 점포 식별자나 다른 provider의 ID로 사용하지 않는다. */
   readonly lastResolvedPanoId: string | null;
   readonly captureDate: string | null;
   readonly quality: StreetViewQuality;
@@ -87,7 +95,7 @@ export interface WorldCupMarketStore {
   readonly category: string;
   readonly address: string;
   readonly officialSource: string | null;
-  /** 블로그 글에 좌표가 없으면 null이다. 추정 좌표를 넣지 않는다. */
+  /** 출처 글의 주소와 지오코딩 결과가 확인된 건물 위치. 점포 출입구 실측값은 아니다. */
   readonly storeLocation: VerifiedLocation | null;
   readonly navigationTarget: VerifiedLocation | null;
   readonly streetViewLocation: Coordinate | null;
@@ -134,7 +142,145 @@ interface StallInput {
   readonly corridorOrder: number;
 }
 
+/** 마포구 망원동 시장 인근만 허용한다. 좌표 생성이 아니라 지오코딩 결과의 안전 범위다. */
+export const WORLD_CUP_MARKET_BOUNDS = {
+  minLatitude: 37.554,
+  maxLatitude: 37.5625,
+  minLongitude: 126.900,
+  maxLongitude: 126.910,
+} as const;
+
+export function isWorldCupMarketCoordinate(coordinate: Coordinate): boolean {
+  return Number.isFinite(coordinate.latitude)
+    && Number.isFinite(coordinate.longitude)
+    && coordinate.latitude >= WORLD_CUP_MARKET_BOUNDS.minLatitude
+    && coordinate.latitude <= WORLD_CUP_MARKET_BOUNDS.maxLatitude
+    && coordinate.longitude >= WORLD_CUP_MARKET_BOUNDS.minLongitude
+    && coordinate.longitude <= WORLD_CUP_MARKET_BOUNDS.maxLongitude;
+}
+
+// 2026-10-04 Naver Geocoding 실응답. 도로명·건물번호·마포구 망원동 일치를 확인했다.
+// 층/호수는 주소 근거에 보존하며 같은 건물의 좌표를 임의로 흩뜨리지 않는다.
+const GEOCODED_BUILDINGS: Readonly<Record<string, Coordinate & { readonly address: string }>> = {
+  "망원로7길 31": {"latitude": 37.5587334, "longitude": 126.9050734, "address": "서울특별시 마포구 망원로7길 31"},
+  "망원로7길 23": {"latitude": 37.5585682, "longitude": 126.9051778, "address": "서울특별시 마포구 망원로7길 23"},
+  "망원로7길 7": {"latitude": 37.557926, "longitude": 126.9054881, "address": "서울특별시 마포구 망원로7길 7"},
+  "망원로7길 20": {"latitude": 37.5585035, "longitude": 126.9055274, "address": "서울특별시 마포구 망원로7길 20"},
+  "망원로7길 3": {"latitude": 37.557778, "longitude": 126.9055477, "address": "서울특별시 마포구 망원로7길 3"},
+  "망원로7길 6": {"latitude": 37.5578586, "longitude": 126.9057376, "address": "서울특별시 마포구 망원로7길 6"},
+  "망원로 79": {"latitude": 37.5576343, "longitude": 126.9055895, "address": "서울특별시 마포구 망원로 79"},
+  "망원로7길 4": {"latitude": 37.5577619, "longitude": 126.9057674, "address": "서울특별시 마포구 망원로7길 4"},
+  "망원로7길 13": {"latitude": 37.558114, "longitude": 126.9054151, "address": "서울특별시 마포구 망원로7길 13"},
+  "망원로7길 24": {"latitude": 37.5586569, "longitude": 126.9054136, "address": "서울특별시 마포구 망원로7길 24 한일주택"},
+  "망원로7길 30": {"latitude": 37.5588576, "longitude": 126.9052472, "address": "서울특별시 마포구 망원로7길 30"},
+  "망원로7길 17": {"latitude": 37.5582506, "longitude": 126.9053372, "address": "서울특별시 마포구 망원로7길 17 지상빌딩"},
+  "월드컵로25길 35": {"latitude": 37.5579801, "longitude": 126.9057035, "address": "서울특별시 마포구 월드컵로25길 35"},
+  "망원로7길 28": {"latitude": 37.5587974, "longitude": 126.9053991, "address": "서울특별시 마포구 망원로7길 28"},
+  "망원로7길 19": {"latitude": 37.5584128, "longitude": 126.9052835, "address": "서울특별시 마포구 망원로7길 19 명빌딩"},
+  "월드컵로25길 33": {"latitude": 37.5580202, "longitude": 126.9058551, "address": "서울특별시 마포구 월드컵로25길 33"},
+  "망원로 82": {"latitude": 37.5574056, "longitude": 126.9058836, "address": "서울특별시 마포구 망원로 82"},
+  "망원로 81": {"latitude": 37.5576672, "longitude": 126.9057937, "address": "서울특별시 마포구 망원로 81"},
+};
+
+// 출처 글 본문 17개, 첨부 정보 이미지 28개에서 주소를 확인했다. 이미지 주소는 실제 픽셀을 읽었다.
+const BLOG_LOCATION_EVIDENCE: Readonly<Record<string, { readonly address: string; readonly building: string; readonly imageUrl?: string }>> = {
+  "worldcup-market-01": {"address": "서울 마포구 망원로7길 31", "building": "망원로7길 31"},
+  "worldcup-market-02": {"address": "📍 마포구 망원로7길 23 (08:00~21:00)", "building": "망원로7길 23"},
+  "worldcup-market-03": {"address": "📍 마포구 망원로7길 7 (09:00~19:40)", "building": "망원로7길 7"},
+  "worldcup-market-04": {"address": "서울 마포구 망원로7길 20", "building": "망원로7길 20"},
+  "worldcup-market-05": {"address": "서울 마포구 망원로7길 3 1층", "building": "망원로7길 3"},
+  "worldcup-market-06": {"address": "서울 마포구 망원로7길 6 제1층", "building": "망원로7길 6", "imageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTVfMTU3/MDAxNzg5NDQ5MzM5MzE2.ipct3LCm66wQbGiA38FuB_VU-xAUWSLqCtDkest3vIwg.-6rNimSai0_4zXc6MnhPc0vuJ3Hw6KbUi4J6rulfYPQg.PNG/3.png?type=w800"},
+  "worldcup-market-07": {"address": "서울 마포구 망원로 79 1층", "building": "망원로 79", "imageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTVfMTA4/MDAxNzg5NDQ5NDg4NTQ4.6sa1H0JP3IlizZiaj9HzCAaDHmAGh7zwaGkzLIYvhBog.7eaE-v5QpgsALHIW2MZTlu_6-fj-KDar6r9053UXjBsg.PNG/3.png?type=w800"},
+  "worldcup-market-08": {"address": "서울 마포구 망원로7길 4", "building": "망원로7길 4", "imageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTVfMTI1/MDAxNzg5NDUwMzI5MDI2.0dYX1uji8fbgCVOxq4zz6pZM-rvcnJeTLn1ixiKio00g.xY8D3ZrClDGpb3ikkSQ0CBn0mFVLoMmGBEE8vSyi95Qg.PNG/3.png?type=w800"},
+  "worldcup-market-09": {"address": "서울 마포구 망원로7길 13", "building": "망원로7길 13", "imageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTVfMTY3/MDAxNzg5NDUwNTU5OTEw.-bdLb3Bly31GDGdVU41dFZ0ljbDtNjsU_Z2dZESxv_Ig.6BCP2gbApuMJAE0fNkjx11bhAWmm6yUVoExaPEoUrNQg.PNG/3.png?type=w800"},
+  "worldcup-market-10": {"address": "서울시 마포구 망원로7길 13", "building": "망원로7길 13", "imageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTVfNDgg/MDAxNzg5NDUzOTEyNDUz.0laP8ITKtjzMwpiTNPTzDYyC0n-wo-FxPDXefdY4uEkg.qD77HT1rwrhXMqe2YlMaC6Msqe96sdEsTKXhw6J4ovQg.PNG/3.png?type=w800"},
+  "worldcup-market-11": {"address": "서울 마포구 망원로7길 24", "building": "망원로7길 24", "imageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMzQg/MDAxNzg5NTM1NTcxMjI2.QXa2a0kOkLgfbfx5KSwyS4HtF6OtgeS8fqeKJx8AxJcg.iOfjiN3BRtnGcWQ6Fo0bmboc5GiVoJzC8VVD0--hRI8g.PNG/3.png?type=w800"},
+  "worldcup-market-12": {"address": "서울 마포구 망원로7길 30 토종한우백화점", "building": "망원로7길 30", "imageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjU0/MDAxNzg5NTM1NjYyODc2.hKaCyLg3V5OWS6OINVhrbQ7afrc2Ce_jUscr5Emby48g._zOB2L3b6L9uNXTzf3g4UvoWhbmYxw0InIztPtuG0Vgg.PNG/3.png?type=w800"},
+  "worldcup-market-13": {"address": "서울시 마포구 망원로7길 13", "building": "망원로7길 13", "imageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMTQ2/MDAxNzg5NTM2MTE0ODM2.dkACoYEq9JdZhfDjoNiuIHy1SxzIKl7whE2pPuc9Yj0g.8Up-_qW9s9sPp-jEzNsPSwmRz2z-FQ5tpauLwe0TaKgg.PNG/3.png?type=w800"},
+  "worldcup-market-14": {"address": "서울 마포구 망원로7길 17 102호", "building": "망원로7길 17", "imageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjk0/MDAxNzg5NTM2MjEyNjIz.CkdPL-t0Qq5_e37nGpShg38e0KXLYKSV8V4TsiZ0q84g.obqzS9NMpe5S6VjEEU2WFOm_LLAuLAVeL8ox0-6dXvYg.PNG/3.png?type=w800"},
+  "worldcup-market-15": {"address": "서울특별시 마포구 월드컵로25길 35", "building": "월드컵로25길 35", "imageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMTMg/MDAxNzg5NTM2MjkxODM3.N3zVht2srL_cQuIPxexFMITxO-aBhEMpHX5g4M3ZwNcg.NMPJMNA1WDupjpaZ9xE3aO4gS7ezNPmiavFWMzMDG1Ag.PNG/3.png?type=w800"},
+  "worldcup-market-16": {"address": "서울 마포구 망원로7길 7, 1층 3호", "building": "망원로7길 7"},
+  "worldcup-market-17": {"address": "서울 마포구 월드컵로25길 35", "building": "월드컵로25길 35"},
+  "worldcup-market-18": {"address": "서울 마포구 망원로7길 20", "building": "망원로7길 20"},
+  "worldcup-market-19": {"address": "서울시 마포구 망원로7길 13", "building": "망원로7길 13"},
+  "worldcup-market-20": {"address": "서울시 마포구 망원로7길 13", "building": "망원로7길 13", "imageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjky/MDAxNzg5NTM2NzQ1OTU5.mFM0eBSkz55LJ_0HI6nM7bmpz_8PsKICzRJYdpTR_Kog.qugbopFuxaFNdzamT1q09es858_VoAHtQd3ihpxSt64g.PNG/3.png?type=w800"},
+  "worldcup-market-21": {"address": "서울 마포구 망원로7길 17", "building": "망원로7길 17", "imageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMTM3/MDAxNzg5NTM2ODIwNDgz.-GKaAIhUwq1rkiv4rxOGmxWu5m-JVh2ZXqsJr2Af7fEg.rYrCGdSHa2Df1bnqpKLG9ySPyQo9W0eCIjHmy2Ci7W0g.PNG/3.png?type=w800"},
+  "worldcup-market-22": {"address": "서울 마포구 망원로7길 23", "building": "망원로7길 23"},
+  "worldcup-market-23": {"address": "서울 마포구 망원로7길 31 (망원동월드컵시장)", "building": "망원로7길 31"},
+  "worldcup-market-24": {"address": "서울 마포구 망원로7길 28 (망원동월드컵시장)", "building": "망원로7길 28"},
+  "worldcup-market-25": {"address": "서울 마포구 망원로7길 24 (망원동월드컵시장)", "building": "망원로7길 24"},
+  "worldcup-market-26": {"address": "📍 서울 마포구 망원로7길 20", "building": "망원로7길 20"},
+  "worldcup-market-27": {"address": "📍 서울 마포구 망원로7길 19", "building": "망원로7길 19"},
+  "worldcup-market-28": {"address": "📍 서울 마포구 망원로7길 20", "building": "망원로7길 20"},
+  "worldcup-market-29": {"address": "📍 서울 마포구 망원로7길 13", "building": "망원로7길 13"},
+  "worldcup-market-30": {"address": "서울 마포구 월드컵로25길 33 1층", "building": "월드컵로25길 33", "imageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjcx/MDAxNzg5NTM5MTE1NjU5.XrTbhZ52IQiMj0rFlN_fDczLMSzs3CW5GSuiGj8XWn0g.2rvHyxjFZt_cOLXIQQxtql1XoR3hxb-ZBPSeVogPe_Ag.PNG/3.png?type=w800"},
+  "worldcup-market-31": {"address": "서울 마포구 월드컵로25길 35", "building": "월드컵로25길 35", "imageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfNSAg/MDAxNzg5NTM5MTk5ODYw.YrgsYYo9sivP3PzpGxxfgwAsfceDvhkheCwrFWGGjRsg.xXtULM8H2MIS8PODe_7XerpnmG5TB1q-g4oV5v2Vtggg.PNG/3.png?type=w800"},
+  "worldcup-market-32": {"address": "서울 마포구 월드컵로25길 35", "building": "월드컵로25길 35", "imageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjY4/MDAxNzg5NTM5MjY2MjYx.H8m8D5_jhs3aIUpsd5HF2T29DkERcA-4LQ7Tnmif90og.qR__RFYxP9UYQ0v8voePxh1sxbQcmZqtcXizw4gbCn0g.PNG/3.png?type=w800"},
+  "worldcup-market-33": {"address": "서울 마포구 망원로7길 13 1층", "building": "망원로7길 13", "imageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMTg2/MDAxNzg5NTM5MzgxNjQw.2RxAg5wyn7oiuvMsLUnFOWLU-rMR1l2VJunfMy_jj7cg.eOhhS6X73fP1Ahp5TE8uNKgmWXQodckt-DQ_LdHj-jsg.PNG/SE-26691ff0-7c6c-42e1-81aa-58c1c6d23c9e.png?type=w800"},
+  "worldcup-market-34": {"address": "서울 마포구 망원로7길 7", "building": "망원로7길 7", "imageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMTEw/MDAxNzg5NTM5NDQ5MTYx.XlVsY2vT7T94Bb1FFYbceWtzztfF5C5knGDQwmj2EUAg.z6pDLhSlQ4ZdMtuDYviJjseYyyHe9gwpZngSBr62uP4g.PNG/3.png?type=w800"},
+  "worldcup-market-35": {"address": "서울 마포구 망원로7길 7", "building": "망원로7길 7", "imageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjA0/MDAxNzg5NTM5Njg0Njk3.p-mPBNG7SNc96AJK_uFz3Fmu9QDazxZfKSarGbZ3R1Qg.yIM1nQyA12OWh5C5Dweqil_ySo-oDqAfb15zFwmxRnMg.PNG/3.png?type=w800"},
+  "worldcup-market-36": {"address": "서울 마포구 망원로 82", "building": "망원로 82", "imageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjI3/MDAxNzg5NTM5OTc1MzI4.YbMBRFjarBPKQtpn0MC_XN1QAZVus-zFbKqKI9hVbdIg.5LyS2cIVwFm3K__5B5gu9JkwEZFkmaeMRbdd_ZfZuAgg.PNG/SE-2db9b45d-b343-445a-ab17-ed2c91056cd6.png?type=w800"},
+  "worldcup-market-37": {"address": "서울 마포구 망원로7길 3", "building": "망원로7길 3", "imageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjE3/MDAxNzg5NTQwMDUwNzkw.GX2nkcaztnXBBPtiqLty679ckhDV3jQnQqty29s_yLwg.PUsRCE4pCfSlmT9lJ-_hZGGHR4ndJW6CuR22HlteE8Yg.PNG/3.png?type=w800"},
+  "worldcup-market-38": {"address": "서울 마포구 망원로7길 4 1층", "building": "망원로7길 4", "imageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfOTUg/MDAxNzg5NTQwMTk4MzY2.Xz07cJJGUdEZBFX7CQ--KqyOpBawB_LKGbAEzMLL1oMg.IIEhioIy7U5Uw56QUA4FE3HVJ_pDwYlQI3_lLS5oEq8g.PNG/3.png?type=w800"},
+  "worldcup-market-39": {"address": "서울 마포구 망원로 81", "building": "망원로 81", "imageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjA2/MDAxNzg5NTQzMzI0MTAx.dt8Gce-gGf5fvMwiF8W4Y56_Dkym1hJs_VDQuV6-iyEg.8VCWswr9-aOiEjcacMtoBalKtwTaSLq91Sxhou0kzXEg.PNG/3.png?type=w800"},
+  "worldcup-market-40": {"address": "서울 마포구 망원로 81 1층", "building": "망원로 81", "imageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfNzAg/MDAxNzg5NTQzNDA3NjY4._jVaHPcXoQ9Dd0VyruIcWGA7vRV_xCRwjCyuxH2nRzMg.c4iIVLduJGWp2RGlw9Feimz8z4EvqY4o32Vm6Z3PPOQg.PNG/3.png?type=w800"},
+  "worldcup-market-41": {"address": "서울 마포구 망원로7길 13", "building": "망원로7길 13", "imageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjMy/MDAxNzg5NTQzNTM3NTA2.pB4XrVvy81nlkpIXvn29Uo-GGTPgnLxFhAAdTaXyiBog.0x00dJUJn03-UTr2WVCWLbcgT6Y5AedckIZgu6YC748g.PNG/3.png?type=w800"},
+  "worldcup-market-42": {"address": "서울 마포구 망원로7길 28", "building": "망원로7길 28", "imageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfMjQg/MDAxNzg5NTQzNjU4Mzgx.QvL84Dtdx7zTOEc8hEVyGZXLqmVRQwQqLcznFezeCKAg.5owpf_YHo46i3di1Dzy_RHZ6onLol40bJwapC2ssD7Ug.PNG/3.png?type=w800"},
+  "worldcup-market-43": {"address": "서울 마포구 망원로7길 20 1층", "building": "망원로7길 20", "imageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfNCAg/MDAxNzg5NTQzOTY3NTI3.f3HH0Vgc28BqePUf41-m9H4SIs4PTImmTvhh9XVgcrog.plCKRDKYDwq_t0CNgVoRc3cv1LvW8gAQp2Go5_BO1gwg.PNG/3.png?type=w800"},
+  "worldcup-market-44": {"address": "서울 마포구 망원로7길 13", "building": "망원로7길 13", "imageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfNjAg/MDAxNzg5NTQ0MDMzNjAz.wuaPT_7ysfLNJ-kcQeG9I3tIgKWIdkFbOh7Gf-PkMxUg.01XxCgm3h3fp1GYUubrJm00tjz35Ms45r3n302H8APsg.PNG/3.png?type=w800"},
+  "worldcup-market-45": {"address": "서울 마포구 망원로7길 20", "building": "망원로7길 20", "imageUrl": "https://mblogthumb-phinf.pstatic.net/MjAyNjA5MTZfNzQg/MDAxNzg5NTQ0MjA2NzEw.MzlGP8ZfGGjl0Qgyvvb2IVF5wos_rpfxyuu34B4yOxQg.XmQpKu-EZkRkhdFiMj65wjOC-J8DRx78angrePyx4Zkg.PNG/3.png?type=w800"},
+};
+
+// NAVER Panorama SDK 실응답 getPanoId/getPosition/getLocation, 2026-10-04.
+// 기본 검색 반경 300m의 반환값도 실제 건물과 50m 이내일 때만 기록한다. 점포 정면 확인과 구분한다.
+const BUILDING_PANORAMAS: Readonly<Record<string, Coordinate & {
+  readonly panoId: string;
+  readonly captureDate: string;
+  readonly distanceMeters: number;
+}>> = {
+  "망원로7길 31": {"latitude": 37.5588193, "longitude": 126.9049995, "panoId": "4U8wQAvgbuNydJyDLXc4-w", "captureDate": "2026-03-27 11:07:41", "distanceMeters": 11.56},
+  "망원로7길 23": {"latitude": 37.5584628, "longitude": 126.9051506, "panoId": "2jTrCNGGMsrYG64u-FHqtg", "captureDate": "2026-03-27 11:24:25", "distanceMeters": 11.96},
+  "망원로7길 7": {"latitude": 37.5580219, "longitude": 126.9054784, "panoId": "BYu-v3fBOtX0i15HKHtlGQ", "captureDate": "2026-03-27 10:24:33", "distanceMeters": 10.7},
+  "망원로7길 20": {"latitude": 37.5584367, "longitude": 126.9055915, "panoId": "9o7TkEzuO39eET_lHz6YIQ", "captureDate": "2026-03-27 09:44:28", "distanceMeters": 9.33},
+  "망원로7길 3": {"latitude": 37.5580219, "longitude": 126.9054784, "panoId": "BYu-v3fBOtX0i15HKHtlGQ", "captureDate": "2026-03-27 10:24:33", "distanceMeters": 27.8},
+  "망원로7길 6": {"latitude": 37.558076, "longitude": 126.9057216, "panoId": "WLdLFlA_dnHmmcS_pZGXdw", "captureDate": "2026-03-27 09:44:12", "distanceMeters": 24.21},
+  "망원로 79": {"latitude": 37.5574965, "longitude": 126.9056096, "panoId": "MW-uZn3bADlGPfHP-0itpw", "captureDate": "2026-03-26 11:54:12", "distanceMeters": 15.42},
+  "망원로7길 4": {"latitude": 37.5575415, "longitude": 126.905824, "panoId": "MfT4SrmyP_Xi8TptVt4JEg", "captureDate": "2026-03-26 11:54:09", "distanceMeters": 25.01},
+  "망원로7길 13": {"latitude": 37.5580102, "longitude": 126.905426, "panoId": "3f3KPu_qhVgGI2X4FcHAJg", "captureDate": "2026-03-27 10:24:32", "distanceMeters": 11.58},
+  "망원로7길 24": {"latitude": 37.5584367, "longitude": 126.9055915, "panoId": "9o7TkEzuO39eET_lHz6YIQ", "captureDate": "2026-03-27 09:44:28", "distanceMeters": 29.08},
+  "망원로7길 30": {"latitude": 37.5589397, "longitude": 126.9052354, "panoId": "N-DG5MgONI_v9FZlGjHxWA", "captureDate": "2026-03-27 11:07:50", "distanceMeters": 9.19},
+  "망원로7길 17": {"latitude": 37.5583343, "longitude": 126.9053206, "panoId": "C5uSl4uTuNQo81WK9kvrGA", "captureDate": "2025-08-26 14:18:39", "distanceMeters": 9.42},
+  "월드컵로25길 35": {"latitude": 37.558076, "longitude": 126.9057216, "panoId": "WLdLFlA_dnHmmcS_pZGXdw", "captureDate": "2026-03-27 09:44:12", "distanceMeters": 10.78},
+  "망원로7길 28": {"latitude": 37.5589655, "longitude": 126.9052799, "panoId": "ZMH73kHMhpMHhsG8gdopfQ", "captureDate": "2026-03-27 11:07:51", "distanceMeters": 21.44},
+  "망원로7길 19": {"latitude": 37.5583343, "longitude": 126.9053206, "panoId": "C5uSl4uTuNQo81WK9kvrGA", "captureDate": "2025-08-26 14:18:39", "distanceMeters": 9.32},
+  "월드컵로25길 33": {"latitude": 37.5580919, "longitude": 126.9058392, "panoId": "CPsRuJqwgxIRRGy4wFav_Q", "captureDate": "2026-03-27 09:44:07", "distanceMeters": 8.09},
+  "망원로 82": {"latitude": 37.5573938, "longitude": 126.9057782, "panoId": "1Fb6a-cXtlbkn8gaPF9syw", "captureDate": "2023-09-21 13:16:32", "distanceMeters": 9.38},
+  "망원로 81": {"latitude": 37.5575415, "longitude": 126.905824, "panoId": "MfT4SrmyP_Xi8TptVt4JEg", "captureDate": "2026-03-26 11:54:09", "distanceMeters": 14.23},
+};
+
+function verifiedBlogLocation(input: StallInput): VerifiedLocation | null {
+  const evidence = BLOG_LOCATION_EVIDENCE[input.id];
+  if (!evidence) return null;
+  const building = GEOCODED_BUILDINGS[evidence.building];
+  if (!building || !isWorldCupMarketCoordinate(building)) return null;
+  return {
+    latitude: building.latitude,
+    longitude: building.longitude,
+    source: "https://maps.apigw.ntruss.com/map-geocode/v2/geocode",
+    coordSource: "blog-address+naver-geocode",
+    evidenceAddress: evidence.address,
+    sourceUrl: input.postUrl,
+    geocodedAddress: building.address,
+    evidenceType: evidence.imageUrl ? "BLOG_IMAGE" : "BLOG_TEXT",
+    evidenceImageUrl: evidence.imageUrl ?? null,
+    verifiedAt: "2026-10-04",
+    verificationStatus: "SINGLE_SOURCE_VERIFIED",
+  };
+}
+
 function stall(input: StallInput): WorldCupMarketStore {
+  const location = verifiedBlogLocation(input);
+  const panorama = location ? BUILDING_PANORAMAS[BLOG_LOCATION_EVIDENCE[input.id]!.building] ?? null : null;
   const products = input.productNames.map((nameKo) => ({
     nameKo,
     priceKrw: null,
@@ -150,9 +296,9 @@ function stall(input: StallInput): WorldCupMarketStore {
     category: input.category,
     address: input.address,
     officialSource: input.postUrl,
-    storeLocation: null,
-    navigationTarget: null,
-    streetViewLocation: null,
+    storeLocation: location,
+    navigationTarget: location,
+    streetViewLocation: panorama ? { latitude: panorama.latitude, longitude: panorama.longitude } : null,
     corridorSide: "UNKNOWN",
     corridorOrder: input.corridorOrder,
     descriptionKo: input.descriptionKo,
@@ -192,29 +338,31 @@ function stall(input: StallInput): WorldCupMarketStore {
       lastCheckedAt: input.verifiedAt,
     },
     streetView: {
-      available: false,
-      latitude: null,
-      longitude: null,
-      distanceFromStore: null,
+      provider: panorama ? "NAVER" : null,
+      metadataSource: panorama ? "https://navermaps.github.io/maps.js.ncp/docs/naver.maps.Panorama.html#getLocation" : null,
+      available: panorama !== null,
+      latitude: panorama?.latitude ?? null,
+      longitude: panorama?.longitude ?? null,
+      distanceFromStore: panorama?.distanceMeters ?? null,
       headingAuto: null,
       headingOverride: null,
       pitch: 0,
-      lastResolvedPanoId: null,
-      captureDate: null,
-      quality: "NOT_AVAILABLE",
-      lastCheckedAt: input.verifiedAt,
+      lastResolvedPanoId: panorama?.panoId ?? null,
+      captureDate: panorama?.captureDate ?? null,
+      quality: panorama ? "NEARBY_VISIBLE" : "NOT_AVAILABLE",
+      lastCheckedAt: panorama ? "2026-10-04" : input.verifiedAt,
     },
     verification: {
       storeExistence: "SINGLE_SOURCE_VERIFIED",
-      location: "UNKNOWN",
-      navigationTarget: "UNKNOWN",
+      location: location?.verificationStatus ?? "UNKNOWN",
+      navigationTarget: location?.verificationStatus ?? "UNKNOWN",
       businessHours: "SINGLE_SOURCE_VERIFIED",
       products: products.length > 0 ? "SINGLE_SOURCE_VERIFIED" : "UNKNOWN",
       prices: "UNKNOWN",
       images: "RIGHTS_CHECK_REQUIRED",
       officialSource: "SINGLE_SOURCE_VERIFIED",
       lastVerifiedAt: input.verifiedAt,
-      memo: `${input.postUrl} 에 적힌 내용만 반영했다. 좌표, 파노라마 ID, 상품 가격은 이 글에 없다.`,
+      memo: `${input.postUrl} 의 점포 정보와 주소를 보존했다. ${location ? "주소를 Naver 지오코딩한 건물 좌표이며 점포 출입구·실내 위치는 미확인이다." : "좌표는 미확인이다."} ${panorama ? "NAVER SDK가 반환한 50m 이내 주변 거리뷰이며 점포 정면 확인은 미완료이다." : "파노라마는 미확인이다."} 상품 가격은 이 글에 없다.`,
     },
   };
 }
