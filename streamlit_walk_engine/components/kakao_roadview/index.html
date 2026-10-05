@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<!--
+  walk 안내 중 Kakao 로드뷰 — MapLibre 와 같은 Streamlit 커스텀 컴포넌트.
+
+  왜 커스텀 컴포넌트인가: components.html(srcdoc) 의 origin 은 허용 도메인과
+  맞지 않아 Kakao JS SDK 가 막힌다. declare_component iframe 은
+  http://localhost:8501 등 등록한 origin 을 그대로 쓴다.
+
+  계약:
+  - Admin Key·REST API 키를 쓰지 않는다. args.appkey 는 JavaScript 키만.
+  - 키 값을 화면에 그리지 않는다.
+  - 좌표는 Kakao LatLng(lat, lng) 순서(GeoJSON 과 반대).
+  - 스트림릿 프로토콜: componentReady → streamlit:render → setFrameHeight.
+-->
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+  html, body { margin:0; padding:0; height:100%; width:100%; overflow:hidden; background:#f4f6f9; }
+  #rv { height:100%; width:100%; }
+  #msg {
+    display:none; position:absolute; inset:0;
+    align-items:center; justify-content:center;
+    background:#f4f6f9; color:#4a4a4a;
+    font:15px/1.45 sans-serif; padding:16px; text-align:center;
+  }
+</style>
+</head>
+<body>
+<div id="rv"></div>
+<div id="msg"></div>
+<script>
+"use strict";
+function send(msg){ parent.postMessage(Object.assign({isStreamlitMessage:true}, msg), "*"); }
+function showMsg(text){
+  var el = document.getElementById("msg");
+  el.textContent = text;
+  el.style.display = "flex";
+}
+function hideMsg(){ document.getElementById("msg").style.display = "none"; }
+
+var rv = null, client = null, lastH = 0, lastLat = null, lastLng = null, pendingHeading = null;
+var RADIUS_M = 100, MOVE_M = 10;
+var sdkState = "idle"; // idle | loading | ready | error
+var sdkWait = [];
+
+function haversine(lat1, lng1, lat2, lng2){
+  var R = 6371000, toR = Math.PI / 180;
+  var dLat = (lat2 - lat1) * toR, dLng = (lng2 - lng1) * toR;
+  var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * toR) * Math.cos(lat2 * toR) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  return 2 * R * Math.asin(Math.min(1, Math.sqrt(a)));
+}
+
+function loadSdk(appkey, done){
+  if (window.kakao && window.kakao.maps && window.kakao.maps.Roadview){
+    sdkState = "ready";
+    done();
+    return;
+  }
+  if (sdkState === "error") return;
+  sdkWait.push(done);
+  if (sdkState === "loading") return;
+  sdkState = "loading";
+  var s = document.createElement("script");
+  s.src = "https://dapi.kakao.com/v2/maps/sdk.js?appkey=" + encodeURIComponent(appkey) + "&autoload=false";
+  s.onload = function(){
+    if (!window.kakao || !kakao.maps || !kakao.maps.load){
+      sdkState = "error";
+      showMsg("카카오 지도를 불러오지 못했습니다. JavaScript 키와 허용 도메인을 확인하세요.");
+      return;
+    }
+    kakao.maps.load(function(){
+      sdkState = "ready";
+      var q = sdkWait.splice(0);
+      q.forEach(function(fn){ fn(); });
+    });
+  };
+  s.onerror = function(){
+    sdkState = "error";
+    showMsg("카카오 지도를 불러오지 못했습니다. JavaScript 키와 허용 도메인을 확인하세요.");
+  };
+  document.head.appendChild(s);
+}
+
+function applyHeading(heading){
+  pendingHeading = heading;
+  if (heading == null || !rv) return;
+  try {
+    var vp = rv.getViewpoint();
+    if (!vp) return;
+    vp.pan = Number(heading) % 360;
+    rv.setViewpoint(vp);
+  } catch (e) { /* init 전 viewpoint 는 없을 수 있다 */ }
+}
+
+function ensureRv(){
+  if (rv) return;
+  rv = new kakao.maps.Roadview(document.getElementById("rv"));
+  client = new kakao.maps.RoadviewClient();
+  kakao.maps.event.addListener(rv, "init", function(){ applyHeading(pendingHeading); });
+  kakao.maps.event.addListener(rv, "panoid_changed", function(){ applyHeading(pendingHeading); });
+}
+
+function apply(a){
+  if (a.height && a.height !== lastH){
+    lastH = a.height;
+    send({type:"streamlit:setFrameHeight", height:a.height});
+    if (rv && rv.relayout) setTimeout(function(){ rv.relayout(); }, 50);
+  }
+  if (!a.appkey){
+    showMsg("JavaScript 키가 없어 로드뷰를 표시할 수 없습니다.");
+    return;
+  }
+  if (a.lat == null || a.lng == null){
+    showMsg("위치 정보가 없어 로드뷰를 표시할 수 없습니다.");
+    return;
+  }
+  pendingHeading = (a.heading == null || a.heading === "") ? null : Number(a.heading);
+  loadSdk(a.appkey, function(){
+    ensureRv();
+    var moved = lastLat == null || haversine(lastLat, lastLng, a.lat, a.lng) >= MOVE_M;
+    lastLat = a.lat;
+    lastLng = a.lng;
+    if (!moved){
+      applyHeading(pendingHeading);
+      return;
+    }
+    var pos = new kakao.maps.LatLng(a.lat, a.lng);
+    client.getNearestPanoId(pos, RADIUS_M, function(panoId){
+      if (!panoId){
+        showMsg("이 위치 근처에는 로드뷰가 없습니다. 도로 쪽으로 이동해 보세요.");
+        return;
+      }
+      hideMsg();
+      rv.setPanoId(panoId, pos);
+    });
+  });
+}
+
+window.addEventListener("message", function(ev){
+  var d = ev.data || {};
+  if (d.type !== "streamlit:render") return;
+  apply(d.args || {});
+});
+
+send({type:"streamlit:componentReady", apiVersion:1});
+send({type:"streamlit:setFrameHeight", height:400});
+</script>
+</body>
+</html>

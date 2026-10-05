@@ -116,6 +116,17 @@ except Exception:
     _maplibre_nav = None
     _HAS_MAPLIBRE = False
 
+# Kakao 로드뷰 — MapLibre 와 같이 import 되는 모듈에서 declare_component 한다.
+# JavaScript 키가 없으면 토글 자체를 그리지 않아 기존 지도만 쓴다.
+try:
+    from kakao_js_key import kakao_javascript_key as _kakao_javascript_key
+    from kakao_roadview_component import kakao_roadview as _kakao_roadview
+    _HAS_KAKAO_RV = True
+except Exception:
+    _kakao_javascript_key = lambda: None  # type: ignore[assignment,misc]
+    _kakao_roadview = None
+    _HAS_KAKAO_RV = False
+
 
 # GPS 재측정 주기(초). streamlit_js_eval 프런트엔드는 '같은 js_expressions 문자열'은
 # 다시 평가하지 않으므로(once-per-string 가드), 표현식을 고정하면 위치가 세션당 1회만
@@ -496,11 +507,37 @@ def _activate_route(
 
 # ── 공통 헬퍼 ─────────────────────────────────────────────────────────────────
 
+def _user_heading_for_routing() -> float | None:
+    """경로추천용 사용자 방향 — 스무딩 GPS heading → 나침반 → 최근 표본.
+
+    나침반(nav_compass_deg)은 이미 자북→진북 편각 보정된 값이다.
+    """
+    hdg = st.session_state.get("nav_smoothed_heading")
+    if hdg is None:
+        hdg = st.session_state.get("nav_compass_deg")
+    if hdg is None:
+        samples = st.session_state.get("nav_samples") or []
+        if samples:
+            hdg = samples[-1].heading_degrees
+    try:
+        return float(hdg) if hdg is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
 def _fetch_route(origin: Coordinate, dest: Coordinate) -> RouteModel:
     """경로 탐색 + 엔진 라벨/부가정보(총거리·ETA·안내문)를 현재 세션에 기록."""
-    route, engine_label, route_info = fetch_walking_route_with_engine(origin, dest)
+    heading = _user_heading_for_routing()
+    route, engine_label, route_info = fetch_walking_route_with_engine(
+        origin, dest,
+        user_heading_degrees=heading,
+        route_mode=st.session_state.get("nav_route_mode"),
+    )
     st.session_state["nav_route_engine"] = engine_label
     st.session_state["nav_route_info"] = route_info
+    score_debug = getattr(route_info, "score_debug", None)
+    if isinstance(score_debug, dict):
+        _diag("route_score", **score_debug)
 
     # Static Map은 목적지가 바뀔 때만 1회 호출(rerun마다 호출 시도 방지).
     dest_key = f"{dest.latitude:.6f},{dest.longitude:.6f}"
@@ -543,6 +580,8 @@ def _start_reroute_fetch(sid: str, origin: Coordinate, dest: Coordinate) -> None
     워커 스레드는 st.* 를 절대 만지지 않는다 — 순수 네트워크 호출만 하고 결과를
     _PENDING_REROUTE 에 남긴다(커밋은 다음 rerun 의 _commit_pending_reroute 몫).
     """
+    heading = _user_heading_for_routing()
+    route_mode = st.session_state.get("nav_route_mode")
     with _PENDING_REROUTE_LOCK:
         if sid in _PENDING_REROUTE:
             return
@@ -550,7 +589,11 @@ def _start_reroute_fetch(sid: str, origin: Coordinate, dest: Coordinate) -> None
 
     def _work() -> None:
         try:
-            route, engine_label, route_info = fetch_walking_route_with_engine(origin, dest)
+            route, engine_label, route_info = fetch_walking_route_with_engine(
+                origin, dest,
+                user_heading_degrees=heading,
+                route_mode=route_mode,
+            )
             payload = {"state": "ok", "route": route, "engine_label": engine_label,
                        "route_info": route_info, "dest": dest}
         except Exception as e:  # noqa: BLE001 — 실패도 커밋 채널로 넘겨 화면에 표시
@@ -579,6 +622,9 @@ def _commit_pending_reroute() -> None:
     new_route = pending["route"]
     st.session_state["nav_route_engine"] = pending["engine_label"]
     st.session_state["nav_route_info"] = pending["route_info"]
+    score_debug = getattr(pending.get("route_info"), "score_debug", None)
+    if isinstance(score_debug, dict):
+        _diag("route_score", **score_debug)
     new_count = st.session_state["nav_reroute_count"] + 1
     st.session_state.update({
         "nav_route":               new_route,
@@ -2279,6 +2325,20 @@ def _maplibre_nav_args(
     }
 
 
+def _roadview_latlng(
+    route: RouteModel,
+    samples: list[PositionSample],
+    display_coord: Optional[Coordinate] = None,
+) -> tuple[float, float]:
+    """로드뷰 좌표 — 지도 마커와 같은 표시용 좌표(스무딩)를 우선한다."""
+    if display_coord is not None:
+        return display_coord.latitude, display_coord.longitude
+    if samples:
+        return samples[-1].latitude, samples[-1].longitude
+    mid = route.polyline[len(route.polyline) // 2]
+    return mid.latitude, mid.longitude
+
+
 _DEFAULT_CENTER = Coordinate(latitude=37.5665, longitude=126.9780)  # 서울시청
 
 
@@ -3032,6 +3092,9 @@ def _render_search_source_panel() -> None:
     rows = [
         ("카카오 로컬", status["kakao_local"], "상호·가게 이름 (○○치킨, △△카페)",
          "KAKAO_REST_API_KEY  ※ REST API 키 (JavaScript·네이티브 앱 키 아님)"),
+        ("카카오 로드뷰", bool(_HAS_KAKAO_RV and _kakao_javascript_key()),
+         "안내 중 거리 모습",
+         "KAKAO_JAVASCRIPT_KEY  ※ JavaScript 키 (REST·Admin 키 아님)"),
         ("네이버 지역검색", status["naver_local"], "상호·가게 이름 (○○치킨, △△카페)",
          "NAVER_SEARCH_CLIENT_ID / SECRET"),
         ("네이버 지오코딩", status["naver_geocode"], "주소",
@@ -4513,6 +4576,23 @@ def main() -> None:
         # 스크롤이 막힌다(지도 캔버스가 세로 스와이프를 팬으로 가로챔). 지도 아래에 스크롤로
         # 잡을 여백이 남도록 높이를 낮춘다 — 보행 중엔 조금 더 크게(방향 배지가 위에 있음).
         map_h = 460 if st.session_state["nav_running"] else 400
+        js_key = _kakao_javascript_key() if _HAS_KAKAO_RV else None
+        if st.session_state["nav_running"] and js_key:
+            view = st.segmented_control(
+                "보기", options=["지도", "로드뷰"], default="지도",
+                key="nav_map_mode",
+            )
+            if view == "로드뷰":
+                lat, lng = _roadview_latlng(
+                    route, st.session_state["nav_samples"],
+                    st.session_state.get("nav_display_origin"),
+                )
+                _kakao_roadview(
+                    appkey=js_key, lat=lat, lng=lng,
+                    heading=_heading_up_bearing(st.session_state["nav_samples"]),
+                    height=map_h, key="nav_roadview", default=None,
+                )
+                return
         if st.session_state["nav_running"] and _HAS_MAPLIBRE:
             # 안내 중 1순위: MapLibre 컴포넌트 — iframe 유지 + easeTo(900ms)로
             # 부드러운 헤딩업 회전 + 핀치줌 유지(제스처 중 따라가기 일시정지).

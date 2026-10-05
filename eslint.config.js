@@ -16,6 +16,8 @@ export default tseslint.config(
       // 루트 tsconfig(packages 전용) 밖이라 타입 정보를 못 붙인다
       "vitest.config.ts",
       "vitest.setup.ts",
+      // Node-only Vercel build gate; typed TS rules cannot resolve type info for CJS.
+      "scripts/vercel-ignore.cjs",
       // 빌드 산출물 — 소스를 이미 검사한다
       "**/dist/**",
       "web/.next/**",
@@ -26,6 +28,12 @@ export default tseslint.config(
   },
   js.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
+  {
+    files: ["scripts/**/*.cjs"],
+    // CommonJS 스크립트는 JS 검사만 적용하고 TypeScript 타입 규칙은 끈다.
+    extends: [tseslint.configs.disableTypeChecked],
+    languageOptions: { globals: globals.node },
+  },
   {
     files: ["**/*.ts"],
     languageOptions: {
