@@ -45,6 +45,7 @@ async function feed(hook: ReturnType<typeof navigation>, sample: Fix) {
 }
 
 beforeEach(() => {
+  vi.stubEnv("NEXT_PUBLIC_WALK_TICK_DEBUG", "0");
   vi.stubEnv("NEXT_PUBLIC_WALK_DEBUG", "false");
   vi.spyOn(console, "info").mockImplementation(() => {});
   vi.spyOn(SpeechQueue.prototype, "enqueue").mockResolvedValue(true);
@@ -112,9 +113,17 @@ describe("tick 디버그 로그", () => {
     expect(console.info).not.toHaveBeenCalled();
   });
 
-  it("true일 때 raw/보정 상태와 실제 정확도 판단을 기록한다", async () => {
-    vi.stubEnv("NEXT_PUBLIC_WALK_DEBUG", "true");
-    const hook = navigation();
+  it.each([
+    ["NEXT_PUBLIC_WALK_DEBUG", "true"],
+    ["NEXT_PUBLIC_WALK_TICK_DEBUG", "1"],
+  ])("%s=%s일 때 raw/보정 상태와 실제 정확도 판단을 기록한다", async (name, value) => {
+    // Next 빌드와 동일하게 플래그를 먼저 설정한 다음 모듈을 불러온다.
+    vi.stubEnv(name, value);
+    vi.resetModules();
+    const { useNavigation: useDebugNavigation } = await import("./useNavigation");
+    const hook = renderHook(({ sample }: { sample: Fix | null }) =>
+      useDebugNavigation(TURN_ROUTE, sample, { voiceEnabled: false, locale: "ko" }),
+    { initialProps: { sample: null as Fix | null } });
     await feed(hook, fix(32, 0, 1_000));
     await feed(hook, fix(52, 0, 2_000));
     expect(console.info).toHaveBeenLastCalledWith("[walk:tick]", expect.objectContaining({
