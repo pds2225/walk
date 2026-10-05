@@ -11,7 +11,7 @@
  * 테스트와는 무관하므로 next/dynamic 자체를 mock 해 우회한다.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { moveCoordinateByMeters } from "@walk/route-engine";
 import type { Coordinate, RouteModel } from "@walk/route-engine";
 import Home from "./page";
@@ -354,6 +354,56 @@ describe("TEST D — 안내 중지는 워처를 반드시 해제한다", () => {
 });
 
 describe("TEST E — 확정 이탈은 active route 를 실제로 재탐색한다", () => {
+  it.each([25, 40])("회전 미이행 accuracy %sm의 보정 상태에 맞춰 화면/재탐색을 처리한다", async (accuracy) => {
+    const turn = moveCoordinateByMeters(ORIGIN, 40, 0);
+    const turnRoute: RouteModel = {
+      polyline: [ORIGIN, turn, moveCoordinateByMeters(ORIGIN, 40, 100)],
+      turnPoints: [{ id: "left-1", coordinate: turn, routeIndex: 1, direction: "left" }],
+    };
+    routeResponses = [turnRoute, REROUTED_ROUTE];
+    rerouteGate = new Promise<void>((resolve) => { releaseReroute = resolve; });
+    mockGetCurrentPosition.mockImplementation((success: SuccessCb) => success(position(ORIGIN, 1_000)));
+    const watch: { success: SuccessCb | null } = { success: null };
+    mockWatchPosition.mockImplementation((success: SuccessCb) => { watch.success = success; return 42; });
+
+    await pickDestination();
+    fireEvent.click(screen.getByRole("button", { name: "걷기" }));
+    await waitFor(() => expect(mockWatchPosition).toHaveBeenCalledTimes(1));
+    const eastMeters = [3, 10, 20, 32, 52];
+    for (const [i, east] of eastMeters.entries()) {
+      // eslint-disable-next-line no-await-in-loop
+      await act(async () => { watch.success?.(position(moveCoordinateByMeters(ORIGIN, east, 0), 1_000 + (i + 1) * 8_000, accuracy)); });
+    }
+
+    expect(routeCallCount()).toBe(accuracy === 25 ? 2 : 1);
+    expect(document.querySelector(".banner-off") !== null).toBe(accuracy === 25);
+    if (accuracy === 25) {
+      expect(screen.getByText("경로를 다시 찾는 중…")).toBeTruthy();
+      await act(async () => { releaseReroute?.(); });
+      await waitFor(() => expect(screen.queryByText("경로를 다시 찾는 중…")).toBeNull());
+      expect(screen.getByRole("button", { name: "안내 중지" })).toBeTruthy();
+    } else {
+      expect(screen.getByText("길에서 조금 벗어났어요")).toBeTruthy();
+    }
+  });
+
+  it("GPS 오차 안의 횡거리 이탈은 raw reroute_candidate가 있어도 재탐색하지 않는다", async () => {
+    mockGetCurrentPosition.mockImplementation((success: SuccessCb) => success(position(ORIGIN, 1_000)));
+    const watch: { success: SuccessCb | null } = { success: null };
+    mockWatchPosition.mockImplementation((success: SuccessCb) => { watch.success = success; return 42; });
+    await pickDestination();
+    fireEvent.click(screen.getByRole("button", { name: "걷기" }));
+    await waitFor(() => expect(mockWatchPosition).toHaveBeenCalledTimes(1));
+    for (let i = 1; i <= 5; i++) {
+      const point = moveCoordinateByMeters(ORIGIN, i * 2, 26);
+      // eslint-disable-next-line no-await-in-loop
+      await act(async () => { watch.success?.(position(point, 1_000 + i * 8_000, 30)); });
+    }
+    expect(routeCallCount()).toBe(1);
+    expect(document.querySelector(".banner-off")).toBeNull();
+    expect(screen.getByText("길에서 조금 벗어났어요")).toBeTruthy();
+  });
+
   it("reroute_candidate 한 번만 /api/route 를 추가 호출하고 새 경로를 설치한다", async () => {
     routeResponses = [ROUTE, REROUTED_ROUTE];
     mockGetCurrentPosition.mockImplementation((success: SuccessCb) => success(position(ORIGIN, 1000)));

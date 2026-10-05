@@ -18,7 +18,9 @@ const DRIFT_REPEAT_COOLDOWN_MS = 20_000;
 const VOICE_RETRY_DELAY_MS = 1_500;
 const VOICE_MAX_ATTEMPTS = 2;
 /** Tick diagnostics are opt-in. Undefined/0/false keeps production console quiet. */
-const WALK_TICK_DEBUG_ENABLED = process.env.NEXT_PUBLIC_WALK_TICK_DEBUG === "1";
+const WALK_TICK_DEBUG_ENABLED =
+  process.env.NEXT_PUBLIC_WALK_TICK_DEBUG === "1" ||
+  process.env.NEXT_PUBLIC_WALK_DEBUG === "true";
 
 export interface AccuracyGateDecision {
   readonly result: EngineResult;
@@ -267,6 +269,7 @@ export function useNavigation(
         accuracyM: fix.accuracyMeters,
         fixReliable: accurate,
         distanceClearsAccuracy,
+        confirmedByAccuracy: accurate && (rawResult.state === "passed_turn" || distanceClearsAccuracy),
         consecutiveBreaches: next.metrics.consecutiveThresholdBreaches,
         driftDurationMs: next.metrics.driftDurationMs,
         thresholds: {

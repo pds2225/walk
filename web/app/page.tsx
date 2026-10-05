@@ -193,6 +193,7 @@ export default function Home() {
       !routeResponse ||
       !currentFix ||
       rerouting ||
+      (nav.state !== "deviated" && nav.state !== "passed_turn") ||
       nav.result?.suggestedNextAction !== "reroute_candidate" ||
       !isDeviationFixReliable(currentFix.accuracyMeters) ||
       rerouteAttemptedRoute.current === routeFingerprint(routeResponse) ||
@@ -206,7 +207,7 @@ export default function Home() {
     lastRerouteFixTimestamp.current = currentFix.timestampMs;
     lastRerouteAtMs.current = Date.now();
     void requestReroute(currentFix);
-  }, [currentFix, nav.elapsedSinceStartMs, nav.result, nav.sampleCount, phase, requestReroute, rerouting, routeResponse]);
+  }, [currentFix, nav.elapsedSinceStartMs, nav.result, nav.sampleCount, nav.state, phase, requestReroute, rerouting, routeResponse]);
 
   // ── 목적지 검색 (입력이 멈춘 뒤 1회) ──────────────────────────────────────
   // fix 는 navigating/arrived 가 아닌 동안은 절대 바뀌지 않는다(watchPosition 이
