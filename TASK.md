@@ -1114,3 +1114,26 @@ PR =
 - web에서 `npm ci --include-workspace-root --include=dev --no-audit`, `npm --prefix .. run lint`, `npm run build`, `npm --prefix .. run test:run`, root/web `typecheck`, `npm --prefix .. run simulate`가 통과했다. 최종 기본 병렬 테스트 20파일/169개 PASS이며 worker 2개 제한 실행도 동일하게 PASS다. 테스트 timeout/검사 생략 없이 검증했고 simulate 4개 시나리오 상태/행동을 확인했다.
 - 실제 Chrome 390×844, 로컬 production: 부부야채/장터국밥 핀 선택·공유 안내·NAVER 주변 영상·도보 안내 시작/중지를 확인했다. 실제 TMAP HTTP 200(132m/7점, 99m/5점), 실제 지도 타일/파노 영상, pageerror 0. 브라우저 위치는 출처 기반 좌표로 제어한 입력이며 현장 GPS 검증이 아니다.
 - 실행 환경은 `TMAP_APP_KEY`, `NEXT_PUBLIC_NAVER_MAP_CLIENT_ID`를 로컬 env로 제공한다. 로컬 검증과 배포 환경 설정·현장 방문 검증은 구분한다. 키 값은 기록하지 않는다.
+
+
+---
+
+## TASK REGISTRATION — PR #130 deviation accuracy hardening (2026-10-03)
+
+`TASK_ID = WALK-PR130-DEVIATION-ACCURACY-HARDENING-20261003`
+
+`STATUS = IN_PROGRESS`
+
+`PR = #130 (draft 유지, merge 금지, PR 본문 수정 금지)`
+
+`BRANCH = claude/path-deviation-logs-jq8h4o`
+
+`BASE_INTEGRATION = 최신 origin/main을 rebase 없이 merge 방식으로 통합`
+
+`SCOPE = (1) PR #130에서 useSmoothedFix/display smoothing 변경 분리 (2) distanceFromRouteMeters < GNSS accuracy일 때 deviated를 drifting으로 완화하되 확정 이탈은 유지 (3) 기존 30m deviation accuracy gate 유지 (4) passed_turn이 distance-vs-accuracy 규칙 때문에 정상 missed-turn 감지가 지연/차단되지 않도록 검증·보완 (5) [walk:tick] console 진단 로그를 production 기본 OFF debug flag로 제한 (6) 관련 테스트 및 전체 회귀 검증`
+
+`SEPARATE_PR = display smoothing은 main 기준 별도 branch/draft PR로 관리`
+
+`ACCEPTANCE = deviated: distance < accuracy => drifting/monitor; deviated: distance >= accuracy + reliable fix => 확정 유지; accuracy > 30m => hard deviation/reroute 억제; passed_turn: reliable fix에서는 distance < accuracy만으로 downgrade하지 않음; [walk:tick] 기본 미출력; smoothing diff는 PR #130에서 제거; 요구 validation commands 및 CI 확인`
+
+`FORBIDDEN = PR #130 merge; draft 해제; PR #130 body 수정; force push; .github/workflows 수정; unrelated refactor`
