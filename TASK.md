@@ -289,6 +289,43 @@ Roadview 실패 시 navigation은 계속되어야 한다.
 
 # 4. CURRENT ACTIVE QUEUE
 
+## [ ] TASK-012 — passed_turn 억제 수정 및 tick 디버그 로그
+
+`PRIORITY = P0`
+
+`STATUS = VERIFIED — LOCAL_CONTROLLED; FIELD_TEST_REQUIRED`
+
+- 사용자 요청 (2026-10-03): `passed_turn` 억제 문제 해결, `[walk:tick]` 로그는 디버그 플래그 뒤로, TASK.md 작업 등록.
+- 작업 브랜치: `fix/passed-turn-debug-20261003`; base `40daf37`.
+- 최신 원격 main은 `404c5a8`이며 base 이후 TASK/웹 소스 변경은 없다. fetch는 기존 손상된 백업 ref로 실패해 GitHub API로 최신성을 확인했다.
+- 재사용: 열린 PR [#130](https://github.com/pds2225/walk/pull/130), head `5b657f1`의 GPS 정확도 보정·표시 위치 smoothing 코드를 유지한다.
+- 범위: `web/lib/useNavigation.ts`의 회전 미이행 정확도 gate 및 tick 로그, `web/app/page.tsx`의 보정된 상태 기준 재탐색 gate, 관련 hook/사용자 흐름 회귀 테스트.
+- 제약: `deviated`의 횡거리/정확도 비교, 저정확도 fix 억제, 음성·재탐색·도착 정책 유지. Streamlit 페이지, `.env*`, workflow, 사용자 데이터 변경 금지.
+- Git: 이번 요청은 로컬 수정/검증/작업 등록까지. commit/push/PR/merge는 실행하지 않는다. main 공식 SSOT 반영은 후속 병합 시점이다.
+
+**Acceptance / Verify**
+
+- [x] 신뢰 가능한 GPS에서 `passed_turn`은 횡거리가 accuracy보다 작아도 유지한다.
+- [x] GPS 정확도가 기존 gate보다 나쁘면 `passed_turn` 확정을 계속 억제한다.
+- [x] `deviated`는 횡거리/accuracy 비교를 유지하며 실제 이탈 재탐색은 작동한다.
+- [x] 기본값에서 tick 로그 없음; `NEXT_PUBLIC_WALK_DEBUG=true`일 때만 진단 로그 출력.
+- [x] 실제 엔진 회전 미이행과 사용자 UI/재탐색 흐름, 정상 회전·저정확도·기존 기능 회귀 확인.
+- [x] 웹 typecheck/lint/build 및 `python -m pytest streamlit_walk_engine\tests -q` 결과 기록.
+- [x] 실제 현장 GPS/배포 검증은 자동화 입력 검증과 구분한다.
+
+**검증 기록 (2026-10-03)**
+
+- 수정 전 실제 엔진/hook 입력으로 accuracy 25/30m의 `passed_turn → drifting` 오류와 debug 비활성 로그 출력을 재현했다.
+- `npm run test:run -- --reporter=dot`: 16 files, 149 PASS. 신규 13개 회귀는 회전 미이행 음성·UI·재탐색, 저정확도, 정상 회전, 횡거리 오차 및 플래그를 검증한다.
+- `npm run build --workspace @walk/route-engine`, `npm run typecheck`, `npm run typecheck --workspace web`, `npm run lint`, `npm run next:build`: PASS. 기존 lint 설정은 web을 제외하므로 웹 정적 검증은 자체 typecheck/Next build로 확인했다.
+- `python -m pytest streamlit_walk_engine\tests -q`: 597 PASS, 1 기존 환경 의존 실패(`test_missing_everywhere_returns_none`은 로컬 secrets가 없다고 가정).
+- 로컬 secrets를 테스트 프로세스에서만 격리한 회귀: `python -c "import streamlit as st, pytest; st.secrets = {}; raise SystemExit(pytest.main(['streamlit_walk_engine/tests', '-q', '--tb=no']))"`: 598 PASS. 설정 파일은 수정하지 않았다.
+- 로컬 production server `http://127.0.0.1:3108` + 실제 Chromium(390×844): 회전 미이행/저정확도/정상 좌회전/GPS 오차 안 횡거리 4개 시나리오 PASS. 회전 미이행은 경로 API 2회(최초+재탐색), 나머지는 1회. 모든 시나리오 tick 로그 0, page error 0, 안내 중지 PASS.
+- 브라우저 GPS·경로 API·지도 배경은 통제 입력이다. 실기기 현장 GPS, 운영 배포, 공유기 외부 접속은 미검증. 테스트 서버는 검증 후 종료한다.
+- 브라우저 smoke 재현 스크립트: `C:\Users\ekth3\AppData\Local\Temp\walk-passed-turn-20261003.cjs` (Playwright npm 캐시 사용). `git diff --check`: PASS.
+- 유사 문제: 보정 후 `drifting`인데 raw `reroute_candidate`가 남아 재탐색하던 경계도 수정했다. Streamlit에는 이미 passed_turn 횡거리 예외가 있어 변경하지 않았다.
+- 디버그 실행: PowerShell에서 `$env:NEXT_PUBLIC_WALK_DEBUG='true'` 후 `npm run next:dev`. production은 같은 플래그를 **빌드 전에** 설정한다. 미설정/false/1에서는 로그를 출력하지 않는다.
+
 ## P0 — 현장검증 잔여
 
 ### [ ] TASK-001-FIELD — 지하철 승·하차 최적 출입구 실기기 현장검증
