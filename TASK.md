@@ -1074,9 +1074,9 @@ PR =
 
 과거 상세 기록이 필요하면 해당 PR/commit을 조회한다. 완료된 과거 TASK의 장문 로그를 다시 이 파일에 중복 누적하지 않는다.
 
-## [ ] KN-MAIN-SYNC-20261005 — 기존 개발 통합 및 모든 로컬 위치 동기화
+## [x] KN-MAIN-SYNC-20261005 — 기존 개발 통합 및 모든 로컬 위치 동기화
 
-`STATUS = IN_PROGRESS` / `BRANCH = integrate/all-development-20261005` / `BASE = 404c5a8`
+`STATUS = VERIFIED_LOCAL — 최종 Git 완료 조건은 통합 PR CI PASS 및 모든 유효 HEAD=origin/main` / `BRANCH = integrate/all-development-20261005` / `BASE = 404c5a8`
 
 - 최신 사용자 요청: 테스트를 최소화하고 지금까지 개발한 내용을 main에 반영하여 모든 walk 로컬 작업 위치를 동기화한다. 이번 명시 요청은 과거 작업의 main 병합·Ready 전환 금지를 대체한다.
 - 열린 PR·미커밋 개발·로컬 브랜치·worktree·독립 clone·stash를 대조한다. 백업/중복 이력 및 기능 없는 대량삭제는 무조건 통합하지 않고 보존하며, 독립 개발 내용만 통합한다.
@@ -1089,6 +1089,15 @@ PR =
 
 - 원격 main404c5a8, 열린 PR7개(#100/#101/#130/#135/#136/#142/#143), 유효 로컬 작업 위치12개 확인. 손상된 root 원격 캐시 참조(41NUL)는 별도 백업/hash 대조 후 제거·재fetch하여 복구했다.
 - #143 기존169테스트/build/typecheck/실제Chrome 증거, #130 CI 및simulate4시나리오 증거를 재사용한다. #135는 #136에 포함되어 중복 구현하지 않는다. 최종 통합 범위·최소검증·PR/main SHA·동기화 대조 결과를 이 항목에 기록한다.
+
+**통합 결과 / 최소 검증 (2026-10-06)**
+
+- #143 월드컵시장(기존45점포·근거 좌표45/45·NAVER 근처 파노45/45), #130 정확도 이탈 gate/진단로그, #142 표시 GPS smoothing, #136 망원시장(#135 포함), #100 및 후속 대중교통 도착 라벨을 함께 통합했다. main의 기존 홈4언어와 layout/globals는 유지하고 망원 CSS는 해당 라우트로 격리했다.
+- 원본 로컬 회전 미이행·재탐색 gate/테스트를 보존했다. 독립 cursor 브랜치의 Python 경로 점수화·Kakao bridge10파일을 통합하고 이미 대체된 옛 웹 provider, 생성 fixture, env 예제는 재적용하지 않았다.
+- 영향 web7파일은75 PASS/디버그 초기화 테스트1 FAIL이었다. 모듈을 읽기 전에 플래그를 설정하도록 해당 테스트만 바로잡아11 PASS(두 debug flag 포함), 다른6파일은66 PASS를 재사용한다. Python 영향5파일292 PASS, web typecheck PASS, production build PASS. 기존 전체 반복 실행 및 geocoding 재조회는 생략했다.
+- 설치된 실제 Google Chrome390×844에서 /, /mangwon, /worldcup-market 모두 HTTP200/가로넘침0/pageerror0을 확인했고 홈4언어 및 월드컵45점포/길찾기 버튼을 확인했다. 기존 월드컵 실제 NAVER/TMAP 검증은 재사용하며 현장 GPS·배포 env·점포 정면 실측은 별도 제한이다.
+- 원본 로컬 개발7파일은 backup/local-main-sync-20261006=2325b22, production ignore는 backup/production-local-main-sync-20261006=87c3b8a에 보존했다. 기존 stash4개와 env/사용자 설정·세션 기록은 유지한다. 기능 없이 기존 모듈35파일만 삭제하는 #101은 이번 기능 통합에서 제외하고 보존한다.
+- 통합 PR의 기존 test/docs-gate CI를 약화 없이 한 번 통과한 뒤 merge commit 방식으로 main에 반영한다. 원격 main의 최종 SHA와 유효12곳 HEAD/보존 상태는 Git/PR 및 로컬 RESUME와 main-sync 보고서에서 대조한다.
 
 ---
 
