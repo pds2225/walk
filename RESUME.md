@@ -1,6 +1,6 @@
 # RESUME.md — walk 현재 작업
 
-> 2026-10-05 15:45 KST 재조회. 공식 SSOT는 origin/main:TASK.md.
+> 2026-10-05 16:56 KST 갱신. 원격·CI 마지막 재조회는 15:45 KST. 공식 SSOT는 origin/main:TASK.md.
 
 ## 목표·현재 상태
 PR #143 / feat/worldcup-market-demo의 블로그 점포45개에 주소 근거 기반 좌표를 채우고 지도 핀·길찾기·거리뷰를 실제 검증한다.
@@ -23,6 +23,7 @@ PR #143 / feat/worldcup-market-demo의 블로그 점포45개에 주소 근거 �
 - 요청한 개발·일반 push·PR본문 갱신·GitHub 게이트 보고 준비까지 완료. 다음 별도 확인은 배포 환경 설정·현장 GPS 및 점포 입구 실측이며 현재 PR은 draft로 유지한다. 원본 미커밋7파일의 SHA256 보존 확인.
 - 2026-10-05 최신 상태 확인 요청에 따라 Git 원격/local head, PR 본문·draft·미병합, 해당SHA의 GitHub test/docs-gate 성공을 실제 재조회했다. 준비된 변경을 다시 commit/push하라는 붙여넣기 지시는 이미 실행된 단계다. 코드 수정·추가 commit/push 없이 RESUME만 갱신했다.
 - 다음은 사용자가 데이터 몇 곳을 직접 확인하는 단계다. CI는 이미 PASS이며 Ready 전환·머지는 사용자가 직접 판단한다. 에이전트는 draft 유지·Ready 전환/머지 금지를 유지한다. 배포 환경 및 현장 GPS는 여전히 미검증이다.
+- 사용자 ㅇㅇ를 직전 추천(직접 확인용 5점포 표)에 대한 동의로 받아 표를 작성했다. 부부야채01·송가한우마을07·패션타운09·애기수산14·명성족발15의 블로그/주소 이미지·좌표·NAVER 파노를 evidence JSON과 커밋77707a4 코드에서 대조해 5/5 일치를 확인했다. 확인 근거일은 2026-10-04이며 새 지오코딩/현장/실시간 파노 검증은 하지 않았다. 다음은 사용자의 출처·건물 위치·근처 영상 직접 확인 및 이상점 피드백이다. 코드 수정·commit/push·Ready 전환·머지 없음.
 
 ## 이전 완료
 PR #143정리:37커밋23파일→3커밋19파일. 데이터원본blob d817396 유지, 홈/layout/globals main동일. local150tests/4simulate/build/lint/typecheck/Chromesmoke 및 Actions test/docs-gatePASS.
