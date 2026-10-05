@@ -1,10 +1,10 @@
 # RESUME.md — walk 현재 작업
 
-> 2026-10-04 17:46 KST. 공식 SSOT는 origin/main:TASK.md.
+> 2026-10-05 15:41 KST 갱신. 개발·Git 검증 근거는 2026-10-04 최종 확인. 공식 SSOT는 origin/main:TASK.md.
 
 ## 목표·현재 상태
 PR #143 / feat/worldcup-market-demo의 블로그 점포45개에 주소 근거 기반 좌표를 채우고 지도 핀·길찾기·거리뷰를 실제 검증한다.
-시작 head b8bfdfce264350a83b27248086c0c91411685d94 gate 통과 후 일반 커밋·push 완료. 현재 원격/local head 77707a403de2e5be9a4ae7904a92e998617b9d28. 원격 main404c5a8 유지. force push·main 병합·Ready 전환 없음.
+시작 head b8bfdfce264350a83b27248086c0c91411685d94 gate 통과 후 일반 커밋·push 완료. 2026-10-04 마지막 확인 원격/local head 77707a403de2e5be9a4ae7904a92e998617b9d28, 원격 main404c5a8. force push·main 병합·Ready 전환 없음. 이번 질문에서는 원격 상태를 재조회하지 않았다.
 
 ## 위치
 독립 clone D:\walk\.worktrees\worldcup-market-clean-20261004, 로컬 feat/worldcup-market-demo / 77707a4, 작업 트리 clean.
@@ -21,6 +21,7 @@ PR #143 / feat/worldcup-market-demo의 블로그 점포45개에 주소 근거 �
 - 재개 승인 후 원격head=b8bfdfc를 다시 확인하고 77707a4(10파일, +659/-68)를 일반 commit/push했다. PR143본문에 좌표·NAVER 파노 결과, 공유 좌표 12그룹, 검증, 건물/근처 영상/현장 GPS/배포 제한을 반영했다. OPEN·draft=true·merged=false·mergeable=true 및 본문 일치 확인 완료.
 - 새커밋 GitHub Actions test 성공: https://github.com/pds2225/walk/actions/runs/37189924154 (tests/lint/root·web typecheck/route-engine·web build 전 단계 PASS). docs-gate 성공: https://github.com/pds2225/walk/actions/runs/37189924125. main 대비4커밋/19파일이다.
 - 요청한 개발·일반 push·PR본문 갱신·GitHub 게이트 보고 준비까지 완료. 다음 별도 확인은 배포 환경 설정·현장 GPS 및 점포 입구 실측이며 현재 PR은 draft로 유지한다. 원본 미커밋7파일의 SHA256 보존 확인.
+- 2026-10-05 사용자는 다음 추천이 없는 이유를 물었다. 다음 추천은 PR143 Vercel Preview 존재/상태 및 필요한 환경변수 설정 여부(값 비출력)를 조회하고, Chrome390×844에서 실제 배포 화면의 핀·도보·NAVER 거리뷰를 검증하는 것이다. 추천만 제시하며 실행·설정 변경·Ready 전환·머지는 요청받지 않았다.
 
 ## 이전 완료
 PR #143정리:37커밋23파일→3커밋19파일. 데이터원본blob d817396 유지, 홈/layout/globals main동일. local150tests/4simulate/build/lint/typecheck/Chromesmoke 및 Actions test/docs-gatePASS.
