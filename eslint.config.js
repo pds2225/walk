@@ -27,6 +27,12 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
   {
+    files: ["scripts/**/*.cjs"],
+    // CommonJS 스크립트는 JS 검사만 적용하고 TypeScript 타입 규칙은 끈다.
+    extends: [tseslint.configs.disableTypeChecked],
+    languageOptions: { globals: globals.node },
+  },
+  {
     files: ["**/*.ts"],
     languageOptions: {
       ecmaVersion: "latest",

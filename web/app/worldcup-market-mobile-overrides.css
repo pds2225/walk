@@ -1,0 +1,414 @@
+/* Screen 01 visual-fidelity overrides for the /worldcup-market route.
+   These rules must not hide the production home search or language controls. */
+
+/* Match the approved composition: header -> hero/detail -> menu/about.
+   Keep the temporary shop switcher available for QA, but move it below the
+   actual Screen 01 content so it does not compete with the hero image. */
+.worldcup-market-mobile-screen {
+  display: flex;
+  flex-direction: column;
+}
+
+.worldcup-market-mobile-header {
+  order: 0;
+}
+
+.worldcup-market-mobile-detail {
+  order: 1;
+}
+
+.worldcup-market-mobile-screen > .worldcup-market-store-switcher {
+  order: 2;
+  margin-top: 26px;
+  padding: 16px 16px 4px;
+  border-top: 1px solid #edf0f4;
+}
+
+/* Header fidelity */
+.worldcup-market-back-button {
+  color: var(--blue);
+}
+
+.worldcup-market-mobile-brand strong {
+  color: var(--blue);
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: -0.04em;
+}
+
+.worldcup-market-mobile-brand span {
+  color: #35547d;
+  font-weight: 700;
+}
+
+.worldcup-market-locale-switcher {
+  gap: 5px;
+}
+
+.worldcup-market-locale-switcher button {
+  min-width: 30px;
+  min-height: 36px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #f3f5f8;
+  color: #667085;
+  font-size: 11px;
+}
+
+.worldcup-market-locale-switcher button.is-active {
+  background: var(--blue);
+  color: #fff;
+}
+
+/* The approved mockup starts directly with the shop name below the image.
+   "Selected store" is internal context, not consumer-facing copy. */
+.worldcup-market-mobile-eyebrow {
+  display: none;
+}
+
+.worldcup-market-mobile-detail-body {
+  padding-top: 18px;
+}
+
+.worldcup-market-mobile-detail-body h2 {
+  font-size: clamp(28px, 7.6vw, 32px);
+  line-height: 1.08;
+}
+
+.worldcup-market-mobile-description {
+  margin-top: 12px;
+  line-height: 1.5;
+}
+
+/* Open three-column fact row instead of three dashboard-like mini cards. */
+.worldcup-market-mobile-key-facts {
+  gap: 14px;
+  margin-top: 22px;
+}
+
+.worldcup-market-mobile-key-facts div {
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.worldcup-market-mobile-key-facts dt {
+  color: #596579;
+  font-size: 10px;
+}
+
+.worldcup-market-mobile-key-facts dd {
+  margin-top: 7px;
+  font-size: 13px;
+}
+
+/* Strong primary action, quiet secondary actions. */
+.worldcup-market-mobile-primary {
+  min-height: 54px;
+  border-radius: 10px;
+  box-shadow: 0 8px 20px rgba(27, 100, 218, 0.16);
+}
+
+.worldcup-market-mobile-secondary-actions button {
+  border-color: transparent;
+  background: #f5f8fc;
+}
+
+/* Show enough of the next menu card to make horizontal swiping obvious. */
+.worldcup-market-menu-card {
+  flex-basis: 124px;
+  min-height: 116px;
+  padding: 13px;
+}
+
+/* About panel follows the light-blue information panel treatment in the mockup. */
+.worldcup-market-about-shop {
+  margin: 24px 16px 0;
+  padding: 17px 16px 18px;
+  border-top: 0;
+  border-radius: 14px;
+  background: #f3f7fd;
+}
+
+.worldcup-market-about-shop > p {
+  margin-top: 10px;
+}
+
+.worldcup-market-about-shop .worldcup-market-purchase-facts div {
+  background: #fff;
+}
+
+/* Screen 01 -> Screen 02 entry stays below the information hierarchy so the
+   approved hero/CTA composition is preserved. */
+.worldcup-market-nearby-entry {
+  padding: 16px 16px 0;
+}
+
+.worldcup-market-nearby-entry button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 52px;
+  padding: 0 16px;
+  border: 1px solid #dbe5f4;
+  border-radius: 14px;
+  background: #fff;
+  color: #25466f;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.worldcup-market-nearby-entry button span:last-child {
+  color: var(--blue);
+  font-size: 24px;
+  line-height: 1;
+}
+
+/* ── Mobile Screen 02: Nearby Shops + Storefront 360 + Map ─────────────── */
+.worldcup-market-nearby-screen {
+  width: 100%;
+  min-height: 100dvh;
+  background: #fff;
+  color: var(--ink);
+  padding-bottom: calc(96px + env(safe-area-inset-bottom));
+}
+
+.worldcup-market-nearby-heading {
+  padding: 20px 18px 10px;
+}
+
+.worldcup-market-nearby-heading p {
+  margin: 0 0 5px;
+  color: var(--blue);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .11em;
+}
+
+.worldcup-market-nearby-heading h2 {
+  margin: 0;
+  font-size: 28px;
+  line-height: 1.08;
+  letter-spacing: -0.04em;
+}
+
+.worldcup-market-nearby-rail {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  margin: 0;
+  padding: 8px 18px 18px;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+  list-style: none;
+}
+
+.worldcup-market-nearby-rail > li {
+  flex: 0 0 128px;
+  scroll-snap-align: start;
+}
+
+.worldcup-market-nearby-rail::-webkit-scrollbar {
+  display: none;
+}
+
+.worldcup-market-nearby-rail button {
+  width: 100%;
+  padding: 0 0 10px;
+  overflow: hidden;
+  border: 1px solid #e5e9ef;
+  border-radius: 14px;
+  background: #fff;
+  color: var(--ink);
+  text-align: left;
+  box-shadow: 0 4px 14px rgba(18, 32, 51, .05);
+  cursor: pointer;
+}
+
+.worldcup-market-nearby-rail button.is-selected {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 1px var(--blue), 0 7px 20px rgba(27, 100, 218, .10);
+}
+
+.worldcup-market-nearby-rail img,
+.worldcup-market-nearby-thumb-fallback {
+  display: block;
+  width: 100%;
+  height: 92px;
+  object-fit: cover;
+  background: #eef2f7;
+}
+
+.worldcup-market-nearby-rail strong,
+.worldcup-market-nearby-rail small {
+  display: block;
+  padding: 0 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.worldcup-market-nearby-rail strong {
+  margin-top: 9px;
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.worldcup-market-nearby-rail small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.worldcup-market-nearby-selected {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 12px;
+  margin: 0 18px 22px;
+  padding: 12px;
+  border-radius: 16px;
+  background: #f5f8fc;
+}
+
+.worldcup-market-nearby-selected > img {
+  width: 72px;
+  height: 72px;
+  border-radius: 12px;
+  object-fit: cover;
+}
+
+.worldcup-market-nearby-selected h3,
+.worldcup-market-nearby-selected p,
+.worldcup-market-nearby-selected span {
+  margin: 0;
+}
+
+.worldcup-market-nearby-selected h3 {
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.worldcup-market-nearby-selected p {
+  margin-top: 4px;
+  color: var(--blue);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.worldcup-market-nearby-selected span {
+  display: -webkit-box;
+  margin-top: 7px;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.worldcup-market-nearby-block {
+  margin: 0 18px 26px;
+}
+
+.worldcup-market-nearby-block-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.worldcup-market-nearby-block-heading h3 {
+  margin: 0;
+  font-size: 19px;
+  letter-spacing: -0.02em;
+}
+
+.worldcup-market-nearby-block-heading span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.worldcup-market-nearby-block .roadview-heading {
+  display: none;
+}
+
+.worldcup-market-nearby-block .roadview-frame {
+  height: min(46dvh, 420px);
+  min-height: 300px;
+  border: 0;
+  border-radius: 16px;
+  box-shadow: none;
+}
+
+.worldcup-market-storefront-unavailable {
+  display: grid;
+  place-content: center;
+  min-height: 230px;
+  padding: 26px;
+  border-radius: 16px;
+  background: #f3f6fa;
+  text-align: center;
+}
+
+.worldcup-market-storefront-unavailable strong {
+  font-size: 15px;
+}
+
+.worldcup-market-storefront-unavailable span {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.worldcup-market-nearby-block .worldcup-market-market-map {
+  width: 100%;
+  height: 310px;
+  overflow: hidden;
+  border: 1px solid #e1e7ef;
+  border-radius: 16px;
+}
+
+.worldcup-market-nearby-cta {
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
+  padding: 10px 18px calc(10px + env(safe-area-inset-bottom));
+  border-top: 1px solid rgba(225, 230, 238, .92);
+  background: rgba(255, 255, 255, .95);
+  backdrop-filter: blur(12px);
+}
+
+.worldcup-market-nearby-cta button {
+  width: 100%;
+  min-height: 56px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--blue);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 900;
+  box-shadow: 0 8px 20px rgba(27, 100, 218, .18);
+  cursor: pointer;
+}
+
+@media (min-width: 641px) {
+  .worldcup-market-about-shop {
+    margin-left: 28px;
+    margin-right: 28px;
+  }
+
+  .worldcup-market-nearby-screen {
+    max-width: 720px;
+    margin: 0 auto;
+  }
+
+  .worldcup-market-nearby-rail > li {
+    flex-basis: 148px;
+  }
+}
