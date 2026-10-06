@@ -1236,7 +1236,7 @@ PR =
 
 `PRIORITY = P1`
 
-`STATUS = IN_PROGRESS`
+`STATUS = IMPLEMENTED — CI_VERIFIED / LIVE_GOOGLE_SMOKE_REQUIRED`
 
 `BRANCH = feat/google-places-nearby-20261006`
 
@@ -1248,10 +1248,17 @@ PR =
 
 ### Acceptance / Verify
 
-- [ ] 기존 Google Maps 공개 키 설정을 그대로 사용하고 새 Secret/env 항목을 만들지 않는다.
-- [ ] Nearby Search(New) 요청은 기본 `restaurant`, 반경/결과 수 제한, 거리순으로 동작한다.
-- [ ] 결과에 이름, 좌표, 주소, Google Maps 링크, 평점/리뷰수(가능한 경우), 현재 위치 직선거리를 담는다.
-- [ ] 위치 없는 결과는 버리고 SDK/API 오류를 사용자 코드가 구분 가능한 오류로 반환한다.
-- [ ] 단위 테스트에서 요청 파라미터·거리 정렬·미설정 키·오류 처리를 확인한다.
-- [ ] web typecheck 및 관련 Vitest 통과.
+- [x] 기존 Google Maps 공개 키 설정을 그대로 사용하고 새 Secret/env 항목을 만들지 않는다.
+- [x] Nearby Search(New) 요청은 기본 `restaurant`, 반경/결과 수 제한, 거리순으로 동작한다.
+- [x] 결과에 이름, 좌표, 주소, Google Maps 링크, 평점/리뷰수(가능한 경우), 현재 위치 직선거리를 담는다.
+- [x] 위치 없는 결과는 버리고 SDK/API 오류를 사용자 코드가 구분 가능한 오류로 반환한다.
+- [x] 단위 테스트에서 요청 파라미터·거리 정렬·미설정 키·오류 처리를 확인한다.
+- [x] web typecheck 및 관련 Vitest 통과.
 - [ ] 실제 Google 응답은 Places API (New)가 기존 Google Cloud 프로젝트에서 활성화된 뒤 실키로 smoke 확인한다.
+
+**검증 기록 (2026-10-06)**
+
+- PR #146 GitHub Actions: `test` PASS, `docs-gate` PASS.
+- `npm run test:run`: 28 files / 217 tests PASS. 신규 `web/lib/googlePlaces.test.ts`: 4 PASS.
+- lint, packages typecheck/build, web typecheck, Next production build PASS.
+- 실제 Google API 호출은 Secret을 읽지 않는 GitHub CI에서 수행하지 않았다. Google Cloud의 `Places API (New)` 활성화 및 기존 브라우저 키 API 제한이 확인되면 실키 smoke를 수행한다.
