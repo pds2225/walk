@@ -31,7 +31,7 @@
 ## 3) 중단/재개 안전성
 - 장시간·다단계 TASK는 단계별 CHECKPOINT를 남긴다.
 - CHECKPOINT에는 최소 TASK_ID, 기준 base/code SHA, 완료 단계, 다음 단계, 핵심 산출물 위치를 재구성할 수 있는 정보가 있어야 한다.
-- 세션 만료, 컨텍스트 손실, PC 종료 후에도 최신 remote 상태와 TASK.md만 읽고 안전하게 재개 가능해야 한다.
+- 세션 만료, 컨텍스트 손실, PC/작업 위치 변경 후에도 최신 remote의 TASK.md → RESUME.md → SESSION_RECAP.md를 선독하여 안전하게 재개한다. TASK만 공식 SSOT이며 AGENTS.md의 작업 시작 필수 게이트를 따른다.
 - 가능한 경우 의미 있는 단계 완료마다 이번 TASK 관련 파일만 commit/push한다.
 
 ## 4) 재실행 / 중복 방지
@@ -86,7 +86,7 @@
 
 이 repository의 개발 할 일·후속작업·결함·검증·완료기록은 **`origin/main:TASK.md` 하나만 공식 SSOT**로 관리한다. 작업 브랜치의 TASK 변경은 main에 머지된 뒤 공식 상태가 된다.
 
-세션/자동개발 시작 시 `git fetch origin --prune` 후 **`origin/main:TASK.md`를 가장 먼저 읽는다.** 사용자의 새 요청은 이 파일에 등록한 뒤 실행한다.
+세션/자동개발 시작 시 `git fetch origin --prune` 후 **같은 원격 main SHA의 TASK.md → RESUME.md → SESSION_RECAP.md를 순서대로 모두 읽는다.** 작업 시작 전 AGENTS.md의 필수 게이트와 읽기 확인 보고를 완료한다. TASK만 공식 SSOT이며 사용자의 새 요청은 이 파일에 등록한 뒤 실행한다.
 
 Dashboard·RESUME·HANDOFF·실행로그·파생 큐·외부 Drive/문서 미러는 표시/체크포인트/실행용일 뿐 TASK 상태·우선순위를 만들거나 덮어쓸 수 없다.
 
@@ -1228,3 +1228,12 @@ PR =
 - 공유용 RESUME.md·SESSION_RECAP.md 및 GitHub/추적 소스로 이어지는 근거 문서를 일반 commit/push+PR로 반영한다. 제품코드·env·workflow는 수정하지 않는다.
 - 확인: 문서 내부 링크/경로·Secret 검사, 원격 branch에서 실제 새 clone으로 두 파일 복원, 기존 필수 CI. 반복 제품 테스트는 로컬에서 수행하지 않는다.
 - 결과: 문서3개/상대 링크11개 검증, 새 문서의 개인 절대경로/Secret 패턴0. GitHub 원격 branch를 다른 임시 경로에 실제 shallow clone하여 회고·재개·공유근거3파일 및 과거회고를 확인했다. 원래PC의 .worktrees/위키/학습스킬 없이 시작할 수 있다. 기존 로컬원본은 별도백업했다.
+
+## [ ] KN-STARTUP-CONTEXT-20261006 — 다른 환경의 작업 시작 시 공유 문서 필수 선독
+
+`STATUS = IN_PROGRESS` / `BRANCH = docs/require-startup-context-20261006` / `BASE = 20fe139`
+
+- 사용자 요청: 다른 위치/PC에서 작업을 시작할 때 공유 회고·재개를 반드시 읽도록 한다.
+- 기존 AGENTS.md 시작 규칙을 확장하여 최신 원격 main의 TASK → RESUME → SESSION_RECAP 순서, 같은 main SHA 고정, 읽기 확인 보고와 미완료 시 작업 중단을 규정한다. TASK만 공식 SSOT이며 추가 승인 반복·자동 pull/checkout·사용자 파일 덮어쓰기는 하지 않는다.
+- 범위: AGENTS.md·TASK.md·RESUME.md만. 제품코드·env·workflow·개인 설정은 변경하지 않는다.
+- 검증: 문서/명령/Secret 검사, 별도 원격 clone에서 설치된 Codex의 실제 prompt-input에 필수 지침 포함 확인, 기존 GitHub test/docs-gate. 문서 변경이므로 로컬 제품 테스트는 반복하지 않는다.

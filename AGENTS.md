@@ -1,11 +1,24 @@
 ## TASK SSOT — 세션 시작 규칙
 
 - 공식 개발 작업 SSOT는 `origin/main:TASK.md` 하나다.
-- 세션/자동개발 시작 시 `git fetch origin --prune` 후 TASK.md를 먼저 읽는다.
+- 세션/자동개발 시작 시 `git fetch origin --prune` 후 원격 main의 TASK.md → RESUME.md → SESSION_RECAP.md를 순서대로 모두 읽는다. 아래 필수 게이트를 생략하지 않는다.
 - 사용자의 새 개발 요청은 TASK.md에 등록한 뒤 실행한다.
 - 작업 브랜치에서 갱신한 TASK는 main 머지 후 공식 상태가 된다.
 - Dashboard·RESUME·HANDOFF·실행로그·외부 미러는 파생정보이며 TASK 상태·우선순위를 덮어쓰지 않는다.
 - 별도 CURRENT_TASK.md / NEW_TASK.md / NEXT_TASK.md / 기능별 TASK 파일을 만들지 않는다.
+
+## 작업 시작 필수 게이트 — 모든 PC·clone·worktree·새 세션
+
+`CONTEXT_STARTUP_REQUIRED`
+
+- 새 작업, 재개, /clear 이후 새 세션, 다른 PC/폴더/clone/worktree에서의 시작에 모두 적용한다. 아래 확인을 마치기 전에는 구현·파일 수정·테스트·commit/push/merge를 시작하지 않는다. 저장소 확인·문서 선독을 위한 읽기 전용 조회와 fetch는 준비 단계로 허용한다.
+- 먼저 실제 repo root·origin·현재 브랜치·미커밋 변경·worktree·stash를 확인하고 기존 작업을 보존한다. `git -c gc.auto=0 -c maintenance.auto=false fetch origin --prune` 후 `origin/main` SHA를 한 번 고정한다.
+- 고정한 같은 main SHA에서 **TASK.md → RESUME.md → SESSION_RECAP.md 전체를 순서대로 읽는다.** TASK가 작업 상태·우선순위의 유일한 SSOT이며 재개·회고는 상태와 근거를 보완하는 파생 기록이다. 새 요청은 기존 규칙대로 TASK에 등록한 뒤 실행한다.
+- 현재 작업 위치의 세 문서에 원격과 다른 미반영 내용이 있으면 그것도 추가로 읽고 보존한다. 선독을 이유로 자동 pull/checkout하거나 로컬 문서를 원격 버전으로 덮어쓰지 않는다.
+- 첫 작업 보고에 `시작 확인: repo root / 기준 main SHA / TASK ID 또는 없음 / TASK·RESUME·SESSION_RECAP 선독 완료 / 남은 작업·핵심 제약`을 한 줄로 제시한다. 내용이 길면 3줄 이내로 압축하고 원문·긴 로그를 반복 출력하지 않는다.
+- fetch 실패, 필수 문서 누락/읽기 실패, SSOT와 작업 지시의 해결되지 않은 충돌이 있으면 선독 완료를 주장하지 않는다. 원인을 보고하고 파일 수정·테스트·Git 반영을 시작하지 않는다.
+- 사용자에게 이미 받은 실행 승인은 유지한다. 선독 완료 후에는 기존 승인 범위 안에서 바로 진행하며 재개 확인을 반복해서 묻지 않는다.
+- 이 규칙은 저장소와 함께 GitHub에서 공유한다. 개인 PC의 hook·절대경로·전역 스킬 설치에 의존하지 않는다.
 
 
 
