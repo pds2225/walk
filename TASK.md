@@ -1218,3 +1218,12 @@ PR =
 - 브라우저 smoke 재현 스크립트: `C:\Users\ekth3\AppData\Local\Temp\walk-passed-turn-20261003.cjs` (Playwright npm 캐시 사용). `git diff --check`: PASS.
 - 유사 문제: 보정 후 `drifting`인데 raw `reroute_candidate`가 남아 재탐색하던 경계도 수정했다. Streamlit에는 이미 passed_turn 횡거리 예외가 있어 변경하지 않았다.
 - 디버그 실행: PowerShell에서 `$env:NEXT_PUBLIC_WALK_DEBUG='true'` 후 `npm run next:dev`. production은 같은 플래그를 **빌드 전에** 설정한다. 미설정/false/1에서는 로그를 출력하지 않는다.
+
+## [ ] KN-SHARED-SESSION-CONTEXT-20261006 — 다른 작업 환경에서 회고·재개 기록 사용
+
+`STATUS = IN_PROGRESS` / `BRANCH = docs/shared-session-context-20261006` / `BASE = 87f890f`
+
+- 사용자 후속 요청: 회고와 재개가 로컬에만 있어 다른 위치/PC에서 작업하기 어렵다. 두 기록을 GitHub 기본 브랜치에서도 읽을 수 있도록 공유한다.
+- 기존 SESSION_RECAP 이력과 로컬 원본을 보존하고, 개인 절대경로·로컬 산출물 의존·Secret을 제거한다. RESUME는 TASK를 대체하지 않는 파생 체크포인트다.
+- 공유용 RESUME.md·SESSION_RECAP.md 및 GitHub/추적 소스로 이어지는 근거 문서를 일반 commit/push+PR로 반영한다. 제품코드·env·workflow는 수정하지 않는다.
+- 확인: 문서 내부 링크/경로·Secret 검사, 원격 branch에서 실제 새 clone으로 두 파일 복원, 기존 필수 CI. 반복 제품 테스트는 로컬에서 수행하지 않는다.
