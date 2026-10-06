@@ -1228,3 +1228,30 @@ PR =
 - 공유용 RESUME.md·SESSION_RECAP.md 및 GitHub/추적 소스로 이어지는 근거 문서를 일반 commit/push+PR로 반영한다. 제품코드·env·workflow는 수정하지 않는다.
 - 확인: 문서 내부 링크/경로·Secret 검사, 원격 branch에서 실제 새 clone으로 두 파일 복원, 기존 필수 CI. 반복 제품 테스트는 로컬에서 수행하지 않는다.
 - 결과: 문서3개/상대 링크11개 검증, 새 문서의 개인 절대경로/Secret 패턴0. GitHub 원격 branch를 다른 임시 경로에 실제 shallow clone하여 회고·재개·공유근거3파일 및 과거회고를 확인했다. 원래PC의 .worktrees/위키/학습스킬 없이 시작할 수 있다. 기존 로컬원본은 별도백업했다.
+
+
+---
+
+## [ ] K-NAVI-TRAVEL-GOOGLE-PLACES-NEARBY-20261006 — Google Places Nearby Search 재사용 기반
+
+`PRIORITY = P1`
+
+`STATUS = IN_PROGRESS`
+
+`BRANCH = feat/google-places-nearby-20261006`
+
+`SCOPE = 기존 NEXT_PUBLIC_GOOGLE_MAPS_API_KEY와 Google Maps JavaScript API 로더를 재사용해 현재 좌표 기준 Places Nearby Search(New) 클라이언트 유틸을 추가. 기본 식당 검색, 거리순 정렬, 최소 상세 필드 반환, 미설정/SDK/검색 실패를 명시적으로 처리. .env/.env.* 및 workflow는 수정하지 않음.`
+
+`USER_FLOW = 현재 위치 좌표 입력 → Google Places Nearby Search(New) → 가까운 장소 후보 반환 → 추후 대만 여행 일정의 대안 장소 UI에서 재사용`
+
+`CONSTRAINTS = Google Maps 저장목록을 직접 읽는 기능으로 오인하지 않음. 사용자 저장 장소 우선순위는 별도 여행 데이터와 결합할 때 처리. 실제 API 키 값 출력/커밋 금지. Places API (New) 활성화 여부와 운영 키 제한은 외부 설정으로 별도 검증.`
+
+### Acceptance / Verify
+
+- [ ] 기존 Google Maps 공개 키 설정을 그대로 사용하고 새 Secret/env 항목을 만들지 않는다.
+- [ ] Nearby Search(New) 요청은 기본 `restaurant`, 반경/결과 수 제한, 거리순으로 동작한다.
+- [ ] 결과에 이름, 좌표, 주소, Google Maps 링크, 평점/리뷰수(가능한 경우), 현재 위치 직선거리를 담는다.
+- [ ] 위치 없는 결과는 버리고 SDK/API 오류를 사용자 코드가 구분 가능한 오류로 반환한다.
+- [ ] 단위 테스트에서 요청 파라미터·거리 정렬·미설정 키·오류 처리를 확인한다.
+- [ ] web typecheck 및 관련 Vitest 통과.
+- [ ] 실제 Google 응답은 Places API (New)가 기존 Google Cloud 프로젝트에서 활성화된 뒤 실키로 smoke 확인한다.
