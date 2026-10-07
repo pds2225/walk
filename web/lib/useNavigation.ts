@@ -17,6 +17,49 @@ const TURN_ANNOUNCE_M = 10;
 const DRIFT_REPEAT_COOLDOWN_MS = 20_000;
 const VOICE_RETRY_DELAY_MS = 1_500;
 const VOICE_MAX_ATTEMPTS = 2;
+/** Tick diagnostics are opt-in. Undefined/0/false keeps production console quiet. */
+const WALK_TICK_DEBUG_ENABLED =
+  process.env.NEXT_PUBLIC_WALK_TICK_DEBUG === "1" ||
+  process.env.NEXT_PUBLIC_WALK_DEBUG === "true";
+
+export interface AccuracyGateDecision {
+  readonly result: EngineResult;
+  readonly fixReliable: boolean;
+  readonly distanceClearsAccuracy: boolean;
+}
+
+/**
+ * Cross-track distance is only strong deviation evidence when it clears the
+ * current GNSS uncertainty radius. Missed-turn detection is different: the
+ * route engine already requires passing the turn plus conflicting post-turn
+ * movement, so applying distance>=accuracy again can delay a valid passed_turn
+ * by tens of metres. The existing 30m fix-quality gate still applies to both.
+ */
+export function applyDeviationAccuracyGate(
+  rawResult: EngineResult,
+  accuracyMeters: number | null,
+): AccuracyGateDecision {
+  const fixReliable = isDeviationFixReliable(accuracyMeters);
+  const distanceClearsAccuracy =
+    accuracyMeters === null ||
+    rawResult.metrics.distanceFromRouteMeters >= accuracyMeters;
+
+  const downgradeDeviation =
+    rawResult.state === "deviated" &&
+    (!fixReliable || !distanceClearsAccuracy);
+  const downgradePassedTurn =
+    rawResult.state === "passed_turn" &&
+    !fixReliable;
+
+  return {
+    result:
+      downgradeDeviation || downgradePassedTurn
+        ? { ...rawResult, state: "drifting", suggestedNextAction: "monitor" }
+        : rawResult,
+    fixReliable,
+    distanceClearsAccuracy,
+  };
+}
 
 export interface NavigationSnapshot {
   readonly result: EngineResult | null;
@@ -194,21 +237,10 @@ export function useNavigation(
 
     const rawResult = engine.processSample(sample);
 
-    // 정확도가 나쁜 fix 로는 말하지 않는다 — GPS 가 튄 것을 이탈로 알리면 신뢰를 잃는다.
-    const accurate = isDeviationFixReliable(fix.accuracyMeters);
-    // 거리가 GPS 정확도 반경보다 작으면 '이탈'이 아니라 GPS 오차일 수 있다 — 예:
-    // 정확도 25m인데 경로에서 16m 떨어진 경우, 그 차이가 오차범위 안이라 확정 이탈로
-    // 보기엔 근거가 약하다(TASK.md 02-F: cross-track은 accuracy와 함께 해석).
-    // passed_turn은 회전점 통과·진행 방향이 근거라 횡거리 gate를 적용하지 않는다.
-    // 두 확정 상태 모두 기존 fix 품질 gate는 유지한다.
-    const distanceClearsAccuracy =
-      fix.accuracyMeters == null ||
-      rawResult.metrics.distanceFromRouteMeters >= fix.accuracyMeters;
-    const confirmedByAccuracy = accurate && (rawResult.state === "passed_turn" || distanceClearsAccuracy);
-    const next: EngineResult =
-      (rawResult.state === "deviated" || rawResult.state === "passed_turn") && !confirmedByAccuracy
-        ? { ...rawResult, state: "drifting" }
-        : rawResult;
+    const accuracyGate = applyDeviationAccuracyGate(rawResult, fix.accuracyMeters);
+    const accurate = accuracyGate.fixReliable;
+    const distanceClearsAccuracy = accuracyGate.distanceClearsAccuracy;
+    const next = accuracyGate.result;
     setResult(next);
 
     const dest = routeResponse.route.polyline[routeResponse.route.polyline.length - 1];
@@ -222,8 +254,8 @@ export function useNavigation(
       return;
     }
 
-    // NEXT_PUBLIC_WALK_DEBUG=true로 빌드/실행할 때만 판정 근거를 기록한다.
-    if (process.env.NEXT_PUBLIC_WALK_DEBUG === "true") {
+    // Opt-in field diagnostics. Production/default builds do not emit one log per GPS tick.
+    if (WALK_TICK_DEBUG_ENABLED) {
       const cfg = engine.getConfig();
       console.info("[walk:tick]", {
         t: fix.timestampMs,
@@ -237,7 +269,7 @@ export function useNavigation(
         accuracyM: fix.accuracyMeters,
         fixReliable: accurate,
         distanceClearsAccuracy,
-        confirmedByAccuracy,
+        confirmedByAccuracy: accurate && (rawResult.state === "passed_turn" || distanceClearsAccuracy),
         consecutiveBreaches: next.metrics.consecutiveThresholdBreaches,
         driftDurationMs: next.metrics.driftDurationMs,
         thresholds: {

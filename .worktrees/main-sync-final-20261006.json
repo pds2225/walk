@@ -1,0 +1,74 @@
+[
+  {
+    "Path": "D:\\walk",
+    "Head": "87f890ffc8d8d1277fd41fd3542b485c4e02a33f",
+    "Branch": "main",
+    "TrackedChanges": 0
+  },
+  {
+    "Path": "D:\\walk-streetview",
+    "Head": "87f890ffc8d8d1277fd41fd3542b485c4e02a33f",
+    "Branch": null,
+    "TrackedChanges": 0
+  },
+  {
+    "Path": "D:\\walk\\.worktrees\\k-navi-production",
+    "Head": "87f890ffc8d8d1277fd41fd3542b485c4e02a33f",
+    "Branch": null,
+    "TrackedChanges": 0
+  },
+  {
+    "Path": "D:\\walk\\.worktrees\\task-k-navi-rv-02",
+    "Head": "87f890ffc8d8d1277fd41fd3542b485c4e02a33f",
+    "Branch": null,
+    "TrackedChanges": 0
+  },
+  {
+    "Path": "D:\\walk\\.worktrees\\transit-end-label",
+    "Head": "87f890ffc8d8d1277fd41fd3542b485c4e02a33f",
+    "Branch": null,
+    "TrackedChanges": 0
+  },
+  {
+    "Path": "D:\\walk\\.worktrees\\worldcup-market-clean-20261004",
+    "Head": "87f890ffc8d8d1277fd41fd3542b485c4e02a33f",
+    "Branch": "main",
+    "TrackedChanges": 0
+  },
+  {
+    "Path": "D:\\walk\\.claude\\worktrees\\compass-fix",
+    "Head": "87f890ffc8d8d1277fd41fd3542b485c4e02a33f",
+    "Branch": null,
+    "TrackedChanges": 0
+  },
+  {
+    "Path": "D:\\walk\\.claude\\worktrees\\dest-reset",
+    "Head": "87f890ffc8d8d1277fd41fd3542b485c4e02a33f",
+    "Branch": null,
+    "TrackedChanges": 0
+  },
+  {
+    "Path": "D:\\walk\\.claude\\worktrees\\dest-reset-a",
+    "Head": "87f890ffc8d8d1277fd41fd3542b485c4e02a33f",
+    "Branch": null,
+    "TrackedChanges": 0
+  },
+  {
+    "Path": "D:\\walk\\.claude\\worktrees\\heading-debug",
+    "Head": "87f890ffc8d8d1277fd41fd3542b485c4e02a33f",
+    "Branch": null,
+    "TrackedChanges": 0
+  },
+  {
+    "Path": "D:\\walk\\.claude\\worktrees\\web-vercel",
+    "Head": "87f890ffc8d8d1277fd41fd3542b485c4e02a33f",
+    "Branch": null,
+    "TrackedChanges": 0
+  },
+  {
+    "Path": "C:\\Users\\ekth3\\AppData\\Local\\v_up\\dashboard_worktrees\\walk\\dashboard-main",
+    "Head": "87f890ffc8d8d1277fd41fd3542b485c4e02a33f",
+    "Branch": null,
+    "TrackedChanges": 0
+  }
+]

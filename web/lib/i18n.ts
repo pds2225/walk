@@ -227,6 +227,602 @@ export function getUiText(locale: Locale): UiText {
   return UI[locale] ?? UI.ko;
 }
 
+export interface WorldCupMarketUiText {
+  readonly title: string;
+  readonly subtitle: string;
+  readonly back: string;
+  readonly market: string;
+  readonly language: string;
+  readonly chooseLanguage: string;
+  readonly shopPhoto: string;
+  readonly nearbyEntry: string;
+  readonly nearbyEyebrow: string;
+  readonly nearbyTitle: string;
+  readonly storefrontTitle: string;
+  readonly storefrontUnavailable: string;
+  readonly storefrontFallback: string;
+  readonly storefrontMapOnlyFallback: string;
+  readonly storefrontWalkingOnlyFallback: string;
+  readonly storefrontUnknownFallback: string;
+  readonly sharedLocationNotice: string;
+  readonly locationTitle: string;
+  readonly marketMap: string;
+  readonly selectOnMap: string;
+  readonly selectShop: string;
+  readonly panoramaTab: string;
+  readonly mapTab: string;
+  readonly hotspotLabel: string;
+  readonly previousPoint: string;
+  readonly nextPoint: string;
+  readonly selectedStore: string;
+  readonly representativeMenu: string;
+  readonly price: string;
+  readonly hours: string;
+  readonly details: string;
+  readonly closeDetails: string;
+  readonly goThere: string;
+  readonly startWalkingGuide: string;
+  readonly save: string;
+  readonly saved: string;
+  readonly share: string;
+  readonly shared: string;
+  readonly shareUnavailable: string;
+  readonly popularMenu: string;
+  readonly seeAll: string;
+  readonly showLess: string;
+  readonly signature: string;
+  readonly aboutShop: string;
+  readonly takeout: string;
+  readonly dineIn: string;
+  readonly available: string;
+  readonly notAvailable: string;
+  readonly unavailable: string;
+  readonly orderNote: string;
+  readonly storeStreetViewTitle: string;
+  readonly storeStreetViewDescription: string;
+  readonly locationButton: string;
+  readonly locationWaiting: string;
+  readonly locationDenied: string;
+  readonly unknown: string;
+  readonly panoramaUnavailable: string;
+  readonly panoramaLoading: string;
+  readonly panoramaUpdatedNotice: string;
+}
+
+const WORLD_CUP_MARKET_UI: Record<Locale, WorldCupMarketUiText> = {
+  ko: {
+    title: "월드컵시장 점포 안내",
+    subtitle: "점포 정보를 먼저 보고, 아래에서 점포 근처 거리 뷰와 위치를 확인하세요.",
+    back: "뒤로",
+    market: "월드컵시장",
+    language: "언어",
+    chooseLanguage: "언어 선택",
+    shopPhoto: "대표 이미지",
+    nearbyEntry: "주변 점포 · 360 · 지도",
+    nearbyEyebrow: "주변 둘러보기",
+    nearbyTitle: "주변 점포",
+    storefrontTitle: "점포 근처 거리 뷰",
+    storefrontUnavailable: "사용 가능한 점포 근처 거리 뷰가 없습니다",
+    storefrontFallback: "지도와 K-Navi 도보안내는 계속 사용할 수 있습니다.",
+    storefrontMapOnlyFallback: "지도에서 위치를 볼 수 있습니다. 도보안내 목적지는 미확인입니다.",
+    storefrontWalkingOnlyFallback: "K-Navi 도보안내를 시작할 수 있습니다. 지도에 표시할 점포 위치는 미확인입니다.",
+    storefrontUnknownFallback: "점포 위치가 미확인이라 지도 핀과 도보안내를 사용할 수 없습니다.",
+    sharedLocationNotice: "같은 주소 좌표를 공유하는 점포 수: {count}. 실제 점포 입구 위치는 미확인입니다. 점포 목록에서 선택하세요.",
+    locationTitle: "위치",
+    marketMap: "월드컵시장 지도",
+    selectOnMap: "지도에서 선택",
+    selectShop: "시장 점포 선택",
+    panoramaTab: "점포 정보",
+    mapTab: "일반 지도",
+    hotspotLabel: "구간 핫스팟",
+    previousPoint: "앞 포인트",
+    nextPoint: "뒤 포인트",
+    selectedStore: "선택 점포",
+    representativeMenu: "대표 메뉴",
+    price: "가격",
+    hours: "영업시간",
+    details: "상세보기",
+    closeDetails: "상세 닫기",
+    goThere: "여기로 가기",
+    startWalkingGuide: "여기로 가기",
+    save: "저장",
+    saved: "저장됨",
+    share: "공유",
+    shared: "공유됨",
+    shareUnavailable: "공유할 수 없음",
+    popularMenu: "인기 메뉴",
+    seeAll: "전체 보기",
+    showLess: "접기",
+    signature: "대표",
+    aboutShop: "점포 안내",
+    takeout: "포장",
+    dineIn: "매장 이용",
+    available: "가능",
+    notAvailable: "불가",
+    unavailable: "미확인",
+    orderNote: "주문 참고",
+    storeStreetViewTitle: "점포 근처 거리 뷰",
+    storeStreetViewDescription: "선택한 점포 근처의 거리 뷰입니다. 점포 정면이 확인된 사진은 아닙니다.",
+    locationButton: "내 위치 표시",
+    locationWaiting: "내 위치 확인 중…",
+    locationDenied: "위치 권한을 허용하면 지도에 내 위치가 표시됩니다.",
+    unknown: "미확인",
+    panoramaUnavailable: "Street View를 사용할 수 없어 안내 카드만 표시합니다.",
+    panoramaLoading: "점포 근처 거리 뷰를 불러오는 중…",
+    panoramaUpdatedNotice: "기록된 파노와 다른 근처 거리 뷰가 표시됩니다.",
+  },
+  en: {
+    title: "World Cup Market Stores",
+    subtitle: "See store details first, then check the street view near the store and the map.",
+    back: "Back",
+    market: "World Cup Market",
+    language: "Language",
+    chooseLanguage: "Choose language",
+    shopPhoto: "shop photo",
+    nearbyEntry: "Nearby Shops · 360 · Map",
+    nearbyEyebrow: "EXPLORE AROUND YOU",
+    nearbyTitle: "Nearby Shops",
+    storefrontTitle: "Street View near this store",
+    storefrontUnavailable: "Street View near this store is unavailable",
+    storefrontFallback: "You can still check the map and start the walking guide.",
+    storefrontMapOnlyFallback: "The location is shown on the map. The walking destination still needs checking.",
+    storefrontWalkingOnlyFallback: "You can start the walking guide. The store location for the map still needs checking.",
+    storefrontUnknownFallback: "The store location needs checking, so its map pin and walking guide are unavailable.",
+    sharedLocationNotice: "Stores sharing these address coordinates: {count}. Individual store entrances need checking. Select a store from the list.",
+    locationTitle: "Location",
+    marketMap: "World Cup Market map",
+    selectOnMap: "Select on the map",
+    selectShop: "Choose a market shop",
+    panoramaTab: "Store details",
+    mapTab: "Standard map",
+    hotspotLabel: "Corridor hotspots",
+    previousPoint: "Previous point",
+    nextPoint: "Next point",
+    selectedStore: "Selected store",
+    representativeMenu: "Featured menu",
+    price: "Price",
+    hours: "Hours",
+    details: "Details",
+    closeDetails: "Close details",
+    goThere: "Go here",
+    startWalkingGuide: "Start Walking Guide",
+    save: "Save",
+    saved: "Saved",
+    share: "Share",
+    shared: "Shared",
+    shareUnavailable: "Sharing unavailable",
+    popularMenu: "Popular Menu",
+    seeAll: "See all",
+    showLess: "Show less",
+    signature: "Signature",
+    aboutShop: "About this shop",
+    takeout: "Takeout",
+    dineIn: "Dine-in",
+    available: "Available",
+    notAvailable: "Not available",
+    unavailable: "Check before visiting",
+    orderNote: "Order note",
+    storeStreetViewTitle: "Street View near this store",
+    storeStreetViewDescription: "This is a street view near the selected store, not a confirmed storefront.",
+    locationButton: "Show my location",
+    locationWaiting: "Finding your location…",
+    locationDenied: "Allow location access to show your position on the map.",
+    unknown: "Needs checking",
+    panoramaUnavailable: "Street View is unavailable; the store card remains available.",
+    panoramaLoading: "Loading the street view near this store…",
+    panoramaUpdatedNotice: "The nearby panorama shown differs from the recorded panorama.",
+  },
+  ja: {
+    title: "ワールドカップ市場 店舗案内",
+    subtitle: "先に店舗情報を確認し、その下で店舗付近のストリートビューと位置を見られます。",
+    back: "戻る",
+    market: "ワールドカップ市場",
+    language: "言語",
+    chooseLanguage: "言語を選択",
+    shopPhoto: "代表画像",
+    nearbyEntry: "周辺の店舗 · 360 · 地図",
+    nearbyEyebrow: "周辺を見る",
+    nearbyTitle: "周辺の店舗",
+    storefrontTitle: "店舗付近のストリートビュー",
+    storefrontUnavailable: "利用できる店舗付近のストリートビューがありません",
+    storefrontFallback: "地図とK-Naviの徒歩案内は引き続き使えます。",
+    storefrontMapOnlyFallback: "地図で位置を確認できます。徒歩案内の目的地は要確認です。",
+    storefrontWalkingOnlyFallback: "K-Naviの徒歩案内を開始できます。地図に表示する店舗位置は要確認です。",
+    storefrontUnknownFallback: "店舗位置が未確認のため、地図のピンと徒歩案内は利用できません。",
+    sharedLocationNotice: "同じ住所座標を共有する店舗数：{count}。各店舗の入口は要確認です。店舗一覧から選択してください。",
+    locationTitle: "位置",
+    marketMap: "ワールドカップ市場の地図",
+    selectOnMap: "地図で選択",
+    selectShop: "市場の店舗を選択",
+    panoramaTab: "店舗情報",
+    mapTab: "通常地図",
+    hotspotLabel: "区間ホットスポット",
+    previousPoint: "前のポイント",
+    nextPoint: "次のポイント",
+    selectedStore: "選択した店舗",
+    representativeMenu: "代表メニュー",
+    price: "価格",
+    hours: "営業時間",
+    details: "詳細を見る",
+    closeDetails: "詳細を閉じる",
+    goThere: "ここへ行く",
+    startWalkingGuide: "ここへ歩いて行く",
+    save: "保存",
+    saved: "保存済み",
+    share: "共有",
+    shared: "共有済み",
+    shareUnavailable: "共有できません",
+    popularMenu: "人気メニュー",
+    seeAll: "すべて見る",
+    showLess: "閉じる",
+    signature: "おすすめ",
+    aboutShop: "店舗について",
+    takeout: "テイクアウト",
+    dineIn: "店内利用",
+    available: "可",
+    notAvailable: "不可",
+    unavailable: "要確認",
+    orderNote: "注文メモ",
+    storeStreetViewTitle: "店舗付近のストリートビュー",
+    storeStreetViewDescription: "選択した店舗付近のストリートビューです。確認済みの店舗正面写真ではありません。",
+    locationButton: "現在地を表示",
+    locationWaiting: "現在地を確認中…",
+    locationDenied: "位置情報を許可すると地図に現在地が表示されます。",
+    unknown: "要確認",
+    panoramaUnavailable: "Street Viewを利用できないため、店舗カードを表示します。",
+    panoramaLoading: "店舗付近のストリートビューを読み込み中…",
+    panoramaUpdatedNotice: "記録されたパノラマとは別の近くのストリートビューを表示しています。",
+  },
+  zh: {
+    title: "世界杯市场店铺指南",
+    subtitle: "先查看店铺信息，再在下方查看店铺附近的街景和位置。",
+    back: "返回",
+    market: "世界杯市场",
+    language: "语言",
+    chooseLanguage: "选择语言",
+    shopPhoto: "代表图片",
+    nearbyEntry: "附近店铺 · 360 · 地图",
+    nearbyEyebrow: "看看周边",
+    nearbyTitle: "附近店铺",
+    storefrontTitle: "店铺附近的街景",
+    storefrontUnavailable: "没有可用的店铺附近街景",
+    storefrontFallback: "仍可查看地图并开始步行导航。",
+    storefrontMapOnlyFallback: "可以在地图上查看位置。步行导航目的地仍需确认。",
+    storefrontWalkingOnlyFallback: "可以开始K-Navi步行导航。地图上的店铺位置仍需确认。",
+    storefrontUnknownFallback: "店铺位置仍需确认，因此无法显示地图标记或开始步行导航。",
+    sharedLocationNotice: "共享此地址坐标的店铺数：{count}。各店铺入口仍需确认，请从店铺列表中选择。",
+    locationTitle: "位置",
+    marketMap: "世界杯市场地图",
+    selectOnMap: "在地图上选择",
+    selectShop: "选择市场店铺",
+    panoramaTab: "店铺信息",
+    mapTab: "普通地图",
+    hotspotLabel: "路段热点",
+    previousPoint: "上一个点",
+    nextPoint: "下一个点",
+    selectedStore: "已选店铺",
+    representativeMenu: "招牌菜单",
+    price: "价格",
+    hours: "营业时间",
+    details: "查看详情",
+    closeDetails: "关闭详情",
+    goThere: "去这里",
+    startWalkingGuide: "开始步行导航",
+    save: "收藏",
+    saved: "已收藏",
+    share: "分享",
+    shared: "已分享",
+    shareUnavailable: "无法分享",
+    popularMenu: "热门菜单",
+    seeAll: "查看全部",
+    showLess: "收起",
+    signature: "招牌",
+    aboutShop: "关于这家店",
+    takeout: "外带",
+    dineIn: "堂食",
+    available: "可用",
+    notAvailable: "不可用",
+    unavailable: "需要确认",
+    orderNote: "点单提示",
+    storeStreetViewTitle: "店铺附近的街景",
+    storeStreetViewDescription: "这是所选店铺附近的街景，不是已确认的店铺正面。",
+    locationButton: "显示我的位置",
+    locationWaiting: "正在确认位置…",
+    locationDenied: "允许位置权限后，地图会显示您的位置。",
+    unknown: "需要确认",
+    panoramaUnavailable: "Street View不可用，但仍可查看店铺卡片。",
+    panoramaLoading: "正在加载店铺附近的街景…",
+    panoramaUpdatedNotice: "显示的附近街景与已记录的全景不同。",
+  },
+};
+
+export function getWorldCupMarketUiText(locale: Locale): WorldCupMarketUiText {
+  return WORLD_CUP_MARKET_UI[locale] ?? WORLD_CUP_MARKET_UI.ko;
+}
+
+export interface MangwonUiText {
+  readonly title: string;
+  readonly subtitle: string;
+  readonly back: string;
+  readonly market: string;
+  readonly language: string;
+  readonly chooseLanguage: string;
+  readonly shopPhoto: string;
+  readonly nearbyEntry: string;
+  readonly nearbyEyebrow: string;
+  readonly nearbyTitle: string;
+  readonly storefrontTitle: string;
+  readonly storefrontUnavailable: string;
+  readonly storefrontFallback: string;
+  readonly locationTitle: string;
+  readonly marketMap: string;
+  readonly selectOnMap: string;
+  readonly selectShop: string;
+  readonly panoramaTab: string;
+  readonly mapTab: string;
+  readonly hotspotLabel: string;
+  readonly previousPoint: string;
+  readonly nextPoint: string;
+  readonly selectedStore: string;
+  readonly representativeMenu: string;
+  readonly price: string;
+  readonly hours: string;
+  readonly details: string;
+  readonly closeDetails: string;
+  readonly goThere: string;
+  readonly startWalkingGuide: string;
+  readonly save: string;
+  readonly saved: string;
+  readonly share: string;
+  readonly shared: string;
+  readonly shareUnavailable: string;
+  readonly popularMenu: string;
+  readonly seeAll: string;
+  readonly showLess: string;
+  readonly signature: string;
+  readonly aboutShop: string;
+  readonly takeout: string;
+  readonly dineIn: string;
+  readonly available: string;
+  readonly notAvailable: string;
+  readonly unavailable: string;
+  readonly orderNote: string;
+  readonly storeStreetViewTitle: string;
+  readonly storeStreetViewDescription: string;
+  readonly locationButton: string;
+  readonly locationWaiting: string;
+  readonly locationDenied: string;
+  readonly unknown: string;
+  readonly panoramaUnavailable: string;
+}
+
+const MANGWON_UI: Record<Locale, MangwonUiText> = {
+  ko: {
+    title: "망원시장 점포 안내",
+    subtitle: "점포 정보를 먼저 보고, 아래에서 점포 근처 거리 뷰와 위치를 확인하세요.",
+    back: "뒤로",
+    market: "망원시장",
+    language: "언어",
+    chooseLanguage: "언어 선택",
+    shopPhoto: "대표 이미지",
+    nearbyEntry: "주변 점포 · 360 · 지도",
+    nearbyEyebrow: "주변 둘러보기",
+    nearbyTitle: "주변 점포",
+    storefrontTitle: "점포 근처 거리 뷰",
+    storefrontUnavailable: "사용 가능한 점포 정면뷰가 없습니다",
+    storefrontFallback: "지도와 K-Navi 도보안내는 계속 사용할 수 있습니다.",
+    locationTitle: "위치",
+    marketMap: "망원시장 지도",
+    selectOnMap: "지도에서 선택",
+    selectShop: "시장 점포 선택",
+    panoramaTab: "점포 정보",
+    mapTab: "일반 지도",
+    hotspotLabel: "구간 핫스팟",
+    previousPoint: "앞 포인트",
+    nextPoint: "뒤 포인트",
+    selectedStore: "선택 점포",
+    representativeMenu: "대표 메뉴",
+    price: "가격",
+    hours: "영업시간",
+    details: "상세보기",
+    closeDetails: "상세 닫기",
+    goThere: "여기로 가기",
+    startWalkingGuide: "여기로 가기",
+    save: "저장",
+    saved: "저장됨",
+    share: "공유",
+    shared: "공유됨",
+    shareUnavailable: "공유할 수 없음",
+    popularMenu: "인기 메뉴",
+    seeAll: "전체 보기",
+    showLess: "접기",
+    signature: "대표",
+    aboutShop: "점포 안내",
+    takeout: "포장",
+    dineIn: "매장 이용",
+    available: "가능",
+    notAvailable: "불가",
+    unavailable: "확인 필요",
+    orderNote: "주문 참고",
+    storeStreetViewTitle: "점포 근처 거리 뷰",
+    storeStreetViewDescription: "선택한 점포 근처의 거리 뷰입니다. 점포 정면이 확인된 사진은 아닙니다.",
+    locationButton: "내 위치 표시",
+    locationWaiting: "내 위치 확인 중…",
+    locationDenied: "위치 권한을 허용하면 지도에 내 위치가 표시됩니다.",
+    unknown: "확인 필요",
+    panoramaUnavailable: "Street View를 사용할 수 없어 안내 카드만 표시합니다.",
+  },
+  en: {
+    title: "Mangwon Market Stores",
+    subtitle: "See store details first, then check the street view near the store and the map.",
+    back: "Back",
+    market: "Mangwon Market",
+    language: "Language",
+    chooseLanguage: "Choose language",
+    shopPhoto: "shop photo",
+    nearbyEntry: "Nearby Shops · 360 · Map",
+    nearbyEyebrow: "EXPLORE AROUND YOU",
+    nearbyTitle: "Nearby Shops",
+    storefrontTitle: "Street View near this store",
+    storefrontUnavailable: "Storefront view unavailable",
+    storefrontFallback: "You can still check the map and start the walking guide.",
+    locationTitle: "Location",
+    marketMap: "Mangwon Market map",
+    selectOnMap: "Select on the map",
+    selectShop: "Choose a market shop",
+    panoramaTab: "Store details",
+    mapTab: "Standard map",
+    hotspotLabel: "Corridor hotspots",
+    previousPoint: "Previous point",
+    nextPoint: "Next point",
+    selectedStore: "Selected store",
+    representativeMenu: "Featured menu",
+    price: "Price",
+    hours: "Hours",
+    details: "Details",
+    closeDetails: "Close details",
+    goThere: "Go here",
+    startWalkingGuide: "Start Walking Guide",
+    save: "Save",
+    saved: "Saved",
+    share: "Share",
+    shared: "Shared",
+    shareUnavailable: "Sharing unavailable",
+    popularMenu: "Popular Menu",
+    seeAll: "See all",
+    showLess: "Show less",
+    signature: "Signature",
+    aboutShop: "About this shop",
+    takeout: "Takeout",
+    dineIn: "Dine-in",
+    available: "Available",
+    notAvailable: "Not available",
+    unavailable: "Check before visiting",
+    orderNote: "Order note",
+    storeStreetViewTitle: "Street View near this store",
+    storeStreetViewDescription: "This is a street view near the selected store, not a confirmed storefront.",
+    locationButton: "Show my location",
+    locationWaiting: "Finding your location…",
+    locationDenied: "Allow location access to show your position on the map.",
+    unknown: "Needs checking",
+    panoramaUnavailable: "Street View is unavailable; the store card remains available.",
+  },
+  ja: {
+    title: "望遠市場 店舗案内",
+    subtitle: "先に店舗情報を確認し、その下で店舗付近のストリートビューと位置を見られます。",
+    back: "戻る",
+    market: "望遠市場",
+    language: "言語",
+    chooseLanguage: "言語を選択",
+    shopPhoto: "代表画像",
+    nearbyEntry: "周辺の店舗 · 360 · 地図",
+    nearbyEyebrow: "周辺を見る",
+    nearbyTitle: "周辺の店舗",
+    storefrontTitle: "店舗付近のストリートビュー",
+    storefrontUnavailable: "利用できる店舗正面ビューがありません",
+    storefrontFallback: "地図とK-Naviの徒歩案内は引き続き使えます。",
+    locationTitle: "位置",
+    marketMap: "望遠市場の地図",
+    selectOnMap: "地図で選択",
+    selectShop: "市場の店舗を選択",
+    panoramaTab: "店舗情報",
+    mapTab: "通常地図",
+    hotspotLabel: "区間ホットスポット",
+    previousPoint: "前のポイント",
+    nextPoint: "次のポイント",
+    selectedStore: "選択した店舗",
+    representativeMenu: "代表メニュー",
+    price: "価格",
+    hours: "営業時間",
+    details: "詳細を見る",
+    closeDetails: "詳細を閉じる",
+    goThere: "ここへ行く",
+    startWalkingGuide: "ここへ歩いて行く",
+    save: "保存",
+    saved: "保存済み",
+    share: "共有",
+    shared: "共有済み",
+    shareUnavailable: "共有できません",
+    popularMenu: "人気メニュー",
+    seeAll: "すべて見る",
+    showLess: "閉じる",
+    signature: "おすすめ",
+    aboutShop: "店舗について",
+    takeout: "テイクアウト",
+    dineIn: "店内利用",
+    available: "可",
+    notAvailable: "不可",
+    unavailable: "要確認",
+    orderNote: "注文メモ",
+    storeStreetViewTitle: "店舗付近のストリートビュー",
+    storeStreetViewDescription: "選択した店舗付近のストリートビューです。確認済みの店舗正面写真ではありません。",
+    locationButton: "現在地を表示",
+    locationWaiting: "現在地を確認中…",
+    locationDenied: "位置情報を許可すると地図に現在地が表示されます。",
+    unknown: "要確認",
+    panoramaUnavailable: "Street Viewを利用できないため、店舗カードを表示します。",
+  },
+  zh: {
+    title: "望远市场店铺指南",
+    subtitle: "先查看店铺信息，再在下方查看店铺附近的街景和位置。",
+    back: "返回",
+    market: "望远市场",
+    language: "语言",
+    chooseLanguage: "选择语言",
+    shopPhoto: "代表图片",
+    nearbyEntry: "附近店铺 · 360 · 地图",
+    nearbyEyebrow: "看看周边",
+    nearbyTitle: "附近店铺",
+    storefrontTitle: "店铺附近的街景",
+    storefrontUnavailable: "没有可用的店铺正面视图",
+    storefrontFallback: "仍可查看地图并开始步行导航。",
+    locationTitle: "位置",
+    marketMap: "望远市场地图",
+    selectOnMap: "在地图上选择",
+    selectShop: "选择市场店铺",
+    panoramaTab: "店铺信息",
+    mapTab: "普通地图",
+    hotspotLabel: "路段热点",
+    previousPoint: "上一个点",
+    nextPoint: "下一个点",
+    selectedStore: "已选店铺",
+    representativeMenu: "招牌菜单",
+    price: "价格",
+    hours: "营业时间",
+    details: "查看详情",
+    closeDetails: "关闭详情",
+    goThere: "去这里",
+    startWalkingGuide: "开始步行导航",
+    save: "收藏",
+    saved: "已收藏",
+    share: "分享",
+    shared: "已分享",
+    shareUnavailable: "无法分享",
+    popularMenu: "热门菜单",
+    seeAll: "查看全部",
+    showLess: "收起",
+    signature: "招牌",
+    aboutShop: "关于这家店",
+    takeout: "外带",
+    dineIn: "堂食",
+    available: "可用",
+    notAvailable: "不可用",
+    unavailable: "需要确认",
+    orderNote: "点单提示",
+    storeStreetViewTitle: "店铺附近的街景",
+    storeStreetViewDescription: "这是所选店铺附近的街景，不是已确认的店铺正面。",
+    locationButton: "显示我的位置",
+    locationWaiting: "正在确认位置…",
+    locationDenied: "允许位置权限后，地图会显示您的位置。",
+    unknown: "需要确认",
+    panoramaUnavailable: "Street View不可用，但仍可查看店铺卡片。",
+  },
+};
+
+export function getMangwonUiText(locale: Locale): MangwonUiText {
+  return MANGWON_UI[locale] ?? MANGWON_UI.ko;
+}
+
 export function localeToSpeechLanguage(locale: Locale): string {
   return { ko: "ko-KR", en: "en-US", ja: "ja-JP", zh: "zh-CN" }[locale];
 }

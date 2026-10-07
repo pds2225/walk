@@ -1,0 +1,129 @@
+{
+  "archive": "C:\\Users\\ekth3\\AppData\\Local\\Temp\\walk-wiki-shells-2026-10-05T16-08-03-382Z",
+  "shellsArchived": 11,
+  "stats": {
+    "totalPages": 12,
+    "orphanCount": 9,
+    "staleCount": 10,
+    "brokenRefCount": 0,
+    "lowConfidenceCount": 0,
+    "oversizedCount": 0,
+    "contradictionCount": 0
+  },
+  "issues": [
+    {
+      "page": "walk-4km-67m.md",
+      "severity": "info",
+      "type": "orphan",
+      "message": "No other pages link to \"walk 도보 소요시간 기준 — 시속 4km(분당 67m), 사용자 지정\""
+    },
+    {
+      "page": "walk-4km-67m.md",
+      "severity": "warning",
+      "type": "stale",
+      "message": "\"walk 도보 소요시간 기준 — 시속 4km(분당 67m), 사용자 지정\" not updated in 84 days"
+    },
+    {
+      "page": "walk-env-gh-pr-merge.md",
+      "severity": "info",
+      "type": "orphan",
+      "message": "No other pages link to \"walk env — gh pr merge 허용규칙은 단독 명령만 매칭 (복합 명령 시 차단)\""
+    },
+    {
+      "page": "walk-env-gh-pr-merge.md",
+      "severity": "warning",
+      "type": "stale",
+      "message": "\"walk env — gh pr merge 허용규칙은 단독 명령만 매칭 (복합 명령 시 차단)\" not updated in 83 days"
+    },
+    {
+      "page": "walk-maplibre-pr-64-declare-component.md",
+      "severity": "info",
+      "type": "orphan",
+      "message": "No other pages link to \"walk MapLibre 컴포넌트 — 부드러운 헤딩업(PR#64) 계약 + 페이지 내 declare_component 함정\""
+    },
+    {
+      "page": "walk-maplibre-pr-64-declare-component.md",
+      "severity": "warning",
+      "type": "stale",
+      "message": "\"walk MapLibre 컴포넌트 — 부드러운 헤딩업(PR#64) 계약 + 페이지 내 declare_component 함정\" not updated in 81 days"
+    },
+    {
+      "page": "walk-photo-upload.md",
+      "severity": "warning",
+      "type": "stale",
+      "message": "\"walk photo-upload 사진 업로드 기능 개발계획안 (미구현, 결정 대기)\" not updated in 83 days"
+    },
+    {
+      "page": "walk-pydeck-pydeck-pr-63-plotly.md",
+      "severity": "info",
+      "type": "orphan",
+      "message": "No other pages link to \"walk pydeck 헤딩업 지도 — 안내 중 pydeck 전환(PR#63 구현됨), plotly 동시불가 근거\""
+    },
+    {
+      "page": "walk-pydeck-pydeck-pr-63-plotly.md",
+      "severity": "warning",
+      "type": "stale",
+      "message": "\"walk pydeck 헤딩업 지도 — 안내 중 pydeck 전환(PR#63 구현됨), plotly 동시불가 근거\" not updated in 81 days"
+    },
+    {
+      "page": "walk-social-vision.md",
+      "severity": "info",
+      "type": "orphan",
+      "message": "No other pages link to \"walk social-vision 소셜 비전 — 걸은 길+사진 기록 공유 (중요정보)\""
+    },
+    {
+      "page": "walk-social-vision.md",
+      "severity": "warning",
+      "type": "stale",
+      "message": "\"walk social-vision 소셜 비전 — 걸은 길+사진 기록 공유 (중요정보)\" not updated in 83 days"
+    },
+    {
+      "page": "walk-streamlit-traps-fastreruns.md",
+      "severity": "info",
+      "type": "orphan",
+      "message": "No other pages link to \"walk streamlit-traps — fastReruns 커밋 유실·페이지 전역 초기화 (디버깅 지식)\""
+    },
+    {
+      "page": "walk-streamlit-traps-fastreruns.md",
+      "severity": "warning",
+      "type": "stale",
+      "message": "\"walk streamlit-traps — fastReruns 커밋 유실·페이지 전역 초기화 (디버깅 지식)\" not updated in 83 days"
+    },
+    {
+      "page": "walk-v6-8-0-gpx-2026-07-13.md",
+      "severity": "info",
+      "type": "orphan",
+      "message": "No other pages link to \"walk 경쟁분석 — 네이버지도 v6.8.0 도보코스/GPX(2026-07-13) 대비 차별성\""
+    },
+    {
+      "page": "walk-v6-8-0-gpx-2026-07-13.md",
+      "severity": "warning",
+      "type": "stale",
+      "message": "\"walk 경쟁분석 — 네이버지도 v6.8.0 도보코스/GPX(2026-07-13) 대비 차별성\" not updated in 81 days"
+    },
+    {
+      "page": "walk-vs.md",
+      "severity": "info",
+      "type": "orphan",
+      "message": "No other pages link to \"walk 내비 모드 분리 아키텍처 — 도보 vs 도보+대중교통 복합 (개발 참고)\""
+    },
+    {
+      "page": "walk-vs.md",
+      "severity": "warning",
+      "type": "stale",
+      "message": "\"walk 내비 모드 분리 아키텍처 — 도보 vs 도보+대중교통 복합 (개발 참고)\" not updated in 85 days"
+    },
+    {
+      "page": "walk.md",
+      "severity": "info",
+      "type": "orphan",
+      "message": "No other pages link to \"walk 스냅투루트/맵매칭 — 진행도 기반 이탈 판정 (개발 참고)\""
+    },
+    {
+      "page": "walk.md",
+      "severity": "warning",
+      "type": "stale",
+      "message": "\"walk 스냅투루트/맵매칭 — 진행도 기반 이탈 판정 (개발 참고)\" not updated in 85 days"
+    }
+  ]
+}

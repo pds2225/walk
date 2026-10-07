@@ -1,0 +1,28 @@
+[
+  {
+    "source": "D:\\walk\\RESUME.md",
+    "backup": "D:\\walk\\.worktrees\\session-context-originals-20261006T011003Z\\location-00\\RESUME.approved-20261006T012300Z.md",
+    "sha256": "963fd2d5813fbf226b6a71ab62abca14f2ec30f5e8e4875e75183002587d15bf",
+    "previousBackup": "D:\\walk\\.worktrees\\session-context-originals-20261006T011003Z\\location-00\\RESUME.md",
+    "previousSha256": "995215d85a1e06be1ec4d0256f37aefbed15931cc85aba777ffb21b6c075803a",
+    "movedOriginal": "D:\\walk\\.worktrees\\session-context-originals-20261006T011003Z\\location-00\\RESUME.approved-20261006T012300Z.md.working-original"
+  },
+  {
+    "source": "D:\\walk\\SESSION_RECAP.md",
+    "backup": "D:\\walk\\.worktrees\\session-context-originals-20261006T011003Z\\location-00\\SESSION_RECAP.md",
+    "sha256": "977d8ec0e7d42d443a0291def63affc802022d1702f9b5edaa1e46d793166109",
+    "movedOriginal": "D:\\walk\\.worktrees\\session-context-originals-20261006T011003Z\\location-00\\SESSION_RECAP.md.working-original"
+  },
+  {
+    "source": "D:\\walk-streetview\\RESUME.md",
+    "backup": "D:\\walk\\.worktrees\\session-context-originals-20261006T011003Z\\location-01\\RESUME.md",
+    "sha256": "9f4f567578abf6cbcf8100243b3bbd1fa3ec618b32904c914b0585f38b800f2c",
+    "movedOriginal": "D:\\walk\\.worktrees\\session-context-originals-20261006T011003Z\\location-01\\RESUME.md.working-original"
+  },
+  {
+    "source": "D:\\walk-streetview\\SESSION_RECAP.md",
+    "backup": "D:\\walk\\.worktrees\\session-context-originals-20261006T011003Z\\location-01\\SESSION_RECAP.md",
+    "sha256": "4ab754f7b3d243667010b2d912d1150182ef8fea7736499263e43abe43b30f6b",
+    "movedOriginal": "D:\\walk\\.worktrees\\session-context-originals-20261006T011003Z\\location-01\\SESSION_RECAP.md.working-original"
+  }
+]

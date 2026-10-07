@@ -1,0 +1,78 @@
+{
+  "preservedFiles": [
+    {
+      "path": "D:\\walk\\.streamlit\\secrets.toml",
+      "hash": "72c69dd06396889720f0fa80fe495577f8a5e0e28040261b2084c94909950559"
+    },
+    {
+      "path": "D:\\walk\\.vercel\\project.json",
+      "hash": "15114d3cb791dfea0e20211986a362e387b51c2c688b90103b84db6eec2fe16f"
+    },
+    {
+      "path": "D:\\walk\\RESUME.md",
+      "hash": "439a4ded145572e2e8c1f765eda1c9b1b526bb2767d9aa4ca06d44025a268d6b"
+    },
+    {
+      "path": "D:\\walk\\SESSION_RECAP.md",
+      "hash": "5e677015f9cb73972ef40f1ee7c8818cb20738136e8ca22d421591412e29c0d3"
+    },
+    {
+      "path": "D:\\walk\\web\\.env.local.example",
+      "hash": "74541d41cfbe78f513bbb609d38f6adb7f4b0085cc3307d67cc4068ca220e2e5"
+    },
+    {
+      "path": "D:\\walk-streetview\\RESUME.md",
+      "hash": "9f4f567578abf6cbcf8100243b3bbd1fa3ec618b32904c914b0585f38b800f2c"
+    },
+    {
+      "path": "D:\\walk-streetview\\SESSION_RECAP.md",
+      "hash": "4ab754f7b3d243667010b2d912d1150182ef8fea7736499263e43abe43b30f6b"
+    },
+    {
+      "path": "D:\\walk-streetview\\web\\.env.local.example",
+      "hash": "74541d41cfbe78f513bbb609d38f6adb7f4b0085cc3307d67cc4068ca220e2e5"
+    },
+    {
+      "path": "D:\\walk\\.worktrees\\k-navi-production\\.vercel\\project.json",
+      "hash": "15114d3cb791dfea0e20211986a362e387b51c2c688b90103b84db6eec2fe16f"
+    },
+    {
+      "path": "D:\\walk\\.worktrees\\k-navi-production\\web\\.env.local.example",
+      "hash": "c4b6ec8c43ca5a97ec0cdc75f81ce0533798ce781d50fb57b96f70665cd27d7d"
+    },
+    {
+      "path": "D:\\walk\\.worktrees\\task-k-navi-rv-02\\web\\.env.local.example",
+      "hash": "e2044b7be923320e8c749bb0fdf729c1b719dd338aa6f1dc7792ac05714459f5"
+    },
+    {
+      "path": "D:\\walk\\.worktrees\\transit-end-label\\web\\.env.local.example",
+      "hash": "a9aa3b188581b7101a017d38e2dc115d9eedc99c25b2db47f3609585b7d60272"
+    },
+    {
+      "path": "D:\\walk\\.worktrees\\worldcup-market-clean-20261004\\web\\.env.local.example",
+      "hash": "74541d41cfbe78f513bbb609d38f6adb7f4b0085cc3307d67cc4068ca220e2e5"
+    },
+    {
+      "path": "D:\\walk\\.claude\\worktrees\\web-vercel\\.env.local",
+      "hash": "4bc7bf4ca03e60f4b8c7ac242d7efdf8fe9bee52473e4f4fa6c08d9e08d65d07"
+    },
+    {
+      "path": "D:\\walk\\.claude\\worktrees\\web-vercel\\.vercel\\project.json",
+      "hash": "ea4186e4c08b5e02d50737daf28368cb927028bac1201d65a81c5701cc410c8a"
+    },
+    {
+      "path": "D:\\walk\\.claude\\worktrees\\web-vercel\\web\\.env.local",
+      "hash": "0e181bedb3ab35d509992b88226e06cea5fde698b1f0ff636068248bc3cc0746"
+    },
+    {
+      "path": "C:\\Users\\ekth3\\AppData\\Local\\v_up\\dashboard_worktrees\\walk\\dashboard-main\\web\\.env.local.example",
+      "hash": "74541d41cfbe78f513bbb609d38f6adb7f4b0085cc3307d67cc4068ca220e2e5"
+    }
+  ],
+  "stashes": [
+    "9658100aea23ece9cc216eb0436267506e94a103",
+    "dbd8cfee659e4e6234c4f104c2abd1e90f60633c",
+    "2108167ed53898267800ed62e658ab756cad8b8a",
+    "c74262f6c4832cbfa2dfff73bb5c68d4eb9aefe5"
+  ]
+}

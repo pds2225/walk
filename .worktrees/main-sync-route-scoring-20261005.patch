@@ -1,0 +1,1559 @@
+diff --git a/streamlit_walk_engine/components/kakao_roadview/index.html b/streamlit_walk_engine/components/kakao_roadview/index.html
+new file mode 100644
+index 0000000..16ca25c
+--- /dev/null
++++ b/streamlit_walk_engine/components/kakao_roadview/index.html
+@@ -0,0 +1,151 @@
++<!DOCTYPE html>
++<!--
++  walk 안내 중 Kakao 로드뷰 — MapLibre 와 같은 Streamlit 커스텀 컴포넌트.
++
++  왜 커스텀 컴포넌트인가: components.html(srcdoc) 의 origin 은 허용 도메인과
++  맞지 않아 Kakao JS SDK 가 막힌다. declare_component iframe 은
++  http://localhost:8501 등 등록한 origin 을 그대로 쓴다.
++
++  계약:
++  - Admin Key·REST API 키를 쓰지 않는다. args.appkey 는 JavaScript 키만.
++  - 키 값을 화면에 그리지 않는다.
++  - 좌표는 Kakao LatLng(lat, lng) 순서(GeoJSON 과 반대).
++  - 스트림릿 프로토콜: componentReady → streamlit:render → setFrameHeight.
++-->
++<html>
++<head>
++<meta charset="utf-8"/>
++<style>
++  html, body { margin:0; padding:0; height:100%; width:100%; overflow:hidden; background:#f4f6f9; }
++  #rv { height:100%; width:100%; }
++  #msg {
++    display:none; position:absolute; inset:0;
++    align-items:center; justify-content:center;
++    background:#f4f6f9; color:#4a4a4a;
++    font:15px/1.45 sans-serif; padding:16px; text-align:center;
++  }
++</style>
++</head>
++<body>
++<div id="rv"></div>
++<div id="msg"></div>
++<script>
++"use strict";
++function send(msg){ parent.postMessage(Object.assign({isStreamlitMessage:true}, msg), "*"); }
++function showMsg(text){
++  var el = document.getElementById("msg");
++  el.textContent = text;
++  el.style.display = "flex";
++}
++function hideMsg(){ document.getElementById("msg").style.display = "none"; }
++
++var rv = null, client = null, lastH = 0, lastLat = null, lastLng = null, pendingHeading = null;
++var RADIUS_M = 100, MOVE_M = 10;
++var sdkState = "idle"; // idle | loading | ready | error
++var sdkWait = [];
++
++function haversine(lat1, lng1, lat2, lng2){
++  var R = 6371000, toR = Math.PI / 180;
++  var dLat = (lat2 - lat1) * toR, dLng = (lng2 - lng1) * toR;
++  var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
++    Math.cos(lat1 * toR) * Math.cos(lat2 * toR) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
++  return 2 * R * Math.asin(Math.min(1, Math.sqrt(a)));
++}
++
++function loadSdk(appkey, done){
++  if (window.kakao && window.kakao.maps && window.kakao.maps.Roadview){
++    sdkState = "ready";
++    done();
++    return;
++  }
++  if (sdkState === "error") return;
++  sdkWait.push(done);
++  if (sdkState === "loading") return;
++  sdkState = "loading";
++  var s = document.createElement("script");
++  s.src = "https://dapi.kakao.com/v2/maps/sdk.js?appkey=" + encodeURIComponent(appkey) + "&autoload=false";
++  s.onload = function(){
++    if (!window.kakao || !kakao.maps || !kakao.maps.load){
++      sdkState = "error";
++      showMsg("카카오 지도를 불러오지 못했습니다. JavaScript 키와 허용 도메인을 확인하세요.");
++      return;
++    }
++    kakao.maps.load(function(){
++      sdkState = "ready";
++      var q = sdkWait.splice(0);
++      q.forEach(function(fn){ fn(); });
++    });
++  };
++  s.onerror = function(){
++    sdkState = "error";
++    showMsg("카카오 지도를 불러오지 못했습니다. JavaScript 키와 허용 도메인을 확인하세요.");
++  };
++  document.head.appendChild(s);
++}
++
++function applyHeading(heading){
++  pendingHeading = heading;
++  if (heading == null || !rv) return;
++  try {
++    var vp = rv.getViewpoint();
++    if (!vp) return;
++    vp.pan = Number(heading) % 360;
++    rv.setViewpoint(vp);
++  } catch (e) { /* init 전 viewpoint 는 없을 수 있다 */ }
++}
++
++function ensureRv(){
++  if (rv) return;
++  rv = new kakao.maps.Roadview(document.getElementById("rv"));
++  client = new kakao.maps.RoadviewClient();
++  kakao.maps.event.addListener(rv, "init", function(){ applyHeading(pendingHeading); });
++  kakao.maps.event.addListener(rv, "panoid_changed", function(){ applyHeading(pendingHeading); });
++}
++
++function apply(a){
++  if (a.height && a.height !== lastH){
++    lastH = a.height;
++    send({type:"streamlit:setFrameHeight", height:a.height});
++    if (rv && rv.relayout) setTimeout(function(){ rv.relayout(); }, 50);
++  }
++  if (!a.appkey){
++    showMsg("JavaScript 키가 없어 로드뷰를 표시할 수 없습니다.");
++    return;
++  }
++  if (a.lat == null || a.lng == null){
++    showMsg("위치 정보가 없어 로드뷰를 표시할 수 없습니다.");
++    return;
++  }
++  pendingHeading = (a.heading == null || a.heading === "") ? null : Number(a.heading);
++  loadSdk(a.appkey, function(){
++    ensureRv();
++    var moved = lastLat == null || haversine(lastLat, lastLng, a.lat, a.lng) >= MOVE_M;
++    lastLat = a.lat;
++    lastLng = a.lng;
++    if (!moved){
++      applyHeading(pendingHeading);
++      return;
++    }
++    var pos = new kakao.maps.LatLng(a.lat, a.lng);
++    client.getNearestPanoId(pos, RADIUS_M, function(panoId){
++      if (!panoId){
++        showMsg("이 위치 근처에는 로드뷰가 없습니다. 도로 쪽으로 이동해 보세요.");
++        return;
++      }
++      hideMsg();
++      rv.setPanoId(panoId, pos);
++    });
++  });
++}
++
++window.addEventListener("message", function(ev){
++  var d = ev.data || {};
++  if (d.type !== "streamlit:render") return;
++  apply(d.args || {});
++});
++
++send({type:"streamlit:componentReady", apiVersion:1});
++send({type:"streamlit:setFrameHeight", height:400});
++</script>
++</body>
++</html>
+diff --git a/streamlit_walk_engine/kakao_js_key.py b/streamlit_walk_engine/kakao_js_key.py
+new file mode 100644
+index 0000000..752bdb9
+--- /dev/null
++++ b/streamlit_walk_engine/kakao_js_key.py
+@@ -0,0 +1,51 @@
++"""Kakao Maps Web SDK(Roadview)용 JavaScript 키 로더.
++
++Admin Key·REST API 키는 읽지 않는다. Web Map/Roadview 는 브라우저 SDK 이므로
++JavaScript 키만 사용한다. 값은 반환 외에 로그·화면에 노출하지 않는다.
++"""
++from __future__ import annotations
++
++import os
++
++_JS_KEY_NAME = "KAKAO_JAVASCRIPT_KEY"
++_js_key_cache: str | None | bool = False
++
++
++def reset_cache() -> None:
++    """테스트용 — 키 캐시를 비운다."""
++    global _js_key_cache
++    _js_key_cache = False
++
++
++def _from_secrets() -> str:
++    try:
++        import streamlit as st
++        return str(st.secrets.get(_JS_KEY_NAME, "") or "").strip()
++    except Exception:
++        return ""
++
++
++def _from_shared() -> str:
++    try:
++        from route_builder import _env_shared_values
++        return _env_shared_values(_JS_KEY_NAME).get(_JS_KEY_NAME, "").strip()
++    except Exception:
++        return ""
++
++
++def kakao_javascript_key() -> str | None:
++    """JavaScript 키. 없으면 None. REST/Admin 키로는 폴백하지 않는다."""
++    global _js_key_cache
++    if _js_key_cache is False:
++        key = os.environ.get(_JS_KEY_NAME, "").strip()
++        if not key:
++            key = _from_secrets()
++        if not key:
++            key = _from_shared()
++        _js_key_cache = key or None
++    return _js_key_cache or None
++
++
++def enabled() -> bool:
++    """로드뷰를 켤 JavaScript 키가 있으면 True. 없으면 기존 지도만 쓴다."""
++    return kakao_javascript_key() is not None
+diff --git a/streamlit_walk_engine/kakao_roadview_component.py b/streamlit_walk_engine/kakao_roadview_component.py
+new file mode 100644
+index 0000000..69f83db
+--- /dev/null
++++ b/streamlit_walk_engine/kakao_roadview_component.py
+@@ -0,0 +1,18 @@
++"""Kakao 로드뷰 컴포넌트 등록 모듈.
++
++declare_component 는 호출한 모듈 이름으로 등록된다. Streamlit 페이지(pages/*.py)
++안에서 직접 부르면 모듈 탐지가 실패해 iframe 404 가 난다. MapLibre 와 같이
++import 되는 이 모듈에서 선언한다.
++
++프런트 자산: components/kakao_roadview/index.html
++"""
++from pathlib import Path
++
++import streamlit.components.v1 as components
++
++_ASSET_DIR = Path(__file__).resolve().parent / "components" / "kakao_roadview"
++
++if not (_ASSET_DIR / "index.html").is_file():
++    raise ImportError(f"kakao_roadview 프런트 자산 없음: {_ASSET_DIR}")
++
++kakao_roadview = components.declare_component("walk_kakao_roadview", path=str(_ASSET_DIR))
+diff --git a/streamlit_walk_engine/pages/1_Navigation.py b/streamlit_walk_engine/pages/1_Navigation.py
+index 1e79b05..ef8a21b 100644
+--- a/streamlit_walk_engine/pages/1_Navigation.py
++++ b/streamlit_walk_engine/pages/1_Navigation.py
+@@ -116,6 +116,17 @@ except Exception:
+     _maplibre_nav = None
+     _HAS_MAPLIBRE = False
+ 
++# Kakao 로드뷰 — MapLibre 와 같이 import 되는 모듈에서 declare_component 한다.
++# JavaScript 키가 없으면 토글 자체를 그리지 않아 기존 지도만 쓴다.
++try:
++    from kakao_js_key import kakao_javascript_key as _kakao_javascript_key
++    from kakao_roadview_component import kakao_roadview as _kakao_roadview
++    _HAS_KAKAO_RV = True
++except Exception:
++    _kakao_javascript_key = lambda: None  # type: ignore[assignment,misc]
++    _kakao_roadview = None
++    _HAS_KAKAO_RV = False
++
+ 
+ # GPS 재측정 주기(초). streamlit_js_eval 프런트엔드는 '같은 js_expressions 문자열'은
+ # 다시 평가하지 않으므로(once-per-string 가드), 표현식을 고정하면 위치가 세션당 1회만
+@@ -496,11 +507,37 @@ def _activate_route(
+ 
+ # ── 공통 헬퍼 ─────────────────────────────────────────────────────────────────
+ 
++def _user_heading_for_routing() -> float | None:
++    """경로추천용 사용자 방향 — 스무딩 GPS heading → 나침반 → 최근 표본.
++
++    나침반(nav_compass_deg)은 이미 자북→진북 편각 보정된 값이다.
++    """
++    hdg = st.session_state.get("nav_smoothed_heading")
++    if hdg is None:
++        hdg = st.session_state.get("nav_compass_deg")
++    if hdg is None:
++        samples = st.session_state.get("nav_samples") or []
++        if samples:
++            hdg = samples[-1].heading_degrees
++    try:
++        return float(hdg) if hdg is not None else None
++    except (TypeError, ValueError):
++        return None
++
++
+ def _fetch_route(origin: Coordinate, dest: Coordinate) -> RouteModel:
+     """경로 탐색 + 엔진 라벨/부가정보(총거리·ETA·안내문)를 현재 세션에 기록."""
+-    route, engine_label, route_info = fetch_walking_route_with_engine(origin, dest)
++    heading = _user_heading_for_routing()
++    route, engine_label, route_info = fetch_walking_route_with_engine(
++        origin, dest,
++        user_heading_degrees=heading,
++        route_mode=st.session_state.get("nav_route_mode"),
++    )
+     st.session_state["nav_route_engine"] = engine_label
+     st.session_state["nav_route_info"] = route_info
++    score_debug = getattr(route_info, "score_debug", None)
++    if isinstance(score_debug, dict):
++        _diag("route_score", **score_debug)
+ 
+     # Static Map은 목적지가 바뀔 때만 1회 호출(rerun마다 호출 시도 방지).
+     dest_key = f"{dest.latitude:.6f},{dest.longitude:.6f}"
+@@ -543,6 +580,8 @@ def _start_reroute_fetch(sid: str, origin: Coordinate, dest: Coordinate) -> None
+     워커 스레드는 st.* 를 절대 만지지 않는다 — 순수 네트워크 호출만 하고 결과를
+     _PENDING_REROUTE 에 남긴다(커밋은 다음 rerun 의 _commit_pending_reroute 몫).
+     """
++    heading = _user_heading_for_routing()
++    route_mode = st.session_state.get("nav_route_mode")
+     with _PENDING_REROUTE_LOCK:
+         if sid in _PENDING_REROUTE:
+             return
+@@ -550,7 +589,11 @@ def _start_reroute_fetch(sid: str, origin: Coordinate, dest: Coordinate) -> None
+ 
+     def _work() -> None:
+         try:
+-            route, engine_label, route_info = fetch_walking_route_with_engine(origin, dest)
++            route, engine_label, route_info = fetch_walking_route_with_engine(
++                origin, dest,
++                user_heading_degrees=heading,
++                route_mode=route_mode,
++            )
+             payload = {"state": "ok", "route": route, "engine_label": engine_label,
+                        "route_info": route_info, "dest": dest}
+         except Exception as e:  # noqa: BLE001 — 실패도 커밋 채널로 넘겨 화면에 표시
+@@ -579,6 +622,9 @@ def _commit_pending_reroute() -> None:
+     new_route = pending["route"]
+     st.session_state["nav_route_engine"] = pending["engine_label"]
+     st.session_state["nav_route_info"] = pending["route_info"]
++    score_debug = getattr(pending.get("route_info"), "score_debug", None)
++    if isinstance(score_debug, dict):
++        _diag("route_score", **score_debug)
+     new_count = st.session_state["nav_reroute_count"] + 1
+     st.session_state.update({
+         "nav_route":               new_route,
+@@ -2279,6 +2325,20 @@ def _maplibre_nav_args(
+     }
+ 
+ 
++def _roadview_latlng(
++    route: RouteModel,
++    samples: list[PositionSample],
++    display_coord: Optional[Coordinate] = None,
++) -> tuple[float, float]:
++    """로드뷰 좌표 — 지도 마커와 같은 표시용 좌표(스무딩)를 우선한다."""
++    if display_coord is not None:
++        return display_coord.latitude, display_coord.longitude
++    if samples:
++        return samples[-1].latitude, samples[-1].longitude
++    mid = route.polyline[len(route.polyline) // 2]
++    return mid.latitude, mid.longitude
++
++
+ _DEFAULT_CENTER = Coordinate(latitude=37.5665, longitude=126.9780)  # 서울시청
+ 
+ 
+@@ -3032,6 +3092,9 @@ def _render_search_source_panel() -> None:
+     rows = [
+         ("카카오 로컬", status["kakao_local"], "상호·가게 이름 (○○치킨, △△카페)",
+          "KAKAO_REST_API_KEY  ※ REST API 키 (JavaScript·네이티브 앱 키 아님)"),
++        ("카카오 로드뷰", bool(_HAS_KAKAO_RV and _kakao_javascript_key()),
++         "안내 중 거리 모습",
++         "KAKAO_JAVASCRIPT_KEY  ※ JavaScript 키 (REST·Admin 키 아님)"),
+         ("네이버 지역검색", status["naver_local"], "상호·가게 이름 (○○치킨, △△카페)",
+          "NAVER_SEARCH_CLIENT_ID / SECRET"),
+         ("네이버 지오코딩", status["naver_geocode"], "주소",
+@@ -4488,6 +4551,23 @@ def main() -> None:
+         # 스크롤이 막힌다(지도 캔버스가 세로 스와이프를 팬으로 가로챔). 지도 아래에 스크롤로
+         # 잡을 여백이 남도록 높이를 낮춘다 — 보행 중엔 조금 더 크게(방향 배지가 위에 있음).
+         map_h = 460 if st.session_state["nav_running"] else 400
++        js_key = _kakao_javascript_key() if _HAS_KAKAO_RV else None
++        if st.session_state["nav_running"] and js_key:
++            view = st.segmented_control(
++                "보기", options=["지도", "로드뷰"], default="지도",
++                key="nav_map_mode",
++            )
++            if view == "로드뷰":
++                lat, lng = _roadview_latlng(
++                    route, st.session_state["nav_samples"],
++                    st.session_state.get("nav_display_origin"),
++                )
++                _kakao_roadview(
++                    appkey=js_key, lat=lat, lng=lng,
++                    heading=_heading_up_bearing(st.session_state["nav_samples"]),
++                    height=map_h, key="nav_roadview", default=None,
++                )
++                return
+         if st.session_state["nav_running"] and _HAS_MAPLIBRE:
+             # 안내 중 1순위: MapLibre 컴포넌트 — iframe 유지 + easeTo(900ms)로
+             # 부드러운 헤딩업 회전 + 핀치줌 유지(제스처 중 따라가기 일시정지).
+diff --git a/streamlit_walk_engine/route_builder.py b/streamlit_walk_engine/route_builder.py
+index b6cc56b..7aaa323 100644
+--- a/streamlit_walk_engine/route_builder.py
++++ b/streamlit_walk_engine/route_builder.py
+@@ -19,7 +19,7 @@ import os
+ import re
+ import sys
+ from concurrent.futures import ThreadPoolExecutor
+-from dataclasses import dataclass, field
++from dataclasses import dataclass, field, replace
+ from pathlib import Path
+ from urllib.parse import quote
+ 
+@@ -38,10 +38,21 @@ from engine import (
+ 
+ @dataclass(frozen=True)
+ class RouteInfo:
+-    """경로 부가정보 — RouteModel(엔진 입력)과 분리해 UI 표시에만 사용합니다."""
++    """경로 부가정보 — RouteModel(엔진 입력)과 분리해 UI 표시에만 사용합니다.
++
++    sidewalk/fork/discomfort 는 TMAP 응답에 이미 있는 값만 옮긴다(신규 수집 없음).
++    8/28 확정 5지표: 총 이동거리, 방향 바꿈 횟수 및 각도, 총 갈림길 개수,
++    보도 비율, 보행 불편요소 수 및 비율.
++    """
+     total_distance_meters: int | None = None
+     total_time_seconds: int | None = None
+     turn_descriptions: dict[str, str] = field(default_factory=dict)  # TurnPoint.id → 안내문
++    sidewalk_ratio: float | None = None
++    fork_count: int = 0
++    discomfort_count: int = 0
++    discomfort_ratio: float | None = None
++    turn_angles_degrees: tuple[float, ...] = ()
++    score_debug: dict | None = None
+ 
+ 
+ # 도보 소요시간 추정 기준(사용자 지정): 시속 4km(분당 약 67m) — 신호대기·횡단보도·
+@@ -292,6 +303,7 @@ EXPECTED_KEY_NAMES = (
+     "NAVER_SEARCH_CLIENT_ID", "NAVER_SEARCH_CLIENT_SECRET",
+     "NAVER_MAPS_CLIENT_ID", "NAVER_MAPS_CLIENT_SECRET",
+     "TMAP_APP_KEY", "ODSAY_API_KEY", "KAKAO_REST_API_KEY",
++    "KAKAO_JAVASCRIPT_KEY",
+ )
+ 
+ 
+@@ -1233,6 +1245,83 @@ def is_significant_turn(polyline: list[Coordinate], index: int) -> bool:
+ 
+ _TMAP_TURN_LEFT  = {12, 16, 17}  # 좌회전 / 8시 방향 좌회전 / 10시 방향 좌회전
+ _TMAP_TURN_RIGHT = {13, 18, 19}  # 우회전 / 2시 방향 우회전 / 4시 방향 우회전
++# 교차로 기동(직진 포함) — 총 갈림길 개수. 출발(200)/도착(201)/횡단보도(211+)는 제외.
++_TMAP_FORK_TURN_TYPES = {11, 12, 13, 14, 16, 17, 18, 19}
++# 보행 불편요소(계단·급경사·고가·육교·터널·지하도). 횡단보도·차량 노출은 넣지 않는다.
++_TMAP_DISCOMFORT_FACILITY = {2, 3, 11, 12, 14, 17}
++_TMAP_SIDEWALK_ROAD_TYPES = {21}  # TMAP 보행자도로
++_TMAP_SIDEWALK_HINTS = ("보도", "인도", "보행자도로")
++# 모드와 무관한 한 후보 세트: 추천 / 최단 / 편한길. 점수 가중치만 모드별로 다르다.
++TMAP_CANDIDATE_SEARCH_OPTIONS = ("0", "10", "30")
++
++
++def _as_int(value: object) -> int | None:
++    try:
++        return int(value)  # type: ignore[arg-type]
++    except (TypeError, ValueError):
++        return None
++
++
++def _tmap_quality_from_features(
++    features: list[dict],
++    polyline: list[Coordinate],
++    turn_indices: list[int],
++) -> tuple[float | None, int, int, float | None, tuple[float, ...]]:
++    """기존 TMAP GeoJSON에서 보도·갈림길·불편요소·회전각을 읽는다(신규 수집 없음)."""
++    sidewalk_m = 0.0
++    known_m = 0.0
++    discomfort_m = 0.0
++    discomfort_count = 0
++    fork_count = 0
++    saw_sidewalk_signal = False
++
++    for feature in features:
++        geometry = feature.get("geometry", {})
++        props = feature.get("properties", {}) or {}
++        gtype = geometry.get("type")
++        if gtype == "Point":
++            turn_type = _as_int(props.get("turnType"))
++            intersection = str(props.get("intersectionName") or "").strip()
++            if intersection or turn_type in _TMAP_FORK_TURN_TYPES:
++                fork_count += 1
++            continue
++        if gtype != "LineString":
++            continue
++        coords = geometry.get("coordinates") or []
++        raw_dist = props.get("distance")
++        try:
++            seg_m = float(raw_dist) if raw_dist is not None else 0.0
++        except (TypeError, ValueError):
++            seg_m = 0.0
++        if seg_m <= 0 and len(coords) >= 2:
++            prev = None
++            for lon, lat in coords:
++                cur = Coordinate(latitude=float(lat), longitude=float(lon))
++                if prev is not None:
++                    seg_m += distance_meters(prev, cur)
++                prev = cur
++        facility = _as_int(props.get("facilityType"))
++        road_type = _as_int(props.get("roadType"))
++        description = str(props.get("description") or "")
++        if facility in _TMAP_DISCOMFORT_FACILITY:
++            discomfort_count += 1
++            discomfort_m += seg_m
++        if (
++            road_type in _TMAP_SIDEWALK_ROAD_TYPES
++            or any(hint in description for hint in _TMAP_SIDEWALK_HINTS)
++        ):
++            saw_sidewalk_signal = True
++            sidewalk_m += seg_m
++        known_m += seg_m
++
++    sidewalk_ratio = (sidewalk_m / known_m) if saw_sidewalk_signal and known_m > 0 else None
++    discomfort_ratio = (discomfort_m / known_m) if known_m > 0 and discomfort_count else None
++    turn_angles = tuple(
++        angle
++        for idx in turn_indices
++        if (angle := _heading_change_degrees(polyline, idx)) is not None
++    )
++    return sidewalk_ratio, fork_count, discomfort_count, discomfort_ratio, turn_angles
+ 
+ 
+ def _route_from_tmap_features(features: list[dict]) -> tuple[RouteModel, RouteInfo]:
+@@ -1275,6 +1364,7 @@ def _route_from_tmap_features(features: list[dict]) -> tuple[RouteModel, RouteIn
+     turn_points: list[TurnPoint] = []
+     turn_descriptions: dict[str, str] = {}
+     seen: set[int] = set()
++    kept_turn_indices: list[int] = []
+     tid = 0
+     for idx, direction, description in raw_turns:
+         if idx in seen or idx <= 0 or idx >= len(coords) - 1:
+@@ -1282,6 +1372,7 @@ def _route_from_tmap_features(features: list[dict]) -> tuple[RouteModel, RouteIn
+         if not is_significant_turn(coords, idx):
+             continue  # 완만한 커브 — 회전으로 안내하지 않는다
+         seen.add(idx)
++        kept_turn_indices.append(idx)
+         tid += 1
+         turn_id = f"turn-{tid}"
+         turn_points.append(TurnPoint(
+@@ -1293,17 +1384,31 @@ def _route_from_tmap_features(features: list[dict]) -> tuple[RouteModel, RouteIn
+         if description:
+             turn_descriptions[turn_id] = description
+ 
++    sidewalk_ratio, fork_count, discomfort_count, discomfort_ratio, turn_angles = (
++        _tmap_quality_from_features(features, coords, kept_turn_indices)
++    )
+     route = RouteModel(polyline=tuple(coords), turn_points=tuple(turn_points))
+     info = RouteInfo(
+         total_distance_meters=total_distance,
+         total_time_seconds=(total_time if total_time is not None
+                             else estimate_walking_seconds(total_distance)),
+         turn_descriptions=turn_descriptions,
++        sidewalk_ratio=sidewalk_ratio,
++        fork_count=fork_count,
++        discomfort_count=discomfort_count,
++        discomfort_ratio=discomfort_ratio,
++        turn_angles_degrees=turn_angles,
+     )
+     return route, info
+ 
+ 
+-def _fetch_walking_route_tmap(origin: Coordinate, dest: Coordinate, app_key: str) -> tuple[RouteModel, RouteInfo]:
++def _fetch_walking_route_tmap(
++    origin: Coordinate,
++    dest: Coordinate,
++    app_key: str,
++    *,
++    search_option: str = "0",
++) -> tuple[RouteModel, RouteInfo]:
+     """TMAP 보행자 경로 API(POST /tmap/routes/pedestrian)로 도보 경로를 가져옵니다."""
+     resp = requests.post(
+         _TMAP_PEDESTRIAN,
+@@ -1318,7 +1423,7 @@ def _fetch_walking_route_tmap(origin: Coordinate, dest: Coordinate, app_key: str
+             "endName": quote("도착", safe=""),
+             "reqCoordType": "WGS84GEO",
+             "resCoordType": "WGS84GEO",
+-            "searchOption": "0",  # 0=추천 경로
++            "searchOption": search_option,  # 0=추천 / 10=최단 / 30=편한길
+         },
+         timeout=_TIMEOUT,
+     )
+@@ -1366,6 +1471,7 @@ def _fetch_walking_route_valhalla(origin: Coordinate, dest: Coordinate) -> tuple
+ 
+     turn_points: list[TurnPoint] = []
+     seen: set[int] = set()
++    kept_turn_indices: list[int] = []
+     tid = 0
+ 
+     for maneuver in leg.get("maneuvers", []):
+@@ -1378,6 +1484,7 @@ def _fetch_walking_route_valhalla(origin: Coordinate, dest: Coordinate) -> tuple
+         if not is_significant_turn(polyline, idx):
+             continue  # slight_left/right 등 완만한 커브 — 회전으로 안내하지 않는다
+         seen.add(idx)
++        kept_turn_indices.append(idx)
+         direction = "right" if mtype in _TURN_RIGHT else "left"
+         tid += 1
+         turn_points.append(TurnPoint(
+@@ -1389,10 +1496,16 @@ def _fetch_walking_route_valhalla(origin: Coordinate, dest: Coordinate) -> tuple
+ 
+     summary = leg.get("summary", {})
+     dist_m = int(summary["length"] * 1000) if "length" in summary else None
++    turn_angles = tuple(
++        angle
++        for idx in kept_turn_indices
++        if (angle := _heading_change_degrees(polyline, idx)) is not None
++    )
+     info = RouteInfo(
+         total_distance_meters=dist_m,
+         total_time_seconds=(int(summary["time"]) if "time" in summary
+                             else estimate_walking_seconds(dist_m)),
++        turn_angles_degrees=turn_angles,
+     )
+     return RouteModel(polyline=tuple(polyline), turn_points=tuple(turn_points)), info
+ 
+@@ -1403,9 +1516,103 @@ _LABEL_TMAP = "TMAP 보행자 경로 (SK open API)"
+ _LABEL_VALHALLA = "Valhalla (OpenStreetMap 도보 전용)"
+ 
+ 
+-def fetch_walking_route_with_engine(origin: Coordinate, dest: Coordinate) -> tuple[RouteModel, str, RouteInfo]:
++def _polyline_fingerprint(route: RouteModel) -> tuple:
++    """같은 후보를 한 번만 점수화하기 위한 대략 지문(좌표 6자리)."""
++    if not route.polyline:
++        return ()
++    start = route.polyline[0]
++    end = route.polyline[-1]
++    return (
++        round(start.latitude, 6),
++        round(start.longitude, 6),
++        round(end.latitude, 6),
++        round(end.longitude, 6),
++        len(route.polyline),
++        len(route.turn_points),
++    )
++
++
++def _fetch_tmap_candidate_set(
++    origin: Coordinate,
++    dest: Coordinate,
++    app_key: str,
++) -> list[tuple[RouteModel, RouteInfo, str]]:
++    """모드와 무관한 한 후보 세트(추천/최단/편한길)를 병렬로 가져온다."""
++    found: list[tuple[RouteModel, RouteInfo, str]] = []
++
++    def _one(option: str) -> tuple[str, RouteModel, RouteInfo]:
++        route, info = _fetch_walking_route_tmap(
++            origin, dest, app_key, search_option=option,
++        )
++        return option, route, info
++
++    with ThreadPoolExecutor(max_workers=len(TMAP_CANDIDATE_SEARCH_OPTIONS)) as pool:
++        futures = [pool.submit(_one, option) for option in TMAP_CANDIDATE_SEARCH_OPTIONS]
++        for future in futures:
++            try:
++                option, route, info = future.result()
++            except Exception:
++                continue
++            found.append((route, info, option))
++
++    unique: list[tuple[RouteModel, RouteInfo, str]] = []
++    seen: set[tuple] = set()
++    for route, info, option in found:
++        key = _polyline_fingerprint(route)
++        if key in seen:
++            continue
++        seen.add(key)
++        unique.append((route, info, option))
++    return unique
++
++
++def _attach_score_debug(info: RouteInfo, payload: dict) -> RouteInfo:
++    return replace(info, score_debug=payload)
++
++
++def _score_and_pick(
++    candidates: list[tuple[RouteModel, RouteInfo]],
++    *,
++    user_heading_degrees: float | None,
++    route_mode: str | None,
++    engine_label: str,
++) -> tuple[RouteModel, str, RouteInfo] | None:
++    if not candidates:
++        return None
++    from route_score import (
++        DEFAULT_ROUTE_MODE,
++        rank_routes,
++        route_score_diag_payload,
++    )
++
++    mode = route_mode or DEFAULT_ROUTE_MODE
++    ranked = rank_routes(
++        [(route, info) for route, info in candidates],
++        user_heading_deg=user_heading_degrees,
++        mode=mode,
++    )
++    if not ranked:
++        return None
++    winner = ranked[0]
++    payload = route_score_diag_payload(
++        winner, ranked, user_heading_deg=user_heading_degrees,
++    )
++    info = winner.info if isinstance(winner.info, RouteInfo) else RouteInfo()
++    return winner.route, engine_label, _attach_score_debug(info, payload)
++
++
++def fetch_walking_route_with_engine(
++    origin: Coordinate,
++    dest: Coordinate,
++    *,
++    user_heading_degrees: float | None = None,
++    route_mode: str | None = None,
++) -> tuple[RouteModel, str, RouteInfo]:
+     """도보 경로를 가져옵니다. TMAP 앱키가 있으면 TMAP, 없거나 실패하면 Valhalla.
+ 
++    user_heading_degrees 가 있으면 TMAP 후보 세트(추천/최단/편한길)를 같은 5지표로
++    점수화해 고른다. 없으면 기존처럼 searchOption=0 한 경로만 쓴다.
++
+     Returns:
+         (RouteModel, 사용한 엔진 설명, RouteInfo) — 호출자가 경로와 함께 세션별로
+         보관해 캡션·총거리/ETA·회전 안내문이 항상 해당 경로를 가리키도록 합니다.
+@@ -1417,11 +1624,30 @@ def fetch_walking_route_with_engine(origin: Coordinate, dest: Coordinate) -> tup
+     app_key = _tmap_app_key()
+     if app_key:
+         try:
++            if user_heading_degrees is not None:
++                bundle = _fetch_tmap_candidate_set(origin, dest, app_key)
++                picked = _score_and_pick(
++                    [(route, info) for route, info, _option in bundle],
++                    user_heading_degrees=user_heading_degrees,
++                    route_mode=route_mode,
++                    engine_label=_LABEL_TMAP,
++                )
++                if picked is not None:
++                    return picked
+             route, info = _fetch_walking_route_tmap(origin, dest, app_key)
+             return route, _LABEL_TMAP, info
+         except Exception as exc:  # TMAP 한도 초과/경로 없음 등 — Valhalla로 자동 대체
+             tmap_error = str(exc)
+     route, info = _fetch_walking_route_valhalla(origin, dest)
++    if user_heading_degrees is not None:
++        scored = _score_and_pick(
++            [(route, info)],
++            user_heading_degrees=user_heading_degrees,
++            route_mode=route_mode,
++            engine_label=_LABEL_VALHALLA,
++        )
++        if scored is not None:
++            route, _label, info = scored
+     if tmap_error:
+         return route, f"Valhalla (TMAP 호출 실패로 대체 — {tmap_error})", info
+     return route, _LABEL_VALHALLA, info
+diff --git a/streamlit_walk_engine/route_score.py b/streamlit_walk_engine/route_score.py
+new file mode 100644
+index 0000000..55ca5dc
+--- /dev/null
++++ b/streamlit_walk_engine/route_score.py
+@@ -0,0 +1,451 @@
++"""K-Navi 경로추천 점수 — 8/28 확정 5지표 + 모드별 가중치.
++
++기존 추천은 TMAP searchOption=0(추천) 단일 경로를 그대로 썼고, 후보는 점수화하지
++않았다. 이 모듈은 그 흐름을 새 알고리즘으로 바꾸지 않고, 같은 후보 세트에 아래
++5지표를 가중 합산한다. 모드(빠른길/편한길/안전한길)는 가중치만 바꾼다.
++
++사용자 대면 지표 (8/28 확정):
++  1) 총 이동거리 — origin→dest 전체 경로 길이
++  2) 방향 바꿈 횟수 및 각도 — (a) 사용자 heading vs 첫 진행방향,
++     (b) 경로상 회전 횟수, (c) 각 회전 각도. (a)는 이 지표의 하위 변수.
++  3) 총 갈림길 개수
++  4) 보도 비율
++  5) 보행 불편요소 수 및 비율 — 계단·급경사·육교·지하도 등.
++     차량 노출·위험 횡단은 넣지 않는다(향후 안전 변수).
++
++점수는 낮을수록 좋다(비용). 임계·가중치는 아래 named config 만 조정한다.
++"""
++
++from __future__ import annotations
++
++from dataclasses import dataclass, field
++from typing import Mapping, Sequence
++
++from engine import Coordinate, RouteModel, angular_difference, bearing_degrees, distance_meters
++
++# ── 모드 이름 (UI 라벨과 동일) ───────────────────────────────────────────────
++ROUTE_MODE_FAST = "빠른길"
++ROUTE_MODE_EASY = "편한길"
++ROUTE_MODE_SAFE = "안전한길"
++ROUTE_MODES = (ROUTE_MODE_FAST, ROUTE_MODE_EASY, ROUTE_MODE_SAFE)
++DEFAULT_ROUTE_MODE = ROUTE_MODE_EASY
++
++# 첫 진행방향을 잴 때 이보다 짧은 선분은 중복점·지터로 보고 건너뛴다.
++MIN_INITIAL_SEGMENT_METERS = 4.0
++
++# 회전으로 보는 최소 꺾임(°). route_builder.MIN_TURN_HEADING_CHANGE_DEGREES 와 맞춘다.
++MIN_TURN_HEADING_CHANGE_DEGREES = 30.0
++_TURN_HEADING_SPAN_METERS = 15.0
++
++# 상대 정규화 실패(단일 후보) 때 쓰는 참조 스케일 — 현장 튜닝용.
++DISTANCE_REF_METERS = 1000.0
++TURN_COUNT_REF = 8.0
++TURN_ANGLE_SUM_REF_DEGREES = 360.0
++FORK_COUNT_REF = 8.0
++DISCOMFORT_COUNT_REF = 6.0
++
++
++@dataclass(frozen=True)
++class HeadingPenaltyBand:
++    """heading_difference(0–180°) 구간 → 패널티(0–1). 현장 시험 후 여기만 조정."""
++    upper_degrees: float
++    penalty: float
++    name: str
++
++
++# 0°에 가까울수록 이득, 180°는 강한 패널티. 루프에 매직넘버를 넣지 않는다.
++HEADING_DIFF_PENALTY_BANDS: tuple[HeadingPenaltyBand, ...] = (
++    HeadingPenaltyBand(30.0, 0.05, "almost_none"),
++    HeadingPenaltyBand(60.0, 0.20, "weak"),
++    HeadingPenaltyBand(120.0, 0.50, "medium"),
++    HeadingPenaltyBand(150.0, 0.80, "large"),
++    HeadingPenaltyBand(180.0, 1.00, "strong"),
++)
++
++# 지표 2 내부 비중 — (a) 초기 방향차, (b) 회전 횟수, (c) 회전 각도 합.
++DIRECTION_CHANGE_PART_WEIGHTS = {
++    "initial_heading": 0.50,
++    "turn_count": 0.25,
++    "turn_angle": 0.25,
++}
++
++
++@dataclass(frozen=True)
++class ModeWeights:
++    """5지표 가중치. 후보는 모드와 무관하게 같고, 가중치만 다르다."""
++    distance: float          # 1) 총 이동거리
++    direction_change: float  # 2) 방향 바꿈 횟수 및 각도 (초기 heading 포함)
++    fork: float              # 3) 총 갈림길 개수
++    sidewalk: float          # 4) 보도 비율 (낮을수록 비용↑)
++    discomfort: float        # 5) 보행 불편요소 수 및 비율
++    # 향후 안전 변수(차량 노출 등)는 여기 필드를 추가해 안전한길에만 올리면 된다.
++
++
++MODE_WEIGHTS: dict[str, ModeWeights] = {
++    ROUTE_MODE_FAST: ModeWeights(
++        distance=1.00, direction_change=0.10, fork=0.10, sidewalk=0.08, discomfort=0.15,
++    ),
++    ROUTE_MODE_EASY: ModeWeights(
++        distance=0.50, direction_change=1.00, fork=0.70, sidewalk=0.20, discomfort=0.85,
++    ),
++    ROUTE_MODE_SAFE: ModeWeights(
++        distance=0.40, direction_change=0.30, fork=0.25, sidewalk=1.00, discomfort=0.35,
++    ),
++}
++
++
++@dataclass(frozen=True)
++class RouteQuality:
++    """TMAP 등 기존 응답에서 뽑은 품질 값. 없으면 None/0 — 신규 수집 없음."""
++    sidewalk_ratio: float | None = None
++    fork_count: int = 0
++    discomfort_count: int = 0
++    discomfort_ratio: float | None = None
++    turn_angles_degrees: tuple[float, ...] = ()
++
++
++@dataclass(frozen=True)
++class RouteMetrics:
++    """5지표 + 지표 2 하위 변수."""
++    total_distance_meters: float
++    initial_heading_diff_deg: float | None
++    initial_route_bearing_deg: float | None
++    turn_count: int
++    turn_angles_degrees: tuple[float, ...]
++    fork_count: int
++    sidewalk_ratio: float | None
++    discomfort_count: int
++    discomfort_ratio: float | None
++
++
++@dataclass(frozen=True)
++class ScoredRoute:
++    """후보 1개의 점수. cost 가 낮을수록 추천."""
++    route: RouteModel
++    info: object
++    metrics: RouteMetrics
++    mode: str
++    cost: float
++    turn_related_score: float
++    heading_penalty: float
++    diag: dict = field(default_factory=dict)
++
++
++def heading_difference_degrees(user_heading_deg: float, route_bearing_deg: float) -> float:
++    """사용자 heading 과 경로 첫 진행방향의 최소각. 범위 0–180°, 0/360 래핑.
++
++    예: 사용자 350° vs 경로 10° → 20° (340°가 아님).
++    """
++    return angular_difference(user_heading_deg, route_bearing_deg)
++
++
++def initial_route_bearing_degrees(
++    polyline: Sequence[Coordinate],
++    *,
++    min_segment_meters: float = MIN_INITIAL_SEGMENT_METERS,
++) -> float | None:
++    """후보 polyline 의 첫 유효 선분 방위(진북 시계방향). 짧은 선분은 건너뛴다."""
++    if len(polyline) < 2:
++        return None
++    fallback: float | None = None
++    for i in range(len(polyline) - 1):
++        start, end = polyline[i], polyline[i + 1]
++        length = distance_meters(start, end)
++        if length <= 0.0:
++            continue
++        bearing = bearing_degrees(start, end)
++        if fallback is None:
++            fallback = bearing
++        if length >= min_segment_meters:
++            return bearing
++    return fallback
++
++
++def heading_diff_penalty(
++    diff_deg: float | None,
++    bands: Sequence[HeadingPenaltyBand] = HEADING_DIFF_PENALTY_BANDS,
++) -> float:
++    """방향차(°) → 0–1 패널티. 구간 안은 선형 보간. heading 없으면 0(중립)."""
++    if diff_deg is None:
++        return 0.0
++    diff = max(0.0, min(180.0, float(diff_deg)))
++    lower = 0.0
++    prev_penalty = 0.0
++    for band in bands:
++        if diff <= band.upper_degrees:
++            span = band.upper_degrees - lower
++            t = 0.0 if span <= 0 else (diff - lower) / span
++            return prev_penalty + t * (band.penalty - prev_penalty)
++        prev_penalty = band.penalty
++        lower = band.upper_degrees
++    return bands[-1].penalty if bands else 1.0
++
++
++def _heading_change_at(polyline: Sequence[Coordinate], index: int) -> float | None:
++    if index <= 0 or index >= len(polyline) - 1:
++        return None
++    before = 0
++    span = 0.0
++    for i in range(index, 0, -1):
++        span += distance_meters(polyline[i - 1], polyline[i])
++        before = i - 1
++        if span >= _TURN_HEADING_SPAN_METERS:
++            break
++    after = len(polyline) - 1
++    span = 0.0
++    for i in range(index, len(polyline) - 1):
++        span += distance_meters(polyline[i], polyline[i + 1])
++        after = i + 1
++        if span >= _TURN_HEADING_SPAN_METERS:
++            break
++    if polyline[before] == polyline[index] or polyline[index] == polyline[after]:
++        return None
++    return angular_difference(
++        bearing_degrees(polyline[before], polyline[index]),
++        bearing_degrees(polyline[index], polyline[after]),
++    )
++
++
++def turn_angles_along_route(polyline: Sequence[Coordinate]) -> tuple[float, ...]:
++    """경로상 유의미한 회전 각도 목록(지표 2-b/c)."""
++    angles: list[float] = []
++    for index in range(1, len(polyline) - 1):
++        change = _heading_change_at(polyline, index)
++        if change is not None and change >= MIN_TURN_HEADING_CHANGE_DEGREES:
++            angles.append(change)
++    return tuple(angles)
++
++
++def polyline_length_meters(polyline: Sequence[Coordinate]) -> float:
++    total = 0.0
++    for i in range(len(polyline) - 1):
++        total += distance_meters(polyline[i], polyline[i + 1])
++    return total
++
++
++def extract_route_metrics(
++    route: RouteModel,
++    *,
++    user_heading_deg: float | None = None,
++    total_distance_meters: float | None = None,
++    quality: RouteQuality | None = None,
++) -> RouteMetrics:
++    """RouteModel(+기존 부가정보)에서 5지표를 읽는다."""
++    quality = quality or RouteQuality()
++    distance = (
++        float(total_distance_meters)
++        if total_distance_meters is not None and total_distance_meters > 0
++        else polyline_length_meters(route.polyline)
++    )
++    bearing = initial_route_bearing_degrees(route.polyline)
++    heading_diff: float | None = None
++    if user_heading_deg is not None and bearing is not None:
++        heading_diff = heading_difference_degrees(user_heading_deg, bearing)
++    angles = quality.turn_angles_degrees or turn_angles_along_route(route.polyline)
++    turn_count = len(route.turn_points) if route.turn_points else len(angles)
++    return RouteMetrics(
++        total_distance_meters=distance,
++        initial_heading_diff_deg=heading_diff,
++        initial_route_bearing_deg=bearing,
++        turn_count=turn_count,
++        turn_angles_degrees=angles,
++        fork_count=quality.fork_count,
++        sidewalk_ratio=quality.sidewalk_ratio,
++        discomfort_count=quality.discomfort_count,
++        discomfort_ratio=quality.discomfort_ratio,
++    )
++
++
++def _clamp01(value: float) -> float:
++    return 0.0 if value < 0.0 else 1.0 if value > 1.0 else value
++
++
++def _norm(value: float, ref: float) -> float:
++    if ref <= 0:
++        return 0.0
++    return _clamp01(value / ref)
++
++
++def turn_related_score(metrics: RouteMetrics, heading_penalty: float) -> float:
++    """지표 2 비용: 초기 방향차 + 회전 횟수 + 회전 각도."""
++    parts = DIRECTION_CHANGE_PART_WEIGHTS
++    turn_count_cost = _norm(float(metrics.turn_count), TURN_COUNT_REF)
++    angle_sum = sum(metrics.turn_angles_degrees)
++    turn_angle_cost = _norm(angle_sum, TURN_ANGLE_SUM_REF_DEGREES)
++    return (
++        parts["initial_heading"] * heading_penalty
++        + parts["turn_count"] * turn_count_cost
++        + parts["turn_angle"] * turn_angle_cost
++    )
++
++
++def _sidewalk_cost(ratio: float | None) -> float:
++    """보도 비율이 높을수록 비용↓. 값 없으면 중립(0) — 가짜 안전점수를 만들지 않는다."""
++    if ratio is None:
++        return 0.0
++    return _clamp01(1.0 - float(ratio))
++
++
++def _discomfort_cost(metrics: RouteMetrics) -> float:
++    count_cost = _norm(float(metrics.discomfort_count), DISCOMFORT_COUNT_REF)
++    ratio_cost = _clamp01(float(metrics.discomfort_ratio or 0.0))
++    return max(count_cost, ratio_cost)
++
++
++def route_cost(
++    metrics: RouteMetrics,
++    *,
++    mode: str = DEFAULT_ROUTE_MODE,
++    distance_ref_meters: float | None = None,
++    weights: Mapping[str, ModeWeights] | None = None,
++) -> tuple[float, float, float]:
++    """(최종 비용, 방향바꿈 점수, heading 패널티). 낮을수록 추천."""
++    table = weights or MODE_WEIGHTS
++    w = table.get(mode, table[DEFAULT_ROUTE_MODE])
++    dist_ref = distance_ref_meters if distance_ref_meters and distance_ref_meters > 0 else DISTANCE_REF_METERS
++    dist_cost = _norm(metrics.total_distance_meters, dist_ref)
++    h_pen = heading_diff_penalty(metrics.initial_heading_diff_deg)
++    turn_score = turn_related_score(metrics, h_pen)
++    fork_cost = _norm(float(metrics.fork_count), FORK_COUNT_REF)
++    sidewalk_cost = _sidewalk_cost(metrics.sidewalk_ratio)
++    discomfort = _discomfort_cost(metrics)
++    total = (
++        w.distance * dist_cost
++        + w.direction_change * turn_score
++        + w.fork * fork_cost
++        + w.sidewalk * sidewalk_cost
++        + w.discomfort * discomfort
++    )
++    return total, turn_score, h_pen
++
++
++def quality_from_route_info(info: object | None) -> RouteQuality:
++    """RouteInfo 에 붙은 품질 필드를 읽는다. 없으면 기본값."""
++    if info is None:
++        return RouteQuality()
++    angles = getattr(info, "turn_angles_degrees", ()) or ()
++    return RouteQuality(
++        sidewalk_ratio=getattr(info, "sidewalk_ratio", None),
++        fork_count=int(getattr(info, "fork_count", 0) or 0),
++        discomfort_count=int(getattr(info, "discomfort_count", 0) or 0),
++        discomfort_ratio=getattr(info, "discomfort_ratio", None),
++        turn_angles_degrees=tuple(float(a) for a in angles),
++    )
++
++
++def score_candidate(
++    route: RouteModel,
++    info: object | None = None,
++    *,
++    user_heading_deg: float | None = None,
++    mode: str = DEFAULT_ROUTE_MODE,
++    distance_ref_meters: float | None = None,
++    candidate_id: str | None = None,
++) -> ScoredRoute:
++    """후보 1개를 점수화하고 진단 필드를 붙인다."""
++    total_distance = getattr(info, "total_distance_meters", None) if info is not None else None
++    metrics = extract_route_metrics(
++        route,
++        user_heading_deg=user_heading_deg,
++        total_distance_meters=float(total_distance) if total_distance else None,
++        quality=quality_from_route_info(info),
++    )
++    cost, turn_score, h_pen = route_cost(
++        metrics, mode=mode, distance_ref_meters=distance_ref_meters,
++    )
++    diag = {
++        "mode": mode,
++        "user_heading_deg": None if user_heading_deg is None else round(float(user_heading_deg), 1),
++        "initial_route_bearing_deg": (
++            None if metrics.initial_route_bearing_deg is None
++            else round(metrics.initial_route_bearing_deg, 1)
++        ),
++        "initial_heading_diff_deg": (
++            None if metrics.initial_heading_diff_deg is None
++            else round(metrics.initial_heading_diff_deg, 1)
++        ),
++        "total_distance_m": round(metrics.total_distance_meters, 1),
++        "turn_related_score": round(turn_score, 4),
++        "final_route_score": round(cost, 4),
++        "turn_count": metrics.turn_count,
++        "fork_count": metrics.fork_count,
++        "sidewalk_ratio": metrics.sidewalk_ratio,
++        "discomfort_count": metrics.discomfort_count,
++    }
++    if candidate_id is not None:
++        diag["candidate_id"] = candidate_id
++    return ScoredRoute(
++        route=route,
++        info=info,
++        metrics=metrics,
++        mode=mode,
++        cost=cost,
++        turn_related_score=turn_score,
++        heading_penalty=h_pen,
++        diag=diag,
++    )
++
++
++def rank_routes(
++    candidates: Sequence[tuple[RouteModel, object | None]],
++    *,
++    user_heading_deg: float | None,
++    mode: str = DEFAULT_ROUTE_MODE,
++) -> list[ScoredRoute]:
++    """같은 후보 세트를 모드 가중치로 점수화해 비용 오름차순으로 반환한다."""
++    if not candidates:
++        return []
++    distances = []
++    for route, info in candidates:
++        listed = getattr(info, "total_distance_meters", None) if info is not None else None
++        distances.append(
++            float(listed) if listed and listed > 0 else polyline_length_meters(route.polyline)
++        )
++    dist_ref = max(distances) if distances else DISTANCE_REF_METERS
++    scored = [
++        score_candidate(
++            route,
++            info,
++            user_heading_deg=user_heading_deg,
++            mode=mode,
++            distance_ref_meters=dist_ref,
++            candidate_id=str(i),
++        )
++        for i, (route, info) in enumerate(candidates)
++    ]
++    scored.sort(key=lambda item: item.cost)
++    return scored
++
++
++def select_best_route(
++    candidates: Sequence[tuple[RouteModel, object | None]],
++    *,
++    user_heading_deg: float | None,
++    mode: str = DEFAULT_ROUTE_MODE,
++) -> ScoredRoute | None:
++    ranked = rank_routes(candidates, user_heading_deg=user_heading_deg, mode=mode)
++    return ranked[0] if ranked else None
++
++
++def route_score_diag_payload(
++    winner: ScoredRoute,
++    ranked: Sequence[ScoredRoute] | None = None,
++    *,
++    user_heading_deg: float | None = None,
++) -> dict:
++    """walk_diag 에 넣을 필드. 좌표·목적지는 넣지 않는다."""
++    payload = dict(winner.diag)
++    if user_heading_deg is not None:
++        payload["user_heading_deg"] = round(float(user_heading_deg), 1)
++    if ranked:
++        payload["candidates"] = [
++            {
++                "id": item.diag.get("candidate_id"),
++                "total_distance_m": item.diag.get("total_distance_m"),
++                "initial_heading_diff_deg": item.diag.get("initial_heading_diff_deg"),
++                "turn_related_score": item.diag.get("turn_related_score"),
++                "final_route_score": item.diag.get("final_route_score"),
++            }
++            for item in ranked
++        ]
++    return payload
+diff --git a/streamlit_walk_engine/tests/test_kakao_roadview.py b/streamlit_walk_engine/tests/test_kakao_roadview.py
+new file mode 100644
+index 0000000..a1d7263
+--- /dev/null
++++ b/streamlit_walk_engine/tests/test_kakao_roadview.py
+@@ -0,0 +1,81 @@
++"""Kakao 로드뷰 — JavaScript 키 로더와 컴포넌트 계약 테스트.
++
++실제 키·네트워크 호출 없이, REST/Admin 키 폴백 금지와 프런트 계약을 고정한다.
++"""
++from __future__ import annotations
++
++import os
++import sys
++from pathlib import Path
++
++sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
++
++import kakao_js_key as kjk  # noqa: E402
++import route_builder  # noqa: E402
++
++ROOT = Path(__file__).resolve().parents[1]
++PAGE = ROOT / "pages" / "1_Navigation.py"
++HTML = ROOT / "components" / "kakao_roadview" / "index.html"
++COMP = ROOT / "kakao_roadview_component.py"
++
++
++def _isolate_sources(monkeypatch) -> None:
++    kjk.reset_cache()
++    monkeypatch.delenv("KAKAO_JAVASCRIPT_KEY", raising=False)
++    monkeypatch.setattr(kjk, "_from_secrets", lambda: "")
++    monkeypatch.setattr(kjk, "_from_shared", lambda: "")
++
++
++def test_env_javascript_key(monkeypatch):
++    _isolate_sources(monkeypatch)
++    monkeypatch.setenv("KAKAO_JAVASCRIPT_KEY", "js-test-key")
++    kjk.reset_cache()
++    assert kjk.kakao_javascript_key() == "js-test-key"
++    assert kjk.enabled() is True
++
++
++def test_missing_key_is_disabled(monkeypatch):
++    _isolate_sources(monkeypatch)
++    kjk.reset_cache()
++    assert kjk.kakao_javascript_key() is None
++    assert kjk.enabled() is False
++
++
++def test_does_not_fall_back_to_rest_or_admin(monkeypatch):
++    _isolate_sources(monkeypatch)
++    monkeypatch.setenv("KAKAO_REST_API_KEY", "rest-should-not-be-used")
++    monkeypatch.setenv("KAKAO_ADMIN_KEY", "admin-should-not-be-used")
++    kjk.reset_cache()
++    assert kjk.kakao_javascript_key() is None
++
++
++def test_javascript_key_typo_is_flagged():
++    hints = route_builder.misnamed_key_hints({"KAKAO_JAVASCRIPT_KEY_ID"})
++    assert any("KAKAO_JAVASCRIPT_KEY" in h for h in hints)
++
++
++def test_component_declared_outside_navigation_page():
++    page = PAGE.read_text(encoding="utf-8")
++    mod = COMP.read_text(encoding="utf-8")
++    assert "from kakao_roadview_component import kakao_roadview" in page
++    assert 'components.declare_component("walk_kakao_roadview"' in mod
++    assert "declare_component(" not in page
++    assert 'key="nav_roadview"' in page
++    assert 'options=["지도", "로드뷰"]' in page
++    assert "def _roadview_latlng(" in page
++    assert "KAKAO_JAVASCRIPT_KEY" in page
++
++
++def test_roadview_html_contract():
++    html = HTML.read_text(encoding="utf-8")
++    assert "streamlit:componentReady" in html
++    assert "streamlit:render" in html
++    assert "streamlit:setFrameHeight" in html
++    assert "kakao.maps.Roadview" in html
++    assert "getNearestPanoId" in html
++    assert "autoload=false" in html
++    assert "dapi.kakao.com/v2/maps/sdk.js" in html
++    assert "KAKAO_ADMIN" not in html
++    assert "KAKAO_REST" not in html
++    assert "args.appkey" in html
++    assert "new kakao.maps.LatLng(a.lat, a.lng)" in html
+diff --git a/streamlit_walk_engine/tests/test_navigation_smoke.py b/streamlit_walk_engine/tests/test_navigation_smoke.py
+index 698c6f7..757f699 100644
+--- a/streamlit_walk_engine/tests/test_navigation_smoke.py
++++ b/streamlit_walk_engine/tests/test_navigation_smoke.py
+@@ -161,6 +161,17 @@ def test_maplibre_smooth_headingup_component():
+     assert '["Noto Sans Regular"]' in html          # 한글 라벨 글리프 지정
+ 
+ 
++def test_kakao_roadview_toggle_during_navigation():
++    """안내 중 로드뷰: JavaScript 키가 있을 때만 지도/로드뷰 전환. 선언은 별도 모듈."""
++    source = PAGE.read_text(encoding="utf-8")
++    assert "from kakao_roadview_component import kakao_roadview" in source
++    assert "from kakao_js_key import kakao_javascript_key" in source
++    assert 'options=["지도", "로드뷰"]' in source
++    assert 'key="nav_roadview"' in source
++    assert "KAKAO_JAVASCRIPT_KEY" in source
++    assert "declare_component(" not in source
++
++
+ def test_headingup_pydeck_map_when_running():
+     """안내 중 지도 = pydeck 헤딩업(진행 방향이 위) + 사용자 핀치줌 유지.
+     핵심 계약: Streamlit 1.38+ 는 initial_view_state 를 '바뀐 키만' merge 하므로
+@@ -510,6 +521,10 @@ def test_reroute_fetch_decoupled_from_interruptible_run():
+     worker = source.index("def _work()")
+     worker_block = source[worker:worker + 700]
+     assert "st.session_state" not in worker_block
++    # 경로추천 점수 — 사용자 heading 을 fetch 에 넘긴다(워커는 캡처값만 사용).
++    assert "def _user_heading_for_routing(" in source
++    assert "user_heading_degrees=heading" in source
++    assert "user_heading_degrees=heading" in worker_block
+ 
+ 
+ def test_transit_toggle_does_not_use_session_key_as_widget_key():
+diff --git a/streamlit_walk_engine/tests/test_route_builder.py b/streamlit_walk_engine/tests/test_route_builder.py
+index 081f2a0..0fa804b 100644
+--- a/streamlit_walk_engine/tests/test_route_builder.py
++++ b/streamlit_walk_engine/tests/test_route_builder.py
+@@ -277,6 +277,21 @@ class TestRouteInfoExtraction:
+         assert info.total_distance_meters == 435
+         assert info.total_time_seconds == 392     # 435m ÷ (4km/h≈1.111m/s) ≈ 392초 ≈ 약 7분
+ 
++    def test_quality_fields_from_existing_tmap_properties(self):
++        """보도·갈림길·불편요소는 TMAP 기존 필드만 사용한다(차량 노출은 포함하지 않음)."""
++        _, info = _route_from_tmap_features([
++            _point(200, *A, totalDistance=200),
++            {**_line(A, B), "properties": {"distance": 80, "description": "보행자도로", "facilityType": 0}},
++            _point(11, *B, intersectionName="시청교차로"),
++            {**_line(B, C), "properties": {"distance": 40, "facilityType": 11}},  # 계단
++            _point(12, *C),
++            _line(C, D, E),
++        ])
++        assert info.fork_count >= 1
++        assert info.discomfort_count == 1
++        assert info.sidewalk_ratio is not None and info.sidewalk_ratio > 0
++        assert info.turn_angles_degrees  # C 는 실제 꺾임
++
+ 
+ class TestEstimateWalkingSeconds:
+     """도보 시간 추정 — 시속 4km(분당 약 67m, 사용자 지정 실사용 기준)."""
+@@ -362,6 +377,58 @@ class TestFetchWalkingRouteDispatch:
+         origin, dest = expected.polyline
+         assert route_builder.fetch_walking_route(origin, dest) is expected
+ 
++    def test_without_heading_still_single_tmap_call(self, monkeypatch):
++        expected = self._dummy_route()
++        calls = []
++
++        def _once(origin, dest, key, *, search_option="0"):
++            calls.append(search_option)
++            return expected, RouteInfo(total_distance_meters=100)
++
++        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: "test-key")
++        monkeypatch.setattr(route_builder, "_fetch_walking_route_tmap", _once)
++        origin, dest = expected.polyline
++        route, label, info = route_builder.fetch_walking_route_with_engine(origin, dest)
++        assert route is expected
++        assert calls == ["0"]
++        assert info.score_debug is None
++
++    def test_heading_ranks_tmap_candidate_set(self, monkeypatch):
++        east = RouteModel(
++            polyline=(
++                Coordinate(latitude=A[1], longitude=A[0]),
++                Coordinate(latitude=A[1], longitude=A[0] + 0.005),  # ~동, ~440m
++            ),
++            turn_points=(),
++        )
++        west = RouteModel(
++            polyline=(
++                Coordinate(latitude=A[1], longitude=A[0]),
++                Coordinate(latitude=A[1], longitude=A[0] - 0.0045),  # ~서, ~400m
++            ),
++            turn_points=(),
++        )
++        by_opt = {
++            "0": (east, RouteInfo(total_distance_meters=440)),
++            "10": (west, RouteInfo(total_distance_meters=400)),
++            "30": (east, RouteInfo(total_distance_meters=440)),
++        }
++
++        def _by_option(origin, dest, key, *, search_option="0"):
++            return by_opt[search_option]
++
++        monkeypatch.setattr(route_builder, "_tmap_app_key", lambda: "test-key")
++        monkeypatch.setattr(route_builder, "_fetch_walking_route_tmap", _by_option)
++        origin, dest = east.polyline[0], east.polyline[-1]
++        route, _label, info = route_builder.fetch_walking_route_with_engine(
++            origin, dest, user_heading_degrees=90.0, route_mode="편한길",
++        )
++        assert route is east
++        assert info.score_debug is not None
++        assert info.score_debug["user_heading_deg"] == 90.0
++        assert "initial_heading_diff_deg" in info.score_debug
++        assert "candidates" in info.score_debug
++
+ 
+ class TestRouteEngineLabel:
+     def test_label_with_key(self, monkeypatch):
+diff --git a/streamlit_walk_engine/tests/test_route_score.py b/streamlit_walk_engine/tests/test_route_score.py
+new file mode 100644
+index 0000000..6cab39f
+--- /dev/null
++++ b/streamlit_walk_engine/tests/test_route_score.py
+@@ -0,0 +1,150 @@
++"""route_score — 경로추천 5지표·방향차·모드 가중치 단위 테스트."""
++
++from __future__ import annotations
++
++import os
++import sys
++
++import pytest
++
++sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
++
++from engine import (
++    Coordinate,
++    LocalPoint,
++    RouteModel,
++    TurnPoint,
++    angular_difference,
++    project_from_local_meters,
++)
++from route_score import (
++    DEFAULT_ROUTE_MODE,
++    ROUTE_MODE_EASY,
++    ROUTE_MODE_FAST,
++    extract_route_metrics,
++    heading_diff_penalty,
++    heading_difference_degrees,
++    initial_route_bearing_degrees,
++    rank_routes,
++    route_score_diag_payload,
++    score_candidate,
++    select_best_route,
++)
++
++ORIGIN = Coordinate(latitude=37.5665, longitude=126.978)
++
++
++def _at(east: float, north: float) -> Coordinate:
++    return project_from_local_meters(ORIGIN, LocalPoint(east_meters=east, north_meters=north))
++
++
++def _route(*points: Coordinate, turns: tuple[int, ...] = ()) -> RouteModel:
++    turn_points = tuple(
++        TurnPoint(
++            id=f"turn-{i}",
++            coordinate=points[idx],
++            route_index=idx,
++            direction="left",
++        )
++        for i, idx in enumerate(turns, start=1)
++    )
++    return RouteModel(polyline=tuple(points), turn_points=turn_points)
++
++
++class DummyInfo:
++    def __init__(self, total_distance_meters: float, **extra):
++        self.total_distance_meters = total_distance_meters
++        for key, value in extra.items():
++            setattr(self, key, value)
++
++
++class TestHeadingDifferenceWrap:
++    def test_350_vs_10_is_20_not_340(self):
++        assert heading_difference_degrees(350, 10) == pytest.approx(20)
++
++    def test_10_vs_350_is_20(self):
++        assert heading_difference_degrees(10, 350) == pytest.approx(20)
++
++    def test_range_is_0_to_180(self):
++        assert heading_difference_degrees(0, 0) == pytest.approx(0)
++        assert heading_difference_degrees(0, 180) == pytest.approx(180)
++        assert heading_difference_degrees(90, 270) == pytest.approx(180)
++        assert 0 <= heading_difference_degrees(1, 359) <= 180
++
++    def test_0_is_better_than_180(self):
++        assert heading_diff_penalty(0) < heading_diff_penalty(180)
++
++    def test_180_is_stronger_than_15(self):
++        assert heading_diff_penalty(180) > heading_diff_penalty(15) * 10
++
++
++class TestInitialBearing:
++    def test_first_valid_east_segment(self):
++        route = (_at(0, 0), _at(40, 0), _at(40, 40))
++        assert initial_route_bearing_degrees(route) == pytest.approx(90, abs=1)
++
++    def test_skips_duplicate_then_tiny_jitter(self):
++        start = _at(0, 0)
++        jitter = _at(0.5, 0)  # ~0.5m — MIN_INITIAL_SEGMENT_METERS(4m) 미만
++        ahead = _at(0, 40)    # 북쪽
++        bearing = initial_route_bearing_degrees((start, start, jitter, ahead))
++        assert angular_difference(bearing, 0) < 2
++
++    def test_empty_or_single_is_none(self):
++        assert initial_route_bearing_degrees(()) is None
++        assert initial_route_bearing_degrees((_at(0, 0),)) is None
++
++
++class TestRankingExampleAvsB:
++    """A 520m/15° 가 B 490m/175° 를 편한길에서 이길 수 있다(항상 짧은 길을 고르지 않음)."""
++
++    def _ab(self):
++        # A: 동쪽으로 520m (첫 진행 90°)
++        route_a = _route(_at(0, 0), _at(520, 0))
++        # B: 서쪽으로 490m (첫 진행 270°)
++        route_b = _route(_at(0, 0), _at(-490, 0))
++        info_a = DummyInfo(520)
++        info_b = DummyInfo(490)
++        return [(route_a, info_a), (route_b, info_b)]
++
++    def test_easy_mode_prefers_aligned_longer_path(self):
++        ranked = rank_routes(self._ab(), user_heading_deg=75.0, mode=ROUTE_MODE_EASY)
++        # 사용자 75° vs A 90° → 15°, vs B 270° → 165°
++        assert ranked[0].metrics.total_distance_meters == pytest.approx(520)
++        assert ranked[0].metrics.initial_heading_diff_deg == pytest.approx(15, abs=1)
++        assert ranked[1].metrics.initial_heading_diff_deg == pytest.approx(165, abs=2)
++
++    def test_fast_mode_prefers_shorter_path(self):
++        ranked = rank_routes(self._ab(), user_heading_deg=75.0, mode=ROUTE_MODE_FAST)
++        assert ranked[0].metrics.total_distance_meters == pytest.approx(490)
++
++    def test_does_not_hard_exclude_near_180(self):
++        winner = select_best_route(self._ab(), user_heading_deg=75.0, mode=ROUTE_MODE_FAST)
++        assert winner is not None
++        # 빠른길은 짧은 B를 고르지만, B는 탈락이 아니라 점수 비교의 승자.
++        assert winner.metrics.initial_heading_diff_deg == pytest.approx(165, abs=2)
++        assert winner.cost < 10  # 무한대/제외 플래그가 아님
++
++
++class TestMetricsAndDiag:
++    def test_extracts_five_metric_fields(self):
++        route = _route(_at(0, 0), _at(80, 0), _at(80, 80), turns=(1,))
++        metrics = extract_route_metrics(route, user_heading_deg=90.0, total_distance_meters=160)
++        assert metrics.total_distance_meters == pytest.approx(160)
++        assert metrics.initial_heading_diff_deg == pytest.approx(0, abs=2)
++        assert metrics.turn_count == 1
++        assert metrics.fork_count == 0
++        assert metrics.sidewalk_ratio is None
++        assert metrics.discomfort_count == 0
++
++    def test_diag_fields_include_heading_and_scores(self):
++        route = _route(_at(0, 0), _at(100, 0))
++        scored = score_candidate(route, DummyInfo(100), user_heading_deg=90.0, mode=DEFAULT_ROUTE_MODE)
++        payload = route_score_diag_payload(scored, [scored], user_heading_deg=90.0)
++        assert payload["user_heading_deg"] == pytest.approx(90.0)
++        assert payload["initial_route_bearing_deg"] == pytest.approx(90, abs=1)
++        assert payload["initial_heading_diff_deg"] == pytest.approx(0, abs=1)
++        assert payload["total_distance_m"] == pytest.approx(100)
++        assert "turn_related_score" in payload
++        assert "final_route_score" in payload
++        assert payload["candidates"][0]["final_route_score"] == payload["final_route_score"]

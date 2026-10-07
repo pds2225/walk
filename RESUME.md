@@ -1,30 +1,61 @@
-# RESUME.md — walk 현재 작업
+# walk — 다른 환경에서도 사용하는 재개 기록
 
-> 2026-10-05 16:56 KST 갱신. 원격·CI 마지막 재조회는 15:45 KST. 공식 SSOT는 origin/main:TASK.md.
+> 공유 체크포인트: 2026-10-06. 공식 작업 SSOT는 `origin/main:TASK.md` 하나다.
+> 이 파일과 `SESSION_RECAP.md`는 Git으로 공유한다. 아래 검증 시점의 상태와 현재 원격 상태를 구분한다.
 
-## 목표·현재 상태
-PR #143 / feat/worldcup-market-demo의 블로그 점포45개에 주소 근거 기반 좌표를 채우고 지도 핀·길찾기·거리뷰를 실제 검증한다.
-시작 head b8bfdfce264350a83b27248086c0c91411685d94 gate 통과 후 일반 커밋·push 완료. 2026-10-05 원격/local/PR143 head를 다시 조회해 77707a403de2e5be9a4ae7904a92e998617b9d28 일치를 확인했다. 원격 main404c5a8 유지. 커밋 시각은 2026-10-04 17:44:20 KST. force push·main 병합·Ready 전환 없음.
+**필수 시작 규칙:** 모든 PC·clone·worktree·새 세션은 [AGENTS.md](AGENTS.md)의 작업 시작 게이트를 따른다. 같은 원격 main SHA의 TASK → RESUME → SESSION_RECAP를 모두 읽고 시작 확인을 보고하기 전에는 구현·파일 수정·테스트·Git 반영을 시작하지 않는다. 이미 받은 실행 승인은 유지한다.
 
-## 위치
-독립 clone D:\walk\.worktrees\worldcup-market-clean-20261004, 로컬 feat/worldcup-market-demo / 77707a4, 작업 트리 clean.
-원본 D:\walk의 fix/passed-turn-debug-20261003 dirty7개는 SHA256 대조로 보존 확인. root TASK는 수정하지 않았고 clone TASK에 KN-WORLDCUP-COORDINATES-01 항목1개를 추가했다.
+## 현재 상태
 
-## 진행·다음 액션
-- AGENTS 및 main TASK 확인, remotehead gate 통과. 기존 45개 데이터·좌표null·UI·routeAPI 구조 확인.
-- Naver Maps 및 TMAP 기존 로컬 설정을 프로세스 env에만 로드했다(값 비출력). Google 키는 미설정. .env 수정 및 비밀값 코드/로그/커밋 포함 없음.
-- 블로그 실제 본문17개/첨부 정보이미지28개 주소 확인, Naver geocode45/45, 건물18좌표·공유12그룹 기록. 원본45개 stall JSON 전체 동일.
-- 같은주소 같은좌표는 그대로 유지하며 임의분산 금지. 근거없으면null/미확인.
-- 기존 Naver SDK로18좌표 모두 실제 파노 응답확보(45/45, 최대29.08m, 13개pano ID). NAVER provider 표시 및 기존 어댑터 재사용 UI 완료. 근처 거리뷰이며 점포 정면이나 출입구 실측을 보장하지 않는다.
-- npm ci/lint/build/typecheck PASS, simulate4시나리오 PASS. 최종 test:run 기본 명령169개/20파일 PASS(12:13:29 실행), maxWorkers=2도169개 PASS. 이전 고부하 기본 실행의 5초 timeout은 최종 기본 명령에서 재현되지 않았다.
-- 실제 Chrome390×844: 점포01/45의 핀·TMAP HTTP200 도보경로(132m/99m)·경로선·Naver 거리뷰 실제 픽셀 PASS, pageErrors0. 위치는 제어값이며 현장GPS 검증 아님. 원시metadata, 사진, 명령 로그 및 상세보고서 .worktrees/worldcup-coordinates-report-20261004.md 보관.
-- 재개 승인 후 원격head=b8bfdfc를 다시 확인하고 77707a4(10파일, +659/-68)를 일반 commit/push했다. PR143본문에 좌표·NAVER 파노 결과, 공유 좌표 12그룹, 검증, 건물/근처 영상/현장 GPS/배포 제한을 반영했다. OPEN·draft=true·merged=false·mergeable=true 및 본문 일치 확인 완료.
-- 새커밋 GitHub Actions test 성공: https://github.com/pds2225/walk/actions/runs/37189924154 (tests/lint/root·web typecheck/route-engine·web build 전 단계 PASS). docs-gate 성공: https://github.com/pds2225/walk/actions/runs/37189924125. main 대비4커밋/19파일이다.
-- 요청한 개발·일반 push·PR본문 갱신·GitHub 게이트 보고 준비까지 완료. 다음 별도 확인은 배포 환경 설정·현장 GPS 및 점포 입구 실측이며 현재 PR은 draft로 유지한다. 원본 미커밋7파일의 SHA256 보존 확인.
-- 2026-10-05 최신 상태 확인 요청에 따라 Git 원격/local head, PR 본문·draft·미병합, 해당SHA의 GitHub test/docs-gate 성공을 실제 재조회했다. 준비된 변경을 다시 commit/push하라는 붙여넣기 지시는 이미 실행된 단계다. 코드 수정·추가 commit/push 없이 RESUME만 갱신했다.
-- 다음은 사용자가 데이터 몇 곳을 직접 확인하는 단계다. CI는 이미 PASS이며 Ready 전환·머지는 사용자가 직접 판단한다. 에이전트는 draft 유지·Ready 전환/머지 금지를 유지한다. 배포 환경 및 현장 GPS는 여전히 미검증이다.
-- 사용자 ㅇㅇ를 직전 추천(직접 확인용 5점포 표)에 대한 동의로 받아 표를 작성했다. 부부야채01·송가한우마을07·패션타운09·애기수산14·명성족발15의 블로그/주소 이미지·좌표·NAVER 파노를 evidence JSON과 커밋77707a4 코드에서 대조해 5/5 일치를 확인했다. 확인 근거일은 2026-10-04이며 새 지오코딩/현장/실시간 파노 검증은 하지 않았다. 다음은 사용자의 출처·건물 위치·근처 영상 직접 확인 및 이상점 피드백이다. 코드 수정·commit/push·Ready 전환·머지 없음.
+- 기존 개발 통합은 [PR #144](https://github.com/pds2225/walk/pull/144)로 완료했다. **검증한 제품 코드 기준**은 `87f890ffc8d8d1277fd41fd3542b485c4e02a33f`이며, 이후 문서 변경 때문에 현재 HEAD는 달라질 수 있다.
+- 홈 네 언어, 망원·월드컵시장 데모, GPS 표시 smoothing, 경로 이탈·회전 미이행·재탐색 보정, 대중교통 도착 라벨, Python 경로 점수화/Kakao bridge를 함께 반영했다.
+- 공유 회고·재개는 [PR #145](https://github.com/pds2225/walk/pull/145)로 main에 반영했고 새 main clone과 병합 후 test/docs-gate를 확인했다.
+- 진행 중: `KN-STARTUP-CONTEXT-20261006`. 다른 PC/새 세션에서도 TASK·재개·회고 필수 선독을 AGENTS에 규정하고 원격 clone의 실제 Codex 입력을 검증한 뒤 PR로 공유한다.
+- 기존 PC의 유효한 12개 작업 위치는 당시 같은 main 커밋으로 동기화했다. 이 사실은 다른 PC의 자동 동기화를 의미하지 않는다. 새 환경에서는 아래 절차로 원격을 확인한다.
 
-## 이전 완료
-PR #143정리:37커밋23파일→3커밋19파일. 데이터원본blob d817396 유지, 홈/layout/globals main동일. local150tests/4simulate/build/lint/typecheck/Chromesmoke 및 Actions test/docs-gatePASS.
-backup/worldcup-market-demo-20261004=6200e12는 그대로 보존. 상세 .worktrees/worldcup-market-audit-20261004.md.
+## 다른 PC에서 처음 시작할 때
+
+원하는 작업 폴더에서 실행한다. 설치 위치나 사용자 계정 이름에 의존하지 않는다.
+
+```powershell
+git clone https://github.com/pds2225/walk.git
+if ($LASTEXITCODE -ne 0) { throw 'clone 실패: 작업 시작 금지' }
+Set-Location -LiteralPath walk
+Get-Content -LiteralPath AGENTS.md -Raw
+```
+
+새 clone과 기존 clone 모두 아래 공통 절차를 반드시 실행한다. 미커밋 변경을 먼저 확인하고, 현재 브랜치를 자동 전환하거나 사용자 파일을 덮어쓰지 않는다.
+
+```powershell
+$walkRepoRoot = git rev-parse --show-toplevel
+git -C $walkRepoRoot status --short --branch
+git -C $walkRepoRoot -c gc.auto=0 -c maintenance.auto=false fetch origin --prune
+if ($LASTEXITCODE -ne 0) { throw 'fetch 실패: 작업 시작 금지' }
+$walkStartMain = git -C $walkRepoRoot rev-parse origin/main
+if ($LASTEXITCODE -ne 0) { throw 'main 확인 실패: 작업 시작 금지' }
+foreach ($walkContextDoc in @('TASK.md', 'RESUME.md', 'SESSION_RECAP.md')) {
+    git -C $walkRepoRoot show ($walkStartMain + ':' + $walkContextDoc)
+    if ($LASTEXITCODE -ne 0) { throw ('필수 문서 읽기 실패: ' + $walkContextDoc) }
+}
+```
+
+작업할 위치와 브랜치를 확인한 뒤 새 작업 브랜치를 만든다. linked worktree가 detached HEAD라면 수정 전에 새 브랜치를 만든다.
+
+## 완료·검증 근거
+
+- 영향 web 77개/Python 292개, web typecheck/build, 설치 Chrome 390×844의 홈·두 시장 확인 PASS. 기존 실제 NAVER/TMAP 및 simulate 4개 시나리오 증거는 재사용했다.
+- PR와 병합 후 main의 `test`·`docs-gate` 모두 PASS. [환경 독립적인 근거와 코드 위치](docs/session-evidence/2026-10-06-main-sync.md), [누적 회고](SESSION_RECAP.md)를 참고한다.
+- 원본 개발은 `backup/local-main-sync-20261006`(`2325b22`), production ignore는 `backup/production-local-main-sync-20261006`(`87c3b8a`)에 원격 보존했다. 기존 PC의 stash 4개·개인 설정도 유지했지만, stash와 환경 설정 자체는 clone으로 옮겨지지 않는다.
+
+## 남은 확인
+
+- 개발 통합·동기화 요청의 필수 작업은 완료했다. 사용자가 요청하면 점포 출입구, 현장 GPS와 운영 배포 환경을 별도로 확인한다.
+- 월드컵시장 45개 원본 점포의 근거 좌표 45개는 건물 18개를 가리킨다. 공유 좌표 12그룹/39점포를 임의 분산하지 않는다. NAVER 근처 파노 45개는 점포 정면·실내 실측을 보증하지 않는다.
+- 도보 경로에는 `TMAP_APP_KEY`, 이번 NAVER 주변 영상에는 `NEXT_PUBLIC_NAVER_MAP_CLIENT_ID`가 필요하다. 실제 값은 각 환경에서 따로 설정하고 문서·코드·로그에 저장하지 않는다. 로컬 성공을 운영 배포 완료로 해석하지 않는다.
+
+## 기록 유지 규칙
+
+- 새 작업의 우선순위·상태는 최신 원격 TASK를 따른다. RESUME나 오래된 회고가 TASK를 덮어쓰지 않는다.
+- 중요한 작업/세션 마무리 후 두 문서를 갱신하고, 공유할 내용만 일반 commit/push와 PR로 반영한다. 로컬에만 수정해 두면 다른 PC에는 전달되지 않는다.
+- 개인 절대경로, 키 값, 로컬 캐시/실행 로그를 추가하지 않는다. 공유할 근거는 Git으로 추적되는 코드·문서와 GitHub 링크를 사용한다.
+- 이전 세션의 main 병합 금지는 최신 사용자 통합 요청으로 대체되었고 해당 작업은 완료했다. force push·reset·clean·사용자 작업 삭제는 계속 금지한다.

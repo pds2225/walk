@@ -1,0 +1,74 @@
+[
+  {
+    "Path": "D:\\walk",
+    "Head": "20fe13906ca7be190c9d49126a24223438b492bc",
+    "Branch": "main",
+    "TrackedChanges": 0
+  },
+  {
+    "Path": "D:\\walk-streetview",
+    "Head": "20fe13906ca7be190c9d49126a24223438b492bc",
+    "Branch": "detached",
+    "TrackedChanges": 0
+  },
+  {
+    "Path": "D:\\walk\\.worktrees\\k-navi-production",
+    "Head": "20fe13906ca7be190c9d49126a24223438b492bc",
+    "Branch": "detached",
+    "TrackedChanges": 0
+  },
+  {
+    "Path": "D:\\walk\\.worktrees\\task-k-navi-rv-02",
+    "Head": "20fe13906ca7be190c9d49126a24223438b492bc",
+    "Branch": "detached",
+    "TrackedChanges": 0
+  },
+  {
+    "Path": "D:\\walk\\.worktrees\\transit-end-label",
+    "Head": "20fe13906ca7be190c9d49126a24223438b492bc",
+    "Branch": "detached",
+    "TrackedChanges": 0
+  },
+  {
+    "Path": "D:\\walk\\.worktrees\\worldcup-market-clean-20261004",
+    "Head": "20fe13906ca7be190c9d49126a24223438b492bc",
+    "Branch": "main",
+    "TrackedChanges": 0
+  },
+  {
+    "Path": "D:\\walk\\.claude\\worktrees\\compass-fix",
+    "Head": "20fe13906ca7be190c9d49126a24223438b492bc",
+    "Branch": "detached",
+    "TrackedChanges": 0
+  },
+  {
+    "Path": "D:\\walk\\.claude\\worktrees\\dest-reset",
+    "Head": "20fe13906ca7be190c9d49126a24223438b492bc",
+    "Branch": "detached",
+    "TrackedChanges": 0
+  },
+  {
+    "Path": "D:\\walk\\.claude\\worktrees\\dest-reset-a",
+    "Head": "20fe13906ca7be190c9d49126a24223438b492bc",
+    "Branch": "detached",
+    "TrackedChanges": 0
+  },
+  {
+    "Path": "D:\\walk\\.claude\\worktrees\\heading-debug",
+    "Head": "20fe13906ca7be190c9d49126a24223438b492bc",
+    "Branch": "detached",
+    "TrackedChanges": 0
+  },
+  {
+    "Path": "D:\\walk\\.claude\\worktrees\\web-vercel",
+    "Head": "20fe13906ca7be190c9d49126a24223438b492bc",
+    "Branch": "detached",
+    "TrackedChanges": 0
+  },
+  {
+    "Path": "C:\\Users\\ekth3\\AppData\\Local\\v_up\\dashboard_worktrees\\walk\\dashboard-main",
+    "Head": "20fe13906ca7be190c9d49126a24223438b492bc",
+    "Branch": "detached",
+    "TrackedChanges": 0
+  }
+]

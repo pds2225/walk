@@ -1,0 +1,16 @@
+{
+  "pr": 145,
+  "merged": true,
+  "main": "20fe13906ca7be190c9d49126a24223438b492bc",
+  "locations": 12,
+  "trackedChanges": 0,
+  "freshMainClone": "PASS",
+  "relativeLinks": 11,
+  "originalNotesPreserved": 4,
+  "stashesPreserved": 4,
+  "testRun": 37398931408,
+  "test": "success",
+  "docsGateRun": 37398931387,
+  "docsGate": "success",
+  "localProductTests": "Not repeated; documentation-only changes"
+}
