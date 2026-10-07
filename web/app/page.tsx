@@ -6,7 +6,7 @@ import { getCurrentPositionOnce, isDeviationFixReliable, useCompass, useSmoothed
 import type { Fix } from "../lib/useGeolocation";
 import { useNavigation } from "../lib/useNavigation";
 import type { Coordinate, PlaceHit, RouteResponse } from "../lib/types";
-import { getUiText, LOCALE_OPTIONS, type Locale } from "../lib/i18n";
+import { getServiceMetadata, getUiText, LOCALE_OPTIONS, type Locale } from "../lib/i18n";
 import { primeSpeech } from "../lib/voice";
 import RoadviewViewer from "../components/RoadviewViewer";
 import type { RoadviewProvider } from "../lib/roadview";
@@ -96,6 +96,12 @@ export default function Home() {
   }, []);
 
   const ui = getUiText(locale);
+
+  useEffect(() => {
+    const metadata = getServiceMetadata(locale, "home");
+    document.title = metadata.title;
+    document.querySelector('meta[name="description"]')?.setAttribute("content", metadata.description);
+  }, [locale]);
 
   const changeLocale = useCallback((value: Locale) => {
     setLocale(value);

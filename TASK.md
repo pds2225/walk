@@ -289,6 +289,29 @@ Roadview 실패 시 navigation은 계속되어야 한다.
 
 # 4. CURRENT ACTIVE QUEUE
 
+### [~] KN-KTRIP-MARKET-20261007 — 케이트립 시장 지도 첫 화면·개별 핀·다국어 수정
+
+`STATUS = IN_PROGRESS` · `REQUEST_SOLVED = NO`
+
+`TASK_START_SHA = 20fe13906ca7be190c9d49126a24223438b492bc`
+
+`TASK_BLOB_SHA = 8146118ba63fd9e80465a770de4fa4887aeb9322`
+
+`WORK_BRANCH = feat/ktrip-market-map-home-20261007`
+
+- **MUST:** `/worldcup-market` 첫 화면에 NAVER 전체 시장 지도와 45개 점포 핀, 데이터 기반 업종 필터, 하단 카드/목록, 상세 및 지도 복귀, `?store=` 상세 딥링크를 제공한다. 키가 없으면 목록으로 대체한다.
+- **MUST:** 공식 안내도와 블로그 매장 번호를 조사하고 출처를 기록한다. 매칭 불가 점포는 원래 건물 좌표와 근거를 보존한 별도 표시 좌표에 ID 기준 고정 배치하며, 임의 배치에 approximate 및 대략 위치 안내를 표시한다.
+- **MUST:** 지도/상세/주변·360의 JA 문제를 재현·수정하고 EN/ZH도 검증한다. UI를 번역하되 점포 사실은 기존 공식 블로그 자료를 보존한다.
+- **MUST:** 서비스 표시명은 KO 케이트립, EN/JA/ZH K-Trip, 시장명은 요청한 4개 언어로 통일한다. 공식 색을 확인하면 적용하고, 확인할 수 없으면 기존 색을 유지한다.
+- **KEEP:** 기존 레이아웃·톤, `/` 동작, 점포 사실/원본 좌표/근거, 코드 식별자·패키지명·Vercel 프로젝트명·도메인, 기존 stash/worktree/미추적 폴더를 유지한다.
+- **REMOVE:** 간단한 기능 플래그로 시장 화면의 길찾기 버튼만 기본 숨김 처리한다. 기능 코드는 유지한다.
+- **FORBIDDEN:** `.env` 계열 수정/출력, 키 커밋, main 병합, force push, 기존 사용자 작업 변경, 관련 없는 TASK 실행.
+- **VERIFY:** npm ci, lint, next:build, test:run, typecheck 및 web typecheck; 지도·배치·언어 회귀 테스트; 실제 Chrome 390×844 KO/JA 흐름과 지도/필터/상세/JA 스크린샷.
+- **DONE:** 검증 근거와 남은 한계를 아래에 기록하고 작업 브랜치 push 후 main 대상 draft PR을 생성한다. 실제 NAVER 검증이 불가능하면 완료로 과장하지 않는다.
+- **CHECKPOINT:** 2026-10-07 재개 시 `git fetch origin --prune` 및 공식 TASK 재확인. 기존 지정 브랜치/미커밋 구현을 보존해 이어서 진행한다. 사용자 추가 지시에 따라 논리 단위 commit → 최종 검증 → push → main 대상 draft PR까지 수행한다. `npm ci` PASS. NAVER 지도 연결·핀 겹침 처리·Chrome 화면 검증이 남아 있다. 사용자의 원본 명세는 `C:\Users\ekth3\ktrip-codex\prompt.md`.
+
+---
+
 ## P0 — 현장검증 잔여
 
 ### [ ] TASK-001-FIELD — 지하철 승·하차 최적 출입구 실기기 현장검증

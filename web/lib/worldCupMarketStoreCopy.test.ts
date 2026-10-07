@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   formatKrwPrice,
+  localizeCategory,
   localizeDescription,
   localizeHours,
   localizeProductName,
@@ -9,6 +10,23 @@ import {
 import { WORLD_CUP_MARKET_STORES } from "./worldCupMarketStores";
 
 describe("월드컵시장 점포 표기", () => {
+  it("원본 업종 데이터는 보존하고 지도 필터와 카드의 업종 라벨만 번역한다", () => {
+    const originalCategories = WORLD_CUP_MARKET_STORES.map((store) => store.category);
+    for (const category of new Set(originalCategories)) {
+      expect(localizeCategory(category, "ko")).toBe(category);
+      for (const locale of ["en", "ja", "zh"] as const) {
+        expect(localizeCategory(category, locale)).not.toBe(category);
+        expect(localizeCategory(category, locale)).not.toMatch(/[가-힣]/);
+      }
+    }
+    expect(WORLD_CUP_MARKET_STORES.map((store) => store.category)).toEqual(originalCategories);
+    expect(localizeCategory("채소", "ja")).toBe("野菜");
+    expect(localizeCategory("미확인", "ja")).toBe("未確認");
+    expect(localizeCategory("미확인", "en")).toBe("Unconfirmed");
+    expect(localizeCategory("미확인", "zh")).toBe("未确认");
+    expect(localizeCategory("source category not yet translated", "ja")).toBe("source category not yet translated");
+  });
+
   it("영어·중국어 이름은 블로그 제목에 있을 때만 바꾸고 일본어 점포명은 한국어로 남긴다", () => {
     for (const store of WORLD_CUP_MARKET_STORES) {
       expect(localizeStoreName(store, "ko")).toBe(store.nameKo);
