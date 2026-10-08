@@ -1,20 +1,35 @@
 "use client";
 
-// Render exact store coordinates without spreading shared building locations.
-import { useEffect, useRef } from "react";
-import maplibregl from "maplibre-gl";
+import { useEffect, useRef, useState } from "react";
 import { getWorldCupMarketUiText, type Locale } from "../lib/i18n";
+import { loadNaverMaps, naverPanoramaConfigured } from "../lib/roadview";
 import { localizeCategory, localizeStoreName } from "../lib/worldCupMarketStoreCopy";
+import {
+  getWorldCupMarketMapPlacement,
+  layoutWorldCupMarketMapPins,
+  WORLD_CUP_MARKET_MAP_PLACEMENTS,
+  type WorldCupMarketMapPin,
+} from "../lib/worldCupMarketMapLayout";
 import type { Coordinate } from "../lib/types";
-import type { VerifiedLocation, WorldCupMarketStore } from "../lib/worldCupMarketStores";
+import type { WorldCupMarketStore } from "../lib/worldCupMarketStores";
 
-const STYLE_URL = "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json";
-const ZOOM = 17;
-const FALLBACK_STYLE: maplibregl.StyleSpecification = {
-  version: 8,
-  sources: {},
-  layers: [{ id: "background", type: "background", paint: { "background-color": "#eef1f5" } }],
-};
+// Only the map surface used here is typed. The shared SDK also loads Panorama.
+interface NaverCoordinate { lat(): number; lng(): number }
+interface NaverMap {
+  fitBounds(points: NaverCoordinate[], options: { top: number; right: number; bottom: number; left: number; maxZoom: number }): void;
+  getProjection(): { fromCoordToOffset(position: NaverCoordinate): { x: number; y: number } };
+  getSize(): { width: number; height: number };
+  autoResize(): void;
+  destroy(): void;
+}
+interface NaverMapSdk {
+  LatLng: new (latitude: number, longitude: number) => NaverCoordinate;
+  Map: new (container: HTMLElement, options: { center: NaverCoordinate; zoom: number; minZoom: number; zoomControl: boolean; mapDataControl: boolean }) => NaverMap;
+  Event: {
+    addListener(target: NaverMap, event: string, handler: () => void): unknown;
+    removeListener(listener: unknown): void;
+  };
+}
 
 export interface WorldCupMarketMapProps {
   readonly stores: readonly WorldCupMarketStore[];
@@ -22,149 +37,140 @@ export interface WorldCupMarketMapProps {
   readonly here: Coordinate | null;
   readonly onSelect: (storeId: string) => void;
   readonly locale: Locale;
+  readonly mode?: "overview" | "detail";
 }
 
-function locatedStores(stores: readonly WorldCupMarketStore[]): Array<WorldCupMarketStore & { readonly storeLocation: VerifiedLocation }> {
-  return stores.filter((store): store is WorldCupMarketStore & { readonly storeLocation: VerifiedLocation } => store.storeLocation !== null);
+interface MapOverlay {
+  readonly pins: readonly WorldCupMarketMapPin[];
+  readonly here: { x: number; y: number } | null;
 }
 
-function fillStoreMarker(button: HTMLElement, store: WorldCupMarketStore, locale: Locale): void {
-  const ui = getWorldCupMarketUiText(locale);
-  const name = localizeStoreName(store, locale);
-  const category = localizeCategory(store.category, locale);
-  button.setAttribute("aria-label", `${name} ${ui.selectOnMap}`);
-  const nameNode = button.querySelector(".worldcup-market-map-marker-name");
-  const categoryNode = button.querySelector("small");
-  if (nameNode) nameNode.textContent = name;
-  if (categoryNode) categoryNode.textContent = category;
-}
-
-function selectStoreMarker(element: HTMLElement, selected: boolean): void {
-  element.querySelector(".worldcup-market-map-marker")?.classList.toggle("is-selected", selected);
-  // Shared address coordinates stay exact; bring only the selected label forward.
-  element.style.zIndex = selected ? "1" : "0";
-}
-
-function makeStoreMarker(store: WorldCupMarketStore, locale: Locale, onSelect: (id: string) => void): HTMLElement {
-  const wrapper = document.createElement("div");
-  wrapper.className = "worldcup-market-map-marker-wrap";
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "worldcup-market-map-marker";
-  const image = store.storeImages[0];
-  if (image) {
-    const img = document.createElement("img");
-    img.className = "worldcup-market-map-marker-image";
-    img.src = image.url;
-    img.alt = "";
-    button.appendChild(img);
-  }
-  const copy = document.createElement("span");
-  copy.className = "worldcup-market-map-marker-copy";
-  const nameNode = document.createElement("strong");
-  nameNode.className = "worldcup-market-map-marker-name";
-  const categoryNode = document.createElement("small");
-  copy.append(nameNode, categoryNode);
-  const pin = document.createElement("span");
-  pin.className = "worldcup-market-map-pin";
-  pin.setAttribute("aria-hidden", "true");
-  pin.textContent = "●";
-  button.append(copy, pin);
-  fillStoreMarker(button, store, locale);
-  button.addEventListener("click", () => onSelect(store.id));
-  wrapper.appendChild(button);
-  return wrapper;
-}
-
-export default function WorldCupMarketMap({ stores, selectedId, here, onSelect, locale }: WorldCupMarketMapProps) {
+export default function WorldCupMarketMap({ stores, selectedId, here, onSelect, locale, mode = "overview" }: WorldCupMarketMapProps) {
   const container = useRef<HTMLDivElement | null>(null);
-  const map = useRef<maplibregl.Map | null>(null);
-  const storeMarkers = useRef(new Map<string, maplibregl.Marker>());
-  const hereMarker = useRef<maplibregl.Marker | null>(null);
-  const selectedRef = useRef(selectedId);
-  const storesRef = useRef(stores);
-  const localeRef = useRef(locale);
-  selectedRef.current = selectedId;
-  storesRef.current = stores;
-  localeRef.current = locale;
-  const pins = locatedStores(stores);
+  const map = useRef<{ instance: NaverMap; sdk: NaverMapSdk } | null>(null);
+  const current = useRef({ stores, here });
+  current.current = { stores, here };
+  const updateOverlay = useRef<() => void>(() => undefined);
+  const [status, setStatus] = useState<"loading" | "ready" | "unavailable">(() => naverPanoramaConfigured() ? "loading" : "unavailable");
+  const [overlay, setOverlay] = useState<MapOverlay>({ pins: [], here: null });
+  const ui = getWorldCupMarketUiText(locale);
+  const byId = new Map(stores.map((store) => [store.id, store]));
 
   useEffect(() => {
-    const first = locatedStores(storesRef.current)[0]?.storeLocation;
-    if (!container.current || map.current || !first) return;
-    const instance = new maplibregl.Map({
-      container: container.current,
-      style: STYLE_URL,
-      center: [first.longitude, first.latitude],
-      zoom: ZOOM,
-      attributionControl: { compact: true },
-    });
-    map.current = instance;
-    let usedFallback = false;
+    if (!container.current || !naverPanoramaConfigured()) return;
+    let disposed = false;
+    let listeners: unknown[] = [];
+    let resize: ResizeObserver | null = null;
+    const host = container.current;
 
-    const renderMarkers = () => {
-      for (const marker of storeMarkers.current.values()) marker.remove();
-      storeMarkers.current.clear();
-      const bounds = new maplibregl.LngLatBounds();
-      for (const store of locatedStores(storesRef.current)) {
-        const element = makeStoreMarker(store, localeRef.current, onSelect);
-        selectStoreMarker(element, store.id === selectedRef.current);
-        const marker = new maplibregl.Marker({ element, anchor: "bottom" })
-          .setLngLat([store.storeLocation.longitude, store.storeLocation.latitude])
-          .addTo(instance);
-        storeMarkers.current.set(store.id, marker);
-        bounds.extend([store.storeLocation.longitude, store.storeLocation.latitude]);
+    loadNaverMaps().then((loaded) => {
+      if (disposed) return;
+      const sdk = loaded as unknown as NaverMapSdk;
+      const first = WORLD_CUP_MARKET_MAP_PLACEMENTS[0]!.displayLocation;
+      const instance = new sdk.Map(host, {
+        center: new sdk.LatLng(first.latitude, first.longitude),
+        zoom: 17,
+        minZoom: 14,
+        zoomControl: true,
+        mapDataControl: true,
+      });
+      map.current = { instance, sdk };
+
+      updateOverlay.current = () => {
+        if (disposed) return;
+        const projection = instance.getProjection();
+        const { width, height } = instance.getSize();
+        if (!projection || width <= 0 || height <= 0) return;
+        const points = current.current.stores.flatMap((store) => {
+          const placement = getWorldCupMarketMapPlacement(store.id);
+          if (!placement) return [];
+          const position = placement.displayLocation;
+          const pixel = projection.fromCoordToOffset(new sdk.LatLng(position.latitude, position.longitude));
+          return [{ storeId: store.id, x: pixel.x, y: pixel.y }];
+        });
+        const location = current.current.here;
+        setOverlay({
+          pins: layoutWorldCupMarketMapPins(points, width, height),
+          here: location ? projection.fromCoordToOffset(new sdk.LatLng(location.latitude, location.longitude)) : null,
+        });
+      };
+
+      // Fit the whole market once; filters keep the same map and geographic points.
+      const fitMarket = () => {
+        instance.fitBounds(WORLD_CUP_MARKET_MAP_PLACEMENTS.map(({ displayLocation }) =>
+          new sdk.LatLng(displayLocation.latitude, displayLocation.longitude)),
+        { top: 55, right: 55, bottom: 55, left: 55, maxZoom: 18 });
+        updateOverlay.current();
+      };
+      listeners = ["init", "bounds_changed", "idle"].map((event) =>
+        sdk.Event.addListener(instance, event, () => updateOverlay.current()));
+      fitMarket();
+      if (typeof ResizeObserver !== "undefined") {
+        resize = new ResizeObserver(() => {
+          instance.autoResize();
+          fitMarket();
+        });
+        resize.observe(host);
       }
-      if (!bounds.isEmpty()) instance.fitBounds(bounds, { padding: 48, maxZoom: ZOOM, duration: 0 });
-    };
-
-    instance.on("error", (event) => {
-      if (usedFallback || instance.isStyleLoaded()) return;
-      usedFallback = true;
-      console.warn("월드컵시장 지도 타일을 불러오지 못해 마커만 표시합니다.", event?.error?.message ?? "");
-      instance.setStyle(FALLBACK_STYLE);
+      setStatus("ready");
+    }).catch(() => {
+      if (!disposed) setStatus("unavailable");
     });
-    instance.on("load", renderMarkers);
 
     return () => {
-      for (const marker of storeMarkers.current.values()) marker.remove();
-      hereMarker.current?.remove();
-      instance.remove();
+      disposed = true;
+      resize?.disconnect();
+      const active = map.current;
+      if (active) {
+        for (const listener of listeners) active.sdk.Event.removeListener(listener);
+        active.instance.destroy();
+      }
       map.current = null;
+      updateOverlay.current = () => undefined;
     };
-    // 실제 MapLibre 인스턴스는 한 번만 만들고 아래 effect에서 위치·선택 상태만 갱신한다.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-    for (const [id, marker] of storeMarkers.current) {
-      selectStoreMarker(marker.getElement(), id === selectedId);
-    }
-  }, [selectedId]);
+  useEffect(() => { updateOverlay.current(); }, [stores, here]);
 
-  useEffect(() => {
-    for (const store of stores) {
-      const button = storeMarkers.current.get(store.id)?.getElement().querySelector(".worldcup-market-map-marker");
-      if (button instanceof HTMLElement) fillStoreMarker(button, store, locale);
-    }
-  }, [locale, stores]);
-
-  useEffect(() => {
-    const instance = map.current;
-    if (!instance || !here) return;
-    if (!hereMarker.current) {
-      const element = document.createElement("div");
-      element.className = "worldcup-market-here-marker";
-      element.innerHTML = '<span class="worldcup-market-here-dot"></span><span class="worldcup-market-here-pulse"></span>';
-      hereMarker.current = new maplibregl.Marker({ element, anchor: "center" }).addTo(instance);
-    }
-    hereMarker.current.setLngLat([here.longitude, here.latitude]);
-  }, [here]);
-
-  const ui = getWorldCupMarketUiText(locale);
-  if (pins.length === 0) {
-    return <div className="worldcup-market-market-map" role="status" aria-label={ui.marketMap}>{ui.unknown}</div>;
-  }
-
-  return <div ref={container} className="worldcup-market-market-map" aria-label={ui.marketMap} />;
+  return (
+    <div className="worldcup-market-market-map" role="region" aria-label={ui.marketMap} data-map-provider="naver" data-map-mode={mode}>
+      <div ref={container} className="worldcup-market-naver-map" aria-hidden={status !== "ready"} />
+      {status === "loading" ? <p className="worldcup-market-map-status" role="status">{ui.mapLoading}</p> : null}
+      {status === "unavailable" ? (
+        <div className="worldcup-market-map-fallback">
+          <p role="status">{ui.mapUnavailable}</p>
+          <ul aria-label={ui.storeList}>
+            {stores.map((store) => <li key={store.id}>
+              <button type="button" onClick={() => onSelect(store.id)}>
+                <span className="worldcup-market-store-number">{store.corridorOrder}</span>
+                <span><strong>{localizeStoreName(store, locale)}</strong><small>{localizeCategory(store.category, locale)}</small></span>
+              </button>
+            </li>)}
+          </ul>
+        </div>
+      ) : null}
+      {status === "ready" ? <div className="worldcup-market-map-overlay">
+        <svg className="worldcup-market-map-leaders" aria-hidden="true">
+          {overlay.pins.map((pin) => <line key={pin.storeId} x1={pin.anchorX} y1={pin.anchorY} x2={pin.x} y2={pin.y} />)}
+        </svg>
+        {overlay.pins.map((pin) => {
+          const store = byId.get(pin.storeId);
+          if (!store) return null;
+          const approximate = getWorldCupMarketMapPlacement(store.id)?.approximate ?? false;
+          const label = `${localizeStoreName(store, locale)} · ${localizeCategory(store.category, locale)}${approximate ? ` · ${ui.approximateLocation}` : ""}`;
+          return <button key={store.id} type="button"
+            className={`worldcup-market-overview-pin${selectedId === store.id ? " is-selected" : ""}`}
+            style={{ left: pin.x, top: pin.y }}
+            data-store-id={store.id} data-approximate={approximate}
+            aria-label={`${label} · ${ui.selectOnMap}`} aria-pressed={selectedId === store.id} title={label}
+            onClick={() => onSelect(store.id)}>
+            {store.corridorOrder}
+          </button>;
+        })}
+        {overlay.here ? <div className="worldcup-market-here-marker" style={{ position: "absolute", left: overlay.here.x, top: overlay.here.y }} aria-hidden="true">
+          <span className="worldcup-market-here-dot" /><span className="worldcup-market-here-pulse" />
+        </div> : null}
+      </div> : null}
+    </div>
+  );
 }

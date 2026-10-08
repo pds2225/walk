@@ -375,7 +375,8 @@ function closeRoadviewContainer(container: HTMLElement, hide?: () => void): void
   container.replaceChildren();
 }
 
-function loadNaverMaps(): Promise<NaverMaps> {
+/** Share one panorama-capable SDK between the market map and street-view screens. */
+export function loadNaverMaps(): Promise<NaverMaps> {
   if (typeof window === "undefined" || typeof document === "undefined") {
     return Promise.reject(new RoadviewError("sdk_error", "Roadview는 브라우저에서만 사용할 수 있습니다."));
   }

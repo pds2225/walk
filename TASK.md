@@ -310,6 +310,16 @@ Roadview 실패 시 navigation은 계속되어야 한다.
 - **DONE:** 검증 근거와 남은 한계를 아래에 기록하고 작업 브랜치 push 후 main 대상 draft PR을 생성한다. 실제 NAVER 검증이 불가능하면 완료로 과장하지 않는다.
 - **CHECKPOINT:** 2026-10-07 재개 시 `git fetch origin --prune` 및 공식 TASK 재확인. 기존 지정 브랜치/미커밋 구현을 보존해 이어서 진행한다. 사용자 추가 지시에 따라 논리 단위 commit → 최종 검증 → push → main 대상 draft PR까지 수행한다. `npm ci` PASS. NAVER 지도 연결·핀 겹침 처리·Chrome 화면 검증이 남아 있다. 사용자의 원본 명세는 `C:\Users\ekth3\ktrip-codex\prompt.md`.
 
+**2026-10-08 구현 체크포인트**
+
+- 기존 명칭/번역 커밋 `9b78c9d`와 미커밋 구현을 보존했다. 전체시장 지도·45개 선택·필터·상세/복귀·딥링크·길찾기 기본 숨김을 연결하고, 실제 화면에서 빠져 있던 지도 overlay/fallback 스타일을 보완했다.
+- 표시 좌표는 원자료와 분리했다. 공식 블로그 [mwwdc](https://m.blog.naver.com/mwwdc)와 [공공자료 65쪽](https://mods.go.kr/boardDownload.es?bid=11859&list_no=431849&seq=2)을 조사했으나 매장 01~45와 대응하는 위치 안내도는 미확인이다. 공공자료의 LED 1~3 등 표식을 매장 번호로 사용하지 않는다. 공식 번호 배치 0곳, 공유 건물 12개/39곳은 ID 순서에 따른 10~20m 대략 위치, 나머지 6곳은 원좌표다. 골목 방향은 좌표군 기반 추정이며 실측이 아니다. 화면 픽셀 겹침은 연결선과 개별 번호 핀으로 분리한다.
+- 메인 `#1074bc`, 포인트 `#40c7f4`는 공식 블로그 프로필 로고에서 추출했다. 공개 CI 지정값으로 주장하지 않는다. 45개 점포 원본 데이터/주소/좌표/파노 근거는 기준 main과 동일하다.
+- JA는 기존 locale 전달/기본 UI 사전보다, 업종 표시 함수가 locale과 무관하게 한국어를 반환한 문제가 주원인이다. EN/JA/ZH 업종을 번역하고, 출처에 번역 없는 이름·메뉴·설명은 원문과 안내를 유지한다. 미확인 값과 지도/상세/주변 UI를 번역한다.
+- `NEXT_PUBLIC_WORLDCUP_WALKING_ENABLED=true`를 빌드 전에 설정하면 길찾기 버튼을 다시 표시한다. 기본 숨김이며 navigation 구현과 원좌표는 유지한다.
+- `npm ci --include-workspace-root --include=dev --no-audit`, lint, build, 전체 테스트 29파일/246개 PASS. web typecheck에서 기존 미커밋 테스트의 잘못된 `getByRole` 옵션을 수정한 뒤 root/web typecheck 및 해당 12개 테스트 PASS. 지도 component 12개·배치 9개에는 SDK mock/실패/해제/45개 핀 충돌 검증이 포함된다.
+- 설치 Chrome 154, 390×844, 키 없는 로컬 production에서 45개 목록·상세·복귀·JA 전환 PASS, pageerror 0/가로넘침 0. 현재 로컬 설정과 운영 화면에서 NAVER 키가 확인되지 않아 실제 NAVER 타일·파노 검증은 아직 미완료다. 최종 Chrome 검증과 push/draft PR이 남아 있다.
+
 ---
 
 ## P0 — 현장검증 잔여
