@@ -2,6 +2,7 @@ import { getWorldCupMarketUiText, type Locale } from "./i18n";
 import type { StoreProduct, WorldCupMarketStore } from "./worldCupMarketStores";
 import { WORLD_CUP_MARKET_DESCRIPTIONS } from "./worldCupMarketDescriptions";
 import { DETAIL_ADDRESS_COPY, DETAIL_HOURS_COPY, DETAIL_ORDER_COPY, DETAIL_PRICE_COPY, DETAIL_PRODUCT_COPY } from "./worldCupMarketDetailCopy";
+import { WORLD_CUP_MARKET_NAME_READINGS } from "./worldCupMarketNameReadings";
 
 /**
  * 화면 언어에 맞는 점포 표기.
@@ -17,6 +18,17 @@ export function localizeStoreName(store: WorldCupMarketStore, locale: Locale): s
   if (locale === "en") return store.nameEn ?? store.nameKo;
   if (locale === "zh") return store.nameZh ?? store.nameKo;
   return store.nameKo;
+}
+
+/**
+ * JA has no separate store name field, so localizeStoreName keeps the Korean
+ * name as the primary text. This katakana reading is shown alongside it so a
+ * visitor can sound the name out against the physical signage. It is a
+ * pronunciation aid, not an official Japanese store name.
+ */
+export function getStoreNameReading(store: WorldCupMarketStore, locale: Locale): string | null {
+  if (locale !== "ja") return null;
+  return WORLD_CUP_MARKET_NAME_READINGS[store.id] ?? null;
 }
 
 type TranslatedCopy = Readonly<Record<string, Readonly<Record<Exclude<Locale, "ko">, string>>>>;

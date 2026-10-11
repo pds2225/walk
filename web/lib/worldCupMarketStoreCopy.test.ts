@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   formatKrwPrice,
+  getStoreNameReading,
   localizeAddress,
   localizeCategory,
   localizeDescription,
@@ -13,6 +14,7 @@ import {
 } from "./worldCupMarketStoreCopy";
 import { getWorldCupMarketUiText } from "./i18n";
 import { WORLD_CUP_MARKET_STORES } from "./worldCupMarketStores";
+import { WORLD_CUP_MARKET_NAME_READINGS } from "./worldCupMarketNameReadings";
 
 describe("월드컵시장 점포 표기", () => {
   it("원본 업종 데이터는 보존하고 지도 필터와 카드의 업종 라벨만 번역한다", () => {
@@ -41,6 +43,15 @@ describe("월드컵시장 점포 표기", () => {
     }
     expect(localizeStoreName(WORLD_CUP_MARKET_STORES[1]!, "zh")).toBe("嘉樂農產物");
     expect(localizeStoreName(WORLD_CUP_MARKET_STORES[0]!, "zh")).toBe("부부야채");
+  });
+
+  it("JA에서만 한글 상점명 옆에 가타카나 읽기를 덧붙이고, 다른 언어에는 없다", () => {
+    for (const store of WORLD_CUP_MARKET_STORES) {
+      expect(getStoreNameReading(store, "ja")).toBe(WORLD_CUP_MARKET_NAME_READINGS[store.id]);
+      expect(getStoreNameReading(store, "ko")).toBeNull();
+      expect(getStoreNameReading(store, "en")).toBeNull();
+      expect(getStoreNameReading(store, "zh")).toBeNull();
+    }
   });
 
   it("한국어 설명·메뉴·시간·메모·주소·가격 표기는 수집된 원문을 유지한다", () => {
