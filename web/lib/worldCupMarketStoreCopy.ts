@@ -1,10 +1,12 @@
 import { getWorldCupMarketUiText, type Locale } from "./i18n";
 import type { StoreProduct, WorldCupMarketStore } from "./worldCupMarketStores";
+import { WORLD_CUP_MARKET_DESCRIPTIONS } from "./worldCupMarketDescriptions";
+import { DETAIL_ADDRESS_COPY, DETAIL_HOURS_COPY, DETAIL_ORDER_COPY, DETAIL_PRICE_COPY, DETAIL_PRODUCT_COPY } from "./worldCupMarketDetailCopy";
 
 /**
  * 화면 언어에 맞는 점포 표기.
  * 영어 이름과 중국어 이름은 같은 블로그의 해당 언어 글 제목에 있을 때만 쓴다.
- * 일본어 점포명과 메뉴·영업시간 번역은 블로그에 없으므로 한국어 원문을 유지한다.
+ * 점포 고유명은 출처 표기를 유지하고, 나머지 정보는 원문 사실만 번역한다.
  */
 export function formatKrwPrice(amount: number, locale: Locale): string {
   const formatted = amount.toLocaleString("ko-KR");
@@ -17,9 +19,14 @@ export function localizeStoreName(store: WorldCupMarketStore, locale: Locale): s
   return store.nameKo;
 }
 
-function keepSource<T extends string | null>(locale: Locale, source: T): T {
-  if (locale === "ko" || locale === "en" || locale === "ja" || locale === "zh") return source;
-  return source;
+type TranslatedCopy = Readonly<Record<string, Readonly<Record<Exclude<Locale, "ko">, string>>>>;
+
+function translateSource(source: string | null, locale: Locale, copy: TranslatedCopy): string | null {
+  if (source === null || locale === "ko") return source;
+  if (source === "미확인") return getWorldCupMarketUiText(locale).unknown;
+  // Preserve future source text if it has not yet been translated. Coverage tests
+  // require translations for every current store instead of silently hiding gaps.
+  return copy[source]?.[locale] ?? source;
 }
 
 // Category badges and filters are UI labels. Keep their data keys unchanged so
@@ -65,23 +72,27 @@ export function localizeCategory(category: string, locale: Locale): string {
 }
 
 export function localizeDescription(description: string | null, locale: Locale): string | null {
-  return keepSource(locale, description);
+  return translateSource(description, locale, WORLD_CUP_MARKET_DESCRIPTIONS);
 }
 
 export function localizeHours(hours: string | null, locale: Locale): string | null {
-  return keepSource(locale, hours);
+  return translateSource(hours, locale, DETAIL_HOURS_COPY);
 }
 
 export function localizeOrderNote(note: string | null, locale: Locale): string | null {
-  return keepSource(locale, note);
+  return translateSource(note, locale, DETAIL_ORDER_COPY);
 }
 
 export function localizeProductName(name: string, locale: Locale): string {
-  return keepSource(locale, name);
+  return translateSource(name, locale, DETAIL_PRODUCT_COPY) ?? name;
 }
 
 export function localizePriceLabel(label: string | null, locale: Locale): string | null {
-  return keepSource(locale, label);
+  return translateSource(label, locale, DETAIL_PRICE_COPY);
+}
+
+export function localizeAddress(address: string, locale: Locale): string {
+  return translateSource(address, locale, DETAIL_ADDRESS_COPY) ?? address;
 }
 
 export function localizeProduct(product: StoreProduct, locale: Locale): StoreProduct {

@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { getWorldCupMarketUiText, LOCALE_OPTIONS, type Locale } from "../lib/i18n";
 import {
   formatKrwPrice,
+  localizeAddress,
   localizeCategory,
   localizeDescription,
   localizeHours,
@@ -281,7 +282,7 @@ function StoreAbout({ store, locale }: { readonly store: WorldCupMarketStore; re
     <section className="worldcup-market-mobile-section worldcup-market-about-shop" aria-labelledby="worldcup-market-about-shop-title">
       <h3 id="worldcup-market-about-shop-title">{ui.aboutShop}</h3>
       <p>{description ?? ui.unknown}</p>
-      <p>{store.address}</p>
+      <p>{localizeAddress(store.address, locale)}</p>
       {store.phone ? <p>{store.phone}</p> : null}
       <dl className="worldcup-market-purchase-facts">
         <div><dt>{ui.takeout}</dt><dd>{purchaseText(store.purchaseInfo.takeout, ui)}</dd></div>
@@ -411,7 +412,7 @@ function NearbyScreen({ store, selectedId, locale, onLocaleChange, onSelect, onB
           <h3 id="worldcup-market-location-map-title">{ui.locationTitle}</h3>
           <span>{ui.market}</span>
         </div>
-        <p>{store.address}</p>
+        <p>{localizeAddress(store.address, locale)}</p>
         {getWorldCupMarketMapPlacement(store.id)?.approximate ? <small className="worldcup-market-approximate">{ui.approximateLocation}</small> : null}
         {sharedLocationCount > 1 ? (
           <p role="note">{ui.sharedLocationNotice.replace("{count}", String(sharedLocationCount))}</p>
