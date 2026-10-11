@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
 // Cover store browsing with explicit unknown and located fixtures.
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getWorldCupMarketUiText, type Locale } from "../lib/i18n";
 import {
+  getStoreNameReading,
   localizeAddress,
   localizeCategory,
   localizeDescription,
@@ -377,5 +378,90 @@ describe("World Cup Market demo", () => {
     expect(screen.getByRole("button", { name: "저장" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /주변 점포 · 360 · 지도/ }));
     expect(screen.queryByRole("button", { name: "여기로 가기" })).toBeNull();
+  });
+
+  it("상점 상세를 열면 history 항목을 push하고, 실제 뒤로가기(popstate)로 목록에 복귀한다", () => {
+    window.history.replaceState(null, "", "/worldcup-market");
+    render(<WorldCupMarketDemo locale="ko" onStartWalking={vi.fn()} />);
+    const lengthBeforeSelect = window.history.length;
+
+    fireEvent.click(within(screen.getByRole("list", { name: "점포 둘러보기" })).getByRole("button", { name: "부부야채" }));
+    expect(screen.getByRole("heading", { name: "부부야채" })).toBeTruthy();
+    expect(window.history.length).toBe(lengthBeforeSelect + 1);
+    expect(window.location.search).toContain("store=worldcup-market-01");
+
+    // 실제 브라우저/휴대폰 뒤로가기가 끝난 상태를 흉내낸다: URL이 이전 화면으로
+    // 돌아간 뒤 popstate가 발생한다. 한국어 홈 '/'으로 나가지 않고 목록으로 복귀해야 한다.
+    window.history.replaceState(null, "", "/worldcup-market");
+    act(() => { window.dispatchEvent(new Event("popstate")); });
+    expect(screen.getByRole("heading", { name: "망원동 월드컵시장" })).toBeTruthy();
+  });
+
+  it("주변 화면을 열면 history 항목을 추가로 push하고, 뒤로가기(popstate)로 상세에 복귀한다", () => {
+    window.history.replaceState(null, "", "/worldcup-market?store=worldcup-market-01");
+    render(<WorldCupMarketDemo locale="ko" onStartWalking={vi.fn()} />);
+    const lengthBeforeNearby = window.history.length;
+
+    fireEvent.click(screen.getByRole("button", { name: /주변 점포 · 360 · 지도/ }));
+    expect(screen.getByRole("heading", { name: "주변 점포" })).toBeTruthy();
+    expect(window.history.length).toBe(lengthBeforeNearby + 1);
+    expect(window.location.search).toContain("view=nearby");
+    expect(window.location.search).toContain("store=worldcup-market-01");
+
+    window.history.replaceState(null, "", "/worldcup-market?store=worldcup-market-01");
+    act(() => { window.dispatchEvent(new Event("popstate")); });
+    expect(screen.getByRole("heading", { name: "부부야채" })).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "주변 점포" })).toBeNull();
+  });
+
+  it("앱 안의 뒤로 버튼은 history가 없는 ?store= 딥링크에서도 빈 화면이 아니라 목록으로 이동(replace)한다", () => {
+    window.history.replaceState(null, "", "/worldcup-market?store=worldcup-market-45");
+    render(<WorldCupMarketDemo locale="ko" onStartWalking={vi.fn()} />);
+    const lengthBeforeBack = window.history.length;
+    expect(screen.getByRole("heading", { name: "장터국밥" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "시장 지도로 돌아가기" }));
+
+    expect(screen.getByRole("heading", { name: "망원동 월드컵시장" })).toBeTruthy();
+    expect(window.location.search).toBe("");
+    // replace여야 한다: 딥링크 진입 상태에서 뒤로 버튼을 눌러도 history 항목이 늘지 않는다.
+    expect(window.history.length).toBe(lengthBeforeBack);
+  });
+
+  it("지도 목록을 떠나기 전 스크롤 위치를 저장했다가 복귀 시 그대로 되돌린다", () => {
+    window.history.replaceState(null, "", "/worldcup-market");
+    render(<WorldCupMarketDemo locale="ko" onStartWalking={vi.fn()} />);
+    Object.defineProperty(window, "scrollY", { configurable: true, value: 420 });
+
+    fireEvent.click(within(screen.getByRole("list", { name: "점포 둘러보기" })).getByRole("button", { name: "부부야채" }));
+    fireEvent.click(screen.getByRole("button", { name: "시장 지도로 돌아가기" }));
+
+    expect(vi.mocked(window.scrollTo)).toHaveBeenLastCalledWith({ top: 420 });
+  });
+
+  it("JA 목록 카드·상세 제목·주변 카드에 가타카나 읽기를 표시하고 KO/EN/ZH에는 나타나지 않는다", () => {
+    window.history.replaceState(null, "", "/worldcup-market");
+    const store = fixtures.stores[0]!;
+    const reading = getStoreNameReading(store, "ja");
+    if (!reading) throw new Error("가타카나 읽기 fixture가 없습니다");
+
+    const { rerender } = render(<WorldCupMarketDemo locale="ko" onStartWalking={vi.fn()} />);
+    expect(screen.queryByText(reading)).toBeNull();
+
+    rerender(<WorldCupMarketDemo locale="ja" onStartWalking={vi.fn()} />);
+    const ui = getWorldCupMarketUiText("ja");
+    expect(within(screen.getByRole("list", { name: ui.browseStores })).getAllByText(reading).length).toBeGreaterThan(0);
+
+    fireEvent.click(within(screen.getByRole("list", { name: ui.browseStores })).getByRole("button", { name: store.nameKo }));
+    expect(screen.getByRole("heading", { name: store.nameKo })).toBeTruthy();
+    expect(screen.getByText(reading)).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: ui.nearbyEntry }));
+    expect(screen.getAllByText(reading).length).toBeGreaterThan(0);
+
+    rerender(<WorldCupMarketDemo locale="en" onStartWalking={vi.fn()} />);
+    expect(screen.queryByText(reading)).toBeNull();
+    rerender(<WorldCupMarketDemo locale="zh" onStartWalking={vi.fn()} />);
+    expect(screen.queryByText(reading)).toBeNull();
   });
 });

@@ -2,10 +2,11 @@
 
 // Store details and nearby views reflect verified location availability.
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getWorldCupMarketUiText, LOCALE_OPTIONS, type Locale } from "../lib/i18n";
 import {
   formatKrwPrice,
+  getStoreNameReading,
   localizeAddress,
   localizeCategory,
   localizeDescription,
@@ -68,12 +69,28 @@ function hasStore(storeId: string | null): storeId is string {
   return Boolean(storeId && WORLD_CUP_MARKET_STORES.some((store) => store.id === storeId));
 }
 
-function updateStoreDeepLink(storeId: string | null): void {
-  if (typeof window === "undefined") return;
+function screenFromSearch(search: string): { readonly screen: DemoScreen; readonly storeId: string | null } {
+  const params = new URLSearchParams(search);
+  const requestedStore = params.get("store");
+  if (!hasStore(requestedStore)) return { screen: "map", storeId: null };
+  const screen: DemoScreen = params.get("view") === "nearby" ? "nearby" : "detail";
+  return { screen, storeId: requestedStore };
+}
+
+function buildMarketUrl(storeId: string | null, nearby: boolean): string {
   const url = new URL(window.location.href);
   if (storeId) url.searchParams.set("store", storeId);
   else url.searchParams.delete("store");
-  window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+  if (nearby) url.searchParams.set("view", "nearby");
+  else url.searchParams.delete("view");
+  return `${url.pathname}${url.search}${url.hash}`;
+}
+
+/** Updates the store param in place (no new history entry); keeps the current map/nearby view. */
+function updateStoreDeepLink(storeId: string | null): void {
+  if (typeof window === "undefined") return;
+  const nearby = new URLSearchParams(window.location.search).get("view") === "nearby";
+  window.history.replaceState(window.history.state, "", buildMarketUrl(storeId, nearby));
 }
 
 function WorldCupMarketMobileHeader({ locale, onLocaleChange, onBack, backLabel }: {
@@ -293,6 +310,12 @@ function StoreAbout({ store, locale }: { readonly store: WorldCupMarketStore; re
   );
 }
 
+function StoreNameReading({ store, locale }: { readonly store: WorldCupMarketStore; readonly locale: Locale }) {
+  const reading = getStoreNameReading(store, locale);
+  if (!reading) return null;
+  return <small className="worldcup-market-name-reading">{reading}</small>;
+}
+
 function StoreDetail({ store, locale, onStartWalking, onOpenNearby }: {
   readonly store: WorldCupMarketStore;
   readonly locale: Locale;
@@ -309,6 +332,7 @@ function StoreDetail({ store, locale, onStartWalking, onOpenNearby }: {
       </div>
       <div className="worldcup-market-mobile-detail-body">
         <h2 id="worldcup-market-selected-title">{name}</h2>
+        <StoreNameReading store={store} locale={locale} />
         <p className="worldcup-market-mobile-category">{localizeCategory(store.category, locale)}</p>
         {getWorldCupMarketMapPlacement(store.id)?.approximate ? <small className="worldcup-market-approximate">{ui.approximateLocation}</small> : null}
         <p className="worldcup-market-mobile-description">{localizeDescription(store.descriptionKo, locale) ?? ui.unknown}</p>
@@ -353,6 +377,7 @@ function NearbyShopRail({ selectedId, locale, onSelect }: {
             >
               {image ? <img src={image.url} alt="" /> : <span className="worldcup-market-nearby-thumb-fallback" aria-hidden="true" />}
               <strong>{name}</strong>
+              <StoreNameReading store={store} locale={locale} />
               <small>{localizeCategory(store.category, locale)}</small>
             </button>
           </li>
@@ -394,6 +419,7 @@ function NearbyScreen({ store, selectedId, locale, onLocaleChange, onSelect, onB
         {image ? <img src={image.url} alt="" /> : null}
         <div>
           <h3>{localizeStoreName(store, locale)}</h3>
+          <StoreNameReading store={store} locale={locale} />
           <p>{localizeCategory(store.category, locale)}</p>
           <span>{localizeDescription(store.descriptionKo, locale) ?? ui.unknown}</span>
         </div>
@@ -471,7 +497,11 @@ function MarketOverview({ locale, onSelect }: {
           {stores.map((store) => <li key={store.id}>
             <button type="button" onClick={() => onSelect(store.id)} aria-label={localizeStoreName(store, locale)}>
               <span className="worldcup-market-store-number">{store.corridorOrder}</span>
-              <span><strong>{localizeStoreName(store, locale)}</strong><small>{localizeCategory(store.category, locale)}</small></span>
+              <span>
+                <strong>{localizeStoreName(store, locale)}</strong>
+                <StoreNameReading store={store} locale={locale} />
+                <small>{localizeCategory(store.category, locale)}</small>
+              </span>
               <span aria-hidden="true">›</span>
             </button>
           </li>)}
@@ -483,7 +513,11 @@ function MarketOverview({ locale, onSelect }: {
           {stores.map((store) => <li key={store.id}>
             <button type="button" onClick={() => onSelect(store.id)}>
               <span className="worldcup-market-store-number">{store.corridorOrder}</span>
-              <span><strong>{localizeStoreName(store, locale)}</strong><small>{localizeCategory(store.category, locale)}</small></span>
+              <span>
+                <strong>{localizeStoreName(store, locale)}</strong>
+                <StoreNameReading store={store} locale={locale} />
+                <small>{localizeCategory(store.category, locale)}</small>
+              </span>
               {getWorldCupMarketMapPlacement(store.id)?.approximate ? <small className="worldcup-market-approximate">{ui.approximateLocation}</small> : null}
               <span aria-hidden="true">›</span>
             </button>
@@ -499,36 +533,62 @@ export default function WorldCupMarketDemo({ locale, onLocaleChange, onStartWalk
   const [screenName, setScreenName] = useState<DemoScreen>("map");
   const ui = getWorldCupMarketUiText(locale);
   const selected = WORLD_CUP_MARKET_STORES.find((store) => store.id === selectedId) ?? WORLD_CUP_MARKET_STORES[0];
+  // Scroll position the list had right before opening a detail view, restored
+  // when returning to the map (in-app back button or the browser/phone back
+  // button). Consumed once so a later redundant popstate does not re-force it.
+  const savedMapScrollRef = useRef<number | null>(null);
+
+  const restoreMapScrollIfNeeded = useCallback(() => {
+    const top = savedMapScrollRef.current;
+    if (top === null) return;
+    savedMapScrollRef.current = null;
+    window.scrollTo?.({ top });
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const syncDeepLink = () => {
-      const requestedStore = new URLSearchParams(window.location.search).get("store");
-      if (hasStore(requestedStore)) {
-        setSelectedId(requestedStore);
-        setScreenName("detail");
-      } else {
-        setScreenName("map");
-      }
+    const syncFromUrl = () => {
+      const { screen, storeId } = screenFromSearch(window.location.search);
+      if (storeId) setSelectedId(storeId);
+      setScreenName(screen);
+      if (screen === "map") restoreMapScrollIfNeeded();
     };
-    syncDeepLink();
-    window.addEventListener("popstate", syncDeepLink);
-    return () => window.removeEventListener("popstate", syncDeepLink);
-  }, []);
+    syncFromUrl();
+    window.addEventListener("popstate", syncFromUrl);
+    return () => window.removeEventListener("popstate", syncFromUrl);
+  }, [restoreMapScrollIfNeeded]);
 
   const selectStore = useCallback((storeId: string) => {
+    // Also used by the detail screen's store switcher to jump between
+    // stores directly, so this only captures the map's scroll position when
+    // actually leaving the map screen.
     if (!hasStore(storeId)) return;
+    if (screenName === "map") savedMapScrollRef.current = window.scrollY;
     setSelectedId(storeId);
     setScreenName("detail");
-    updateStoreDeepLink(storeId);
+    window.history.pushState(null, "", buildMarketUrl(storeId, false));
     window.scrollTo?.({ top: 0 });
-  }, []);
+  }, [screenName]);
 
+  // Always replaces rather than calling history.back(): the button must land
+  // on the market list even from a direct "?store=" deep link with no map
+  // entry behind it. The real browser/phone back button still works via the
+  // pushState entries above and the popstate listener syncing from the URL.
   const backToMap = useCallback(() => {
     setScreenName("map");
-    updateStoreDeepLink(null);
-    window.scrollTo?.({ top: 0 });
-  }, []);
+    window.history.replaceState(null, "", buildMarketUrl(null, false));
+    restoreMapScrollIfNeeded();
+  }, [restoreMapScrollIfNeeded]);
+
+  const openNearby = useCallback(() => {
+    window.history.pushState(null, "", buildMarketUrl(selectedId, true));
+    setScreenName("nearby");
+  }, [selectedId]);
+
+  const closeNearby = useCallback(() => {
+    setScreenName("detail");
+    window.history.replaceState(null, "", buildMarketUrl(selectedId, false));
+  }, [selectedId]);
 
   if (!selected) return null;
 
@@ -550,7 +610,7 @@ export default function WorldCupMarketDemo({ locale, onLocaleChange, onStartWalk
           locale={locale}
           onLocaleChange={onLocaleChange}
           onSelect={(storeId) => { setSelectedId(storeId); updateStoreDeepLink(storeId); }}
-          onBack={() => setScreenName("detail")}
+          onBack={closeNearby}
           onStartWalking={onStartWalking}
         />
       </section>
@@ -561,7 +621,7 @@ export default function WorldCupMarketDemo({ locale, onLocaleChange, onStartWalk
     <section className="worldcup-market-demo worldcup-market-mobile-screen" aria-labelledby="worldcup-market-demo-title">
       <WorldCupMarketMobileHeader locale={locale} onLocaleChange={onLocaleChange} onBack={backToMap} backLabel={ui.backToMap} />
       <h1 id="worldcup-market-demo-title" className="visually-hidden">{ui.title}</h1>
-      <StoreDetail key={selected.id} store={selected} locale={locale} onStartWalking={onStartWalking} onOpenNearby={() => setScreenName("nearby")} />
+      <StoreDetail key={selected.id} store={selected} locale={locale} onStartWalking={onStartWalking} onOpenNearby={openNearby} />
       <StoreSwitcher stores={WORLD_CUP_MARKET_STORES} selectedId={selectedId} locale={locale} onSelect={selectStore} />
     </section>
   );
