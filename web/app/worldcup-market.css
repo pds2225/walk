@@ -387,7 +387,7 @@
 }
 .worldcup-market-menu-card strong { color: var(--ink); font-size: 14px; line-height: 1.35; }
 .worldcup-market-menu-card > span:last-child { color: var(--blue); font-size: 14px; font-weight: 850; }
-.worldcup-market-signature { position: absolute; top: 10px; left: 12px; padding: 3px 6px; border-radius: 999px; background: #eaf1ff; color: var(--blue); font-size: 9px; font-weight: 900; }
+.worldcup-market-signature { align-self: flex-start; padding: 3px 6px; border-radius: 999px; background: #eaf1ff; color: var(--blue); font-size: 9px; font-weight: 900; }
 .worldcup-market-empty-copy { margin: 14px 0 0; color: var(--muted); font-size: 14px; }
 .worldcup-market-about-shop > p { margin: 12px 0 0; color: var(--muted); font-size: 14px; line-height: 1.55; }
 .worldcup-market-purchase-facts { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin: 16px 0 0; }
