@@ -6,6 +6,7 @@ import { getWorldCupMarketUiText, type Locale } from "../lib/i18n";
 import { NaverPanoramaAdapter, type RoadviewSession } from "../lib/roadview";
 import type { Coordinate } from "../lib/types";
 import { localizeStoreName } from "../lib/worldCupMarketStoreCopy";
+import { worldCupMarketWalkingEnabled } from "../lib/worldCupMarketFeatures";
 import { documentedStreetViewEmbedUrl } from "../lib/worldCupMarketStreetView";
 import type { WorldCupMarketStore } from "../lib/worldCupMarketStores";
 
@@ -86,10 +87,13 @@ export default function WorldCupMarketStreetView({ store, locale }: {
 }) {
   const ui = getWorldCupMarketUiText(locale);
   const coordinate = store.streetViewLocation ?? store.storeLocation;
+  const walkingEnabled = worldCupMarketWalkingEnabled();
   const fallback = (
     <div className="worldcup-market-storefront-unavailable" role="status">
       <strong>{ui.storefrontUnavailable}</strong>
-      <span>{store.storeLocation
+      <span>{!walkingEnabled
+        ? store.storeLocation ? ui.storefrontMapFallback : ui.storefrontLocationUnknown
+        : store.storeLocation
         ? store.navigationTarget ? ui.storefrontFallback : ui.storefrontMapOnlyFallback
         : store.navigationTarget ? ui.storefrontWalkingOnlyFallback : ui.storefrontUnknownFallback}</span>
     </div>

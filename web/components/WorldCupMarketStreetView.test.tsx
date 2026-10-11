@@ -28,6 +28,7 @@ const unlocated: WorldCupMarketStore = {
 };
 
 beforeEach(() => {
+  vi.stubEnv("NEXT_PUBLIC_WORLDCUP_WALKING_ENABLED", "true");
   naver.configured.mockReset().mockReturnValue(true);
   naver.open.mockReset();
 });
@@ -68,6 +69,30 @@ function withNaverPanorama(): WorldCupMarketStore {
 }
 
 describe("WorldCupMarketStreetView", () => {
+  it.each(LOCALES)("%s: 도보 기능 기본 숨김일 때 거리뷰 fallback은 지도 위치만 안내한다", (locale) => {
+    vi.stubEnv("NEXT_PUBLIC_WORLDCUP_WALKING_ENABLED", "");
+    const ui = getWorldCupMarketUiText(locale);
+    const view = render(<WorldCupMarketStreetView store={withCoordinate(unlocated)} locale={locale} />);
+    expect(screen.getByText(ui.storefrontMapFallback)).toBeTruthy();
+    expect(screen.queryByText(ui.storefrontFallback)).toBeNull();
+    view.rerender(<WorldCupMarketStreetView store={unlocated} locale={locale} />);
+    expect(screen.getByText(ui.storefrontLocationUnknown)).toBeTruthy();
+    expect(screen.queryByText(ui.storefrontWalkingOnlyFallback)).toBeNull();
+  });
+
+  it("JA 선택 시 이미 열린 NAVER 파노라마의 UI가 재생성 없이 일본어로 바뀐다", async () => {
+    naver.open.mockResolvedValue({ provider: "naver", panoId: "pano-new", close: vi.fn() });
+    const store = withNaverPanorama();
+    const view = render(<WorldCupMarketStreetView store={store} locale="ko" />);
+    await screen.findByText(getWorldCupMarketUiText("ko").panoramaUpdatedNotice);
+    for (const locale of ["ja", "en", "zh"] as const) {
+      view.rerender(<WorldCupMarketStreetView store={store} locale={locale} />);
+      expect(screen.getByText(getWorldCupMarketUiText(locale).panoramaUpdatedNotice)).toBeTruthy();
+      expect(screen.getByRole("img").getAttribute("aria-label")).toContain(getWorldCupMarketUiText(locale).storefrontTitle);
+    }
+    expect(naver.open).toHaveBeenCalledOnce();
+  });
+
   it.each(LOCALES)("%s: 좌표가 없는 점포는 키가 있어도 지도·도보 가능을 주장하지 않는다", (locale) => {
     vi.stubEnv("NEXT_PUBLIC_GOOGLE_MAPS_API_KEY", "test-maps-key");
     const ui = getWorldCupMarketUiText(locale);

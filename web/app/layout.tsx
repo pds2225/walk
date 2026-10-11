@@ -1,11 +1,9 @@
 import type { Metadata, Viewport } from "next";
+import { getServiceMetadata } from "../lib/i18n";
 import "maplibre-gl/dist/maplibre-gl.css";
 import "./globals.css";
 
-export const metadata: Metadata = {
-  title: "walk — 도보 내비게이션",
-  description: "목적지를 넣고 걷기만 누르면 되는 도보 길안내",
-};
+export const metadata: Metadata = getServiceMetadata("ko", "home");
 
 export const viewport: Viewport = {
   width: "device-width",

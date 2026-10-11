@@ -3,10 +3,10 @@
 import "../worldcup-market.css";
 import "../worldcup-market-mobile-overrides.css";
 import "../worldcup-market-streetview.css";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import DestinationWalk from "../../components/DestinationWalk";
 import WorldCupMarketDemo from "../../components/WorldCupMarketDemo";
-import type { Locale } from "../../lib/i18n";
+import { getServiceMetadata, type Locale } from "../../lib/i18n";
 import type { Coordinate } from "../../lib/types";
 import { primeSpeech } from "../../lib/voice";
 
@@ -21,6 +21,14 @@ function requestDeviceOrientationPermission(): void {
 export default function WorldCupMarketDemoPage() {
   const [locale, setLocale] = useState<Locale>("ko");
   const [target, setTarget] = useState<{ name: string; coordinate: Coordinate } | null>(null);
+
+  useEffect(() => {
+    const metadata = getServiceMetadata(locale, "worldcup-market");
+    document.title = metadata.title;
+    document.documentElement.lang = locale;
+    document.querySelector('meta[name="description"]')?.setAttribute("content", metadata.description);
+    return () => { document.documentElement.lang = "ko"; };
+  }, [locale]);
 
   const startWalking = useCallback((next: { name: string; coordinate: Coordinate }) => {
     primeSpeech(locale);
