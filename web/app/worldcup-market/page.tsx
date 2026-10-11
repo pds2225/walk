@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from "react";
 import DestinationWalk from "../../components/DestinationWalk";
 import WorldCupMarketDemo from "../../components/WorldCupMarketDemo";
 import { getServiceMetadata, type Locale } from "../../lib/i18n";
+import { resolveInitialLocale, syncLocaleToUrl, writeStoredLocale } from "../../lib/localePreference";
 import type { Coordinate } from "../../lib/types";
 import { primeSpeech } from "../../lib/voice";
 
@@ -19,10 +20,17 @@ function requestDeviceOrientationPermission(): void {
 }
 
 export default function WorldCupMarketDemoPage() {
-  const [locale, setLocale] = useState<Locale>("ko");
+  // Held at null until mount so the resolved locale (URL > stored > browser
+  // language > ko) renders on the first paint instead of flashing ko first.
+  const [locale, setLocale] = useState<Locale | null>(null);
   const [target, setTarget] = useState<{ name: string; coordinate: Coordinate } | null>(null);
 
   useEffect(() => {
+    setLocale(resolveInitialLocale());
+  }, []);
+
+  useEffect(() => {
+    if (!locale) return;
     const metadata = getServiceMetadata(locale, "worldcup-market");
     document.title = metadata.title;
     document.documentElement.lang = locale;
@@ -30,17 +38,26 @@ export default function WorldCupMarketDemoPage() {
     return () => { document.documentElement.lang = "ko"; };
   }, [locale]);
 
+  const changeLocale = useCallback((next: Locale) => {
+    writeStoredLocale(next);
+    syncLocaleToUrl(next);
+    setLocale(next);
+  }, []);
+
   const startWalking = useCallback((next: { name: string; coordinate: Coordinate }) => {
+    if (!locale) return;
     primeSpeech(locale);
     requestDeviceOrientationPermission();
     setTarget(next);
   }, [locale]);
 
+  if (!locale) return null;
+
   if (target) {
     return (
       <DestinationWalk
         locale={locale}
-        onLocaleChange={setLocale}
+        onLocaleChange={changeLocale}
         target={target}
         onStop={() => setTarget(null)}
       />
@@ -49,7 +66,7 @@ export default function WorldCupMarketDemoPage() {
 
   return (
     <main>
-      <WorldCupMarketDemo locale={locale} onLocaleChange={setLocale} onStartWalking={startWalking} />
+      <WorldCupMarketDemo locale={locale} onLocaleChange={changeLocale} onStartWalking={startWalking} />
     </main>
   );
 }
