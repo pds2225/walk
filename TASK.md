@@ -291,13 +291,15 @@ Roadview 실패 시 navigation은 계속되어야 한다.
 
 ### [~] KN-KTRIP-MARKET-20261007 — 케이트립 시장 지도 첫 화면·개별 핀·다국어 수정
 
-`STATUS = IN_PROGRESS` · `REQUEST_SOLVED = NO`
+`STATUS = DRAFT_PR_OPENED` · `REQUEST_SOLVED = PARTIAL (번역/다국어 완료, NAVER 실지도 검증 후속)`
 
 `TASK_START_SHA = 20fe13906ca7be190c9d49126a24223438b492bc`
 
 `TASK_BLOB_SHA = 8146118ba63fd9e80465a770de4fa4887aeb9322`
 
 `WORK_BRANCH = feat/ktrip-market-map-home-20261007`
+
+- **최신 사용자 범위 (2026-10-08 18:18, 원본 prompt.md):** 45개 점포 설명과 상세의 메뉴·시간·결제 메모·미확인 등 모든 문구를 EN/JA/ZH로 완전히 번역한다. 점포 고유명을 제외한 한국어 잔존을 테스트한다. 원문 사실을 추가하지 않는다. 4개 언어의 목록 대체 화면을 마무리하며, 키 없는 현재 환경에서 실제 지도 검증 때문에 PR을 지연하지 않는다. 기존 커밋 `9b78c9d`, `ca2a652`는 보존하고 공식조사·필터·길찾기 등 범위를 확대하지 않는다. 설치/필수 검사와 Chrome 390×844 증거 후 일반 push 및 main 대상 draft PR, 실행한 서버 종료까지 수행한다. 아래 원래 범위/체크포인트와 충돌하면 이 최신 지시가 우선한다.
 
 - **MUST:** `/worldcup-market` 첫 화면에 NAVER 전체 시장 지도와 45개 점포 핀, 데이터 기반 업종 필터, 하단 카드/목록, 상세 및 지도 복귀, `?store=` 상세 딥링크를 제공한다. 키가 없으면 목록으로 대체한다.
 - **MUST:** 공식 안내도와 블로그 매장 번호를 조사하고 출처를 기록한다. 매칭 불가 점포는 원래 건물 좌표와 근거를 보존한 별도 표시 좌표에 ID 기준 고정 배치하며, 임의 배치에 approximate 및 대략 위치 안내를 표시한다.
@@ -319,6 +321,17 @@ Roadview 실패 시 navigation은 계속되어야 한다.
 - `NEXT_PUBLIC_WORLDCUP_WALKING_ENABLED=true`를 빌드 전에 설정하면 길찾기 버튼을 다시 표시한다. 기본 숨김이며 navigation 구현과 원좌표는 유지한다.
 - `npm ci --include-workspace-root --include=dev --no-audit`, lint, build, 전체 테스트 29파일/246개 PASS. web typecheck에서 기존 미커밋 테스트의 잘못된 `getByRole` 옵션을 수정한 뒤 root/web typecheck 및 해당 12개 테스트 PASS. 지도 component 12개·배치 9개에는 SDK mock/실패/해제/45개 핀 충돌 검증이 포함된다.
 - 설치 Chrome 154, 390×844, 키 없는 로컬 production에서 45개 목록·상세·복귀·JA 전환 PASS, pageerror 0/가로넘침 0. 현재 로컬 설정과 운영 화면에서 NAVER 키가 확인되지 않아 실제 NAVER 타일·파노 검증은 아직 미완료다. 최종 Chrome 검증과 push/draft PR이 남아 있다.
+
+**2026-10-11 완료 체크포인트 (Claude 인수)**
+
+- 사용자 2026-10-08 18:18 최신 지시(번역 1순위, 지도 후순위)에 따라 번역 완성에 집중했다. `web/lib/worldCupMarketDescriptions.ts`에 미완성이던 매장 31~45번 가게 설명(블로그 원문) EN/JA/ZH 번역 15건을 추가했다(01~45번 전체 완료). 번역은 블로그 원문 사실만 옮기고 새 사실을 추가하지 않았다.
+- 상세 화면 메뉴·영업시간·결제 메모·주소·업종·"미확인" 번역은 이전 미커밋 작업(`worldCupMarketDetailCopy.ts`, `worldCupMarketStoreCopy.ts`)에서 이미 45개 점포 전체를 다루고 있었음을 코드로 확인했다(주소/시간/주문메모/상품명 맵에 31~45번 항목이 모두 존재).
+- `worldCupMarketStoreCopy.test.ts`의 `45개 점포 본문을 번역하며 원본 사실과 미확인 값을 보존한다` 테스트(EN/JA/ZH)가 수정 전 매장 31~45 설명에서 한국어 잔존으로 FAIL했고, 번역 추가 후 PASS로 전환됨을 직접 확인했다.
+- Chrome 390×844 실기 QA(`C:\Users\ekth3\ktrip-codex\final-chrome-20261009.cjs`, NAVER 키 없는 로컬 production)에서 EN 매장 40·43번 상세의 "대표 메뉴" 카드가 영어 번역 문구 길이 때문에 "Signature" 배지와 메뉴명이 겹치는 레이아웃 결함을 발견했다. `web/app/worldcup-market.css`의 `.worldcup-market-signature`를 `position:absolute` 겹쳐쓰기에서 flex 흐름 내 `align-self:flex-start`로 바꿔 모든 언어 길이에서 겹치지 않도록 수정했다(코드/동작 변경 없이 CSS만 수정).
+- 검증: `npm run lint` PASS, `npm run next:build` PASS, `npm run test:run` 29개 파일 391개 테스트 전체 PASS(루트), `npm run typecheck`(루트)·`npm --prefix web run typecheck` 모두 PASS.
+- Chrome 390×844 실기 QA 최종 재실행 결과 `"result":"PASS"` — KO/EN/JA/ZH 지도 대체 화면 45개, 45개 점포 상세·주변 화면 번역, 길찾기 버튼 숨김, `?store=` 딥링크, 홈 K-Trip 타이틀, 레이아웃 겹침 0건, pageError 0건을 모두 확인했다. 스크린샷은 `C:\Users\ekth3\ktrip-codex\claude-*.png`.
+- NAVER 실지도 렌더링·타일·파노 연동은 로컬에 지도 키가 없어 이번에도 검증하지 못했다(사용자 최신 지시상 최저 우선순위, PR 지연 사유 아님). 공식 점포 번호 안내도 매칭은 2026-10-08 체크포인트 상태(0건 매칭, 미확인)에서 변동 없음.
+- 작업 결과를 브랜치 `feat/ktrip-market-map-home-20261007`에 커밋 후 `origin`으로 push하고 `main` 대상 draft PR을 생성했다(머지하지 않음).
 
 ---
 
