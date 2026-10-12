@@ -410,6 +410,22 @@ describe("World Cup Market demo", () => {
     expect(screen.getByRole("heading", { name: "망원동 월드컵시장" })).toBeTruthy();
   });
 
+  it("고정 지도 핀을 눌러 상세를 열어도 history에 쌓이고, 뒤로가기로 고정 지도 첫 화면에 돌아온다", () => {
+    window.history.replaceState(null, "", "/worldcup-market");
+    render(<WorldCupMarketDemo locale="ko" onStartWalking={vi.fn()} />);
+    const lengthBeforeSelect = window.history.length;
+
+    fireEvent.click(within(screen.getByTestId("worldcup-market-static-map")).getByRole("button", { name: "test map selection" }));
+    expect(screen.getByRole("heading", { name: "부부야채" })).toBeTruthy();
+    expect(window.history.length).toBe(lengthBeforeSelect + 1);
+    expect(window.location.search).toContain("store=worldcup-market-01");
+
+    window.history.replaceState(null, "", "/worldcup-market");
+    act(() => { window.dispatchEvent(new Event("popstate")); });
+    expect(screen.getByTestId("worldcup-market-static-map").getAttribute("data-store-count")).toBe("45");
+    expect(screen.queryByTestId("worldcup-market-map")).toBeNull();
+  });
+
   it("주변 화면을 열면 history 항목을 추가로 push하고, 뒤로가기(popstate)로 상세에 복귀한다", () => {
     window.history.replaceState(null, "", "/worldcup-market?store=worldcup-market-01");
     render(<WorldCupMarketDemo locale="ko" onStartWalking={vi.fn()} />);
