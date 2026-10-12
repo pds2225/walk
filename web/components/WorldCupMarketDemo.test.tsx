@@ -304,6 +304,21 @@ describe("World Cup Market demo", () => {
     expect(screen.queryByRole("note")).toBeNull();
   });
 
+  it("파라미터 없는 /worldcup-market은 전체 지도 메인이고 뒤로 버튼이 없으며 상세의 뒤로는 메인으로 돌아온다", () => {
+    window.history.replaceState(null, "", "/worldcup-market");
+    const back = vi.spyOn(window.history, "back");
+    render(<WorldCupMarketDemo locale="ko" onStartWalking={vi.fn()} />);
+    expect(screen.getByTestId("worldcup-market-static-map")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "뒤로" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "test map selection" }));
+    expect(window.location.search).toContain("store=");
+    fireEvent.click(screen.getByRole("button", { name: getWorldCupMarketUiText("ko").backToMap }));
+    expect(window.location.search).toBe("");
+    expect(screen.getByTestId("worldcup-market-static-map")).toBeTruthy();
+    expect(back).not.toHaveBeenCalled();
+    back.mockRestore();
+  });
+
   it("?store= deep link로 특정 점포 상세에 직접 진입하고 점포 변경 시 URL을 갱신한다", async () => {
     window.history.replaceState({}, "", "/worldcup-market?store=worldcup-market-45");
     render(<WorldCupMarketDemo locale="ko" onStartWalking={vi.fn()} />);
