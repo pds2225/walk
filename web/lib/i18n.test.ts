@@ -11,11 +11,18 @@ describe("K-Navi localization", () => {
       expect(ui.serviceName).toBe(serviceName);
       expect(ui.market).toBe(markets[locale]);
       expect(ui.marketMap).toContain(markets[locale]);
-      expect(getServiceMetadata(locale, "worldcup-market").title).toBe(`${serviceName} — ${markets[locale]}`);
+      const brand = locale === "ko" ? "케이트립 K-Trip" : "K-Trip";
+      expect(getServiceMetadata(locale, "worldcup-market").title).toBe(`${brand} — ${markets[locale]}`);
       expect(getServiceMetadata(locale, "worldcup-market").description).toContain(serviceName);
-      expect(getServiceMetadata(locale, "home").title).toContain(serviceName);
-      expect(getServiceMetadata(locale, "home").description).toContain(serviceName);
+      // K-Trip branding must not leak into the root walking-navigation app.
+      const home = getServiceMetadata(locale, "home");
+      expect(home.title.startsWith("walk — ")).toBe(true);
+      expect(`${home.title} ${home.description}`).not.toMatch(/K-Trip|케이트립/);
     }
+  });
+
+  it("restores WALK's original root title and description", () => {
+    expect(getServiceMetadata("ko", "home")).toEqual({ title: "walk — 도보 내비게이션", description: "목적지를 넣고 걷기만 누르면 되는 도보 길안내" });
   });
 
   it("provides localized map, detail and panorama labels and unconfirmed values", () => {

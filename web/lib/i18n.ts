@@ -6,11 +6,18 @@ export function getServiceName(locale: Locale): string {
   return locale === "ko" ? "케이트립" : "K-Trip";
 }
 
+/** WALK's own name, used for the root walking-navigation app (/). */
+export const WALK_APP_NAME = "walk";
+
+/**
+ * Page metadata. K-Trip/케이트립 branding is scoped to /worldcup-market only;
+ * the root (/) keeps WALK's original name.
+ */
 export function getServiceMetadata(locale: Locale, page: "home" | "worldcup-market") {
-  const serviceName = getServiceName(locale);
   if (page === "worldcup-market") {
     const ui = getWorldCupMarketUiText(locale);
-    return { title: `${serviceName} — ${ui.market}`, description: `${serviceName} · ${ui.subtitle}` };
+    const brand = locale === "ko" ? "케이트립 K-Trip" : "K-Trip";
+    return { title: `${brand} — ${ui.market}`, description: `${getServiceName(locale)} · ${ui.subtitle}` };
   }
   const navigationLabel = { ko: "도보 내비게이션", en: "Walking navigation", ja: "徒歩ナビゲーション", zh: "步行导航" }[locale];
   const description = {
@@ -19,7 +26,7 @@ export function getServiceMetadata(locale: Locale, page: "home" | "worldcup-mark
     ja: "目的地を選んで徒歩案内を開始できます。",
     zh: "选择目的地，开始步行导航。",
   }[locale];
-  return { title: `${serviceName} — ${navigationLabel}`, description: `${serviceName} · ${description}` };
+  return { title: `${WALK_APP_NAME} — ${navigationLabel}`, description };
 }
 
 export const LOCALE_OPTIONS: readonly { value: Locale; label: string }[] = [
