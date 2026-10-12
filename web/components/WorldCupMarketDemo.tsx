@@ -118,17 +118,13 @@ function WorldCupMarketMobileHeader({ locale, onLocaleChange, onBack, backLabel 
   readonly backLabel?: string;
 }) {
   const ui = getWorldCupMarketUiText(locale);
-  const goBack = () => {
-    if (onBack) {
-      onBack();
-      return;
-    }
-    if (typeof window !== "undefined" && window.history.length > 1) window.history.back();
-  };
+  const goBack = () => onBack?.();
 
   return (
     <header className="worldcup-market-mobile-header">
-      <button type="button" className="worldcup-market-back-button" aria-label={backLabel ?? ui.back} onClick={goBack}>‹</button>
+      {/* The market map is the K-Trip main screen: no back button there, so it can't
+          navigate away (history.back() used to leave the market entirely). */}
+      {onBack ? <button type="button" className="worldcup-market-back-button" aria-label={backLabel ?? ui.back} onClick={goBack}>‹</button> : <span className="worldcup-market-back-button" aria-hidden="true" />}
       <div className="worldcup-market-mobile-brand">
         <strong>{ui.serviceName}</strong>
         <span>{ui.market}</span>
