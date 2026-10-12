@@ -9,6 +9,7 @@ import {
   getStoreNameReading,
   localizeAddress,
   localizeCategory,
+  localizeCategoryGroup,
   localizeDescription,
   localizeHours,
   localizeOrderNote,
@@ -16,11 +17,19 @@ import {
   localizeProductName,
   localizeStoreName,
 } from "../lib/worldCupMarketStoreCopy";
-import { WORLD_CUP_MARKET_STORES, type WorldCupMarketStore, type StoreProduct } from "../lib/worldCupMarketStores";
+import {
+  WORLD_CUP_MARKET_CATEGORY_GROUP_ORDER,
+  WORLD_CUP_MARKET_STORES,
+  type StoreProduct,
+  type WorldCupMarketCategoryGroup,
+  type WorldCupMarketStore,
+} from "../lib/worldCupMarketStores";
 import type { Coordinate } from "../lib/types";
 import WorldCupMarketStreetView from "./WorldCupMarketStreetView";
 import { getWorldCupMarketMapPlacement } from "../lib/worldCupMarketMapLayout";
 import { worldCupMarketLiveMapEnabled, worldCupMarketWalkingEnabled } from "../lib/worldCupMarketFeatures";
+import { parseStorePhones } from "../lib/worldCupMarketPhone";
+import { htmlLangFor } from "../lib/localePreference";
 import WorldCupMarketStaticMap from "./WorldCupMarketStaticMap";
 
 // The NAVER SDK is loaded only in the browser.
@@ -42,14 +51,23 @@ function walkLabel(locale: Locale, ui: ReturnType<typeof getWorldCupMarketUiText
   return locale === "ko" ? ui.goThere : ui.startWalkingGuide;
 }
 
-function priceText(
-  price: number | null,
-  priceLabel: string | null,
-  locale: Locale,
-  unknown: string,
-): string {
+function priceText(price: number | null, priceLabel: string | null, locale: Locale): string | null {
   if (price !== null) return formatKrwPrice(price, locale);
-  return localizePriceLabel(priceLabel, locale) ?? unknown;
+  return localizePriceLabel(priceLabel, locale);
+}
+
+/** 상세 화면에서 값이 없어 숨긴 항목 이름. 한 줄로 모아 작게 보여준다. */
+function missingStoreFields(store: WorldCupMarketStore, locale: Locale): string[] {
+  const ui = getWorldCupMarketUiText(locale);
+  const signature = representativeFact(store);
+  const missing: string[] = [];
+  if (!signature.name) missing.push(ui.representativeMenu);
+  if (priceText(signature.price, signature.priceLabel, locale) === null) missing.push(ui.price);
+  if (!localizeHours(store.businessHours, locale)) missing.push(ui.hours);
+  if (parseStorePhones(store.phone).length === 0) missing.push(ui.phone);
+  if (store.purchaseInfo.takeout === null) missing.push(ui.takeout);
+  if (store.purchaseInfo.dineIn === null) missing.push(ui.dineIn);
+  return missing;
 }
 
 function displayProducts(store: WorldCupMarketStore): DisplayProduct[] {
@@ -175,20 +193,23 @@ function representativeFact(store: WorldCupMarketStore): { name: string; price: 
 function StoreKeyFacts({ store, locale }: { readonly store: WorldCupMarketStore; readonly locale: Locale }) {
   const ui = getWorldCupMarketUiText(locale);
   const signature = representativeFact(store);
+  const price = priceText(signature.price, signature.priceLabel, locale);
+  const hours = localizeHours(store.businessHours, locale);
+  // Unknown values are hidden here and listed once in StoreAbout's "not confirmed" line.
+  const facts = [
+    signature.name ? { key: "menu", icon: "✦", label: ui.representativeMenu, value: localizeProductName(signature.name, locale) } : null,
+    price ? { key: "price", icon: "₩", label: ui.price, value: price } : null,
+    hours ? { key: "hours", icon: "◷", label: ui.hours, value: hours } : null,
+  ].filter((fact): fact is { key: string; icon: string; label: string; value: string } => fact !== null);
+  if (facts.length === 0) return null;
   return (
-    <dl className="worldcup-market-mobile-key-facts">
-      <div>
-        <dt><span aria-hidden="true">✦</span>{ui.representativeMenu}</dt>
-        <dd>{localizeProductName(signature.name, locale) || ui.unknown}</dd>
-      </div>
-      <div>
-        <dt><span aria-hidden="true">₩</span>{ui.price}</dt>
-        <dd>{priceText(signature.price, signature.priceLabel, locale, ui.unknown)}</dd>
-      </div>
-      <div>
-        <dt><span aria-hidden="true">◷</span>{ui.hours}</dt>
-        <dd>{localizeHours(store.businessHours, locale) ?? ui.unknown}</dd>
-      </div>
+    <dl className="worldcup-market-mobile-key-facts" data-count={facts.length}>
+      {facts.map((fact) => (
+        <div key={fact.key} data-fact={fact.key}>
+          <dt><span aria-hidden="true">{fact.icon}</span>{fact.label}</dt>
+          <dd>{fact.value}</dd>
+        </div>
+      ))}
     </dl>
   );
 }
@@ -260,6 +281,7 @@ function MenuCarousel({ store, locale }: { readonly store: WorldCupMarketStore; 
   const [expanded, setExpanded] = useState(false);
   const products = useMemo(() => displayProducts(store), [store]);
   const shownProducts = expanded ? products : products.slice(0, 6);
+  if (products.length === 0) return null;
 
   return (
     <section className="worldcup-market-mobile-section worldcup-market-popular-menu" aria-labelledby="worldcup-market-popular-menu-title">
@@ -269,7 +291,7 @@ function MenuCarousel({ store, locale }: { readonly store: WorldCupMarketStore; 
           <button type="button" onClick={() => setExpanded((value) => !value)}>{expanded ? ui.showLess : ui.seeAll}</button>
         ) : null}
       </div>
-      {shownProducts.length > 0 ? (
+      {(
         <div className="worldcup-market-menu-carousel" role="region" aria-label={ui.popularMenu}>
           {shownProducts.map((product) => {
             const signature = store.representativeMenu?.nameKo === product.nameKo;
@@ -277,12 +299,12 @@ function MenuCarousel({ store, locale }: { readonly store: WorldCupMarketStore; 
               <article key={`${store.id}-${product.nameKo}`} className="worldcup-market-menu-card">
                 {signature ? <span className="worldcup-market-signature">{ui.signature}</span> : null}
                 <strong>{localizeProductName(product.nameKo, locale)}</strong>
-                <span>{priceText(product.priceKrw, product.priceLabel, locale, ui.unknown)}</span>
+                {priceText(product.priceKrw, product.priceLabel, locale) ? <span>{priceText(product.priceKrw, product.priceLabel, locale)}</span> : null}
               </article>
             );
           })}
         </div>
-      ) : <p className="worldcup-market-empty-copy">{ui.unknown}</p>}
+      )}
     </section>
   );
 }
@@ -294,19 +316,33 @@ function purchaseText(value: boolean | null, ui: ReturnType<typeof getWorldCupMa
 
 function StoreAbout({ store, locale }: { readonly store: WorldCupMarketStore; readonly locale: Locale }) {
   const ui = getWorldCupMarketUiText(locale);
-  const description = localizeDescription(store.descriptionKo, locale);
   const orderNote = localizeOrderNote(store.purchaseInfo.orderNote, locale);
+  const phones = parseStorePhones(store.phone);
+  const purchase = [
+    store.purchaseInfo.takeout === null ? null : { key: "takeout", label: ui.takeout, value: store.purchaseInfo.takeout },
+    store.purchaseInfo.dineIn === null ? null : { key: "dineIn", label: ui.dineIn, value: store.purchaseInfo.dineIn },
+  ].filter((item): item is { key: string; label: string; value: boolean } => item !== null);
+  const missing = missingStoreFields(store, locale);
+  // The description is shown once, at the top of the detail screen.
   return (
     <section className="worldcup-market-mobile-section worldcup-market-about-shop" aria-labelledby="worldcup-market-about-shop-title">
       <h3 id="worldcup-market-about-shop-title">{ui.aboutShop}</h3>
-      <p>{description ?? ui.unknown}</p>
       <p>{localizeAddress(store.address, locale)}</p>
-      {store.phone ? <p>{store.phone}</p> : null}
-      <dl className="worldcup-market-purchase-facts">
-        <div><dt>{ui.takeout}</dt><dd>{purchaseText(store.purchaseInfo.takeout, ui)}</dd></div>
-        <div><dt>{ui.dineIn}</dt><dd>{purchaseText(store.purchaseInfo.dineIn, ui)}</dd></div>
-      </dl>
+      {phones.length > 0 ? (
+        <p className="worldcup-market-phone">
+          <span>{ui.phone}</span>
+          {phones.map((phone) => <a key={phone.href} href={phone.href}>{phone.label}</a>)}
+        </p>
+      ) : null}
+      {purchase.length > 0 ? (
+        <dl className="worldcup-market-purchase-facts">
+          {purchase.map((item) => <div key={item.key}><dt>{item.label}</dt><dd>{purchaseText(item.value, ui)}</dd></div>)}
+        </dl>
+      ) : null}
       {orderNote ? <p className="worldcup-market-order-note"><strong>{ui.orderNote}</strong>{orderNote}</p> : null}
+      {missing.length > 0 ? (
+        <p className="worldcup-market-not-confirmed"><span>{ui.notConfirmedFields}</span> {missing.join(" · ")}</p>
+      ) : null}
     </section>
   );
 }
@@ -336,7 +372,7 @@ function StoreDetail({ store, locale, onStartWalking, onOpenNearby }: {
         <StoreNameReading store={store} locale={locale} />
         <p className="worldcup-market-mobile-category">{localizeCategory(store.category, locale)}</p>
         {getWorldCupMarketMapPlacement(store.id)?.approximate ? <small className="worldcup-market-approximate">{ui.approximateLocation}</small> : null}
-        <p className="worldcup-market-mobile-description">{localizeDescription(store.descriptionKo, locale) ?? ui.unknown}</p>
+        {localizeDescription(store.descriptionKo, locale) ? <p className="worldcup-market-mobile-description">{localizeDescription(store.descriptionKo, locale)}</p> : null}
         {locale !== "ko" ? <p className="worldcup-market-source-notice">{ui.originalSourceNotice}</p> : null}
         <StoreKeyFacts store={store} locale={locale} />
         <StorePrimaryActions store={store} locale={locale} onStartWalking={onStartWalking} />
@@ -473,9 +509,10 @@ function MarketOverview({ locale, onSelect }: {
   readonly onSelect: (storeId: string) => void;
 }) {
   const ui = getWorldCupMarketUiText(locale);
-  const [category, setCategory] = useState<string | null>(null);
-  const categories = useMemo(() => [...new Set(WORLD_CUP_MARKET_STORES.map((store) => store.category))], []);
-  const stores = useMemo(() => WORLD_CUP_MARKET_STORES.filter((store) => category === null || store.category === category), [category]);
+  const [group, setGroup] = useState<WorldCupMarketCategoryGroup | null>(null);
+  const groups = useMemo(() => WORLD_CUP_MARKET_CATEGORY_GROUP_ORDER.filter((item) =>
+    WORLD_CUP_MARKET_STORES.some((store) => store.categoryGroup === item)), []);
+  const stores = useMemo(() => WORLD_CUP_MARKET_STORES.filter((store) => group === null || store.categoryGroup === group), [group]);
   return (
     <div className="worldcup-market-overview">
       <div className="worldcup-market-overview-heading">
@@ -483,36 +520,20 @@ function MarketOverview({ locale, onSelect }: {
         <p>{ui.subtitle}</p>
       </div>
       <div className="worldcup-market-category-filter" role="group" aria-label={ui.categoryFilter}>
-        <button type="button" aria-pressed={category === null} onClick={() => setCategory(null)}>{ui.allCategories}</button>
-        {categories.map((item) => <button type="button" key={item} aria-pressed={category === item} onClick={() => setCategory(item)}>{localizeCategory(item, locale)}</button>)}
+        <button type="button" aria-pressed={group === null} onClick={() => setGroup(null)}>{ui.allCategories}</button>
+        {groups.map((item) => <button type="button" key={item} aria-pressed={group === item} onClick={() => setGroup(item)}>{localizeCategoryGroup(item, locale)}</button>)}
       </div>
       <div className="worldcup-market-overview-map">
         {worldCupMarketLiveMapEnabled()
           ? <WorldCupMarketMap stores={stores} selectedId="" here={null} onSelect={onSelect} locale={locale} mode="overview" />
           : <WorldCupMarketStaticMap stores={stores} selectedId="" onSelect={onSelect} locale={locale} />}
       </div>
-      <section className="worldcup-market-overview-stores" aria-labelledby="worldcup-market-browse-title">
+      <section className="worldcup-market-overview-list" aria-labelledby="worldcup-market-list-title">
         <div className="worldcup-market-section-heading">
-          <h2 id="worldcup-market-browse-title">{ui.browseStores}</h2>
+          <h2 id="worldcup-market-list-title">{ui.storeList}</h2>
           <span role="status">{ui.storesCount(stores.length)}</span>
         </div>
-        <ul className="worldcup-market-overview-cards" aria-label={ui.browseStores}>
-          {stores.map((store) => <li key={store.id}>
-            <button type="button" onClick={() => onSelect(store.id)} aria-label={localizeStoreName(store, locale)}>
-              <span className="worldcup-market-store-number">{store.corridorOrder}</span>
-              <span>
-                <strong>{localizeStoreName(store, locale)}</strong>
-                <StoreNameReading store={store} locale={locale} />
-                <small>{localizeCategory(store.category, locale)}</small>
-              </span>
-              <span aria-hidden="true">›</span>
-            </button>
-          </li>)}
-        </ul>
-      </section>
-      <section className="worldcup-market-overview-list" aria-labelledby="worldcup-market-list-title">
-        <h2 id="worldcup-market-list-title">{ui.storeList}</h2>
-        <ul>
+        <ul aria-label={ui.storeList}>
           {stores.map((store) => <li key={store.id}>
             <button type="button" onClick={() => onSelect(store.id)}>
               <span className="worldcup-market-store-number">{store.corridorOrder}</span>
@@ -569,7 +590,10 @@ export default function WorldCupMarketDemo({ locale, onLocaleChange, onStartWalk
     if (screenName === "map") savedMapScrollRef.current = window.scrollY;
     setSelectedId(storeId);
     setScreenName("detail");
-    window.history.pushState(null, "", buildMarketUrl(storeId, false));
+    // Only leaving the map adds a history entry. Switching store to store from a
+    // detail replaces it, so phone back from any detail returns to the map.
+    if (screenName === "map") window.history.pushState(null, "", buildMarketUrl(storeId, false));
+    else window.history.replaceState(null, "", buildMarketUrl(storeId, false));
     window.scrollTo?.({ top: 0 });
   }, [screenName]);
 
@@ -597,7 +621,7 @@ export default function WorldCupMarketDemo({ locale, onLocaleChange, onStartWalk
 
   if (screenName === "map") {
     return (
-      <section className="worldcup-market-demo worldcup-market-mobile-screen" aria-label={ui.title}>
+      <section className="worldcup-market-demo worldcup-market-mobile-screen" lang={htmlLangFor(locale)} aria-label={ui.title}>
         <WorldCupMarketMobileHeader locale={locale} onLocaleChange={onLocaleChange} />
         <MarketOverview locale={locale} onSelect={selectStore} />
       </section>
@@ -606,7 +630,7 @@ export default function WorldCupMarketDemo({ locale, onLocaleChange, onStartWalk
 
   if (screenName === "nearby") {
     return (
-      <section className="worldcup-market-demo worldcup-market-mobile-screen" aria-label={getWorldCupMarketUiText(locale).title}>
+      <section className="worldcup-market-demo worldcup-market-mobile-screen" lang={htmlLangFor(locale)} aria-label={getWorldCupMarketUiText(locale).title}>
         <NearbyScreen
           store={selected}
           selectedId={selectedId}
@@ -621,7 +645,7 @@ export default function WorldCupMarketDemo({ locale, onLocaleChange, onStartWalk
   }
 
   return (
-    <section className="worldcup-market-demo worldcup-market-mobile-screen" aria-labelledby="worldcup-market-demo-title">
+    <section className="worldcup-market-demo worldcup-market-mobile-screen" lang={htmlLangFor(locale)} aria-labelledby="worldcup-market-demo-title">
       <WorldCupMarketMobileHeader locale={locale} onLocaleChange={onLocaleChange} onBack={backToMap} backLabel={ui.backToMap} />
       <h1 id="worldcup-market-demo-title" className="visually-hidden">{ui.title}</h1>
       <StoreDetail key={selected.id} store={selected} locale={locale} onStartWalking={onStartWalking} onOpenNearby={openNearby} />

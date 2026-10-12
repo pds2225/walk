@@ -1,5 +1,5 @@
 import { getWorldCupMarketUiText, type Locale } from "./i18n";
-import type { StoreProduct, WorldCupMarketStore } from "./worldCupMarketStores";
+import type { StoreProduct, WorldCupMarketCategoryGroup, WorldCupMarketStore } from "./worldCupMarketStores";
 import { WORLD_CUP_MARKET_DESCRIPTIONS } from "./worldCupMarketDescriptions";
 import { DETAIL_ADDRESS_COPY, DETAIL_HOURS_COPY, DETAIL_ORDER_COPY, DETAIL_PRICE_COPY, DETAIL_PRODUCT_COPY } from "./worldCupMarketDetailCopy";
 import { WORLD_CUP_MARKET_NAME_READINGS } from "./worldCupMarketNameReadings";
@@ -45,7 +45,8 @@ function translateSource(source: string | null, locale: Locale, copy: Translated
 // filtering still uses the official source categories without inventing groups.
 const CATEGORY_LABELS: Record<string, Record<Exclude<Locale, "ko">, string>> = {
   "채소": { en: "Vegetables", ja: "野菜", zh: "蔬菜" },
-  "야채": { en: "Vegetables (yachae)", ja: "野菜（ヤチェ）", zh: "蔬菜（Yachae）" },
+  // 블로그가 "채소"와 "야채"를 섞어 쓴다. 같은 뜻이라 번역도 같게 한다.
+  "야채": { en: "Vegetables", ja: "野菜", zh: "蔬菜" },
   "과일": { en: "Fruit", ja: "果物", zh: "水果" },
   "정육": { en: "Meat", ja: "精肉", zh: "鲜肉" },
   "수산물": { en: "Seafood", ja: "水産物", zh: "水产品" },
@@ -59,7 +60,7 @@ const CATEGORY_LABELS: Record<string, Record<Exclude<Locale, "ko">, string>> = {
   "식자재": { en: "Food ingredients", ja: "食材", zh: "食材" },
   "특산물": { en: "Regional specialties", ja: "特産品", zh: "特产" },
   "게장": { en: "Marinated crab", ja: "ケジャン", zh: "酱蟹" },
-  "곱창": { en: "Gopchang", ja: "コプチャン", zh: "烤肠" },
+  "곱창": { en: "Gopchang (intestines)", ja: "コプチャン（ホルモン）", zh: "肥肠" },
   "국밥": { en: "Soup with rice", ja: "クッパ", zh: "汤饭" },
   "부대찌개": { en: "Budae jjigae", ja: "プデチゲ", zh: "部队锅" },
   "족발": { en: "Jokbal", ja: "チョッパル", zh: "猪蹄" },
@@ -77,6 +78,20 @@ const CATEGORY_LABELS: Record<string, Record<Exclude<Locale, "ko">, string>> = {
   "커튼": { en: "Curtains", ja: "カーテン", zh: "窗帘" },
   "장판·벽지": { en: "Flooring & wallpaper", ja: "床材・壁紙", zh: "地板·壁纸" },
 };
+
+const CATEGORY_GROUP_LABELS: Record<WorldCupMarketCategoryGroup, Record<Locale, string>> = {
+  produce: { ko: "채소·과일", en: "Produce", ja: "野菜・果物", zh: "蔬菜·水果" },
+  seafood: { ko: "수산·건어물", en: "Seafood & dried", ja: "水産・乾物", zh: "水产·干货" },
+  meat: { ko: "정육·족발", en: "Meat & jokbal", ja: "精肉・チョッパル", zh: "肉类·猪蹄" },
+  snacks: { ko: "분식·반찬·떡", en: "Snacks, sides & rice cakes", ja: "軽食・惣菜・餅", zh: "小吃·小菜·年糕" },
+  restaurant: { ko: "음식점", en: "Restaurants", ja: "飲食店", zh: "餐馆" },
+  pantry: { ko: "식재료·방앗간", en: "Pantry & mill", ja: "食材・製粉所", zh: "食材·磨坊" },
+  living: { ko: "생활·의류", en: "Home & clothing", ja: "生活用品・衣料", zh: "生活·服饰" },
+};
+
+export function localizeCategoryGroup(group: WorldCupMarketCategoryGroup, locale: Locale): string {
+  return CATEGORY_GROUP_LABELS[group][locale];
+}
 
 export function localizeCategory(category: string, locale: Locale): string {
   if (category === "미확인") return getWorldCupMarketUiText(locale).unknown;

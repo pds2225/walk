@@ -41,7 +41,7 @@ describe("월드컵시장 점포 표기", () => {
       expect(localizeStoreName(store, "ja")).toBe(store.nameKo);
       expect(localizeStoreName(store, "zh")).toBe(store.nameZh ?? store.nameKo);
     }
-    expect(localizeStoreName(WORLD_CUP_MARKET_STORES[1]!, "zh")).toBe("嘉樂農產物");
+    expect(localizeStoreName(WORLD_CUP_MARKET_STORES[1]!, "zh")).toBe("嘉乐农产物");
     expect(localizeStoreName(WORLD_CUP_MARKET_STORES[0]!, "zh")).toBe("부부야채");
   });
 

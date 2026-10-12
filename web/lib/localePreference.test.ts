@@ -105,3 +105,13 @@ describe("syncLocaleToUrl", () => {
     expect(window.location.search).toContain("store=worldcup-market-01");
   });
 });
+
+describe("?lang= 저장", () => {
+  it("?lang=zh 로 열면 선호 언어로 저장한다", () => {
+    window.history.replaceState(null, "", "/worldcup-market?lang=zh");
+    expect(resolveInitialLocale()).toBe("zh");
+    expect(readStoredLocale()).toBe("zh");
+    window.history.replaceState(null, "", "/worldcup-market");
+    expect(resolveInitialLocale()).toBe("zh");
+  });
+});

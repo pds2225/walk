@@ -7,7 +7,7 @@ import { useCallback, useEffect, useState } from "react";
 import DestinationWalk from "../../components/DestinationWalk";
 import WorldCupMarketDemo from "../../components/WorldCupMarketDemo";
 import { getServiceMetadata, type Locale } from "../../lib/i18n";
-import { resolveInitialLocale, syncLocaleToUrl, writeStoredLocale } from "../../lib/localePreference";
+import { htmlLangFor, resolveInitialLocale, syncLocaleToUrl, writeStoredLocale } from "../../lib/localePreference";
 import type { Coordinate } from "../../lib/types";
 import { primeSpeech } from "../../lib/voice";
 
@@ -33,7 +33,7 @@ export default function WorldCupMarketDemoPage() {
     if (!locale) return;
     const metadata = getServiceMetadata(locale, "worldcup-market");
     document.title = metadata.title;
-    document.documentElement.lang = locale;
+    document.documentElement.lang = htmlLangFor(locale);
     document.querySelector('meta[name="description"]')?.setAttribute("content", metadata.description);
     return () => { document.documentElement.lang = "ko"; };
   }, [locale]);

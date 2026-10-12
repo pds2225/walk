@@ -135,7 +135,7 @@
   line-height: 1.45;
 }
 .worldcup-market-facts dt { color: var(--muted); font-size: 11px; font-weight: 800; }
-.worldcup-market-facts dd { margin: 5px 0 0; color: var(--ink); font-weight: 750; overflow-wrap: anywhere; }
+.worldcup-market-facts dd { margin: 5px 0 0; color: var(--ink); font-weight: 750; overflow-wrap: break-word; }
 .worldcup-market-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -330,7 +330,7 @@
   line-height: 1.25;
 }
 .worldcup-market-mobile-key-facts dt span { color: var(--blue); font-size: 13px; }
-.worldcup-market-mobile-key-facts dd { margin: 6px 0 0; color: var(--ink); font-size: 13px; font-weight: 800; line-height: 1.35; overflow-wrap: anywhere; }
+.worldcup-market-mobile-key-facts dd { margin: 6px 0 0; color: var(--ink); font-size: 13px; font-weight: 800; line-height: 1.35; overflow-wrap: break-word; }
 .worldcup-market-mobile-actions { margin-top: 20px; }
 .worldcup-market-mobile-primary {
   width: 100%;
