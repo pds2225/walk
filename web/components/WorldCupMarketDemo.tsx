@@ -362,8 +362,29 @@ function NearbyShopRail({ selectedId, locale, onSelect }: {
   readonly onSelect: (storeId: string) => void;
 }) {
   const ui = getWorldCupMarketUiText(locale);
+  const railRef = useRef<HTMLUListElement | null>(null);
+  const [edges, setEdges] = useState({ start: true, end: false });
+  const updateEdges = useCallback(() => {
+    const rail = railRef.current;
+    if (!rail) return;
+    const max = rail.scrollWidth - rail.clientWidth;
+    setEdges({ start: rail.scrollLeft <= 2, end: max <= 2 || rail.scrollLeft >= max - 2 });
+  }, []);
+  useEffect(() => {
+    updateEdges();
+    window.addEventListener("resize", updateEdges);
+    return () => window.removeEventListener("resize", updateEdges);
+  }, [updateEdges]);
+  const scrollByPage = (direction: -1 | 1) => {
+    const rail = railRef.current;
+    if (!rail) return;
+    rail.scrollBy?.({ left: direction * Math.max(rail.clientWidth * 0.8, 140), behavior: "smooth" });
+  };
   return (
-    <ul className="worldcup-market-nearby-rail" aria-label={ui.nearbyTitle}>
+    <div className="worldcup-market-nearby-rail-wrap" data-at-start={edges.start} data-at-end={edges.end}>
+    {!edges.start ? <button type="button" className="worldcup-market-rail-arrow is-prev" aria-label={ui.railPrevious} onClick={() => scrollByPage(-1)}>‹</button> : null}
+    {!edges.end ? <button type="button" className="worldcup-market-rail-arrow is-next" aria-label={ui.railNext} onClick={() => scrollByPage(1)}>›</button> : null}
+    <ul ref={railRef} className="worldcup-market-nearby-rail" aria-label={ui.nearbyTitle} onScroll={updateEdges}>
       {WORLD_CUP_MARKET_STORES.map((store) => {
         const image = store.storeImages[0];
         const selected = store.id === selectedId;
@@ -388,6 +409,7 @@ function NearbyShopRail({ selectedId, locale, onSelect }: {
         );
       })}
     </ul>
+    </div>
   );
 }
 

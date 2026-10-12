@@ -550,3 +550,49 @@
   padding: 10px 14px;
   border-radius: 12px;
 }
+
+/* Nearby rail: desktop arrows (hidden at the ends), snap, right-edge fade hint. */
+.worldcup-market-nearby-rail-wrap { position: relative; }
+.worldcup-market-nearby-rail { scroll-snap-type: x mandatory; scroll-padding-inline: 18px; }
+.worldcup-market-nearby-rail-wrap::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 10px;
+  width: 44px;
+  pointer-events: none;
+  background: linear-gradient(to right, rgba(255, 255, 255, 0), #fff 85%);
+  transition: opacity .2s;
+}
+.worldcup-market-nearby-rail-wrap[data-at-end="true"]::after { opacity: 0; }
+.worldcup-market-rail-arrow {
+  position: absolute;
+  top: 50%;
+  z-index: 2;
+  display: none;
+  width: 40px;
+  height: 40px;
+  padding: 0 0 3px;
+  border: 1px solid #dfe5ee;
+  border-radius: 50%;
+  background: #fff;
+  color: var(--ink);
+  font-size: 24px;
+  line-height: 1;
+  box-shadow: 0 4px 14px rgba(18, 32, 51, .14);
+  transform: translateY(-60%);
+  cursor: pointer;
+}
+.worldcup-market-rail-arrow.is-prev { left: 6px; }
+.worldcup-market-rail-arrow.is-next { right: 6px; }
+@media (hover: hover) and (pointer: fine), (min-width: 720px) {
+  .worldcup-market-rail-arrow { display: grid; place-content: center; }
+}
+/* Store posters are square with text at the bottom: show the whole poster. */
+.worldcup-market-nearby-rail img,
+.worldcup-market-nearby-thumb-fallback {
+  height: auto;
+  aspect-ratio: 1 / 1;
+  object-fit: contain;
+}

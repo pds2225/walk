@@ -545,3 +545,23 @@ describe("World Cup Market demo", () => {
     expect(link?.textContent).toBe("02-2601-1777");
   });
 });
+
+describe("주변 점포 레일", () => {
+  it("끝에서는 해당 방향 화살표를 숨기고 다음 버튼으로 스크롤한다", () => {
+    window.history.replaceState(null, "", `/worldcup-market?store=${fixtures.stores[0]!.id}&view=nearby`);
+    const view = render(<WorldCupMarketDemo locale="ko" onStartWalking={vi.fn()} />);
+    const rail = view.container.querySelector<HTMLUListElement>(".worldcup-market-nearby-rail")!;
+    Object.defineProperty(rail, "scrollWidth", { configurable: true, value: 2000 });
+    Object.defineProperty(rail, "clientWidth", { configurable: true, value: 400 });
+    const scrollBy = vi.fn();
+    rail.scrollBy = scrollBy as unknown as HTMLElement["scrollBy"];
+    act(() => { window.dispatchEvent(new Event("resize")); });
+    expect(screen.queryByRole("button", { name: "이전 점포 보기" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "다음 점포 보기" }));
+    expect(scrollBy).toHaveBeenCalledWith(expect.objectContaining({ left: 320 }));
+    rail.scrollLeft = 1600;
+    fireEvent.scroll(rail);
+    expect(screen.queryByRole("button", { name: "다음 점포 보기" })).toBeNull();
+    expect(screen.getByRole("button", { name: "이전 점포 보기" })).toBeTruthy();
+  });
+});

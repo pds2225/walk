@@ -267,6 +267,8 @@ export interface WorldCupMarketUiText {
   readonly mapLoading: string;
   readonly mapUnavailable: string;
   readonly approximateLocation: string;
+  readonly railPrevious: string;
+  readonly railNext: string;
   readonly mapOverview: string;
   readonly storesCount: (count: number) => string;
   readonly originalSourceNotice: string;
@@ -339,6 +341,8 @@ const WORLD_CUP_MARKET_UI: Record<Locale, WorldCupMarketUiText> = {
     mapLoading: "시장 지도를 불러오는 중…",
     mapUnavailable: "지도를 사용할 수 없어 점포 목록을 표시합니다.",
     approximateLocation: "대략 위치",
+    railPrevious: "이전 점포 보기",
+    railNext: "다음 점포 보기",
     mapOverview: "시장 전체 보기",
     storesCount: (count) => `점포 ${count}곳`,
     originalSourceNotice: "공식 블로그의 점포 정보를 번역했습니다. 점포 고유명은 원문 표기를 유지할 수 있습니다.",
@@ -411,6 +415,8 @@ const WORLD_CUP_MARKET_UI: Record<Locale, WorldCupMarketUiText> = {
     mapLoading: "Loading the market map…",
     mapUnavailable: "The map is unavailable. Browse the store list instead.",
     approximateLocation: "Approximate location",
+    railPrevious: "Previous stores",
+    railNext: "Next stores",
     mapOverview: "View the whole market",
     storesCount: (count) => `${count} stores`,
     originalSourceNotice: "Store information is translated from the official blog. Proper store names may retain their original spelling.",
@@ -483,6 +489,8 @@ const WORLD_CUP_MARKET_UI: Record<Locale, WorldCupMarketUiText> = {
     mapLoading: "市場の地図を読み込み中…",
     mapUnavailable: "地図を利用できないため、店舗一覧を表示します。",
     approximateLocation: "おおよその位置",
+    railPrevious: "前の店舗",
+    railNext: "次の店舗",
     mapOverview: "市場全体を表示",
     storesCount: (count) => `${count}店舗`,
     originalSourceNotice: "店舗情報は公式ブログの原文を翻訳しています。店名は原文表記の場合があります。",
@@ -555,6 +563,8 @@ const WORLD_CUP_MARKET_UI: Record<Locale, WorldCupMarketUiText> = {
     mapLoading: "正在加载市场地图…",
     mapUnavailable: "地图不可用，现显示店铺列表。",
     approximateLocation: "大致位置",
+    railPrevious: "上一组店铺",
+    railNext: "下一组店铺",
     mapOverview: "查看整个市场",
     storesCount: (count) => `${count}家店铺`,
     originalSourceNotice: "店铺信息译自官方博客，店铺专名可能保留原文写法。",
