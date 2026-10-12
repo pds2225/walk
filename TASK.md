@@ -1319,3 +1319,11 @@ PR =
 - 필요한 Vercel env (Production+Preview, Dasom 입력): `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET`.
 - 금지: .env 수정, 키 커밋, force push, Dasom 승인 없는 merge.
 - 남은 일: env 입력 → preview/production에서 /q/23 실측 → 최종 QR 인쇄본(도메인 확정 후).
+
+## [ ] KN-BRAND-SCOPE-20261012 — K-Trip 브랜딩을 /worldcup-market 에만 적용
+
+- 요청: Dasom (2026-10-12). 루트 `/`는 WALK 도보 내비 앱, K-Trip/케이트립은 `/worldcup-market` 이하에만.
+- 원인: #147 에서 `getServiceMetadata("ko","home")`이 케이트립 이름을 써서 루트 title이 `케이트립 — 도보 내비게이션`이 됨.
+- 수정: 루트 metadata를 #147 이전 값으로 복원 (`walk — 도보 내비게이션` / `목적지를 넣고 걷기만 누르면 되는 도보 길안내`). `/worldcup-market` layout에 전용 title `케이트립 K-Trip — 망원동 월드컵시장`, description, OG/Twitter 추가.
+- 범위 밖: /mangwon, 내부 식별자, 도메인, worldcup-market UI 동작.
+- 머지는 Dasom 승인 후.
