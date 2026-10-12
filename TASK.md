@@ -333,6 +333,15 @@ Roadview 실패 시 navigation은 계속되어야 한다.
 - NAVER 실지도 렌더링·타일·파노 연동은 로컬에 지도 키가 없어 이번에도 검증하지 못했다(사용자 최신 지시상 최저 우선순위, PR 지연 사유 아님). 공식 점포 번호 안내도 매칭은 2026-10-08 체크포인트 상태(0건 매칭, 미확인)에서 변동 없음.
 - 작업 결과를 브랜치 `feat/ktrip-market-map-home-20261007`에 커밋 후 `origin`으로 push하고 `main` 대상 draft PR을 생성했다(머지하지 않음).
 
+### [~] KN-WORLDCUP-MAP-HEIGHT-20261012 — 월드컵시장 메인 지도 빈 회색 상자 수정
+
+`STATUS = PR_OPENED — 리뷰 후 머지` · `BASE = 3b858ef (PR #147 머지)` · `WORK_BRANCH = fix/worldcup-map-height-20261012`
+
+- 사용자 요청 (2026-10-12): 운영 `/worldcup-market` 메인 지도가 빈 회색 상자로만 보이는 문제를 수정한다.
+- 원인: NAVER Maps SDK가 `.worldcup-market-naver-map`에 inline `position: relative; overflow: hidden`을 넣어 CSS `position:absolute; inset:0`을 덮어씀 → 지도 요소 높이 0px(운영 실측 364×0), 타일·컨트롤·핀이 모두 잘리고 부모 배경(#f3f6fa)만 보임. 지도 크기가 0이라 45개 핀 오버레이도 계산되지 않음.
+- 수정: `web/app/worldcup-market-mobile-overrides.css`에서 지도 요소의 position/width/height를 `!important`로 고정하고, 핀 오버레이가 지도 위에 오도록 z-index 지정. 다른 화면·키·.env 변경 없음.
+- 검증: CSS 회귀 테스트 `web/app/worldcupMarketMapSize.test.ts`(수정 전 FAIL → 수정 후 PASS), lint/next:build/test:run/typecheck. 운영 페이지에 같은 CSS를 주입한 Chrome 390×844 확인: 지도 높이 0 → 약 395px, 타일 로드, 핀 45개 표시·지도 위 클릭 가능.
+
 ---
 
 ## P0 — 현장검증 잔여
