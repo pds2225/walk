@@ -40,7 +40,7 @@
 .worldcup-market-overview-cards button, .worldcup-market-overview-list button { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 76px; padding: 12px; border: 1px solid #e4e8ee; border-radius: 14px; background: #fff; text-align: left; color: var(--ink); cursor: pointer; }
 .worldcup-market-store-number { display: grid; flex: 0 0 28px; height: 28px; place-content: center; border-radius: 50%; background: #edf3ff; color: var(--blue); font-size: 12px; font-weight: 800; }
 .worldcup-market-overview-cards button > span:nth-child(2), .worldcup-market-overview-list button > span:nth-child(2) { flex: 1; min-width: 0; }
-.worldcup-market-overview strong { display: block; font-size: 14px; overflow-wrap: anywhere; }
+.worldcup-market-overview strong { display: block; font-size: 14px; overflow-wrap: break-word; }
 .worldcup-market-overview small { display: block; margin-top: 5px; color: var(--muted); font-size: 11px; }
 .worldcup-market-overview-list { padding: 22px 18px 0; }
 .worldcup-market-overview-list ul { display: grid; gap: 8px; margin: 12px 0 0; padding: 0; list-style: none; }
@@ -465,3 +465,31 @@
     flex-basis: 148px;
   }
 }
+
+/* ── 2026-10-12 리뷰 반영 ───────────────────────────────────────────────── */
+/* 언어별 글꼴: 일본어/중국어 화면에서 한국어 글꼴의 한자 모양이 섞이지 않게 한다. */
+.worldcup-market-demo:lang(ja) {
+  font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+}
+.worldcup-market-demo:lang(zh) {
+  font-family: "PingFang SC", "Noto Sans SC", "Microsoft YaHei", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+}
+/* 줄바꿈: 한국어는 어절 단위, 일본어/중국어는 금칙 처리. 너무 긴 토큰만 마지막 수단으로 끊는다. */
+.worldcup-market-demo { overflow-wrap: break-word; }
+.worldcup-market-demo:lang(ko) { word-break: keep-all; }
+.worldcup-market-demo:lang(ja), .worldcup-market-demo:lang(zh) { word-break: normal; line-break: strict; }
+/* 언어 버튼 터치 영역 44×44px */
+.worldcup-market-locale-switcher { gap: 0; }
+.worldcup-market-locale-switcher .worldcup-market-globe { margin-right: 0; }
+.worldcup-market-locale-switcher button { min-width: 44px; min-height: 44px; padding: 0; }
+/* 값이 없는 항목은 숨기고 남은 항목 수만큼 칸을 쓴다. */
+.worldcup-market-mobile-key-facts[data-count="1"] { grid-template-columns: minmax(0, 1fr); }
+.worldcup-market-mobile-key-facts[data-count="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.worldcup-market-purchase-facts:has(> div:only-child) { grid-template-columns: 1fr; }
+.worldcup-market-phone { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
+.worldcup-market-phone span { color: var(--muted); font-size: 12px; }
+.worldcup-market-phone a { color: var(--blue); font-weight: 750; text-decoration: none; }
+.worldcup-market-not-confirmed { margin: 14px 0 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.worldcup-market-not-confirmed span { font-weight: 750; }
+.worldcup-market-overview-list .worldcup-market-section-heading { display: flex; align-items: baseline; justify-content: space-between; }
+.worldcup-market-overview-list .worldcup-market-section-heading > span { color: var(--muted); font-size: 12px; }

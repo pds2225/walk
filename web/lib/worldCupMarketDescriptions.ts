@@ -25,7 +25,7 @@ export const WORLD_CUP_MARKET_DESCRIPTIONS: Readonly<Record<string, Readonly<Rec
   "망원동에서 왕십리 폼 미친 곱창을 찾았습니다... 간판은 '무진장전집'인데, 곱창 냄새에 홀려 들어갈 수밖에 없는 찐 로컬 맛집이에요! '(구)장수곱창'의 내공이 그대로 담긴 매콤달달 야채곱창에 당면 싹 올려서 먹으면 무조건 소주 부르는 맛입니다 통통한 돼지막창이랑 밥도둑 돼지고기 묵은지찜까지 완벽한 베스트셀러 3대장이니, 망원동월드컵시장 투어 가시면 여긴 무조건 저장해두고 들러보세요! 무진장전집": {
       "en": "Wangsimni-level gopchang right here in Mangwon-dong! The sign says Mujinjang Jeonjip, but the aroma of gopchang draws you into this true local favorite. Its sweet and spicy vegetable gopchang carries on the know-how of the former Jangsu Gopchang; top it with glass noodles for a taste that calls for soju. Plump pork makchang and pork stew with aged kimchi that makes you reach for more rice complete the trio of bestsellers. Save Mujinjang Jeonjip for a stop on your Mangwon World Cup Market tour!",
       "ja": "望遠洞で、往十里顔負けのコプチャンを発見！看板は「ムジンジャンジョンジプ」ですが、コプチャンの香りに引き寄せられる地元の人気店です。「旧チャンスコプチャン」の技が詰まった甘辛い野菜コプチャンに春雨をのせれば、思わず焼酎が欲しくなる味。ぷりぷりの豚マクチャンと、ご飯が進む豚肉と熟成キムチの蒸し煮も合わせて、人気の三大メニューがそろっています。望遠洞ワールドカップ市場を巡るなら、ぜひ保存して立ち寄ってください！",
-      "zh": "在望远洞找到了不输往十里的炒肠！招牌写着“Mujinjang煎饼店”，却让人被炒肠香气吸引进去，是一家真正的本地人气店。甜辣蔬菜炒肠延续了原“长寿炒肠”的手艺，配上粉丝，就是让人想来杯烧酒的味道。饱满的猪大肠和特别下饭的猪肉陈泡菜焖煮，组成了三大畅销菜品。游逛望远洞世界杯市场时，记得收藏并光顾Mujinjang煎饼店！"
+      "zh": "在望远洞找到了不输往十里的炒肥肠！招牌写着“Mujinjang煎饼店”，却让人被炒肥肠香气吸引进去，是一家真正的本地人气店。甜辣蔬菜炒肥肠延续了原“长寿炒肥肠”的手艺，配上粉丝，就是让人想来杯烧酒的味道。饱满的猪大肠和特别下饭的猪肉陈泡菜焖煮，组成了三大畅销菜品。游逛望远洞世界杯市场时，记得收藏并光顾Mujinjang煎饼店！"
   },
   // worldcup-market-05
   "떡순이 떡돌이들 무조건 저장 새벽 3시부터 그날 팔 떡만 빚어내는 망원동 찐 로컬 떡집 폼 미쳤습니다;; 영롱하게 꽉 찬 고명들 보이시나요? 베스트 메뉴인 '찰시루떡, 맵시루떡, 콩가루인절미'는 쫀득하고 고소한 맛이 남달라서 일찍 안 가면 품절각입니다. 망원동월드컵시장 투어 가시면 여긴 무조건 양손 무겁게 쟁여오기 약속 돌쇠떡고을": {
@@ -259,7 +259,7 @@ export const WORLD_CUP_MARKET_DESCRIPTIONS: Readonly<Record<string, Readonly<Rec
   "속 편하게 즐기는 깊은 맛, 시래기 한 끼의 정석 망원동월드컵시장에서 만나는 갱상도시래기. 들깨시래기, 시래기비빔밥, 시래기불고기처럼 남녀노소 누구나 편하게 즐길 수 있는 시래기 전문점입니다. 담백하면서도 깊은 맛이 생각나는 날, 든든한 한 끼 드시러 들러보세요.": {
       "en": "Deep flavor that is easy on the stomach, the classic siraegi meal. Meet Gyeongsang-do Siraegi at Mangwon World Cup Market. It is a siraegi specialist that everyone, young and old, can enjoy comfortably, with dishes like dried radish greens with perilla seeds, siraegi bibimbap and siraegi bulgogi. On days you crave something light yet deep in flavor, stop by for a hearty meal.",
       "ja": "胃に優しく楽しめる深い味わい、シレギ定食の王道。望遠洞ワールドカップ市場で出会う「ケンサンド・シレギ」。エゴマ入り干し大根葉、干し大根葉のビビンバ、干し大根葉入りプルコギのように、老若男女誰もが気軽に楽しめるシレギ専門店です。あっさりしながらも深い味わいが思い出される日は、しっかりした一食を食べに立ち寄ってみてください。",
-      "zh": "暖胃又有深度的味道，蕨菜套餐的经典之选。在望远洞世界杯市场遇见“庆尚道蕨菜店”。紫苏籽干萝卜叶、干萝卜叶拌饭、干萝卜叶烤肉等，是老少都能轻松享用的蕨菜专卖店。想念清淡却有深度的滋味时，欢迎来吃一顿扎实的饭菜。"
+      "zh": "暖胃又有深度的味道，干萝卜叶套餐的经典之选。在望远洞世界杯市场遇见“庆尚道干萝卜叶店”。紫苏籽干萝卜叶、干萝卜叶拌饭、干萝卜叶烤肉等，是老少都能轻松享用的干萝卜叶专卖店。想念清淡却有深度的滋味时，欢迎来吃一顿扎实的饭菜。"
   },
   // worldcup-market-44
   "40년의 손길로 완성하는 우리 집 맞춤 커튼 망원동월드컵시장의 한성커텐은 40년 전통의 커튼 전문점입니다. 커튼 판매부터 시공까지 가능하고, 서울 전 지역 방문과 확실한 A/S까지 제공합니다. 집 분위기를 바꾸고 싶다면 한성커텐에서 상담해보세요.": {

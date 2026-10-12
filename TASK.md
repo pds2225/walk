@@ -342,9 +342,16 @@ Roadview 실패 시 navigation은 계속되어야 한다.
 - 수정: `web/app/worldcup-market-mobile-overrides.css`에서 지도 요소의 position/width/height를 `!important`로 고정하고, 핀 오버레이가 지도 위에 오도록 z-index 지정. 다른 화면·키·.env 변경 없음.
 - 검증: CSS 회귀 테스트 `web/app/worldcupMarketMapSize.test.ts`(수정 전 FAIL → 수정 후 PASS), lint/next:build/test:run/typecheck. 운영 페이지에 같은 CSS를 주입한 Chrome 390×844 확인: 지도 높이 0 → 약 395px, 타일 로드, 핀 45개 표시·지도 위 클릭 가능.
 
-### [~] KN-WORLDCUP-UX-PORT-20261012 — 언어 유지·JA 가타카나 읽기·뒤로가기 커밋 main 이식
+### [~] KN-WORLDCUP-REVIEW-ITEMS-20261012 — 월드컵시장 리뷰 4~13번 반영
 
-`STATUS = PR_OPENED — 리뷰 후 머지` · `BASE = 36f1f0c` · `WORK_BRANCH = fix/worldcup-ux-back-lang-ja-20261012`
+`STATUS = PR_OPENED — 리뷰 후 머지` · `BASE = 8e9eb01` · `WORK_BRANCH = fix/worldcup-review-items-20261012`
+
+- 사용자 승인 (2026-10-12): 디자인·레이아웃 유지, 고정 지도(#149)·플래그 유지. 4 첫 화면 목록 1개, 5 중국어 간체 통일·시래기/곱창 오역 수정, 6 상세 미확인 항목 숨김·설명 1회, 7 40·43번 전화 블로그 확인(40은 간판 사진 010-3182-1665, 43은 번호 없음)·tel: 정규화, 8 업종 7개 그룹 칩·JA 野菜 중복 제거·언어 버튼 44px, 9 lang·:lang() 글꼴, 10 줄바꿈 규칙, 11 가타카나 읽기 45개 재검토, 12 ?lang= 저장, 13 상세 간 이동 replaceState.
+- 검증: Node 22 lint/typecheck/web typecheck/next:build/test:run, preview Chrome 390×844 KO/JA/ZH/EN.
+
+### [x] KN-WORLDCUP-UX-PORT-20261012 — 언어 유지·JA 가타카나 읽기·뒤로가기 커밋 main 이식
+
+`STATUS = MERGED — PR #150` · `BASE = 36f1f0c` · `WORK_BRANCH = fix/worldcup-ux-back-lang-ja-20261012`
 
 - 사용자 승인 (2026-10-12): `feat/ktrip-market-map-home-20261007`에서 PR #147 머지(b9e2491) 이후 남은 메인봇 커밋 3개(`94d646e` 언어 유지, `6e8b2f2` 45개 점포명 가타카나 읽기, `84f56f5` 뒤로가기/스크롤 복원)만 현재 main에 옮긴다. 리뷰 목록의 4~10번 항목은 범위 밖.
 - #148(지도 높이), #149(고정 OSM 지도, `NEXT_PUBLIC_WORLDCUP_LIVE_MAP`)와 함께 유지한다. 고정 지도 핀 탭도 history에 쌓여 휴대폰 뒤로가기로 첫 화면 지도에 돌아온다.

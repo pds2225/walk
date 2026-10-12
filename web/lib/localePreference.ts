@@ -42,16 +42,20 @@ export function localeFromBrowserLanguages(languages: readonly string[]): Locale
   return null;
 }
 
-/** Priority: URL ?lang= > stored choice > browser language > ko. */
+/**
+ * Priority: URL ?lang= > stored choice > browser language > ko.
+ * A ?lang= link also becomes the saved preference, so later visits without the
+ * parameter keep the language the visitor arrived with.
+ */
 export function resolveInitialLocale(): Locale {
   if (typeof window === "undefined") return "ko";
+  const fromUrl = localeFromSearch(window.location.search);
+  if (fromUrl) {
+    writeStoredLocale(fromUrl);
+    return fromUrl;
+  }
   const languages = window.navigator.languages?.length ? window.navigator.languages : [window.navigator.language];
-  return (
-    localeFromSearch(window.location.search)
-    ?? readStoredLocale()
-    ?? localeFromBrowserLanguages(languages)
-    ?? "ko"
-  );
+  return readStoredLocale() ?? localeFromBrowserLanguages(languages) ?? "ko";
 }
 
 /** Reflects the chosen locale in the URL without creating a history entry. */
@@ -60,4 +64,9 @@ export function syncLocaleToUrl(locale: Locale): void {
   const url = new URL(window.location.href);
   url.searchParams.set("lang", locale);
   window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+}
+
+/** BCP 47 tag for the html/container `lang` attribute (zh is Simplified Chinese). */
+export function htmlLangFor(locale: Locale): string {
+  return locale === "zh" ? "zh-Hans" : locale;
 }

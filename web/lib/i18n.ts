@@ -248,6 +248,9 @@ export function getUiText(locale: Locale): UiText {
 }
 
 export interface WorldCupMarketUiText {
+  /** 상세 화면에서 값이 없는 항목을 한 줄로 모아 보여줄 때의 머리말. */
+  readonly notConfirmedFields: string;
+  readonly phone: string;
   readonly serviceName: string;
   readonly allCategories: string;
   readonly categoryFilter: string;
@@ -395,6 +398,8 @@ const WORLD_CUP_MARKET_UI: Record<Locale, WorldCupMarketUiText> = {
     locationWaiting: "내 위치 확인 중…",
     locationDenied: "위치 권한을 허용하면 지도에 내 위치가 표시됩니다.",
     unknown: "미확인",
+    notConfirmedFields: "확인되지 않은 정보",
+    phone: "전화",
     panoramaUnavailable: "Street View를 사용할 수 없어 안내 카드만 표시합니다.",
     panoramaLoading: "점포 근처 거리 뷰를 불러오는 중…",
     panoramaUpdatedNotice: "기록된 파노와 다른 근처 거리 뷰가 표시됩니다.",
@@ -470,6 +475,8 @@ const WORLD_CUP_MARKET_UI: Record<Locale, WorldCupMarketUiText> = {
     locationWaiting: "Finding your location…",
     locationDenied: "Allow location access to show your position on the map.",
     unknown: "Unconfirmed",
+    notConfirmedFields: "Not confirmed",
+    phone: "Phone",
     panoramaUnavailable: "Street View is unavailable; the store card remains available.",
     panoramaLoading: "Loading the street view near this store…",
     panoramaUpdatedNotice: "The nearby panorama shown differs from the recorded panorama.",
@@ -545,6 +552,8 @@ const WORLD_CUP_MARKET_UI: Record<Locale, WorldCupMarketUiText> = {
     locationWaiting: "現在地を確認中…",
     locationDenied: "位置情報を許可すると地図に現在地が表示されます。",
     unknown: "未確認",
+    notConfirmedFields: "未確認の情報",
+    phone: "電話",
     panoramaUnavailable: "Street Viewを利用できないため、店舗カードを表示します。",
     panoramaLoading: "店舗付近のストリートビューを読み込み中…",
     panoramaUpdatedNotice: "記録されたパノラマとは別の近くのストリートビューを表示しています。",
@@ -620,6 +629,8 @@ const WORLD_CUP_MARKET_UI: Record<Locale, WorldCupMarketUiText> = {
     locationWaiting: "正在确认位置…",
     locationDenied: "允许位置权限后，地图会显示您的位置。",
     unknown: "未确认",
+    notConfirmedFields: "未确认的信息",
+    phone: "电话",
     panoramaUnavailable: "Street View不可用，但仍可查看店铺卡片。",
     panoramaLoading: "正在加载店铺附近的街景…",
     panoramaUpdatedNotice: "显示的附近街景与已记录的全景不同。",

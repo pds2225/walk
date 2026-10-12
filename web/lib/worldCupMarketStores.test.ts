@@ -119,14 +119,15 @@ describe("월드컵시장 블로그 점포", () => {
     const gukbap = getWorldCupMarketStore("worldcup-market-45");
     expect(gukbap?.nameKo).toBe("장터국밥");
     expect(gukbap?.nameEn).toBe("Jangteo Gukbap");
-    expect(gukbap?.nameZh).toBe("市場湯飯");
+    expect(gukbap?.nameZh).toBe("市场汤饭");
     expect(gukbap?.phone).toBeNull();
     expect(gukbap?.products.map((product) => product.nameKo)).toEqual(["육개장", "선지국"]);
     expect(gukbap?.officialSource).toBe(`${BLOG}224413884748`);
 
     const gim = getWorldCupMarketStore("worldcup-market-40");
     expect(gim?.address).toBe("서울 마포구 망원로 81 1층");
-    expect(gim?.phone).toBe("0110-3182-1665");
+    // 블로그 정보 카드의 "0110-" 오타 대신 같은 글 간판 사진의 번호
+    expect(gim?.phone).toBe("010-3182-1665");
     expect(gim?.businessHours).toBe("08:30 ~ 20:00 (2,4주 수 휴무)");
   });
 });
