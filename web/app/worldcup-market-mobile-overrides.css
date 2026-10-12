@@ -493,3 +493,15 @@
 .worldcup-market-not-confirmed span { font-weight: 750; }
 .worldcup-market-overview-list .worldcup-market-section-heading { display: flex; align-items: baseline; justify-content: space-between; }
 .worldcup-market-overview-list .worldcup-market-section-heading > span { color: var(--muted); font-size: 12px; }
+
+/* 44px locale buttons leave less room for the brand: drop the decorative globe
+   on narrow phones and keep the market name on one line instead of breaking mid-word. */
+@media (max-width: 420px) {
+  .worldcup-market-demo .worldcup-market-locale-switcher .worldcup-market-globe { display: none; }
+  .worldcup-market-demo .worldcup-market-mobile-brand { min-width: 0; flex: 1 1 auto; }
+  .worldcup-market-demo .worldcup-market-mobile-brand > span {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
