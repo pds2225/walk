@@ -1342,3 +1342,11 @@ PR =
 
 - 증상: Dasom "케이트립 메인 화면이 사라짐". /worldcup-market(파라미터 없음)은 정상 렌더되지만 메인 화면 헤더의 ‹ 버튼이 history.back()으로 시장 밖(이전 페이지/루트 WALK)으로 나감.
 - 수정: 메인 지도 화면에서는 뒤로 버튼 제거. 상세/주변의 뒤로는 기존대로 메인 지도로 복귀(replaceState). 테스트 추가.
+## [ ] KN-WORLDCUP-GUIDE-MAP-20261012 — 실시간 NAVER 지도 대신 고정 시장 안내도 (첫 화면 + 상세 위치)
+
+- 요청: Dasom (2026-10-12). NAVER 지도를 움직이면 45개 번호 핀이 화면에 고정돼 어긋남.
+- 수정: 상세/주변 화면 "위치" 블록도 고정 안내도(`WorldCupMarketStaticMap`, mode="detail")로 교체. 핀은 이미지 기준 % 좌표 → 항상 정렬. 핀 탭 시 해당 점포로 이동, 선택 점포 강조. "위치는 대략" 안내 문구 4개 언어.
+- NAVER 실시간 지도 코드는 유지, `NEXT_PUBLIC_WORLDCUP_LIVE_MAP=true`일 때만 사용. 키 변경 없음.
+- 이미지: 기존 OSM 기반 단순 블록 지도(`web/public/worldcup-market/market-map.webp`) 재사용. 시장 공식 안내도를 받으면 `web/lib/worldCupMarketStaticMap.ts`에서 교체(bounds=null + 점포별 % 위치). 지어낸 데이터 없음.
+- 머지: Dasom 승인됨 (2026-10-12).
+- 헤더 (같은 PR, Dasom 2026-10-12): 브랜드 '케이트립' → 'K-TRIP'(전 언어), 페이지 title 'K-TRIP — 망원동 월드컵시장'. 시장명은 로고 아래에서 헤더 가운데로 옮기고 크게(좁은 화면은 두 번째 줄 가운데). 언어 버튼은 한국어/English/日本語/中文.

@@ -2,6 +2,9 @@ import type { DeviationState, TurnDirection } from "@walk/route-engine";
 
 export type Locale = "ko" | "en" | "ja" | "zh";
 
+/** Visible brand on /worldcup-market (header, title), same in every locale. */
+export const WORLD_CUP_MARKET_BRAND = "K-TRIP";
+
 export function getServiceName(locale: Locale): string {
   return locale === "ko" ? "케이트립" : "K-Trip";
 }
@@ -16,8 +19,7 @@ export const WALK_APP_NAME = "walk";
 export function getServiceMetadata(locale: Locale, page: "home" | "worldcup-market") {
   if (page === "worldcup-market") {
     const ui = getWorldCupMarketUiText(locale);
-    const brand = locale === "ko" ? "케이트립 K-Trip" : "K-Trip";
-    return { title: `${brand} — ${ui.market}`, description: `${getServiceName(locale)} · ${ui.subtitle}` };
+    return { title: `${WORLD_CUP_MARKET_BRAND} — ${ui.market}`, description: `${WORLD_CUP_MARKET_BRAND} · ${ui.subtitle}` };
   }
   const navigationLabel = { ko: "도보 내비게이션", en: "Walking navigation", ja: "徒歩ナビゲーション", zh: "步行导航" }[locale];
   const description = {
@@ -268,6 +270,7 @@ export interface WorldCupMarketUiText {
   readonly mapUnavailable: string;
   readonly approximateLocation: string;
   readonly railPrevious: string;
+  readonly mapGuideApproximate: string;
   readonly railNext: string;
   readonly mapOverview: string;
   readonly storesCount: (count: number) => string;
@@ -332,7 +335,7 @@ export interface WorldCupMarketUiText {
 
 const WORLD_CUP_MARKET_UI: Record<Locale, WorldCupMarketUiText> = {
   ko: {
-    serviceName: getServiceName("ko"),
+    serviceName: WORLD_CUP_MARKET_BRAND,
     allCategories: "전체",
     categoryFilter: "업종 필터",
     storeList: "점포 목록",
@@ -342,6 +345,7 @@ const WORLD_CUP_MARKET_UI: Record<Locale, WorldCupMarketUiText> = {
     mapUnavailable: "지도를 사용할 수 없어 점포 목록을 표시합니다.",
     approximateLocation: "대략 위치",
     railPrevious: "이전 점포 보기",
+    mapGuideApproximate: "점포 위치는 대략입니다. 시장 공식 안내도를 받으면 교체합니다.",
     railNext: "다음 점포 보기",
     mapOverview: "시장 전체 보기",
     storesCount: (count) => `점포 ${count}곳`,
@@ -406,7 +410,7 @@ const WORLD_CUP_MARKET_UI: Record<Locale, WorldCupMarketUiText> = {
     panoramaUpdatedNotice: "기록된 파노와 다른 근처 거리 뷰가 표시됩니다.",
   },
   en: {
-    serviceName: getServiceName("en"),
+    serviceName: WORLD_CUP_MARKET_BRAND,
     allCategories: "All",
     categoryFilter: "Filter by category",
     storeList: "Store list",
@@ -416,6 +420,7 @@ const WORLD_CUP_MARKET_UI: Record<Locale, WorldCupMarketUiText> = {
     mapUnavailable: "The map is unavailable. Browse the store list instead.",
     approximateLocation: "Approximate location",
     railPrevious: "Previous stores",
+    mapGuideApproximate: "Store positions are approximate until the market’s official map is available.",
     railNext: "Next stores",
     mapOverview: "View the whole market",
     storesCount: (count) => `${count} stores`,
@@ -480,7 +485,7 @@ const WORLD_CUP_MARKET_UI: Record<Locale, WorldCupMarketUiText> = {
     panoramaUpdatedNotice: "The nearby panorama shown differs from the recorded panorama.",
   },
   ja: {
-    serviceName: getServiceName("ja"),
+    serviceName: WORLD_CUP_MARKET_BRAND,
     allCategories: "すべて",
     categoryFilter: "業種で絞り込む",
     storeList: "店舗一覧",
@@ -490,6 +495,7 @@ const WORLD_CUP_MARKET_UI: Record<Locale, WorldCupMarketUiText> = {
     mapUnavailable: "地図を利用できないため、店舗一覧を表示します。",
     approximateLocation: "おおよその位置",
     railPrevious: "前の店舗",
+    mapGuideApproximate: "店舗の位置はおおよそです。市場の公式案内図に今後差し替えます。",
     railNext: "次の店舗",
     mapOverview: "市場全体を表示",
     storesCount: (count) => `${count}店舗`,
@@ -554,7 +560,7 @@ const WORLD_CUP_MARKET_UI: Record<Locale, WorldCupMarketUiText> = {
     panoramaUpdatedNotice: "記録されたパノラマとは別の近くのストリートビューを表示しています。",
   },
   zh: {
-    serviceName: getServiceName("zh"),
+    serviceName: WORLD_CUP_MARKET_BRAND,
     allCategories: "全部",
     categoryFilter: "按类别筛选",
     storeList: "店铺列表",
@@ -564,6 +570,7 @@ const WORLD_CUP_MARKET_UI: Record<Locale, WorldCupMarketUiText> = {
     mapUnavailable: "地图不可用，现显示店铺列表。",
     approximateLocation: "大致位置",
     railPrevious: "上一组店铺",
+    mapGuideApproximate: "店铺位置为大致位置，之后将替换为市场官方导览图。",
     railNext: "下一组店铺",
     mapOverview: "查看整个市场",
     storesCount: (count) => `${count}家店铺`,

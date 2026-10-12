@@ -8,12 +8,11 @@ describe("K-Navi localization", () => {
       const serviceName = locale === "ko" ? "케이트립" : "K-Trip";
       const ui = getWorldCupMarketUiText(locale);
       expect(getServiceName(locale)).toBe(serviceName);
-      expect(ui.serviceName).toBe(serviceName);
+      expect(ui.serviceName).toBe("K-TRIP");
       expect(ui.market).toBe(markets[locale]);
       expect(ui.marketMap).toContain(markets[locale]);
-      const brand = locale === "ko" ? "케이트립 K-Trip" : "K-Trip";
-      expect(getServiceMetadata(locale, "worldcup-market").title).toBe(`${brand} — ${markets[locale]}`);
-      expect(getServiceMetadata(locale, "worldcup-market").description).toContain(serviceName);
+      expect(getServiceMetadata(locale, "worldcup-market").title).toBe(`K-TRIP — ${markets[locale]}`);
+      expect(getServiceMetadata(locale, "worldcup-market").description).toContain("K-TRIP");
       // K-Trip branding must not leak into the root walking-navigation app.
       const home = getServiceMetadata(locale, "home");
       expect(home.title.startsWith("walk — ")).toBe(true);
