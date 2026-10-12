@@ -27,6 +27,10 @@ vi.mock("next/dynamic", () => ({
   default: () => ({ selectedId, stores, onSelect }: { selectedId: string; stores: readonly WorldCupMarketStore[]; onSelect: (id: string) => void }) => <div data-testid="worldcup-market-map" data-store-count={stores.length}>map:{selectedId}<button onClick={() => onSelect(stores[0]!.id)}>test map selection</button></div>,
 }));
 
+vi.mock("./WorldCupMarketStaticMap", () => ({
+  default: ({ stores, onSelect }: { stores: readonly WorldCupMarketStore[]; onSelect: (id: string) => void }) => <div data-testid="worldcup-market-static-map" data-store-count={stores.length}><button onClick={() => onSelect(stores[0]!.id)}>test map selection</button></div>,
+}));
+
 function locateStore(index: number, existing?: VerifiedLocation | null): WorldCupMarketStore {
   const store = fixtures.stores[index];
   if (!store) throw new Error("점포 fixture가 없습니다");
@@ -289,22 +293,31 @@ describe("World Cup Market demo", () => {
   it("첫 화면의 45개 지도 핀 입력과 카드/목록을 업종별로 필터하고 상세에서 지도로 돌아온다", () => {
     window.history.replaceState({}, "", "/worldcup-market");
     render(<WorldCupMarketDemo locale="ko" onStartWalking={vi.fn()} />);
-    expect(screen.getByTestId("worldcup-market-map").getAttribute("data-store-count")).toBe("45");
+    expect(screen.queryByTestId("worldcup-market-map")).toBeNull();
+    expect(screen.getByTestId("worldcup-market-static-map").getAttribute("data-store-count")).toBe("45");
     expect(within(screen.getByRole("list", { name: "점포 둘러보기" })).getAllByRole("button")).toHaveLength(45);
     const filters = within(screen.getByRole("group", { name: "업종 필터" }));
     expect(filters.getAllByRole("button")).toHaveLength(new Set(fixtures.stores.map((store) => store.category)).size + 1);
     fireEvent.click(filters.getByRole("button", { name: "채소" }));
     const count = fixtures.stores.filter((store) => store.category === "채소").length;
-    expect(screen.getByTestId("worldcup-market-map").getAttribute("data-store-count")).toBe(String(count));
+    expect(screen.getByTestId("worldcup-market-static-map").getAttribute("data-store-count")).toBe(String(count));
     expect(within(screen.getByRole("list", { name: "점포 둘러보기" })).getAllByRole("button")).toHaveLength(count);
     fireEvent.click(screen.getByRole("button", { name: "test map selection" }));
     expect(screen.getByRole("heading", { name: "부부야채" })).toBeTruthy();
     expect(window.location.search).toContain("store=worldcup-market-01");
     fireEvent.click(screen.getByRole("button", { name: "시장 지도로 돌아가기" }));
     expect(window.location.search).toBe("");
-    expect(screen.getByTestId("worldcup-market-map").getAttribute("data-store-count")).toBe("45");
+    expect(screen.getByTestId("worldcup-market-static-map").getAttribute("data-store-count")).toBe("45");
     fireEvent.click(within(screen.getByRole("list", { name: "점포 둘러보기" })).getByRole("button", { name: "부부야채" }));
     expect(screen.getByRole("heading", { name: "부부야채" })).toBeTruthy();
+  });
+
+  it("NEXT_PUBLIC_WORLDCUP_LIVE_MAP=true 일 때만 첫 화면에 NAVER 실시간 지도를 쓴다", () => {
+    window.history.replaceState({}, "", "/worldcup-market");
+    vi.stubEnv("NEXT_PUBLIC_WORLDCUP_LIVE_MAP", "true");
+    render(<WorldCupMarketDemo locale="ko" onStartWalking={vi.fn()} />);
+    expect(screen.getByTestId("worldcup-market-map").getAttribute("data-store-count")).toBe("45");
+    expect(screen.queryByTestId("worldcup-market-static-map")).toBeNull();
   });
 
   it("잘못된 딥링크는 지도에 머물고 JA/EN/ZH 지도 UI가 바뀐다", () => {

@@ -333,14 +333,23 @@ Roadview 실패 시 navigation은 계속되어야 한다.
 - NAVER 실지도 렌더링·타일·파노 연동은 로컬에 지도 키가 없어 이번에도 검증하지 못했다(사용자 최신 지시상 최저 우선순위, PR 지연 사유 아님). 공식 점포 번호 안내도 매칭은 2026-10-08 체크포인트 상태(0건 매칭, 미확인)에서 변동 없음.
 - 작업 결과를 브랜치 `feat/ktrip-market-map-home-20261007`에 커밋 후 `origin`으로 push하고 `main` 대상 draft PR을 생성했다(머지하지 않음).
 
-### [~] KN-WORLDCUP-MAP-HEIGHT-20261012 — 월드컵시장 메인 지도 빈 회색 상자 수정
+### [x] KN-WORLDCUP-MAP-HEIGHT-20261012 — 월드컵시장 메인 지도 빈 회색 상자 수정
 
-`STATUS = PR_OPENED — 리뷰 후 머지` · `BASE = 3b858ef (PR #147 머지)` · `WORK_BRANCH = fix/worldcup-map-height-20261012`
+`STATUS = MERGED — PR #148, 운영 k-navi.vercel.app 지도 높이·타일·핀 45개 확인` · `BASE = 3b858ef (PR #147 머지)` · `WORK_BRANCH = fix/worldcup-map-height-20261012`
 
 - 사용자 요청 (2026-10-12): 운영 `/worldcup-market` 메인 지도가 빈 회색 상자로만 보이는 문제를 수정한다.
 - 원인: NAVER Maps SDK가 `.worldcup-market-naver-map`에 inline `position: relative; overflow: hidden`을 넣어 CSS `position:absolute; inset:0`을 덮어씀 → 지도 요소 높이 0px(운영 실측 364×0), 타일·컨트롤·핀이 모두 잘리고 부모 배경(#f3f6fa)만 보임. 지도 크기가 0이라 45개 핀 오버레이도 계산되지 않음.
 - 수정: `web/app/worldcup-market-mobile-overrides.css`에서 지도 요소의 position/width/height를 `!important`로 고정하고, 핀 오버레이가 지도 위에 오도록 z-index 지정. 다른 화면·키·.env 변경 없음.
 - 검증: CSS 회귀 테스트 `web/app/worldcupMarketMapSize.test.ts`(수정 전 FAIL → 수정 후 PASS), lint/next:build/test:run/typecheck. 운영 페이지에 같은 CSS를 주입한 Chrome 390×844 확인: 지도 높이 0 → 약 395px, 타일 로드, 핀 45개 표시·지도 위 클릭 가능.
+
+### [~] KN-WORLDCUP-STATIC-MAP-20261012 — 월드컵시장 첫 화면 고정 지도 이미지
+
+`STATUS = PR_OPENED — 리뷰 후 머지` · `BASE = 7253e8c` · `WORK_BRANCH = feat/worldcup-static-map-20261012`
+
+- 사용자 요청 (2026-10-12): 첫 화면은 NAVER Maps JS 실시간 지도 대신 고정 지도 이미지를 쓴다. 나중에 시장 공식 안내도로 쉽게 교체할 수 있어야 한다.
+- 구현: OpenStreetMap 데이터로 그린 `web/public/worldcup-market/market-map.webp`(728×790, © OpenStreetMap contributors) 위에 기존 표시 좌표를 투영해 45개 핀 배치. 설정·투영·교체 방법은 `web/lib/worldCupMarketStaticMap.ts` 한 곳, 재생성은 `scripts/worldcup-market/render_static_map.py`.
+- 실시간 지도 코드는 유지하고 `NEXT_PUBLIC_WORLDCUP_LIVE_MAP=true`(빌드 전)일 때만 첫 화면에 사용. 상세 화면의 위치 지도·거리뷰는 변경 없음. .env/키/Vercel 설정 변경 없음.
+- 검증: 투영/겹침/교체 hook 단위 테스트, 정적 지도 컴포넌트 테스트(45핀, SDK 미호출), 데모 첫 화면 테스트. Node 22 lint/typecheck/test:run/next:build PASS. 로컬 production Chrome 390×844: 이미지 로드, 핀 45개 지도 위, maps.js 요청 0, 핀→상세→복귀, JA 전환 PASS.
 
 ---
 

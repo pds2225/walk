@@ -19,7 +19,8 @@ import { WORLD_CUP_MARKET_STORES, type WorldCupMarketStore, type StoreProduct } 
 import type { Coordinate } from "../lib/types";
 import WorldCupMarketStreetView from "./WorldCupMarketStreetView";
 import { getWorldCupMarketMapPlacement } from "../lib/worldCupMarketMapLayout";
-import { worldCupMarketWalkingEnabled } from "../lib/worldCupMarketFeatures";
+import { worldCupMarketLiveMapEnabled, worldCupMarketWalkingEnabled } from "../lib/worldCupMarketFeatures";
+import WorldCupMarketStaticMap from "./WorldCupMarketStaticMap";
 
 // The NAVER SDK is loaded only in the browser.
 const WorldCupMarketMap = dynamic(() => import("./WorldCupMarketMap"), { ssr: false });
@@ -460,7 +461,9 @@ function MarketOverview({ locale, onSelect }: {
         {categories.map((item) => <button type="button" key={item} aria-pressed={category === item} onClick={() => setCategory(item)}>{localizeCategory(item, locale)}</button>)}
       </div>
       <div className="worldcup-market-overview-map">
-        <WorldCupMarketMap stores={stores} selectedId="" here={null} onSelect={onSelect} locale={locale} mode="overview" />
+        {worldCupMarketLiveMapEnabled()
+          ? <WorldCupMarketMap stores={stores} selectedId="" here={null} onSelect={onSelect} locale={locale} mode="overview" />
+          : <WorldCupMarketStaticMap stores={stores} selectedId="" onSelect={onSelect} locale={locale} />}
       </div>
       <section className="worldcup-market-overview-stores" aria-labelledby="worldcup-market-browse-title">
         <div className="worldcup-market-section-heading">
