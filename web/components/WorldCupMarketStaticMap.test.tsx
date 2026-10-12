@@ -47,4 +47,22 @@ describe("WorldCupMarketStaticMap", () => {
     const { container } = render(<WorldCupMarketStaticMap stores={stores} selectedId="" onSelect={vi.fn()} locale="en" />);
     expect(container.querySelectorAll(".worldcup-market-overview-pin")).toHaveLength(stores.length);
   });
+
+  it("상세 모드는 선택 점포를 강조하고 대략 위치 안내를 보여주며 핀 탭으로 점포를 연다", () => {
+    const onSelect = vi.fn();
+    const { container } = render(<WorldCupMarketStaticMap stores={WORLD_CUP_MARKET_STORES} selectedId="worldcup-market-23" onSelect={onSelect} locale="ko" mode="detail" />);
+    expect(container.querySelector('[data-map-mode="detail"]')).toBeTruthy();
+    const selected = container.querySelectorAll(".worldcup-market-overview-pin.is-selected");
+    expect(selected).toHaveLength(1);
+    expect(selected[0]?.getAttribute("data-store-id")).toBe("worldcup-market-23");
+    expect(screen.getByText(getWorldCupMarketUiText("ko").mapGuideApproximate)).toBeTruthy();
+    fireEvent.click(container.querySelector('[data-store-id="worldcup-market-05"]')!);
+    expect(onSelect).toHaveBeenCalledWith("worldcup-market-05");
+    // Pins are positioned in image percent so they cannot drift from the image.
+    container.querySelectorAll<HTMLElement>(".worldcup-market-overview-pin").forEach((pin) => {
+      expect(pin.style.left).toMatch(/%$/);
+      expect(pin.style.top).toMatch(/%$/);
+    });
+    expect(naver.load).not.toHaveBeenCalled();
+  });
 });

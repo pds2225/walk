@@ -11,16 +11,22 @@ export interface WorldCupMarketStaticMapProps {
   readonly selectedId: string;
   readonly onSelect: (storeId: string) => void;
   readonly locale: Locale;
+  /** overview: market home. detail: store "위치" block, selected store highlighted. */
+  readonly mode?: "overview" | "detail";
 }
 
-/** 첫 화면용 고정 지도 이미지 + 점포 핀. 외부 지도 SDK를 불러오지 않는다. */
-export default function WorldCupMarketStaticMap({ stores, selectedId, onSelect, locale }: WorldCupMarketStaticMapProps) {
+/**
+ * 고정 시장 안내도 이미지 + 점포 번호 핀(이미지 기준 % 좌표라 항상 이미지와 함께 움직인다).
+ * 첫 화면과 상세 "위치" 블록 모두 사용. 외부 지도 SDK를 불러오지 않는다.
+ * 실시간 NAVER 지도는 NEXT_PUBLIC_WORLDCUP_LIVE_MAP=true 일 때만 쓴다.
+ */
+export default function WorldCupMarketStaticMap({ stores, selectedId, onSelect, locale, mode = "overview" }: WorldCupMarketStaticMapProps) {
   const ui = getWorldCupMarketUiText(locale);
   const config = WORLD_CUP_MARKET_STATIC_MAP;
   const byId = new Map(stores.map((store) => [store.id, store]));
   const pins = layoutWorldCupMarketStaticMapPins(stores.map((store) => store.id), config);
   return (
-    <div className="worldcup-market-market-map" role="region" aria-label={ui.marketMap} data-map-provider="static" data-map-mode="overview"
+    <div className="worldcup-market-market-map" role="region" aria-label={ui.marketMap} data-map-provider="static" data-map-mode={mode}
       style={{ aspectRatio: `${config.width} / ${config.height}` }}>
       <img className="worldcup-market-static-map-image" src={config.src} alt="" width={config.width} height={config.height} decoding="async" />
       <div className="worldcup-market-map-overlay">
@@ -42,6 +48,7 @@ export default function WorldCupMarketStaticMap({ stores, selectedId, onSelect, 
           </button>;
         })}
       </div>
+      <p className="worldcup-market-static-map-caption">{ui.mapGuideApproximate}</p>
       <a className="worldcup-market-static-map-attribution" href={config.attribution.href} target="_blank" rel="noopener noreferrer">
         {config.attribution.label}
       </a>

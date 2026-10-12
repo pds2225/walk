@@ -30,7 +30,7 @@ vi.mock("next/dynamic", () => ({
 }));
 
 vi.mock("./WorldCupMarketStaticMap", () => ({
-  default: ({ stores, onSelect }: { stores: readonly WorldCupMarketStore[]; onSelect: (id: string) => void }) => <div data-testid="worldcup-market-static-map" data-store-count={stores.length}><button onClick={() => onSelect(stores[0]!.id)}>test map selection</button></div>,
+  default: ({ stores, onSelect, selectedId, mode }: { stores: readonly WorldCupMarketStore[]; onSelect: (id: string) => void; selectedId?: string; mode?: string }) => <div data-testid="worldcup-market-static-map" data-store-count={stores.length} data-selected={selectedId} data-mode={mode}><button onClick={() => onSelect(stores[0]!.id)}>test map selection</button></div>,
 }));
 
 function locateStore(index: number, existing?: VerifiedLocation | null): WorldCupMarketStore {
@@ -63,6 +63,8 @@ function untranslatedTextNodes(container: HTMLElement): string[] {
   const untranslated: string[] = [];
   for (let node = walker.nextNode(); node; node = walker.nextNode()) {
     const text = node.textContent?.trim() ?? "";
+    // Language buttons name each language in its own script (lang="ko" etc.).
+    if (node.parentElement?.closest('[lang="ko"]') && node.parentElement.closest(".worldcup-market-locale-switcher")) continue;
     if (/[\u1100-\u11ff\u3130-\u318f\uac00-\ud7a3]/.test(text) && !properNames.has(text)) untranslated.push(text);
   }
   for (const element of container.querySelectorAll("[aria-label], [alt], [title]")) {
@@ -152,7 +154,7 @@ describe("World Cup Market demo", () => {
     const onStartWalking = vi.fn();
     const { rerender } = render(<WorldCupMarketDemo locale={locale} onLocaleChange={onLocaleChange} onStartWalking={onStartWalking} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "EN" }));
+    fireEvent.click(screen.getByRole("button", { name: "English" }));
     rerender(<WorldCupMarketDemo locale="en" onLocaleChange={onLocaleChange} onStartWalking={onStartWalking} />);
     expect(screen.getByRole("heading", { name: "Bubu Vegetables" })).toBeTruthy();
     expect(screen.getByText("Vegetables")).toBeTruthy();
@@ -161,14 +163,14 @@ describe("World Cup Market demo", () => {
     expect(screen.getByText("Popular Menu")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Start Walking Guide" })).toBeTruthy();
 
-    fireEvent.click(screen.getByRole("button", { name: "JA" }));
+    fireEvent.click(screen.getByRole("button", { name: "日本語" }));
     rerender(<WorldCupMarketDemo locale="ja" onLocaleChange={onLocaleChange} onStartWalking={onStartWalking} />);
     expect(screen.getByRole("heading", { name: "부부야채" })).toBeTruthy();
     expect(screen.getByText("人気メニュー")).toBeTruthy();
     expect(screen.getAllByText(localizeProductName("고구마", "ja")).length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "ここへ歩いて行く" })).toBeTruthy();
 
-    fireEvent.click(screen.getByRole("button", { name: "ZH" }));
+    fireEvent.click(screen.getByRole("button", { name: "中文" }));
     rerender(<WorldCupMarketDemo locale="zh" onLocaleChange={onLocaleChange} onStartWalking={onStartWalking} />);
     expect(screen.getByRole("heading", { name: "부부야채" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "嘉乐农产物" }));
@@ -276,6 +278,7 @@ describe("World Cup Market demo", () => {
 
   it("좌표 있는 점포만 지도 핀·도보 목적지를 사용하며 공유 좌표를 그대로 안내한다", async () => {
     vi.stubEnv("NEXT_PUBLIC_WORLDCUP_WALKING_ENABLED", "true");
+    vi.stubEnv("NEXT_PUBLIC_WORLDCUP_LIVE_MAP", "true");
     const first = locateStore(0);
     locateStore(1, first.storeLocation);
     const onStartWalking = vi.fn();
@@ -317,6 +320,16 @@ describe("World Cup Market demo", () => {
     expect(screen.getByTestId("worldcup-market-static-map")).toBeTruthy();
     expect(back).not.toHaveBeenCalled();
     back.mockRestore();
+  });
+
+  it("기본값은 NAVER 대신 고정 안내도를 쓰고 선택 점포를 강조한다", () => {
+    const id = locateStore(0).id;
+    window.history.replaceState(null, "", `/worldcup-market?store=${id}&view=nearby`);
+    render(<WorldCupMarketDemo locale="ko" onStartWalking={vi.fn()} />);
+    const map = screen.getByTestId("worldcup-market-static-map");
+    expect(map.getAttribute("data-mode")).toBe("detail");
+    expect(map.getAttribute("data-selected")).toBe(id);
+    expect(screen.queryByTestId("worldcup-market-map")).toBeNull();
   });
 
   it("?store= deep link로 특정 점포 상세에 직접 진입하고 점포 변경 시 URL을 갱신한다", async () => {
@@ -387,7 +400,7 @@ describe("World Cup Market demo", () => {
 
     for (const locale of locales) {
       const ui = getWorldCupMarketUiText(locale);
-      fireEvent.click(screen.getByRole("button", { name: locale.toUpperCase() }));
+      fireEvent.click(screen.getByRole("button", { name: ({ ko: "한국어", en: "English", ja: "日本語", zh: "中文" } as const)[locale] }));
       expect(screen.getByRole("heading", { name: ui.market })).toBeTruthy();
       expect(screen.getByText(ui.serviceName)).toBeTruthy();
       expect(within(screen.getByRole("group", { name: ui.categoryFilter }))
@@ -398,7 +411,7 @@ describe("World Cup Market demo", () => {
       .getByRole("button", { name: new RegExp(store.nameKo) }));
     for (const locale of locales) {
       const ui = getWorldCupMarketUiText(locale);
-      fireEvent.click(screen.getByRole("button", { name: locale.toUpperCase() }));
+      fireEvent.click(screen.getByRole("button", { name: ({ ko: "한국어", en: "English", ja: "日本語", zh: "中文" } as const)[locale] }));
       expect(screen.getByRole("heading", { name: localizeStoreName(store, locale) })).toBeTruthy();
       expect(screen.getByText(localizeCategory(store.category, locale), { exact: true })).toBeTruthy();
       expect(screen.getByText(ui.representativeMenu)).toBeTruthy();
@@ -409,7 +422,7 @@ describe("World Cup Market demo", () => {
     fireEvent.click(screen.getByRole("button", { name: getWorldCupMarketUiText("ko").nearbyEntry }));
     for (const locale of locales) {
       const ui = getWorldCupMarketUiText(locale);
-      fireEvent.click(screen.getByRole("button", { name: locale.toUpperCase() }));
+      fireEvent.click(screen.getByRole("button", { name: ({ ko: "한국어", en: "English", ja: "日本語", zh: "中文" } as const)[locale] }));
       expect(screen.getByRole("heading", { name: ui.nearbyTitle })).toBeTruthy();
       expect(screen.getByRole("heading", { name: ui.storefrontTitle })).toBeTruthy();
       expect(screen.getByText(ui.storefrontLocationUnknown)).toBeTruthy();
@@ -580,3 +593,4 @@ describe("주변 점포 레일", () => {
     expect(screen.getByRole("button", { name: "이전 점포 보기" })).toBeTruthy();
   });
 });
+
