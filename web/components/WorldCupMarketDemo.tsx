@@ -41,7 +41,6 @@ interface WorldCupMarketDemoProps {
   readonly onStartWalking: (target: { name: string; coordinate: Coordinate }) => void;
 }
 
-type ShareState = "idle" | "done" | "unavailable";
 type DisplayProduct = StoreProduct;
 type DemoScreen = "map" | "detail" | "nearby";
 
@@ -219,40 +218,13 @@ function StorePrimaryActions({ store, locale, onStartWalking }: {
   readonly locale: Locale;
   readonly onStartWalking: WorldCupMarketDemoProps["onStartWalking"];
 }) {
+  // Save/share were removed (Dasom review 2026-10-12): no visible saved list, and
+  // share was unreliable. Only the walking CTA remains, and it is flag-gated.
+  if (!worldCupMarketWalkingEnabled()) return null;
   const ui = getWorldCupMarketUiText(locale);
-  const [saved, setSaved] = useState(false);
-  const [shareState, setShareState] = useState<ShareState>("idle");
-
-  const share = async () => {
-    if (typeof navigator === "undefined") return;
-    updateStoreDeepLink(store.id);
-    const browserNavigator = navigator as Navigator & {
-      share?: (data: { title: string; text: string; url: string }) => Promise<void>;
-    };
-    try {
-      if (typeof browserNavigator.share === "function") {
-        await browserNavigator.share({
-          title: localizeStoreName(store, locale),
-          text: localizeDescription(store.descriptionKo, locale) ?? "",
-          url: window.location.href,
-        });
-        setShareState("done");
-        return;
-      }
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(window.location.href);
-        setShareState("done");
-        return;
-      }
-      setShareState("unavailable");
-    } catch {
-      setShareState("unavailable");
-    }
-  };
-
   return (
     <div className="worldcup-market-mobile-actions">
-      {worldCupMarketWalkingEnabled() ? <button
+      <button
         type="button"
         className="worldcup-market-mobile-primary"
         disabled={store.navigationTarget === null}
@@ -263,15 +235,7 @@ function StorePrimaryActions({ store, locale, onStartWalking }: {
         }}
       >
         {walkLabel(locale, ui)}
-      </button> : null}
-      <div className="worldcup-market-mobile-secondary-actions">
-        <button type="button" className={saved ? "is-selected" : ""} aria-pressed={saved} onClick={() => setSaved((value) => !value)}>
-          <span aria-hidden="true">♡</span>{saved ? ui.saved : ui.save}
-        </button>
-        <button type="button" onClick={() => void share()}>
-          <span aria-hidden="true">↗</span>{shareState === "done" ? ui.shared : shareState === "unavailable" ? ui.shareUnavailable : ui.share}
-        </button>
-      </div>
+      </button>
     </div>
   );
 }
@@ -365,7 +329,10 @@ function StoreDetail({ store, locale, onStartWalking, onOpenNearby }: {
   return (
     <article className="worldcup-market-mobile-detail" aria-labelledby="worldcup-market-selected-title">
       <div className="worldcup-market-mobile-hero-image">
-        {image ? <img src={image.url} alt={`${name} ${ui.shopPhoto}`} loading="eager" /> : <div className="worldcup-market-store-image-fallback" role="img" aria-label={`${name} ${ui.aboutShop}`}><span>{localizeCategory(store.category, locale)}</span></div>}
+        {image ? <>
+          <img className="worldcup-market-hero-backdrop" src={image.url} alt="" aria-hidden="true" />
+          <img className="worldcup-market-hero-photo" src={image.url} alt={`${name} ${ui.shopPhoto}`} loading="eager" />
+        </> : <div className="worldcup-market-store-image-fallback" role="img" aria-label={`${name} ${ui.aboutShop}`}><span>{localizeCategory(store.category, locale)}</span></div>}
       </div>
       <div className="worldcup-market-mobile-detail-body">
         <h2 id="worldcup-market-selected-title">{name}</h2>

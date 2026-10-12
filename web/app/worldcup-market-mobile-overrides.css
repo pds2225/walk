@@ -505,3 +505,48 @@
   .worldcup-market-demo:lang(ja) .worldcup-market-mobile-brand > span,
   .worldcup-market-demo:lang(zh) .worldcup-market-mobile-brand > span { white-space: nowrap; }
 }
+
+/* Store posters carry large text (incl. the store name at the bottom):
+   show the whole image, with a blurred copy filling the letterbox. */
+.worldcup-market-mobile-hero-image {
+  aspect-ratio: auto;
+  min-height: 0;
+  max-height: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #eef1f5;
+}
+.worldcup-market-mobile-hero-image img.worldcup-market-hero-backdrop {
+  position: absolute;
+  inset: -20px;
+  width: calc(100% + 40px);
+  height: calc(100% + 40px);
+  min-height: 0;
+  object-fit: cover;
+  filter: blur(22px) saturate(1.1);
+  opacity: .55;
+}
+.worldcup-market-mobile-hero-image img.worldcup-market-hero-photo {
+  position: relative;
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  max-height: 70vh;
+  object-fit: contain;
+}
+@media (min-width: 720px) {
+  .worldcup-market-mobile-hero-image { max-height: none; }
+  .worldcup-market-mobile-hero-image img.worldcup-market-hero-photo { width: auto; max-width: 100%; max-height: 560px; }
+}
+
+/* No store has menu photos: compact text-only menu cards (no blank image area). */
+.worldcup-market-menu-card {
+  flex: 0 0 auto;
+  min-height: 0;
+  max-width: 220px;
+  justify-content: flex-start;
+  gap: 5px;
+  padding: 10px 14px;
+  border-radius: 12px;
+}

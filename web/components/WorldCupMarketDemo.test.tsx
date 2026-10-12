@@ -232,11 +232,23 @@ describe("World Cup Market demo", () => {
     expect(within(screen.getByRole("list", { name: ui.storeList })).getAllByRole("button")).toHaveLength(45);
   });
 
-  it("저장과 공유 버튼을 제공한다", () => {
-    render(<WorldCupMarketDemo locale="ko" onStartWalking={vi.fn()} />);
-    fireEvent.click(screen.getByRole("button", { name: "저장" }));
-    expect(screen.getByRole("button", { name: "저장됨" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "공유" })).toBeTruthy();
+  it("상세에 저장·공유 버튼이 없고 대표 사진은 잘리지 않는 전용 클래스로 표시한다", () => {
+    window.history.replaceState(null, "", `/worldcup-market?store=${fixtures.stores[0]!.id}`);
+    const view = render(<WorldCupMarketDemo locale="ko" onStartWalking={vi.fn()} />);
+    expect(screen.getByRole("heading", { level: 2 })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /저장|공유/ })).toBeNull();
+    expect(view.container.querySelector(".worldcup-market-mobile-actions")).toBeNull();
+    const photo = view.container.querySelector("img.worldcup-market-hero-photo");
+    expect(photo?.getAttribute("alt")).toContain("대표 이미지");
+    expect(view.container.querySelector("img.worldcup-market-hero-backdrop")?.getAttribute("aria-hidden")).toBe("true");
+  });
+
+  it("인기 메뉴는 사진 자리 없는 텍스트 카드로 보여준다", () => {
+    window.history.replaceState(null, "", `/worldcup-market?store=${fixtures.stores[0]!.id}`);
+    const view = render(<WorldCupMarketDemo locale="ko" onStartWalking={vi.fn()} />);
+    const cards = view.container.querySelectorAll(".worldcup-market-menu-card");
+    expect(cards.length).toBeGreaterThan(0);
+    cards.forEach((card) => expect(card.querySelector("img")).toBeNull());
   });
 
   it("주변 화면은 주소와 미확인 위치를 보여주고 키가 있어도 거리뷰를 열지 않는다", async () => {
@@ -397,11 +409,10 @@ describe("World Cup Market demo", () => {
     expect(onStartWalking).not.toHaveBeenCalled();
   });
 
-  it("기본값은 상세·주변의 길찾기를 숨기고 저장/공유는 유지한다", () => {
+  it("기본값은 상세·주변의 길찾기를 숨긴다", () => {
     locateStore(0);
     render(<WorldCupMarketDemo locale="ko" onStartWalking={vi.fn()} />);
     expect(screen.queryByRole("button", { name: "여기로 가기" })).toBeNull();
-    expect(screen.getByRole("button", { name: "저장" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /주변 점포 · 360 · 지도/ }));
     expect(screen.queryByRole("button", { name: "여기로 가기" })).toBeNull();
   });

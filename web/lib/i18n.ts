@@ -306,11 +306,6 @@ export interface WorldCupMarketUiText {
   readonly closeDetails: string;
   readonly goThere: string;
   readonly startWalkingGuide: string;
-  readonly save: string;
-  readonly saved: string;
-  readonly share: string;
-  readonly shared: string;
-  readonly shareUnavailable: string;
   readonly popularMenu: string;
   readonly seeAll: string;
   readonly showLess: string;
@@ -383,11 +378,6 @@ const WORLD_CUP_MARKET_UI: Record<Locale, WorldCupMarketUiText> = {
     closeDetails: "상세 닫기",
     goThere: "여기로 가기",
     startWalkingGuide: "여기로 가기",
-    save: "저장",
-    saved: "저장됨",
-    share: "공유",
-    shared: "공유됨",
-    shareUnavailable: "공유할 수 없음",
     popularMenu: "인기 메뉴",
     seeAll: "전체 보기",
     showLess: "접기",
@@ -460,11 +450,6 @@ const WORLD_CUP_MARKET_UI: Record<Locale, WorldCupMarketUiText> = {
     closeDetails: "Close details",
     goThere: "Go here",
     startWalkingGuide: "Start Walking Guide",
-    save: "Save",
-    saved: "Saved",
-    share: "Share",
-    shared: "Shared",
-    shareUnavailable: "Sharing unavailable",
     popularMenu: "Popular Menu",
     seeAll: "See all",
     showLess: "Show less",
@@ -537,11 +522,6 @@ const WORLD_CUP_MARKET_UI: Record<Locale, WorldCupMarketUiText> = {
     closeDetails: "詳細を閉じる",
     goThere: "ここへ行く",
     startWalkingGuide: "ここへ歩いて行く",
-    save: "保存",
-    saved: "保存済み",
-    share: "共有",
-    shared: "共有済み",
-    shareUnavailable: "共有できません",
     popularMenu: "人気メニュー",
     seeAll: "すべて見る",
     showLess: "閉じる",
@@ -614,11 +594,6 @@ const WORLD_CUP_MARKET_UI: Record<Locale, WorldCupMarketUiText> = {
     closeDetails: "关闭详情",
     goThere: "去这里",
     startWalkingGuide: "开始步行导航",
-    save: "收藏",
-    saved: "已收藏",
-    share: "分享",
-    shared: "已分享",
-    shareUnavailable: "无法分享",
     popularMenu: "热门菜单",
     seeAll: "查看全部",
     showLess: "收起",
