@@ -342,9 +342,17 @@ Roadview 실패 시 navigation은 계속되어야 한다.
 - 수정: `web/app/worldcup-market-mobile-overrides.css`에서 지도 요소의 position/width/height를 `!important`로 고정하고, 핀 오버레이가 지도 위에 오도록 z-index 지정. 다른 화면·키·.env 변경 없음.
 - 검증: CSS 회귀 테스트 `web/app/worldcupMarketMapSize.test.ts`(수정 전 FAIL → 수정 후 PASS), lint/next:build/test:run/typecheck. 운영 페이지에 같은 CSS를 주입한 Chrome 390×844 확인: 지도 높이 0 → 약 395px, 타일 로드, 핀 45개 표시·지도 위 클릭 가능.
 
-### [~] KN-WORLDCUP-STATIC-MAP-20261012 — 월드컵시장 첫 화면 고정 지도 이미지
+### [~] KN-WORLDCUP-UX-PORT-20261012 — 언어 유지·JA 가타카나 읽기·뒤로가기 커밋 main 이식
 
-`STATUS = PR_OPENED — 리뷰 후 머지` · `BASE = 7253e8c` · `WORK_BRANCH = feat/worldcup-static-map-20261012`
+`STATUS = PR_OPENED — 리뷰 후 머지` · `BASE = 36f1f0c` · `WORK_BRANCH = fix/worldcup-ux-back-lang-ja-20261012`
+
+- 사용자 승인 (2026-10-12): `feat/ktrip-market-map-home-20261007`에서 PR #147 머지(b9e2491) 이후 남은 메인봇 커밋 3개(`94d646e` 언어 유지, `6e8b2f2` 45개 점포명 가타카나 읽기, `84f56f5` 뒤로가기/스크롤 복원)만 현재 main에 옮긴다. 리뷰 목록의 4~10번 항목은 범위 밖.
+- #148(지도 높이), #149(고정 OSM 지도, `NEXT_PUBLIC_WORLDCUP_LIVE_MAP`)와 함께 유지한다. 고정 지도 핀 탭도 history에 쌓여 휴대폰 뒤로가기로 첫 화면 지도에 돌아온다.
+- 검증: Node 22 lint/typecheck/web typecheck/next:build/test:run, preview Chrome 390×844 뒤로가기·JA 유지·가타카나·고정 지도.
+
+### [x] KN-WORLDCUP-STATIC-MAP-20261012 — 월드컵시장 첫 화면 고정 지도 이미지
+
+`STATUS = MERGED — PR #149` · `BASE = 7253e8c` · `WORK_BRANCH = feat/worldcup-static-map-20261012`
 
 - 사용자 요청 (2026-10-12): 첫 화면은 NAVER Maps JS 실시간 지도 대신 고정 지도 이미지를 쓴다. 나중에 시장 공식 안내도로 쉽게 교체할 수 있어야 한다.
 - 구현: OpenStreetMap 데이터로 그린 `web/public/worldcup-market/market-map.webp`(728×790, © OpenStreetMap contributors) 위에 기존 표시 좌표를 투영해 45개 핀 배치. 설정·투영·교체 방법은 `web/lib/worldCupMarketStaticMap.ts` 한 곳, 재생성은 `scripts/worldcup-market/render_static_map.py`.
