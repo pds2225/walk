@@ -4,6 +4,14 @@
   "installCommand": "npm install",
   "outputDirectory": "web/.next",
   "framework": "nextjs",
-  "regions": ["icn1"],
-  "ignoreCommand": "node scripts/vercel-ignore.cjs"
+  "regions": [
+    "icn1"
+  ],
+  "ignoreCommand": "node scripts/vercel-ignore.cjs",
+  "crons": [
+    {
+      "path": "/api/keepalive",
+      "schedule": "0 19 * * *"
+    }
+  ]
 }

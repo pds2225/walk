@@ -1307,3 +1307,15 @@ PR =
 - 공유용 RESUME.md·SESSION_RECAP.md 및 GitHub/추적 소스로 이어지는 근거 문서를 일반 commit/push+PR로 반영한다. 제품코드·env·workflow는 수정하지 않는다.
 - 확인: 문서 내부 링크/경로·Secret 검사, 원격 branch에서 실제 새 clone으로 두 파일 복원, 기존 필수 CI. 반복 제품 테스트는 로컬에서 수행하지 않는다.
 - 결과: 문서3개/상대 링크11개 검증, 새 문서의 개인 절대경로/Secret 패턴0. GitHub 원격 branch를 다른 임시 경로에 실제 shallow clone하여 회고·재개·공유근거3파일 및 과거회고를 확인했다. 원래PC의 .worktrees/위키/학습스킬 없이 시작할 수 있다. 기존 로컬원본은 별도백업했다.
+
+## [ ] KN-QR-SCAN-LOG-20261012 — 점포 QR 스캔 기록 (Supabase) + 무료 프로젝트 keep-alive
+
+- 요청: Dasom (2026-10-12). 45개 점포 QR 스캔마다 Supabase에 기록.
+- 설계: 인쇄 QR → 짧은 고정 경로 `/q/<NN>` (점포 번호). 서버에서 스캔 기록 후 302로 `/worldcup-market?store=worldcup-market-NN` 이동. 목적지 매핑은 서버(`web/lib/qrScan.ts`)에 있어 재인쇄 없이 변경 가능.
+- 기록 항목: store_id, store_no, scanned_at, locale(accept-language), src=qr, user_agent, referrer, 익명 visitor 쿠키(`ktrip_vid`), is_first_visit. IP 저장 안 함.
+- 중복 방지: 같은 방문자+점포 30분 1회 (쿠키 `ktrip_qr_<NN>`).
+- DB: Supabase 프로젝트 `ktrip-qr` (ref vkmpitfvcmjqlugixsqo, 서울, 무료). 테이블 `public.qr_scans`, RLS on, 정책 없음, anon/authenticated 권한 회수. 서버만 service key로 insert.
+- keep-alive: Vercel Cron 매일 19:00 UTC (04:00 KST) → `/api/keepalive` (CRON_SECRET bearer) → qr_scans 실제 조회.
+- 필요한 Vercel env (Production+Preview, Dasom 입력): `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET`.
+- 금지: .env 수정, 키 커밋, force push, Dasom 승인 없는 merge.
+- 남은 일: env 입력 → preview/production에서 /q/23 실측 → 최종 QR 인쇄본(도메인 확정 후).
