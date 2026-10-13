@@ -1313,7 +1313,7 @@ PR =
 - 요청: Dasom (2026-10-12). 45개 점포 QR 스캔마다 Supabase에 기록.
 - 설계: 인쇄 QR → 짧은 고정 경로 `/q/<NN>` (점포 번호). 서버에서 스캔 기록 후 302로 `/worldcup-market?store=worldcup-market-NN` 이동. 목적지 매핑은 서버(`web/lib/qrScan.ts`)에 있어 재인쇄 없이 변경 가능.
 - 기록 항목: store_id, store_no, scanned_at, locale(accept-language), src=qr, user_agent, referrer, 익명 visitor 쿠키(`ktrip_vid`), is_first_visit. IP 저장 안 함.
-- 중복 방지: 같은 방문자+점포 10분 1회 (2026-10-13 30분→10분) (쿠키 `ktrip_qr_<NN>`).
+- 중복 방지: 같은 방문자+점포 3분 1회 (2026-10-13 30분→10분→3분) (쿠키 `ktrip_qr_<NN>`).
 - DB: Supabase 프로젝트 `ktrip-qr` (ref vkmpitfvcmjqlugixsqo, 서울, 무료). 테이블 `public.qr_scans`, RLS on, 정책 없음, anon/authenticated 권한 회수. 서버만 service key로 insert.
 - keep-alive: Vercel Cron 매일 19:00 UTC (04:00 KST) → `/api/keepalive` (CRON_SECRET bearer) → qr_scans 실제 조회.
 - 필요한 Vercel env (Production+Preview, Dasom 입력): `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET`.
@@ -1362,6 +1362,10 @@ PR =
 - 저장: Supabase ktrip-qr `public.events` (RLS on, 정책 없음, anon/authenticated 권한 회수, IP 없음). 마이그레이션 `supabase/migrations/20261013000000_events.sql`.
 - 수집: `/api/track` (서버에서 service key로 REST insert, after()로 응답 후 기록). 허용 이벤트 목록, 점포 id 검증, 본문 2KB 제한, 방문자당 분당 60건 제한.
 - 방문자: qr_scans와 같은 `ktrip_vid` 쿠키. /q/<NN>이 `ktrip_land` 쿠키(5분)를 남겨 이어지는 store_view를 src=qr로 기록.
-- store_view 중복 방지: 방문자+점포 10분 (쿠키 `ktrip_sv_<NN>`), QR 규칙과 동일.
+- store_view 중복 방지: 방문자+점포 3분 (2026-10-13 10분→3분) (쿠키 `ktrip_sv_<NN>`), QR 규칙과 동일.
 - 클라이언트: sendBeacon → fetch keepalive, 실패해도 UI 영향 없음.
 - 후속 수정(같은 날): ?store= 직접 진입 시 첫 렌더의 "map" 상태로 page_view가 잘못 기록되던 문제 → URL 동기화 후에만 기록.
+
+## [x] KN-DEDUPE-3MIN-20261013 — QR 스캔·store_view 중복 방지 10분 → 3분
+
+- 요청: Dasom (2026-10-13 밤). `ktrip_qr_<NN>`(QR_DEDUPE_WINDOW_SECONDS)와 `ktrip_sv_<NN>`(STORE_VIEW_DEDUPE_SECONDS) max-age 600 → 180. 주석·테스트 갱신.

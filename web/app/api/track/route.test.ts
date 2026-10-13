@@ -54,11 +54,11 @@ describe("POST /api/track", () => {
     expect(res.headers.get("set-cookie")).toContain("ktrip_vid=");
   });
 
-  it("attributes store_view to the QR landing cookie and dedupes per store for 10 minutes", async () => {
+  it("attributes store_view to the QR landing cookie and dedupes per store for 3 minutes", async () => {
     const res = await post({ event: "store_view", store_id: "worldcup-market-23", src: "deeplink" }, "ktrip_vid=abcdef12-3456; ktrip_land=23");
     expect((await insertedRow())).toMatchObject({ event: "store_view", store_id: "worldcup-market-23", store_no: 23, src: "qr" });
     const cookies = res.headers.get("set-cookie") ?? "";
-    expect(cookies).toMatch(/ktrip_sv_23=1; Path=\/api\/track; Expires=[^;]+; Max-Age=600/);
+    expect(cookies).toMatch(/ktrip_sv_23=1; Path=\/api\/track; Expires=[^;]+; Max-Age=180/);
     expect(cookies).toContain("ktrip_land=;");
     afterTasks.length = 0;
     await post({ event: "store_view", store_id: "worldcup-market-23", src: "list" }, "ktrip_vid=abcdef12-3456; ktrip_sv_23=1");

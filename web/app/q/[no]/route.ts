@@ -47,7 +47,7 @@ export async function GET(request: Request, context: { params: Promise<{ no: str
   response.cookies.set(QR_LANDING_COOKIE, String(storeNumberFromId(storeId)), { httpOnly: true, sameSite: "lax", secure, path: "/api/track", maxAge: 300 });
 
   const dedupeName = `${DEDUPE_COOKIE_PREFIX}${storeNumberFromId(storeId)}`;
-  if (readCookie(cookies, dedupeName)) return response; // same visitor+store within 10 min
+  if (readCookie(cookies, dedupeName)) return response; // same visitor+store within 3 min
   response.cookies.set(dedupeName, "1", { httpOnly: true, sameSite: "lax", secure, path: "/q", maxAge: QR_DEDUPE_WINDOW_SECONDS });
 
   const row = {

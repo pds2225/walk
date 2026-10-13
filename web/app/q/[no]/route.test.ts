@@ -26,7 +26,7 @@ describe("GET /q/[no]", () => {
     expect(res.status).toBe(302);
     expect(res.headers.get("location")).toBe("https://k-navi.vercel.app/worldcup-market?store=worldcup-market-23");
     expect(res.headers.get("set-cookie")).toContain("ktrip_vid=");
-    expect(res.headers.get("set-cookie")).toMatch(/ktrip_qr_23=1; Path=\/q; Expires=[^;]+; Max-Age=600;/);
+    expect(res.headers.get("set-cookie")).toMatch(/ktrip_qr_23=1; Path=\/q; Expires=[^;]+; Max-Age=180;/);
     expect(afterTasks).toHaveLength(1);
     await afterTasks[0]!();
     const [url, init] = fetchMock.mock.calls[0]!;
@@ -36,7 +36,7 @@ describe("GET /q/[no]", () => {
     expect(JSON.stringify(row)).not.toContain("1.2.3.4");
   });
 
-  it("skips logging inside the 10 min dedupe window and keeps the visitor id", async () => {
+  it("skips logging inside the 3 min dedupe window and keeps the visitor id", async () => {
     const res = await call("5", { cookie: "ktrip_vid=abcdef12-3456; ktrip_qr_5=1" });
     expect(res.status).toBe(302);
     expect(afterTasks).toHaveLength(0);

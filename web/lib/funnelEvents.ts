@@ -6,7 +6,7 @@ export type FunnelEvent = (typeof FUNNEL_EVENTS)[number];
 export const STORE_VIEW_SOURCES = ["qr", "map", "list", "nearby", "switcher", "deeplink"] as const;
 export type StoreViewSource = (typeof STORE_VIEW_SOURCES)[number];
 
-export const STORE_VIEW_DEDUPE_SECONDS = 10 * 60;
+export const STORE_VIEW_DEDUPE_SECONDS = 3 * 60;
 export const STORE_VIEW_COOKIE_PREFIX = "ktrip_sv_";
 
 export function isFunnelEvent(value: unknown): value is FunnelEvent {

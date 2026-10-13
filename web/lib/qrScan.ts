@@ -7,7 +7,7 @@ import { localeFromBrowserLanguages } from "./localePreference";
 
 export const VISITOR_COOKIE = "ktrip_vid";
 export const DEDUPE_COOKIE_PREFIX = "ktrip_qr_";
-export const QR_DEDUPE_WINDOW_SECONDS = 10 * 60;
+export const QR_DEDUPE_WINDOW_SECONDS = 3 * 60;
 
 const KNOWN_IDS = new Set(WORLD_CUP_MARKET_STORES.map((store) => store.id));
 
