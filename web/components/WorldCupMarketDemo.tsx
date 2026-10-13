@@ -1,5 +1,6 @@
 "use client";
 import { track } from "../lib/track";
+import { useDetailFunnel } from "../lib/useDetailFunnel";
 import type { StoreViewSource } from "../lib/funnelEvents";
 
 // Store details and nearby views reflect verified location availability.
@@ -326,8 +327,10 @@ function StoreDetail({ store, locale, onStartWalking, onOpenNearby }: {
   const ui = getWorldCupMarketUiText(locale);
   const image = store.storeImages[0];
   const name = localizeStoreName(store, locale);
+  const detailRef = useRef<HTMLElement | null>(null);
+  useDetailFunnel(store.id, locale, detailRef);
   return (
-    <article className="worldcup-market-mobile-detail" aria-labelledby="worldcup-market-selected-title">
+    <article ref={detailRef} className="worldcup-market-mobile-detail" aria-labelledby="worldcup-market-selected-title">
       <div className="worldcup-market-mobile-hero-image">
         {image ? <>
           <img className="worldcup-market-hero-backdrop" src={image.url} alt="" aria-hidden="true" />

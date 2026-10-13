@@ -2,18 +2,27 @@
 import type { FunnelEvent, StoreViewSource } from "./funnelEvents";
 
 const SESSION_KEY = "walk:session-id";
+// Fallback when sessionStorage is blocked: one id per page lifetime.
+let memorySessionId: string | null = null;
 
-function sessionId(): string | null {
+function newId(): string {
+  return typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+    ? crypto.randomUUID()
+    : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
+
+/** Tab-scoped session id (sessionStorage), shared by page_view/store_view for bounce analysis. */
+export function getSessionId(): string {
   try {
     const existing = window.sessionStorage.getItem(SESSION_KEY);
     if (existing) return existing;
-    const id = typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-      ? crypto.randomUUID()
-      : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+    const id = memorySessionId ?? newId();
     window.sessionStorage.setItem(SESSION_KEY, id);
+    memorySessionId = id;
     return id;
   } catch {
-    return null;
+    memorySessionId ??= newId();
+    return memorySessionId;
   }
 }
 
@@ -22,6 +31,8 @@ export interface TrackInput {
   readonly locale?: string | null;
   /** store_view source, language_change previous locale, etc. */
   readonly src?: StoreViewSource | string | null;
+  /** store_leave dwell time in whole seconds. */
+  readonly dwellSec?: number | null;
 }
 
 /**
@@ -36,7 +47,8 @@ export function track(event: FunnelEvent, input: TrackInput = {}): void {
       store_id: input.storeId ?? null,
       locale: input.locale ?? null,
       src: input.src ?? null,
-      session_id: sessionId(),
+      dwell_sec: input.dwellSec ?? null,
+      session_id: getSessionId(),
       path: window.location.pathname,
     });
     if (typeof navigator !== "undefined" && typeof navigator.sendBeacon === "function"

@@ -1369,3 +1369,10 @@ PR =
 ## [x] KN-DEDUPE-3MIN-20261013 — QR 스캔·store_view 중복 방지 10분 → 3분
 
 - 요청: Dasom (2026-10-13 밤). `ktrip_qr_<NN>`(QR_DEDUPE_WINDOW_SECONDS)와 `ktrip_sv_<NN>`(STORE_VIEW_DEDUPE_SECONDS) max-age 600 → 180. 주석·테스트 갱신.
+
+## [x] KN-FUNNEL-SECTION-DWELL-20261013 — 퍼널 아이디어 1·2·8 (섹션 도달, 체류시간, 이탈)
+
+- 요청: Dasom (2026-10-13 밤).
+- (1) section_view: 상세 화면 menu/location/nearby 섹션 도달(IntersectionObserver, 40%), store_view(=상세 마운트)당 섹션별 1회. src=섹션명.
+- (2) store_leave: 상세를 떠날 때(점포 변경·뒤로·주변 화면·pagehide·visibilitychange hidden) dwell_sec 기록. 다시 보이면 새 구간 시작 → 체류시간은 session+store 기준 합계. 컬럼 `events.dwell_sec int`(0–86400), 이벤트 check 제약 확장. 마이그레이션 `20261013010000_events_section_dwell.sql`.
+- (8) 이탈: 새 이벤트 없음. session_id는 sessionStorage(탭 단위), 막히면 메모리 폴백. page_view만 있고 store_view 없는 세션 비율로 계산.
