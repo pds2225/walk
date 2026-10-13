@@ -548,6 +548,9 @@ function MarketOverview({ locale, onSelect, onPinSelect }: {
 export default function WorldCupMarketDemo({ locale, onLocaleChange, onStartWalking }: WorldCupMarketDemoProps) {
   const [selectedId, setSelectedId] = useState(WORLD_CUP_MARKET_STORES[0]?.id ?? "");
   const [screenName, setScreenName] = useState<DemoScreen>("map");
+  // Funnel events wait until the screen has been synced from the URL, so a
+  // ?store= deep link does not log a page_view for the initial "map" state.
+  const [urlSynced, setUrlSynced] = useState(false);
   const ui = getWorldCupMarketUiText(locale);
   const selected = WORLD_CUP_MARKET_STORES.find((store) => store.id === selectedId) ?? WORLD_CUP_MARKET_STORES[0];
   // Scroll position the list had right before opening a detail view, restored
@@ -560,6 +563,7 @@ export default function WorldCupMarketDemo({ locale, onLocaleChange, onStartWalk
   localeRef.current = locale;
 
   useEffect(() => {
+    if (!urlSynced) return;
     if (screenName === "map") {
       track("page_view", { locale: localeRef.current });
       return;
@@ -568,7 +572,7 @@ export default function WorldCupMarketDemo({ locale, onLocaleChange, onStartWalk
       track("store_view", { storeId: selectedId, locale: localeRef.current, src: viewSourceRef.current });
       viewSourceRef.current = "switcher";
     }
-  }, [screenName, selectedId]);
+  }, [screenName, selectedId, urlSynced]);
 
   const restoreMapScrollIfNeeded = useCallback(() => {
     const top = savedMapScrollRef.current;
@@ -586,6 +590,7 @@ export default function WorldCupMarketDemo({ locale, onLocaleChange, onStartWalk
       if (screen === "map") restoreMapScrollIfNeeded();
     };
     syncFromUrl();
+    setUrlSynced(true);
     window.addEventListener("popstate", syncFromUrl);
     return () => window.removeEventListener("popstate", syncFromUrl);
   }, [restoreMapScrollIfNeeded]);

@@ -356,6 +356,7 @@ describe("World Cup Market demo", () => {
     window.history.replaceState(null, "", `/worldcup-market?store=${store.id}`);
     const view = render(<WorldCupMarketDemo locale="ko" onStartWalking={vi.fn()} />);
     expect(trackMock).toHaveBeenCalledWith("store_view", expect.objectContaining({ storeId: store.id, src: "deeplink" }));
+    expect(trackMock).not.toHaveBeenCalledWith("page_view", expect.anything());
     const tel = view.container.querySelector<HTMLAnchorElement>('a[href^="tel:"]');
     if (tel) {
       fireEvent.click(tel);
