@@ -3,8 +3,9 @@
 import "../worldcup-market.css";
 import "../worldcup-market-mobile-overrides.css";
 import "../worldcup-market-streetview.css";
-import { useCallback, useEffect, useState } from "react";
+import { useRef, useCallback, useEffect, useState } from "react";
 import DestinationWalk from "../../components/DestinationWalk";
+import { track } from "../../lib/track";
 import WorldCupMarketDemo from "../../components/WorldCupMarketDemo";
 import { getServiceMetadata, type Locale } from "../../lib/i18n";
 import { htmlLangFor, resolveInitialLocale, syncLocaleToUrl, writeStoredLocale } from "../../lib/localePreference";
@@ -23,6 +24,8 @@ export default function WorldCupMarketDemoPage() {
   // Held at null until mount so the resolved locale (URL > stored > browser
   // language > ko) renders on the first paint instead of flashing ko first.
   const [locale, setLocale] = useState<Locale | null>(null);
+  const localeRef = useRef<Locale | null>(null);
+  localeRef.current = locale;
   const [target, setTarget] = useState<{ name: string; coordinate: Coordinate } | null>(null);
 
   useEffect(() => {
@@ -39,6 +42,7 @@ export default function WorldCupMarketDemoPage() {
   }, [locale]);
 
   const changeLocale = useCallback((next: Locale) => {
+    track("language_change", { locale: next, src: localeRef.current });
     writeStoredLocale(next);
     syncLocaleToUrl(next);
     setLocale(next);

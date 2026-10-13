@@ -25,6 +25,9 @@ vi.mock("../lib/worldCupMarketStores", async (importOriginal) => {
   return { ...actual, WORLD_CUP_MARKET_STORES: fixtures.stores };
 });
 
+const trackMock = vi.hoisted(() => vi.fn());
+vi.mock("../lib/track", () => ({ track: trackMock }));
+
 vi.mock("next/dynamic", () => ({
   default: () => ({ selectedId, stores, onSelect }: { selectedId: string; stores: readonly WorldCupMarketStore[]; onSelect: (id: string) => void }) => <div data-testid="worldcup-market-map" data-store-count={stores.length}>map:{selectedId}<button onClick={() => onSelect(stores[0]!.id)}>test map selection</button></div>,
 }));
@@ -330,6 +333,34 @@ describe("World Cup Market demo", () => {
     expect(map.getAttribute("data-mode")).toBe("detail");
     expect(map.getAttribute("data-selected")).toBe(id);
     expect(screen.queryByTestId("worldcup-market-map")).toBeNull();
+  });
+
+  it("퍼널 이벤트: 메인 page_view, 목록·지도 핀·전화 클릭에 맞는 store_view source를 보낸다", () => {
+    trackMock.mockClear();
+    window.history.replaceState(null, "", "/worldcup-market");
+    render(<WorldCupMarketDemo locale="ko" onStartWalking={vi.fn()} />);
+    expect(trackMock).toHaveBeenCalledWith("page_view", expect.objectContaining({ locale: "ko" }));
+    fireEvent.click(screen.getByRole("button", { name: "test map selection" }));
+    expect(trackMock).toHaveBeenCalledWith("map_pin_click", expect.objectContaining({ src: "overview" }));
+    expect(trackMock).toHaveBeenCalledWith("store_view", expect.objectContaining({ src: "map" }));
+    fireEvent.click(screen.getByRole("button", { name: getWorldCupMarketUiText("ko").backToMap }));
+    trackMock.mockClear();
+    const list = screen.getByRole("list", { name: getWorldCupMarketUiText("ko").storeList });
+    fireEvent.click(within(list).getAllByRole("button")[0]!);
+    expect(trackMock).toHaveBeenCalledWith("store_view", expect.objectContaining({ storeId: fixtures.stores[0]!.id, src: "list" }));
+  });
+
+  it("퍼널 이벤트: ?store= 직접 진입은 deeplink, 전화 링크는 phone_click", () => {
+    trackMock.mockClear();
+    const store = fixtures.stores.find((item) => item.phone) ?? fixtures.stores[0]!;
+    window.history.replaceState(null, "", `/worldcup-market?store=${store.id}`);
+    const view = render(<WorldCupMarketDemo locale="ko" onStartWalking={vi.fn()} />);
+    expect(trackMock).toHaveBeenCalledWith("store_view", expect.objectContaining({ storeId: store.id, src: "deeplink" }));
+    const tel = view.container.querySelector<HTMLAnchorElement>('a[href^="tel:"]');
+    if (tel) {
+      fireEvent.click(tel);
+      expect(trackMock).toHaveBeenCalledWith("phone_click", expect.objectContaining({ storeId: store.id }));
+    }
   });
 
   it("?store= deep link로 특정 점포 상세에 직접 진입하고 점포 변경 시 URL을 갱신한다", async () => {

@@ -5,6 +5,7 @@
 import { after, NextResponse } from "next/server";
 import {
   DEDUPE_COOKIE_PREFIX,
+  QR_LANDING_COOKIE,
   QR_DEDUPE_WINDOW_SECONDS,
   VISITOR_COOKIE,
   insertQrScan,
@@ -41,6 +42,9 @@ export async function GET(request: Request, context: { params: Promise<{ no: str
   const visitorId = existing && VISITOR_RE.test(existing) ? existing : crypto.randomUUID();
   const secure = new URL(request.url).protocol === "https:";
   response.cookies.set(VISITOR_COOKIE, visitorId, { httpOnly: true, sameSite: "lax", secure, path: "/", maxAge: 60 * 60 * 24 * 365 });
+
+  // Lets /api/track attribute the next store_view of this store to the QR scan.
+  response.cookies.set(QR_LANDING_COOKIE, String(storeNumberFromId(storeId)), { httpOnly: true, sameSite: "lax", secure, path: "/api/track", maxAge: 300 });
 
   const dedupeName = `${DEDUPE_COOKIE_PREFIX}${storeNumberFromId(storeId)}`;
   if (readCookie(cookies, dedupeName)) return response; // same visitor+store within 10 min
