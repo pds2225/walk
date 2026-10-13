@@ -43,7 +43,7 @@ export async function GET(request: Request, context: { params: Promise<{ no: str
   response.cookies.set(VISITOR_COOKIE, visitorId, { httpOnly: true, sameSite: "lax", secure, path: "/", maxAge: 60 * 60 * 24 * 365 });
 
   const dedupeName = `${DEDUPE_COOKIE_PREFIX}${storeNumberFromId(storeId)}`;
-  if (readCookie(cookies, dedupeName)) return response; // same visitor+store within 30 min
+  if (readCookie(cookies, dedupeName)) return response; // same visitor+store within 10 min
   response.cookies.set(dedupeName, "1", { httpOnly: true, sameSite: "lax", secure, path: "/q", maxAge: QR_DEDUPE_WINDOW_SECONDS });
 
   const row = {

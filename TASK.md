@@ -1313,7 +1313,7 @@ PR =
 - 요청: Dasom (2026-10-12). 45개 점포 QR 스캔마다 Supabase에 기록.
 - 설계: 인쇄 QR → 짧은 고정 경로 `/q/<NN>` (점포 번호). 서버에서 스캔 기록 후 302로 `/worldcup-market?store=worldcup-market-NN` 이동. 목적지 매핑은 서버(`web/lib/qrScan.ts`)에 있어 재인쇄 없이 변경 가능.
 - 기록 항목: store_id, store_no, scanned_at, locale(accept-language), src=qr, user_agent, referrer, 익명 visitor 쿠키(`ktrip_vid`), is_first_visit. IP 저장 안 함.
-- 중복 방지: 같은 방문자+점포 30분 1회 (쿠키 `ktrip_qr_<NN>`).
+- 중복 방지: 같은 방문자+점포 10분 1회 (2026-10-13 30분→10분) (쿠키 `ktrip_qr_<NN>`).
 - DB: Supabase 프로젝트 `ktrip-qr` (ref vkmpitfvcmjqlugixsqo, 서울, 무료). 테이블 `public.qr_scans`, RLS on, 정책 없음, anon/authenticated 권한 회수. 서버만 service key로 insert.
 - keep-alive: Vercel Cron 매일 19:00 UTC (04:00 KST) → `/api/keepalive` (CRON_SECRET bearer) → qr_scans 실제 조회.
 - 필요한 Vercel env (Production+Preview, Dasom 입력): `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET`.
@@ -1350,3 +1350,7 @@ PR =
 - 이미지: 기존 OSM 기반 단순 블록 지도(`web/public/worldcup-market/market-map.webp`) 재사용. 시장 공식 안내도를 받으면 `web/lib/worldCupMarketStaticMap.ts`에서 교체(bounds=null + 점포별 % 위치). 지어낸 데이터 없음.
 - 머지: Dasom 승인됨 (2026-10-12).
 - 헤더 (같은 PR, Dasom 2026-10-12): 브랜드 '케이트립' → 'K-TRIP'(전 언어), 페이지 title 'K-TRIP — 망원동 월드컵시장'. 시장명은 로고 아래에서 헤더 가운데로 옮기고 크게(좁은 화면은 두 번째 줄 가운데). 언어 버튼은 한국어/English/日本語/中文.
+
+## [x] KN-QR-DEDUPE-10MIN-20261013 — QR 스캔 중복 방지 30분 → 10분
+
+- 요청: Dasom (2026-10-13). `ktrip_qr_<NN>` 쿠키 max-age 1800 → 600 (`QR_DEDUPE_WINDOW_SECONDS`). 주석·테스트·TASK 문구 갱신.
