@@ -73,7 +73,7 @@ export async function POST(request: Request) {
       response.cookies.set(QR_LANDING_COOKIE, "", { httpOnly: true, sameSite: "lax", secure, path: "/api/track", maxAge: 0 });
     }
     const dedupeName = `${STORE_VIEW_COOKIE_PREFIX}${storeNumberFromId(storeId)}`;
-    if (readCookie(cookies, dedupeName)) return response; // same visitor+store within 10 min
+    if (readCookie(cookies, dedupeName)) return response; // same visitor+store within 3 min
     response.cookies.set(dedupeName, "1", { httpOnly: true, sameSite: "lax", secure, path: "/api/track", maxAge: STORE_VIEW_DEDUPE_SECONDS });
   }
 
