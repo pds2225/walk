@@ -70,10 +70,18 @@ export function supabaseConfig(): { readonly url: string; readonly key: string }
 
 /** Inserts one row into public.qr_scans. Never throws; returns false on any failure. */
 export async function insertQrScan(row: QrScanRow): Promise<boolean> {
+  return insertSupabaseRow("qr_scans", row);
+}
+
+/** Cookie set by /q/<NN> so the following store_view can be attributed to the QR scan. */
+export const QR_LANDING_COOKIE = "ktrip_land";
+
+/** Server-side REST insert with the service key. Never throws. */
+export async function insertSupabaseRow(table: "qr_scans" | "events", row: object): Promise<boolean> {
   const config = supabaseConfig();
   if (!config) return false;
   try {
-    const res = await fetch(`${config.url}/rest/v1/qr_scans`, {
+    const res = await fetch(`${config.url}/rest/v1/${table}`, {
       method: "POST",
       headers: { ...supabaseHeaders(config.key), "content-type": "application/json", prefer: "return=minimal" },
       body: JSON.stringify(row),
@@ -100,3 +108,6 @@ export async function pingQrScans(): Promise<"ok" | "unconfigured" | "error"> {
     return "error";
   }
 }
+
+/** Best-effort per-instance rate-limit buckets for /api/track (visitor id -> window). */
+export const trackRateBuckets = new Map<string, { start: number; count: number }>();

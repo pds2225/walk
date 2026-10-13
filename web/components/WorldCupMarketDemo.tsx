@@ -1,4 +1,6 @@
 "use client";
+import { track } from "../lib/track";
+import type { StoreViewSource } from "../lib/funnelEvents";
 
 // Store details and nearby views reflect verified location availability.
 import dynamic from "next/dynamic";
@@ -228,6 +230,7 @@ function StorePrimaryActions({ store, locale, onStartWalking }: {
         onClick={() => {
           const coordinate = store.navigationTarget;
           if (!coordinate) return;
+          track("directions", { storeId: store.id, locale });
           onStartWalking({ name: localizeStoreName(store, locale), coordinate });
         }}
       >
@@ -292,7 +295,7 @@ function StoreAbout({ store, locale }: { readonly store: WorldCupMarketStore; re
       {phones.length > 0 ? (
         <p className="worldcup-market-phone">
           <span>{ui.phone}</span>
-          {phones.map((phone) => <a key={phone.href} href={phone.href}>{phone.label}</a>)}
+          {phones.map((phone) => <a key={phone.href} href={phone.href} onClick={() => track("phone_click", { storeId: store.id, locale })}>{phone.label}</a>)}
         </p>
       ) : null}
       {purchase.length > 0 ? (
@@ -472,7 +475,7 @@ function NearbyScreen({ store, selectedId, locale, onLocaleChange, onSelect, onB
         {WORLD_CUP_MARKET_STORES.some((item) => item.storeLocation) ? (
           worldCupMarketLiveMapEnabled()
             ? <WorldCupMarketMap stores={WORLD_CUP_MARKET_STORES} selectedId={selectedId} here={null} onSelect={onSelect} locale={locale} mode="detail" />
-            : <WorldCupMarketStaticMap stores={WORLD_CUP_MARKET_STORES} selectedId={selectedId} onSelect={onSelect} locale={locale} mode="detail" />
+            : <WorldCupMarketStaticMap stores={WORLD_CUP_MARKET_STORES} selectedId={selectedId} onSelect={(storeId) => { track("map_pin_click", { storeId, locale, src: "detail" }); onSelect(storeId); }} locale={locale} mode="detail" />
         ) : (
           <p role="status">{ui.unknown}</p>
         )}
@@ -483,6 +486,7 @@ function NearbyScreen({ store, selectedId, locale, onLocaleChange, onSelect, onB
         onClick={() => {
           const coordinate = store.navigationTarget;
           if (!coordinate) return;
+          track("directions", { storeId: store.id, locale });
           onStartWalking({ name: localizeStoreName(store, locale), coordinate });
         }}>
           {walkLabel(locale, ui)}
@@ -492,9 +496,10 @@ function NearbyScreen({ store, selectedId, locale, onLocaleChange, onSelect, onB
   );
 }
 
-function MarketOverview({ locale, onSelect }: {
+function MarketOverview({ locale, onSelect, onPinSelect }: {
   readonly locale: Locale;
   readonly onSelect: (storeId: string) => void;
+  readonly onPinSelect: (storeId: string) => void;
 }) {
   const ui = getWorldCupMarketUiText(locale);
   const [group, setGroup] = useState<WorldCupMarketCategoryGroup | null>(null);
@@ -513,8 +518,8 @@ function MarketOverview({ locale, onSelect }: {
       </div>
       <div className="worldcup-market-overview-map">
         {worldCupMarketLiveMapEnabled()
-          ? <WorldCupMarketMap stores={stores} selectedId="" here={null} onSelect={onSelect} locale={locale} mode="overview" />
-          : <WorldCupMarketStaticMap stores={stores} selectedId="" onSelect={onSelect} locale={locale} mode="overview" />}
+          ? <WorldCupMarketMap stores={stores} selectedId="" here={null} onSelect={onPinSelect} locale={locale} mode="overview" />
+          : <WorldCupMarketStaticMap stores={stores} selectedId="" onSelect={onPinSelect} locale={locale} mode="overview" />}
       </div>
       <section className="worldcup-market-overview-list" aria-labelledby="worldcup-market-list-title">
         <div className="worldcup-market-section-heading">
@@ -549,6 +554,21 @@ export default function WorldCupMarketDemo({ locale, onLocaleChange, onStartWalk
   // when returning to the map (in-app back button or the browser/phone back
   // button). Consumed once so a later redundant popstate does not re-force it.
   const savedMapScrollRef = useRef<number | null>(null);
+  // How the next store detail was opened; consumed by the store_view effect.
+  const viewSourceRef = useRef<StoreViewSource>("deeplink");
+  const localeRef = useRef(locale);
+  localeRef.current = locale;
+
+  useEffect(() => {
+    if (screenName === "map") {
+      track("page_view", { locale: localeRef.current });
+      return;
+    }
+    if (screenName === "detail") {
+      track("store_view", { storeId: selectedId, locale: localeRef.current, src: viewSourceRef.current });
+      viewSourceRef.current = "switcher";
+    }
+  }, [screenName, selectedId]);
 
   const restoreMapScrollIfNeeded = useCallback(() => {
     const top = savedMapScrollRef.current;
@@ -570,11 +590,12 @@ export default function WorldCupMarketDemo({ locale, onLocaleChange, onStartWalk
     return () => window.removeEventListener("popstate", syncFromUrl);
   }, [restoreMapScrollIfNeeded]);
 
-  const selectStore = useCallback((storeId: string) => {
+  const selectStore = useCallback((storeId: string, source: StoreViewSource = "switcher") => {
     // Also used by the detail screen's store switcher to jump between
     // stores directly, so this only captures the map's scroll position when
     // actually leaving the map screen.
     if (!hasStore(storeId)) return;
+    viewSourceRef.current = source;
     if (screenName === "map") savedMapScrollRef.current = window.scrollY;
     setSelectedId(storeId);
     setScreenName("detail");
@@ -611,7 +632,14 @@ export default function WorldCupMarketDemo({ locale, onLocaleChange, onStartWalk
     return (
       <section className="worldcup-market-demo worldcup-market-mobile-screen" lang={htmlLangFor(locale)} aria-label={ui.title}>
         <WorldCupMarketMobileHeader locale={locale} onLocaleChange={onLocaleChange} />
-        <MarketOverview locale={locale} onSelect={selectStore} />
+        <MarketOverview
+          locale={locale}
+          onSelect={(storeId) => selectStore(storeId, "list")}
+          onPinSelect={(storeId) => {
+            track("map_pin_click", { storeId, locale, src: "overview" });
+            selectStore(storeId, "map");
+          }}
+        />
       </section>
     );
   }
@@ -624,7 +652,11 @@ export default function WorldCupMarketDemo({ locale, onLocaleChange, onStartWalk
           selectedId={selectedId}
           locale={locale}
           onLocaleChange={onLocaleChange}
-          onSelect={(storeId) => { setSelectedId(storeId); updateStoreDeepLink(storeId); }}
+          onSelect={(storeId) => {
+            track("store_view", { storeId, locale, src: "nearby" });
+            setSelectedId(storeId);
+            updateStoreDeepLink(storeId);
+          }}
           onBack={closeNearby}
           onStartWalking={onStartWalking}
         />

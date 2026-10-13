@@ -1354,3 +1354,13 @@ PR =
 ## [x] KN-QR-DEDUPE-10MIN-20261013 — QR 스캔 중복 방지 30분 → 10분
 
 - 요청: Dasom (2026-10-13). `ktrip_qr_<NN>` 쿠키 max-age 1800 → 600 (`QR_DEDUPE_WINDOW_SECONDS`). 주석·테스트·TASK 문구 갱신.
+
+## [x] KN-FUNNEL-EVENTS-20261013 — /worldcup-market 퍼널 이벤트 기록 (결제 전 데이터 축적)
+
+- 요청: Dasom (2026-10-13).
+- 이벤트: page_view(메인 지도), store_view(src: qr/map/list/nearby/switcher/deeplink), phone_click(tel 링크), map_pin_click(src: overview/detail), directions(도보안내 버튼, 현재 기능 플래그로 숨김), language_change(locale=새 언어, src=이전 언어). menu_click은 메뉴 카드가 클릭 불가라 제외.
+- 저장: Supabase ktrip-qr `public.events` (RLS on, 정책 없음, anon/authenticated 권한 회수, IP 없음). 마이그레이션 `supabase/migrations/20261013000000_events.sql`.
+- 수집: `/api/track` (서버에서 service key로 REST insert, after()로 응답 후 기록). 허용 이벤트 목록, 점포 id 검증, 본문 2KB 제한, 방문자당 분당 60건 제한.
+- 방문자: qr_scans와 같은 `ktrip_vid` 쿠키. /q/<NN>이 `ktrip_land` 쿠키(5분)를 남겨 이어지는 store_view를 src=qr로 기록.
+- store_view 중복 방지: 방문자+점포 10분 (쿠키 `ktrip_sv_<NN>`), QR 규칙과 동일.
+- 클라이언트: sendBeacon → fetch keepalive, 실패해도 UI 영향 없음.
