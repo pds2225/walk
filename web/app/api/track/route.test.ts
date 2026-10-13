@@ -77,4 +77,17 @@ describe("POST /api/track", () => {
     for (let i = 0; i < 60; i += 1) await post({ event: "page_view" }, "ktrip_vid=abcdef12-3456");
     expect((await post({ event: "page_view" }, "ktrip_vid=abcdef12-3456")).status).toBe(429);
   });
+
+  it("validates section_view sections and stores dwell_sec for store_leave", async () => {
+    expect((await post({ event: "section_view", store_id: "worldcup-market-23", src: "footer" })).status).toBe(400);
+    expect((await post({ event: "section_view", src: "menu" })).status).toBe(400);
+    expect((await post({ event: "store_leave", store_id: "worldcup-market-23" })).status).toBe(400);
+    expect((await post({ event: "store_leave", store_id: "worldcup-market-23", dwell_sec: -1 })).status).toBe(400);
+    expect(afterTasks).toHaveLength(0);
+    await post({ event: "section_view", store_id: "worldcup-market-23", src: "location" }, "ktrip_vid=abcdef12-3456");
+    expect(await insertedRow()).toMatchObject({ event: "section_view", src: "location", store_no: 23, dwell_sec: null });
+    afterTasks.length = 0; fetchMock.mockClear();
+    await post({ event: "store_leave", store_id: "worldcup-market-23", dwell_sec: 999999.4 }, "ktrip_vid=abcdef12-3456");
+    expect(await insertedRow()).toMatchObject({ event: "store_leave", dwell_sec: 86400 });
+  });
 });

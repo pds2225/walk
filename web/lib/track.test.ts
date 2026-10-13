@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { track } from "./track";
+import { getSessionId, track } from "./track";
 
 afterEach(() => { vi.unstubAllGlobals(); window.sessionStorage.clear(); });
 
@@ -26,5 +26,22 @@ describe("track", () => {
     vi.stubGlobal("fetch", fetchMock);
     track("page_view");
     expect(fetchMock).toHaveBeenCalledWith("/api/track", expect.objectContaining({ method: "POST", keepalive: true }));
+  });
+
+  it("keeps one session id per tab and falls back to memory when storage is blocked", () => {
+    const first = getSessionId();
+    expect(getSessionId()).toBe(first);
+    expect(window.sessionStorage.getItem("walk:session-id")).toBe(first);
+    const spy = vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => { throw new Error("blocked"); });
+    expect(getSessionId()).toBe(first);
+    expect(getSessionId()).toBe(first);
+    spy.mockRestore();
+  });
+
+  it("sends dwell_sec for store_leave", async () => {
+    const beacon = vi.fn().mockReturnValue(true);
+    Object.defineProperty(navigator, "sendBeacon", { configurable: true, value: beacon });
+    track("store_leave", { storeId: "worldcup-market-23", dwellSec: 42 });
+    expect(JSON.parse(await (beacon.mock.calls[0]![1] as Blob).text())).toMatchObject({ event: "store_leave", dwell_sec: 42 });
   });
 });

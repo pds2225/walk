@@ -1,6 +1,6 @@
 /** Funnel event collector for /worldcup-market. Inserts into public.events server-side (no IP). */
 import { after, NextResponse } from "next/server";
-import { isFunnelEvent, STORE_VIEW_COOKIE_PREFIX, STORE_VIEW_DEDUPE_SECONDS, STORE_VIEW_SOURCES } from "../../../lib/funnelEvents";
+import { DETAIL_SECTIONS, isFunnelEvent, MAX_DWELL_SECONDS, STORE_VIEW_COOKIE_PREFIX, STORE_VIEW_DEDUPE_SECONDS, STORE_VIEW_SOURCES } from "../../../lib/funnelEvents";
 import { insertSupabaseRow, QR_LANDING_COOKIE, trackRateBuckets as buckets, storeIdFromQrNumber, storeNumberFromId, VISITOR_COOKIE } from "../../../lib/qrScan";
 import { WORLD_CUP_MARKET_STORES } from "../../../lib/worldCupMarketStores";
 
@@ -52,7 +52,7 @@ export async function POST(request: Request) {
   const storeIdRaw = body["store_id"];
   const storeId = typeof storeIdRaw === "string" && KNOWN_STORES.has(storeIdRaw) ? storeIdRaw : null;
   if (storeIdRaw !== null && storeIdRaw !== undefined && !storeId) return NextResponse.json({ ok: false, error: "unknown store" }, { status: 400 });
-  if ((event === "store_view" || event === "phone_click") && !storeId) return NextResponse.json({ ok: false, error: "store required" }, { status: 400 });
+  if ((event === "store_view" || event === "phone_click" || event === "section_view" || event === "store_leave") && !storeId) return NextResponse.json({ ok: false, error: "store required" }, { status: 400 });
 
   const cookies = request.headers.get("cookie");
   const existing = readCookie(cookies, VISITOR_COOKIE);
@@ -65,6 +65,15 @@ export async function POST(request: Request) {
   if (limited(visitorId, Date.now())) return NextResponse.json({ ok: false }, { status: 429 });
 
   let src = str(body["src"], 16);
+  if (event === "section_view" && !(src && (DETAIL_SECTIONS as readonly string[]).includes(src))) {
+    return NextResponse.json({ ok: false, error: "unknown section" }, { status: 400 });
+  }
+  let dwellSec: number | null = null;
+  if (event === "store_leave") {
+    const raw = body["dwell_sec"];
+    if (typeof raw !== "number" || !Number.isFinite(raw) || raw < 0) return NextResponse.json({ ok: false, error: "dwell_sec required" }, { status: 400 });
+    dwellSec = Math.min(Math.round(raw), MAX_DWELL_SECONDS);
+  }
   if (event === "store_view" && storeId) {
     src = src && (STORE_VIEW_SOURCES as readonly string[]).includes(src) ? src : null;
     const landing = readCookie(cookies, QR_LANDING_COOKIE);
@@ -89,6 +98,7 @@ export async function POST(request: Request) {
     session_id: sessionId && SESSION_RE.test(sessionId) ? sessionId : null,
     path: str(body["path"], 128),
     user_agent: request.headers.get("user-agent")?.slice(0, 512) ?? null,
+    dwell_sec: dwellSec,
   };
   after(async () => {
     await insertSupabaseRow("events", row);
