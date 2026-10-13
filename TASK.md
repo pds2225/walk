@@ -1364,3 +1364,4 @@ PR =
 - 방문자: qr_scans와 같은 `ktrip_vid` 쿠키. /q/<NN>이 `ktrip_land` 쿠키(5분)를 남겨 이어지는 store_view를 src=qr로 기록.
 - store_view 중복 방지: 방문자+점포 10분 (쿠키 `ktrip_sv_<NN>`), QR 규칙과 동일.
 - 클라이언트: sendBeacon → fetch keepalive, 실패해도 UI 영향 없음.
+- 후속 수정(같은 날): ?store= 직접 진입 시 첫 렌더의 "map" 상태로 page_view가 잘못 기록되던 문제 → URL 동기화 후에만 기록.
