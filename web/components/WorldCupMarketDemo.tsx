@@ -532,18 +532,18 @@ function MarketOverview({ locale, onSelect, onPinSelect }: {
           <span role="status">{ui.storesCount(stores.length)}</span>
         </div>
         <ul className="wcm-index" aria-label={ui.storeList}>
-          {groups.filter((g) => stores.some((store) => store.categoryGroup === g)).flatMap((g) => [
-            <li key={`h-${g}`} className="wcm-index-head" aria-hidden="true" style={{ background: FLOOR_MAP_COLORS[g].strong }}>{localizeCategoryGroup(g, locale)}</li>,
-            ...stores.filter((store) => store.categoryGroup === g).sort((a, b) => (a.corridorOrder ?? 0) - (b.corridorOrder ?? 0)).map((store) => <li key={store.id}>
+          {[...stores].sort((a, b) => (a.corridorOrder ?? 999) - (b.corridorOrder ?? 999)).map((store) => {
+            const g = store.categoryGroup ?? "unknown";
+            return <li key={store.id}>
               <button type="button" onClick={() => onSelect(store.id)}>
                 <span className="wcm-index-badge" style={{ background: FLOOR_MAP_COLORS[g].strong }}>{store.corridorOrder}</span>
                 <span>
                   <strong>{localizeStoreName(store, locale)}</strong>
-                  <StoreNameReading store={store} locale={locale} />
+                  <small className="wcm-index-cat" style={{ color: FLOOR_MAP_COLORS[g].strong }}>{store.categoryGroup ? localizeCategoryGroup(store.categoryGroup, locale) : ""}</small>
                 </span>
               </button>
-            </li>),
-          ])}
+            </li>;
+          })}
         </ul>
       </section>
     </div>

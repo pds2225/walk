@@ -5,7 +5,7 @@ import { track } from "../lib/track";
 import type React from "react";
 import { getWorldCupMarketUiText, type Locale } from "../lib/i18n";
 import { qrDestinationPath } from "../lib/qrScan";
-import { buildFloorMapLayout, fitPlanAffine, fitStallLabel, locateOnPlan, FLOOR_MAP_COLORS, type FloorPlanLayout, type MyLocationResult } from "../lib/worldCupMarketFloorMap";
+import { buildFloorMapLayout, fitPlanAffine, locateOnPlan, FLOOR_MAP_COLORS, type FloorPlanLayout, type MyLocationResult } from "../lib/worldCupMarketFloorMap";
 import { localizeCategory, localizeCategoryGroup, localizeStoreName } from "../lib/worldCupMarketStoreCopy";
 import { WORLD_CUP_MARKET_CATEGORY_GROUP_ORDER, WORLD_CUP_MARKET_STORES, type WorldCupMarketStore } from "../lib/worldCupMarketStores";
 
@@ -16,8 +16,10 @@ export interface WorldCupMarketFloorMapProps {
   readonly selectedId?: string;
 }
 
-const BADGE_R = 8.5;
-const HORIZONTAL_PLAN = { stallHeight: 54, stallDepth: 118, alley: 40, street: 24 } as const;
+const VERTICAL_PLAN = { stallHeight: 26, stallDepth: 64, alley: 40, street: 22 } as const;
+const HORIZONTAL_PLAN = { stallHeight: 30, stallDepth: 52, alley: 32, street: 20 } as const;
+/** Plan-unit font sizes; both render ≥14px (mobile svg ≈1.4×, desktop ≈1100/plan width). */
+const NUMBER_FONT = { vertical: 15, horizontal: 16 } as const;
 const MY_LOCATION_TEXT: Record<Locale, { button: string; locating: string; outside: string; inaccurate: string; denied: string; unavailable: string; privacy: string }> = {
   ko: { button: "내 위치", locating: "위치 확인 중…", outside: "시장 밖에 계신 것 같아요.", inaccurate: "위치가 정확하지 않아요. 잠시 후 다시 눌러 주세요.", denied: "위치 권한이 거부됐어요. 브라우저 설정에서 허용해 주세요.", unavailable: "위치를 가져올 수 없어요.", privacy: "위치는 이 기기에서만 쓰고 저장하거나 보내지 않아요." },
   en: { button: "My location", locating: "Locating…", outside: "You are outside the market.", inaccurate: "Location is inaccurate. Please try again shortly.", denied: "Location permission was denied. Allow it in your browser settings.", unavailable: "Location is unavailable.", privacy: "Your location stays on this device and is never stored or sent." },
@@ -36,7 +38,7 @@ function Arrow({ angle }: { readonly angle: number }) {
 /** Department-store style directory plan (schematic, positions approximate). */
 export default function WorldCupMarketFloorMap({ stores, locale, onSelect, selectedId = "" }: WorldCupMarketFloorMapProps) {
   const ui = getWorldCupMarketUiText(locale);
-  const vertical = useMemo(() => buildFloorMapLayout(stores), [stores]);
+  const vertical = useMemo(() => buildFloorMapLayout(stores, VERTICAL_PLAN), [stores]);
   // Wide screens: same plan rotated so the alley runs left→right (west-ish end on the left).
   const horizontal = useMemo(() => buildFloorMapLayout(stores, HORIZONTAL_PLAN), [stores]);
   const layout = vertical;
@@ -93,34 +95,14 @@ export default function WorldCupMarketFloorMap({ stores, locale, onSelect, selec
         const name = localizeStoreName(store, locale);
         const selected = s.storeId === selectedId;
         const color = FLOOR_MAP_COLORS[s.group];
-        let badge: { x: number; y: number }, nameEl: React.ReactNode = null;
-        if (rotated) {
-          // Badge on top, name centred below (wraps to 2 lines).
-          const label = fitStallLabel(name, s.width - 6, s.height - BADGE_R * 2 - 12);
-          badge = label ? { x: s.x + s.width / 2, y: s.y + 6 + BADGE_R } : { x: s.x + s.width / 2, y: s.y + s.height / 2 };
-          if (label) {
-            const top = s.y + 10 + BADGE_R * 2 + (s.height - 10 - BADGE_R * 2) / 2 - (label.lines.length - 1) * label.fontSize * 0.575;
-            nameEl = <text className="wcm-floor-name" textAnchor="middle" fontSize={label.fontSize}>
-              {label.lines.map((line, i) => <tspan key={i} x={s.x + s.width / 2} y={top + i * label.fontSize * 1.15 + label.fontSize * 0.36}>{line}</tspan>)}
-            </text>;
-          }
-        } else {
-          const label = fitStallLabel(name, s.width - BADGE_R * 2 - 16, s.height - 6);
-          const cy = s.y + s.height / 2;
-          badge = { x: label ? s.x + 6 + BADGE_R : s.x + s.width / 2, y: cy };
-          if (label) nameEl = <text className="wcm-floor-name" x={s.x + 12 + BADGE_R * 2} y={cy} fontSize={label.fontSize}>
-            {label.lines.map((line, i) => <tspan key={i} x={s.x + 12 + BADGE_R * 2}
-              dy={i === 0 ? (label.lines.length === 1 ? label.fontSize * 0.36 : -label.fontSize * 0.24) : label.fontSize * 1.15}>{line}</tspan>)}
-          </text>;
-        }
+        // Numbers only (COEX style): large, bold, centred. Names live in the index below.
+        const fs = rotated ? NUMBER_FONT.horizontal : NUMBER_FONT.vertical;
         return <a key={s.storeId} href={qrDestinationPath(s.storeId)} data-store-id={s.storeId} className={selected ? "is-selected" : undefined}
           aria-label={`${s.number}. ${name} · ${localizeCategory(store.category, locale)} · ${ui.approximateLocation}`}
           onClick={(e) => { e.preventDefault(); onSelect(s.storeId); }}>
           <rect className="wcm-floor-stall" x={s.x} y={s.y} width={s.width} height={s.height} fill={color.fill} />
           {selected ? <rect className="wcm-floor-stall-sel" x={s.x + 1.5} y={s.y + 1.5} width={s.width - 3} height={s.height - 3} /> : null}
-          <circle cx={badge.x} cy={badge.y} r={BADGE_R} fill={color.strong} />
-          <text className="wcm-floor-badge" x={badge.x} y={badge.y + 3.2}>{s.number}</text>
-          {nameEl}
+          <text className="wcm-floor-num" x={s.x + s.width / 2} y={s.y + s.height / 2 + fs * 0.36} fontSize={fs}>{s.number}</text>
         </a>;
       })}
       {fix && fix.kind === "ok" ? (() => { const cx = rotated ? fix.y : fix.x, cy = rotated ? W - fix.x : fix.y;
