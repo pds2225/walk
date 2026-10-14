@@ -539,7 +539,6 @@ function MarketOverview({ locale, onSelect, onPinSelect }: {
                 <span className="wcm-index-badge" style={{ background: FLOOR_MAP_COLORS[g].strong }}>{store.corridorOrder}</span>
                 <span>
                   <strong>{localizeStoreName(store, locale)}</strong>
-                  <small className="wcm-index-cat" style={{ color: FLOOR_MAP_COLORS[g].strong }}>{store.categoryGroup ? localizeCategoryGroup(store.categoryGroup, locale) : ""}</small>
                 </span>
               </button>
             </li>;
