@@ -32,3 +32,19 @@ describe("floor-directory plan v2", () => {
     expect(fitStallLabel("아주아주아주긴점포이름입니다정말로길어요", 40, 20)).toBeNull();
   });
 });
+
+import { fitPlanAffine, locateOnPlan } from "./worldCupMarketFloorMap";
+describe("my location (on-device only)", () => {
+  const layout = buildFloorMapLayout(WORLD_CUP_MARKET_STORES);
+  const affine = fitPlanAffine(layout);
+  const p = WORLD_CUP_MARKET_MAP_PLACEMENTS[0]!;
+  it("places a store coordinate inside the plan near its stall", () => {
+    const r = locateOnPlan(layout, affine, p.displayLocation.latitude, p.displayLocation.longitude, 10);
+    expect(r.kind).toBe("ok");
+    if (r.kind === "ok") { expect(r.x).toBeGreaterThanOrEqual(0); expect(r.x).toBeLessThanOrEqual(layout.width); expect(r.y).toBeLessThanOrEqual(layout.height); }
+  });
+  it("rejects inaccurate fixes and points outside the market", () => {
+    expect(locateOnPlan(layout, affine, p.displayLocation.latitude, p.displayLocation.longitude, 120).kind).toBe("inaccurate");
+    expect(locateOnPlan(layout, affine, 37.5665, 126.978, 10).kind).toBe("outside");
+  });
+});

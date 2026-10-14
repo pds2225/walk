@@ -166,3 +166,56 @@ export function fitStallLabel(name: string, boxWidth: number, boxHeight: number)
   }
   return null;
 }
+
+/* ---------- "내 위치": on-device only, never sent or stored ---------- */
+
+/** Affine map lat/lng → vertical plan coords: [a, b, c, d, e, f] with x = a·lon + b·lat + c, y = d·lon + e·lat + f. */
+export type Affine = readonly [number, number, number, number, number, number];
+
+function solve3(m: number[][], v: number[]): [number, number, number] {
+  const A = m.map((r, i) => [...r, v[i]!]);
+  for (let i = 0; i < 3; i++) {
+    let p = i; for (let k = i + 1; k < 3; k++) if (Math.abs(A[k]![i]!) > Math.abs(A[p]![i]!)) p = k;
+    [A[i], A[p]] = [A[p]!, A[i]!];
+    for (let k = 0; k < 3; k++) if (k !== i) { const f = A[k]![i]! / A[i]![i]!; for (let j = i; j < 4; j++) A[k]![j]! -= f * A[i]![j]!; }
+  }
+  return [A[0]![3]! / A[0]![0]!, A[1]![3]! / A[1]![1]!, A[2]![3]! / A[2]![2]!];
+}
+
+/** Least-squares affine fit from each stall's existing approximate store coordinate to its stall centre. Local metres are used for conditioning. */
+export function fitPlanAffine(layout: FloorPlanLayout): Affine {
+  const byId = new Map(WORLD_CUP_MARKET_MAP_PLACEMENTS.map((p) => [p.storeId, p.displayLocation]));
+  const rows: [number, number, number, number][] = [];
+  for (const s of layout.stalls) {
+    const g = byId.get(s.storeId); if (!g) continue;
+    rows.push([(g.longitude - FLOOR_MAP_REFERENCE.longitude) * LON_SCALE, (g.latitude - FLOOR_MAP_REFERENCE.latitude) * METERS_PER_LAT, s.x + s.width / 2, s.y + s.height / 2]);
+  }
+  const N = [[0, 0, 0], [0, 0, 0], [0, 0, 0]], bx = [0, 0, 0], by = [0, 0, 0];
+  for (const [e, n, x, y] of rows) {
+    const r = [e, n, 1];
+    for (let i = 0; i < 3; i++) { for (let j = 0; j < 3; j++) N[i]![j]! += r[i]! * r[j]!; bx[i]! += r[i]! * x; by[i]! += r[i]! * y; }
+  }
+  const [a, b, c] = solve3(N, bx), [d, e, f] = solve3(N, by);
+  return [a, b, c, d, e, f];
+}
+
+export const MY_LOCATION_MAX_ACCURACY_M = 50;
+export const MY_LOCATION_MARGIN_M = 60;
+
+export type MyLocationResult =
+  | { readonly kind: "ok"; readonly x: number; readonly y: number; readonly radius: number }
+  | { readonly kind: "outside" } | { readonly kind: "inaccurate" };
+
+/** Vertical-plan position of a fix, or why it can't be shown. Pure; nothing leaves the device. */
+export function locateOnPlan(layout: FloorPlanLayout, affine: Affine, latitude: number, longitude: number, accuracyM: number): MyLocationResult {
+  if (!(accuracyM <= MY_LOCATION_MAX_ACCURACY_M)) return { kind: "inaccurate" };
+  const e = (longitude - FLOOR_MAP_REFERENCE.longitude) * LON_SCALE, n = (latitude - FLOOR_MAP_REFERENCE.latitude) * METERS_PER_LAT;
+  const pts = WORLD_CUP_MARKET_MAP_PLACEMENTS.map((p) => toPlan(p.displayLocation.latitude, p.displayLocation.longitude));
+  const me = rotateMeters(e, n), M = MY_LOCATION_MARGIN_M;
+  const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y);
+  if (me.x < Math.min(...xs) - M || me.x > Math.max(...xs) + M || me.y < Math.min(...ys) - M || me.y > Math.max(...ys) + M) return { kind: "outside" };
+  const [a, b, c, d, ee, f] = affine;
+  const x = Math.min(layout.width, Math.max(0, a * e + b * n + c)), y = Math.min(layout.height, Math.max(0, d * e + ee * n + f));
+  const scale = Math.sqrt(Math.abs(a * ee - b * d)); // plan units per metre
+  return { kind: "ok", x, y, radius: Math.max(6, accuracyM * scale) };
+}

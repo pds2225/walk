@@ -1,5 +1,5 @@
 /** Funnel events for /worldcup-market (shared by client and /api/track). */
-export const FUNNEL_EVENTS = ["page_view", "store_view", "phone_click", "map_pin_click", "directions", "language_change", "section_view", "store_leave"] as const;
+export const FUNNEL_EVENTS = ["page_view", "store_view", "phone_click", "map_pin_click", "directions", "language_change", "section_view", "store_leave", "my_location_click"] as const;
 export type FunnelEvent = (typeof FUNNEL_EVENTS)[number];
 
 /** How a store detail was reached. "qr" is set server-side from the /q landing cookie. */
