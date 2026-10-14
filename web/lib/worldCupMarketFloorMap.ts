@@ -95,14 +95,17 @@ function crossings(alley: readonly P[], minY: number, maxY: number): { y: number
   return out.sort((a, b) => a.y - b.y);
 }
 
-export type FloorPlanOptions = Partial<Record<"alley" | "stallDepth" | "stallHeight" | "street", number>>;
+export type FloorPlanOptions = Partial<Record<"alley" | "stallDepth" | "stallHeight" | "street" | "margin", number>> & {
+  /** All stalls in one wide column right of the alley (phones); order along the alley is kept. */
+  readonly singleColumn?: boolean;
+};
 
 export function buildFloorMapLayout(stores: readonly WorldCupMarketStore[], options: FloorPlanOptions = {}): FloorPlanLayout {
   const alley = alleyPolyline();
   // Ordering uses all 45 points so filtering never moves a stall.
   const points = WORLD_CUP_MARKET_MAP_PLACEMENTS.map((p) => {
     const r = toPlan(p.displayLocation.latitude, p.displayLocation.longitude);
-    return { storeId: p.storeId, y: r.y, side: (r.x < alleyXAt(alley, r.y) ? -1 : 1) as -1 | 1 };
+    return { storeId: p.storeId, y: r.y, side: (options.singleColumn ? 1 : r.x < alleyXAt(alley, r.y) ? -1 : 1) as -1 | 1 };
   });
   const ys = points.map((p) => p.y);
   const cutsGeo = crossings(alley, Math.min(...ys), Math.max(...ys));
@@ -112,7 +115,7 @@ export function buildFloorMapLayout(stores: readonly WorldCupMarketStore[], opti
   for (const p of points) (p.side < 0 ? bySeg[segmentOf(p.y)]!.left : bySeg[segmentOf(p.y)]!.right).push(p);
 
   const F = { ...FLOOR_PLAN, ...options };
-  const alleyX = F.margin + F.stallDepth;
+  const alleyX = options.singleColumn ? F.margin : F.margin + F.stallDepth;
   const sideX = { "-1": alleyX - F.stallDepth, "1": alleyX + F.alley } as const;
   const byId = new Map(stores.map((s) => [s.id, s]));
   const stalls: FloorStall[] = [], buildings: FloorBuilding[] = [], cuts: FloorStreetCut[] = [];
@@ -135,7 +138,7 @@ export function buildFloorMapLayout(stores: readonly WorldCupMarketStore[], opti
     if (cut) { cuts.push({ y: y + F.street / 2, name: cut.name, left: cut.left, right: cut.right }); y += F.street; }
   });
   const height = Math.round(y + F.bottom);
-  const width = alleyX * 2 + F.alley;
+  const width = alleyX + F.alley + F.stallDepth + F.margin;
   return {
     width, height, alley: { x: alleyX, width: F.alley }, stalls, buildings, cuts, street: F.street,
     northAngle: planAngle(0, 1),
@@ -218,4 +221,14 @@ export function locateOnPlan(layout: FloorPlanLayout, affine: Affine, latitude: 
   const x = Math.min(layout.width, Math.max(0, a * e + b * n + c)), y = Math.min(layout.height, Math.max(0, d * e + ee * n + f));
   const scale = Math.sqrt(Math.abs(a * ee - b * d)); // plan units per metre
   return { kind: "ok", x, y, radius: Math.max(6, accuracyM * scale) };
+}
+
+/** One-line "45 부부야채" label: largest font in [min,max] that fits, else ellipsized at min. */
+export function fitInlineLabel(number: string, name: string, boxWidth: number, max: number, min: number): { fontSize: number; name: string } {
+  const gap = 0.35;
+  const w = (n: string, size: number) => textWidth(number, size) * 1.08 + gap * size + textWidth(n, size);
+  for (let size = max; size >= min; size -= 0.5) if (w(name, size) <= boxWidth) return { fontSize: size, name };
+  const chars = [...name];
+  for (let k = chars.length - 1; k > 0; k--) { const t = chars.slice(0, k).join("") + "…"; if (w(t, min) <= boxWidth) return { fontSize: min, name: t }; }
+  return { fontSize: min, name: "" };
 }

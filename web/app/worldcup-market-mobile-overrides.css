@@ -671,8 +671,9 @@
 .wcm-floor a:hover .wcm-floor-stall, .wcm-floor a:focus-visible .wcm-floor-stall { filter: brightness(.96); }
 .wcm-floor-stall-sel { fill: none; stroke: #263238; stroke-width: 2.5; }
 .wcm-floor-badge { font-size: 9.5px; font-weight: 700; fill: #fff; text-anchor: middle; }
-.wcm-floor-plan.is-vertical .wcm-floor-svg { max-width: 180px; margin-left: auto; margin-right: auto; }
-.wcm-floor-num { font-weight: 800; fill: #1f2a33; text-anchor: middle; }
+.wcm-floor-label { fill: #24313b; font-weight: 600; }
+.wcm-floor-num { font-weight: 800; fill: #111a21; }
+.wcm-floor-plan.is-horizontal .wcm-floor-svg { max-width: 960px; margin: 0 auto; }
 .wcm-floor-name { fill: #2c3a44; font-weight: 600; }
 .wcm-floor-street { font-size: 9px; fill: #9aa3ab; letter-spacing: .02em; }
 .wcm-floor-street.is-alley { text-anchor: middle; font-size: 10px; fill: #b0b8bf; letter-spacing: .2em; }
@@ -685,7 +686,7 @@
 .wcm-floor-plan.is-horizontal, .wcm-floor-dirs.is-horizontal { display: none; }
 @media (min-width: 900px) {
   /* The overview is a 640px phone frame; widen it only while the floor plan is shown. */
-  .worldcup-market-demo:has(.wcm-floor) { max-width: 1148px; }
+  .worldcup-market-demo:has(.wcm-floor) { max-width: 1040px; }
   .wcm-floor { max-width: 1100px; }
   .wcm-floor-plan.is-horizontal { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .wcm-floor-plan.is-horizontal, .wcm-floor-dirs.is-horizontal { display: block; }

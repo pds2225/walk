@@ -48,3 +48,17 @@ describe("my location (on-device only)", () => {
     expect(locateOnPlan(layout, affine, 37.5665, 126.978, 10).kind).toBe("outside");
   });
 });
+
+import { fitInlineLabel } from "./worldCupMarketFloorMap";
+describe("phone single-column plan and inline labels", () => {
+  it("puts every stall in one column right of the alley", () => {
+    const l = buildFloorMapLayout(WORLD_CUP_MARKET_STORES, { singleColumn: true, margin: 6, alley: 26, stallDepth: 318, stallHeight: 84 });
+    expect(l.stalls.length).toBe(WORLD_CUP_MARKET_MAP_PLACEMENTS.length);
+    expect(l.stalls.every((s) => s.side === 1 && s.x === l.alley.x + l.alley.width)).toBe(true);
+  });
+  it("shrinks then ellipsizes long names", () => {
+    expect(fitInlineLabel("1", "부부야채", 300, 26, 15)).toEqual({ fontSize: 26, name: "부부야채" });
+    const long = fitInlineLabel("27", "아주아주아주아주긴점포이름입니다정말로", 200, 26, 15);
+    expect(long.fontSize).toBe(15); expect(long.name.endsWith("…")).toBe(true);
+  });
+});

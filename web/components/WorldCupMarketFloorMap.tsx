@@ -5,7 +5,7 @@ import { track } from "../lib/track";
 import type React from "react";
 import { getWorldCupMarketUiText, type Locale } from "../lib/i18n";
 import { qrDestinationPath } from "../lib/qrScan";
-import { buildFloorMapLayout, fitPlanAffine, locateOnPlan, FLOOR_MAP_COLORS, type FloorPlanLayout, type MyLocationResult } from "../lib/worldCupMarketFloorMap";
+import { buildFloorMapLayout, fitInlineLabel, fitPlanAffine, locateOnPlan, FLOOR_MAP_COLORS, type FloorPlanLayout, type MyLocationResult } from "../lib/worldCupMarketFloorMap";
 import { localizeCategory, localizeCategoryGroup, localizeStoreName } from "../lib/worldCupMarketStoreCopy";
 import { WORLD_CUP_MARKET_CATEGORY_GROUP_ORDER, WORLD_CUP_MARKET_STORES, type WorldCupMarketStore } from "../lib/worldCupMarketStores";
 
@@ -16,10 +16,11 @@ export interface WorldCupMarketFloorMapProps {
   readonly selectedId?: string;
 }
 
-const VERTICAL_PLAN = { stallHeight: 22, stallDepth: 34, alley: 34, street: 20 } as const;
-const HORIZONTAL_PLAN = { stallHeight: 26, stallDepth: 30, alley: 30, street: 20 } as const;
-/** Plan-unit font sizes; both render ≥16px (mobile svg ≈1.4×, desktop ≈1100/plan width). */
-const NUMBER_FONT = { vertical: 13, horizontal: 14 } as const;
+/** Phones: one wide column beside the alley, ~6–8 stalls per screen. */
+const VERTICAL_PLAN = { singleColumn: true, margin: 6, alley: 26, stallDepth: 318, stallHeight: 84, street: 26 } as const;
+/** Desktop: both sides of the alley, wide blocks. */
+const WIDE_PLAN = { margin: 10, alley: 48, stallDepth: 400, stallHeight: 60, street: 32 } as const;
+const LABEL_FONT = { max: 26, min: 15 } as const;
 const MY_LOCATION_TEXT: Record<Locale, { button: string; locating: string; outside: string; inaccurate: string; denied: string; unavailable: string; privacy: string }> = {
   ko: { button: "내 위치", locating: "위치 확인 중…", outside: "시장 밖에 계신 것 같아요.", inaccurate: "위치가 정확하지 않아요. 잠시 후 다시 눌러 주세요.", denied: "위치 권한이 거부됐어요. 브라우저 설정에서 허용해 주세요.", unavailable: "위치를 가져올 수 없어요.", privacy: "위치는 이 기기에서만 쓰고 저장하거나 보내지 않아요." },
   en: { button: "My location", locating: "Locating…", outside: "You are outside the market.", inaccurate: "Location is inaccurate. Please try again shortly.", denied: "Location permission was denied. Allow it in your browser settings.", unavailable: "Location is unavailable.", privacy: "Your location stays on this device and is never stored or sent." },
@@ -40,7 +41,7 @@ export default function WorldCupMarketFloorMap({ stores, locale, onSelect, selec
   const ui = getWorldCupMarketUiText(locale);
   const vertical = useMemo(() => buildFloorMapLayout(stores, VERTICAL_PLAN), [stores]);
   // Wide screens: same plan rotated so the alley runs left→right (west-ish end on the left).
-  const horizontal = useMemo(() => buildFloorMapLayout(stores, HORIZONTAL_PLAN), [stores]);
+  const horizontal = useMemo(() => buildFloorMapLayout(stores, WIDE_PLAN), [stores]);
   const layout = vertical;
   const affV = useMemo(() => fitPlanAffine(vertical), [vertical]);
   const affH = useMemo(() => fitPlanAffine(horizontal), [horizontal]);
@@ -95,14 +96,15 @@ export default function WorldCupMarketFloorMap({ stores, locale, onSelect, selec
         const name = localizeStoreName(store, locale);
         const selected = s.storeId === selectedId;
         const color = FLOOR_MAP_COLORS[s.group];
-        // Numbers only (COEX style): large, bold, centred. Names live in the index below.
-        const fs = rotated ? NUMBER_FONT.horizontal : NUMBER_FONT.vertical;
+        const label = fitInlineLabel(String(s.number ?? ""), name, s.width - 24, LABEL_FONT.max, LABEL_FONT.min);
         return <a key={s.storeId} href={qrDestinationPath(s.storeId)} data-store-id={s.storeId} className={selected ? "is-selected" : undefined}
           aria-label={`${s.number}. ${name} · ${localizeCategory(store.category, locale)} · ${ui.approximateLocation}`}
           onClick={(e) => { e.preventDefault(); onSelect(s.storeId); }}>
           <rect className="wcm-floor-stall" x={s.x} y={s.y} width={s.width} height={s.height} fill={color.fill} />
           {selected ? <rect className="wcm-floor-stall-sel" x={s.x + 1.5} y={s.y + 1.5} width={s.width - 3} height={s.height - 3} /> : null}
-          <text className="wcm-floor-num" x={s.x + s.width / 2} y={s.y + s.height / 2 + fs * 0.36} fontSize={fs}>{s.number}</text>
+          <text className="wcm-floor-label" x={s.x + 12} y={s.y + s.height / 2 + label.fontSize * 0.36} fontSize={label.fontSize}>
+            <tspan className="wcm-floor-num">{s.number}</tspan>{label.name ? <tspan dx={label.fontSize * 0.35}>{label.name}</tspan> : null}
+          </text>
         </a>;
       })}
       {fix && fix.kind === "ok" ? (() => { const cx = rotated ? fix.y : fix.x, cy = rotated ? W - fix.x : fix.y;
@@ -120,8 +122,8 @@ export default function WorldCupMarketFloorMap({ stores, locale, onSelect, selec
       </div>
       <div className="wcm-floor-legend">
         {[false, true].map((rot) => <span key={String(rot)} className={`wcm-floor-dirs ${rot ? "is-horizontal" : "is-vertical"}`}>
-          <span><Arrow angle={layout.northAngle - (rot ? 90 : 0)} />{ko ? "북" : "N"}</span>
-          {layout.stations.map((s) => <span key={s.id}><Arrow angle={s.angle - (rot ? 90 : 0)} />{ko ? s.nameKo : s.nameEn}</span>)}
+          <span><Arrow angle={layout.northAngle} />{ko ? "북" : "N"}</span>
+          {layout.stations.map((s) => <span key={s.id}><Arrow angle={s.angle} />{ko ? s.nameKo : s.nameEn}</span>)}
         </span>)}
       </div>
       <div className="wcm-floor-myloc">
@@ -132,7 +134,7 @@ export default function WorldCupMarketFloorMap({ stores, locale, onSelect, selec
         {groups.map((g) => <span key={g}><i style={{ background: FLOOR_MAP_COLORS[g].strong }} />{localizeCategoryGroup(g, locale)}</span>)}
       </div>
       <div className="wcm-floor-plan is-vertical">{renderPlan(vertical, false)}</div>
-      <div className="wcm-floor-plan is-horizontal">{renderPlan(horizontal, true)}</div>
+      <div className="wcm-floor-plan is-horizontal">{renderPlan(horizontal, false)}</div>
       <p className="wcm-floor-note">{ko ? "개략도입니다. 점포 위치와 순서는 주소 기반 추정이며 실측이 아닙니다. 입구·화장실 정보는 아직 없습니다." : ui.mapGuideApproximate}
         {" · "}<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap</a></p>
     </div>
