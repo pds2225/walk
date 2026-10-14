@@ -1,32 +1,34 @@
 import { describe, expect, it } from "vitest";
-import { buildFloorMapLayout, FLOOR_MAP_BLOCK } from "./worldCupMarketFloorMap";
+import { buildFloorMapLayout, fitStallLabel, FLOOR_PLAN } from "./worldCupMarketFloorMap";
 import { WORLD_CUP_MARKET_MAP_PLACEMENTS } from "./worldCupMarketMapLayout";
 import { WORLD_CUP_MARKET_STORES } from "./worldCupMarketStores";
 
-describe("floor-directory map layout", () => {
+describe("floor-directory plan v2", () => {
   const layout = buildFloorMapLayout(WORLD_CUP_MARKET_STORES);
-  it("draws exactly one block per store that has an existing display point", () => {
-    expect(layout.blocks.length).toBe(WORLD_CUP_MARKET_MAP_PLACEMENTS.length);
-    expect(new Set(layout.blocks.map((b) => b.storeId)).size).toBe(layout.blocks.length);
+  it("draws one stall per store that has an existing display point, and every store has a group", () => {
+    expect(layout.stalls.length).toBe(WORLD_CUP_MARKET_MAP_PLACEMENTS.length);
+    expect(new Set(layout.stalls.map((s) => s.storeId)).size).toBe(layout.stalls.length);
+    expect(WORLD_CUP_MARKET_STORES.every((s) => s.categoryGroup)).toBe(true);
   });
-  it("keeps blocks tap-sized and non-overlapping", () => {
-    expect(FLOOR_MAP_BLOCK.width).toBeGreaterThanOrEqual(40);
-    for (const a of layout.blocks) for (const b of layout.blocks) {
-      if (a === b) continue;
-      const apart = Math.abs(a.x - b.x) >= FLOOR_MAP_BLOCK.width || Math.abs(a.y - b.y) >= FLOOR_MAP_BLOCK.height;
-      expect(apart).toBe(true);
+  it("tiles stalls edge to edge on both sides of the alley without overlap", () => {
+    for (const side of [-1, 1] as const) {
+      const col = layout.stalls.filter((s) => s.side === side).sort((a, b) => a.y - b.y);
+      for (let i = 1; i < col.length; i++) expect(col[i]!.y).toBeGreaterThanOrEqual(col[i - 1]!.y + col[i - 1]!.height - 1e-6);
+      for (const s of col) expect(s.height).toBeGreaterThanOrEqual(FLOOR_PLAN.stallHeight - 1e-6);
     }
-  });
-  it("keeps each block near its approximate anchor", () => {
-    const far = layout.blocks.map((b) => [b.storeId, Math.round(Math.hypot(b.x - b.anchorX, b.y - b.anchorY))] as const).filter(([, d]) => d > 60); expect(far.every(([, d]) => d < 100)).toBe(true);
+    for (const s of layout.stalls) expect(s.side < 0 ? s.x + s.width : s.x).toBeCloseTo(s.side < 0 ? layout.alley.x : layout.alley.x + layout.alley.width);
   });
   it("is stable under category filtering", () => {
     const meat = buildFloorMapLayout(WORLD_CUP_MARKET_STORES.filter((s) => s.categoryGroup === "meat"));
     expect(meat.height).toBe(layout.height);
-    expect(meat.blocks.every((b) => b.group === "meat")).toBe(true);
+    for (const s of meat.stalls) expect(layout.stalls.find((t) => t.storeId === s.storeId)).toMatchObject({ x: s.x, y: s.y });
   });
-  it("points station markers toward the stations", () => {
-    const mangwon = layout.stations.find((s) => s.id === "mangwon")!;
-    expect(Math.cos(mangwon.angle * Math.PI / 180)).toBeGreaterThan(0); // east-ish
+  it("cuts the alley where OSM side streets cross it", () => {
+    expect(layout.cuts.length).toBeGreaterThan(0);
+  });
+  it("shrinks, wraps to two lines, or falls back to number only", () => {
+    expect(fitStallLabel("부부야채", 100, 40)).toMatchObject({ lines: ["부부야채"], fontSize: 12 });
+    expect(fitStallLabel("국제기계떡방앗간 망원점", 70, 40)?.lines.length).toBe(2);
+    expect(fitStallLabel("아주아주아주긴점포이름입니다정말로길어요", 40, 20)).toBeNull();
   });
 });

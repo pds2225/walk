@@ -3,131 +3,161 @@ import { WORLD_CUP_MARKET_OSM_STREETS } from "./worldCupMarketOsmStreets";
 import type { WorldCupMarketCategoryGroup, WorldCupMarketStore } from "./worldCupMarketStores";
 
 /**
- * Flat "mall directory" plan of 월드컵시장. Geometry comes only from:
- *  - OSM street centrelines (worldCupMarketOsmStreets.ts), and
- *  - the existing approximate display points (worldCupMarketMapLayout.ts).
- * Blocks snap to a tap-friendly grid near their display point; a leader line
- * shows the shift. Nothing here is a surveyed stall position.
+ * Schematic "department-store directory" plan of 월드컵시장 (v2).
+ * The market alley (망원로7길) is drawn straight; side streets cut it where the
+ * OSM centrelines cross it. Stalls tile both sides of the alley. Side and order
+ * come only from the existing approximate display points
+ * (worldCupMarketMapLayout.ts): side = which side of the OSM alley the point is
+ * on, order = position along the alley. Neither is surveyed stall order.
  */
 export const FLOOR_MAP_REFERENCE = { latitude: 37.5583, longitude: 126.905438 } as const;
 const METERS_PER_LAT = 111_320;
 const LON_SCALE = METERS_PER_LAT * Math.cos(FLOOR_MAP_REFERENCE.latitude * Math.PI / 180);
-// Rotate the NNW corridor (north 1, east -0.38) to screen-vertical.
-const AXIS_ANGLE = Math.atan2(0.38, 1);
-
-export const FLOOR_MAP_WIDTH = 360;
-export const FLOOR_MAP_BLOCK = { width: 40, height: 30, gap: 4 } as const;
+const AXIS_ANGLE = Math.atan2(0.38, 1); // NNW corridor → screen vertical
 export const MARKET_STREET = "망원로7길";
-export const FLOOR_MAP_ALLEY_WIDTH = 18;
-const PAD_METERS = { across: 26, along: 22 };
 
-export const FLOOR_MAP_COLORS: Readonly<Record<WorldCupMarketCategoryGroup | "unknown", string>> = {
-  produce: "#43a047", seafood: "#1e88e5", meat: "#e53935", snacks: "#fb8c00",
-  restaurant: "#d81b60", pantry: "#8d6e63", living: "#7e57c2", unknown: "#90a4ae",
+export const FLOOR_PLAN = { width: 360, margin: 12, alley: 58, stallDepth: 133, stallHeight: 46, street: 30, top: 14, bottom: 14 } as const;
+
+/** Pastel fills (block) and stronger tones (badge/chip) per category group. */
+export const FLOOR_MAP_COLORS: Readonly<Record<WorldCupMarketCategoryGroup | "unknown", { fill: string; strong: string }>> = {
+  produce: { fill: "#b9e08f", strong: "#5aa832" },
+  seafood: { fill: "#8fd8d2", strong: "#14a39a" },
+  meat: { fill: "#f7a9c4", strong: "#e0457f" },
+  snacks: { fill: "#fdc98a", strong: "#f0841c" },
+  restaurant: { fill: "#f4b2a6", strong: "#e2563f" },
+  pantry: { fill: "#e5cfa4", strong: "#b0843a" },
+  living: { fill: "#c3b2ef", strong: "#7a5bd6" },
+  unknown: { fill: "#d5dade", strong: "#78909c" },
 };
 
-/** Directions only (OSM/Nominatim station area points, 2026-10-14); not a walking route. */
+/** Direction only (OSM/Nominatim points near each station, 2026-10-14). */
 export const FLOOR_MAP_STATIONS = [
-  { id: "mangwon", nameKo: "망원역 (6호선)", nameEn: "Mangwon Stn (Line 6)", latitude: 37.5556, longitude: 126.9105 },
-  { id: "mapo-gu-office", nameKo: "마포구청역 (6호선)", nameEn: "Mapo-gu Office Stn (Line 6)", latitude: 37.5609, longitude: 126.9055 },
+  { id: "mangwon", nameKo: "망원역 6호선", nameEn: "Mangwon Stn (6)", latitude: 37.5556, longitude: 126.9105 },
+  { id: "mapo-gu-office", nameKo: "마포구청역 6호선", nameEn: "Mapo-gu Office Stn (6)", latitude: 37.5609, longitude: 126.9055 },
 ] as const;
 
 export function rotateMeters(east: number, north: number): { x: number; y: number } {
   const c = Math.cos(AXIS_ANGLE), s = Math.sin(AXIS_ANGLE);
-  // screen x grows to the right, y grows downward
-  return { x: east * c + north * s, y: -(-east * s + north * c) };
+  return { x: east * c + north * s, y: east * s - north * c };
 }
+const toPlan = (lat: number, lon: number) =>
+  rotateMeters((lon - FLOOR_MAP_REFERENCE.longitude) * LON_SCALE, (lat - FLOOR_MAP_REFERENCE.latitude) * METERS_PER_LAT);
+/** Screen angle (deg, 0 = right, 90 = down) of a geographic bearing vector in plan space. */
+const planAngle = (east: number, north: number) => { const r = rotateMeters(east, north); return Math.atan2(r.y, r.x) * 180 / Math.PI; };
 
-function toMeters(lat: number, lon: number) {
-  return { east: (lon - FLOOR_MAP_REFERENCE.longitude) * LON_SCALE, north: (lat - FLOOR_MAP_REFERENCE.latitude) * METERS_PER_LAT };
+export interface FloorStall {
+  readonly storeId: string; readonly number: number | null; readonly group: WorldCupMarketCategoryGroup | "unknown";
+  readonly side: -1 | 1; readonly x: number; readonly y: number; readonly width: number; readonly height: number;
 }
-
-export interface FloorMapBlock {
-  readonly storeId: string;
-  readonly number: number | null;
-  readonly group: WorldCupMarketCategoryGroup | "unknown";
-  readonly x: number; readonly y: number;
-  readonly anchorX: number; readonly anchorY: number;
-}
-export interface FloorMapLayout {
+export interface FloorStreetCut { readonly y: number; readonly name: string | null; readonly left: boolean; readonly right: boolean }
+export interface FloorBuilding { readonly x: number; readonly y: number; readonly width: number; readonly height: number }
+export interface FloorPlanLayout {
   readonly width: number; readonly height: number;
-  readonly blocks: readonly FloorMapBlock[];
-  readonly streets: readonly { id: number; kind: string; name: string | null; d: string; labelAt: { x: number; y: number; angle: number } | null }[];
-  readonly stations: readonly { id: string; nameKo: string; nameEn: string; x: number; y: number; angle: number }[];
+  readonly alley: { readonly x: number; readonly width: number };
+  readonly stalls: readonly FloorStall[];
+  readonly buildings: readonly FloorBuilding[];
+  readonly cuts: readonly FloorStreetCut[];
+  readonly northAngle: number;
+  readonly stations: readonly { id: string; nameKo: string; nameEn: string; angle: number }[];
 }
 
-export function buildFloorMapLayout(stores: readonly WorldCupMarketStore[]): FloorMapLayout {
-  const byId = new Map(stores.map((store) => [store.id, store]));
-  const anchors = WORLD_CUP_MARKET_MAP_PLACEMENTS.filter((p) => byId.has(p.storeId)).map((p) => {
-    const m = toMeters(p.displayLocation.latitude, p.displayLocation.longitude);
-    return { storeId: p.storeId, ...rotateMeters(m.east, m.north) };
-  });
-  // Bounds from all 45 placements so filtering never rescales the plan.
-  const all = WORLD_CUP_MARKET_MAP_PLACEMENTS.map((p) => {
-    const m = toMeters(p.displayLocation.latitude, p.displayLocation.longitude);
-    return rotateMeters(m.east, m.north);
-  });
-  const minX = Math.min(...all.map((p) => p.x)) - PAD_METERS.across, maxX = Math.max(...all.map((p) => p.x)) + PAD_METERS.across;
-  const minY = Math.min(...all.map((p) => p.y)) - PAD_METERS.along, maxY = Math.max(...all.map((p) => p.y)) + PAD_METERS.along;
-  const scale = FLOOR_MAP_WIDTH / (maxX - minX);
-  const height = Math.round((maxY - minY) * scale);
-  const sx = (x: number) => (x - minX) * scale, sy = (y: number) => (y - minY) * scale;
+type P = { x: number; y: number };
+function alleyPolyline(): P[] {
+  return WORLD_CUP_MARKET_OSM_STREETS.filter((s) => s.name === MARKET_STREET && s.kind === "residential")
+    .flatMap((s) => s.points.map(([e, n]) => rotateMeters(e, n))).sort((a, b) => a.y - b.y);
+}
+function alleyXAt(alley: readonly P[], y: number): number {
+  for (let i = 1; i < alley.length; i++) {
+    const a = alley[i - 1]!, b = alley[i]!;
+    if (y >= a.y && y <= b.y && a.y !== b.y) return a.x + (b.x - a.x) * (y - a.y) / (b.y - a.y);
+  }
+  return (y < alley[0]!.y ? alley[0]! : alley[alley.length - 1]!).x;
+}
 
-  const { width: bw, height: bh, gap } = FLOOR_MAP_BLOCK;
-  // Market alley (망원로7길) centreline in screen space; blocks line up on both sides of it.
-  const alley = WORLD_CUP_MARKET_OSM_STREETS.filter((st) => st.name === MARKET_STREET && st.kind === "residential")
-    .flatMap((st) => st.points.map(([e, n]) => { const r = rotateMeters(e, n); return { x: sx(r.x), y: sy(r.y) }; }));
-  const alleyX = (y: number): number => {
-    let best = alley[0]?.x ?? FLOOR_MAP_WIDTH / 2, bestD = Infinity;
-    for (let i = 1; i < alley.length; i++) {
-      const a = alley[i - 1]!, b = alley[i]!;
-      if ((y - a.y) * (y - b.y) <= 0 && a.y !== b.y) return a.x + (b.x - a.x) * (y - a.y) / (b.y - a.y);
+/** Plan-space y of side streets meeting the alley, with the sides they leave on. */
+function crossings(alley: readonly P[], minY: number, maxY: number): { y: number; name: string | null; left: boolean; right: boolean }[] {
+  const out: { y: number; name: string | null; left: boolean; right: boolean }[] = [];
+  for (const street of WORLD_CUP_MARKET_OSM_STREETS) {
+    if (street.name === MARKET_STREET) continue;
+    const pts = street.points.map(([e, n]) => rotateMeters(e, n));
+    let best: { d: number; y: number } | null = null;
+    for (const p of pts) { const d = Math.abs(p.x - alleyXAt(alley, p.y)); if (!best || d < best.d) best = { d, y: p.y }; }
+    for (let i = 1; i < pts.length; i++) {
+      const a = pts[i - 1]!, b = pts[i]!; const da = a.x - alleyXAt(alley, a.y), db = b.x - alleyXAt(alley, b.y);
+      if (da * db <= 0 && da !== db) { const t = da / (da - db); const y = a.y + (b.y - a.y) * t; best = { d: 0, y }; }
     }
-    for (const p of alley) { const d = Math.abs(p.y - y); if (d < bestD) { bestD = d; best = p.x; } }
-    return best;
+    if (!best || best.d > 6 || best.y < minY - 8 || best.y > maxY + 8) continue;
+    const near = pts.filter((p) => Math.abs(p.y - best!.y) < 60);
+    const left = near.some((p) => p.x < alleyXAt(alley, p.y) - 8), right = near.some((p) => p.x > alleyXAt(alley, p.y) + 8);
+    if (!out.some((c) => Math.abs(c.y - best!.y) < 6)) out.push({ y: best.y, name: street.name, left, right });
+  }
+  return out.sort((a, b) => a.y - b.y);
+}
+
+export function buildFloorMapLayout(stores: readonly WorldCupMarketStore[]): FloorPlanLayout {
+  const alley = alleyPolyline();
+  // Ordering uses all 45 points so filtering never moves a stall.
+  const points = WORLD_CUP_MARKET_MAP_PLACEMENTS.map((p) => {
+    const r = toPlan(p.displayLocation.latitude, p.displayLocation.longitude);
+    return { storeId: p.storeId, y: r.y, side: (r.x < alleyXAt(alley, r.y) ? -1 : 1) as -1 | 1 };
+  });
+  const ys = points.map((p) => p.y);
+  const cutsGeo = crossings(alley, Math.min(...ys), Math.max(...ys));
+  const segmentOf = (y: number) => cutsGeo.filter((c) => c.y < y).length;
+  const segCount = cutsGeo.length + 1;
+  const bySeg: { left: typeof points; right: typeof points }[] = Array.from({ length: segCount }, () => ({ left: [], right: [] }));
+  for (const p of points) (p.side < 0 ? bySeg[segmentOf(p.y)]!.left : bySeg[segmentOf(p.y)]!.right).push(p);
+
+  const F = FLOOR_PLAN;
+  const alleyX = (F.width - F.alley) / 2;
+  const sideX = { "-1": alleyX - F.stallDepth, "1": alleyX + F.alley } as const;
+  const byId = new Map(stores.map((s) => [s.id, s]));
+  const stalls: FloorStall[] = [], buildings: FloorBuilding[] = [], cuts: FloorStreetCut[] = [];
+  let y = F.top;
+  bySeg.forEach((seg, i) => {
+    const rows = Math.max(seg.left.length, seg.right.length, 1);
+    const h = rows * F.stallHeight;
+    for (const side of [-1, 1] as const) {
+      const list = (side < 0 ? seg.left : seg.right).sort((a, b) => a.y - b.y || a.storeId.localeCompare(b.storeId));
+      buildings.push({ x: sideX[side], y, width: F.stallDepth, height: h });
+      const each = list.length ? h / list.length : 0;
+      list.forEach((p, k) => {
+        const store = byId.get(p.storeId); if (!store) return;
+        stalls.push({ storeId: p.storeId, number: store.corridorOrder, group: store.categoryGroup ?? "unknown", side, x: sideX[side], y: y + k * each, width: F.stallDepth, height: each });
+      });
+    }
+    y += h;
+    const cut = cutsGeo[i];
+    if (cut) { cuts.push({ y: y + F.street / 2, name: cut.name, left: cut.left, right: cut.right }); y += F.street; }
+  });
+  const height = Math.round(y + F.bottom);
+  return {
+    width: F.width, height, alley: { x: alleyX, width: F.alley }, stalls, buildings, cuts,
+    northAngle: planAngle(0, 1),
+    stations: FLOOR_MAP_STATIONS.map((s) => { const r = toPlan(s.latitude, s.longitude); return { id: s.id, nameKo: s.nameKo, nameEn: s.nameEn, angle: Math.atan2(r.y, r.x) * 180 / Math.PI }; }),
   };
-  const half = FLOOR_MAP_ALLEY_WIDTH / 2;
-  const cells: { x: number; y: number; side: -1 | 1 }[] = [];
-  for (let y = bh / 2 + 22; y <= height - bh / 2 - 22; y += bh + gap) {
-    const cx = alleyX(y);
-    for (const side of [-1, 1] as const)
-      for (let col = 0; col < 2; col++) {
-        const x = cx + side * (half + gap + bw / 2 + col * (bw + gap));
-        if (x - bw / 2 >= 2 && x + bw / 2 <= FLOOR_MAP_WIDTH - 2) cells.push({ x, y, side });
-      }
-  }
-  const blocks: FloorMapBlock[] = [];
-  for (const a of [...anchors].sort((l, r) => l.storeId.localeCompare(r.storeId))) {
-    const ax = sx(a.x), ay = sy(a.y);
-    const side = ax < alleyX(ay) ? -1 : 1;
-    let best = -1, dist = Infinity;
-    cells.forEach((c, i) => { const d = (c.x - ax) ** 2 + (c.y - ay) ** 2 + (c.side === side ? 0 : 1e6); if (d < dist) { dist = d; best = i; } });
-    if (best < 0) continue;
-    const [cell] = cells.splice(best, 1);
-    const store = byId.get(a.storeId)!;
-    blocks.push({ storeId: a.storeId, number: store.corridorOrder, group: store.categoryGroup ?? "unknown", x: cell!.x, y: cell!.y, anchorX: ax, anchorY: ay });
-  }
+}
 
-  const streets = WORLD_CUP_MARKET_OSM_STREETS.map((street) => {
-    const pts = street.points.map(([e, n]) => { const r = rotateMeters(e, n); return { x: sx(r.x), y: sy(r.y) }; });
-    const d = pts.map((p, i) => `${i ? "L" : "M"}${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(" ");
-    const inside = pts.filter((p) => p.x > 20 && p.x < FLOOR_MAP_WIDTH - 20 && p.y > 20 && p.y < height - 20);
-    let labelAt = null;
-    if (inside.length >= 2) {
-      const a = inside[0]!, b = inside[inside.length - 1]!;
-      let angle = Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI;
-      if (angle > 90) angle -= 180; if (angle < -90) angle += 180;
-      labelAt = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, angle };
-    }
-    return { id: street.id, kind: street.kind, name: street.name, d, labelAt };
-  });
+export interface StallLabel { readonly fontSize: number; readonly lines: readonly string[] }
+const charW = (ch: string) => (/[\u3131-\uD79D\u4E00-\u9FFF\u3040-\u30FF]/.test(ch) ? 1 : ch === " " ? 0.3 : 0.58);
+export const textWidth = (text: string, size: number) => [...text].reduce((w, ch) => w + charW(ch), 0) * size;
 
-  const cx = FLOOR_MAP_WIDTH / 2, cy = height / 2;
-  const stations = FLOOR_MAP_STATIONS.map((st) => {
-    const m = toMeters(st.latitude, st.longitude); const r = rotateMeters(m.east, m.north);
-    const dx = sx(r.x) - cx, dy = sy(r.y) - cy;
-    const k = Math.min((cx - 30) / Math.abs(dx || 1e-9), (cy - 24) / Math.abs(dy || 1e-9));
-    return { id: st.id, nameKo: st.nameKo, nameEn: st.nameEn, x: Math.min(FLOOR_MAP_WIDTH - 52, Math.max(52, cx + dx * k)), y: cy + dy * k, angle: Math.atan2(dy, dx) * 180 / Math.PI };
-  });
-  return { width: FLOOR_MAP_WIDTH, height, blocks, streets, stations };
+/** Shrink 12→8px, then wrap to 2 lines; null means show the number only. */
+export function fitStallLabel(name: string, boxWidth: number, boxHeight: number): StallLabel | null {
+  for (let size = 12; size >= 8; size -= 0.5) {
+    if (textWidth(name, size) <= boxWidth && size * 1.2 <= boxHeight) return { fontSize: size, lines: [name] };
+  }
+  const chars = [...name];
+  const splits: [string, string][] = [];
+  const spaces = chars.map((c, i) => (c === " " ? i : -1)).filter((i) => i > 0);
+  for (const i of spaces) splits.push([chars.slice(0, i).join(""), chars.slice(i + 1).join("")]);
+  const mid = Math.ceil(chars.length / 2);
+  splits.push([chars.slice(0, mid).join(""), chars.slice(mid).join("")]);
+  for (let size = 11; size >= 8; size -= 0.5) {
+    if (size * 2.3 > boxHeight) continue;
+    const ok = splits.filter(([a, b]) => textWidth(a, size) <= boxWidth && textWidth(b, size) <= boxWidth)
+      .sort((p, q) => Math.max(textWidth(p[0], 1), textWidth(p[1], 1)) - Math.max(textWidth(q[0], 1), textWidth(q[1], 1)));
+    if (ok[0]) return { fontSize: size, lines: ok[0] };
+  }
+  return null;
 }
