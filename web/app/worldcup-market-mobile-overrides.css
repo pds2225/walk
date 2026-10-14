@@ -654,3 +654,31 @@
   .worldcup-market-demo .worldcup-market-locale-switcher button { padding: 0 5px; font-size: 11px; }
   .worldcup-market-mobile-brand strong { font-size: 17px; }
 }
+
+/* Floor-directory map (draft) */
+.wcm-floor { max-width: 560px; margin: 0 auto; }
+.wcm-floor-badges { display: flex; justify-content: flex-end; margin-bottom: 6px; }
+.wcm-floor-badges span { font-size: 11px; font-weight: 700; color: #8a5a00; background: #fff3cd; border-radius: 999px; padding: 3px 9px; }
+.wcm-floor-svg { display: block; width: 100%; height: auto; border-radius: 16px; border: 1px solid #e1e7ef; }
+.wcm-floor-road { fill: none; stroke: #dfe3e8; stroke-linecap: round; stroke-linejoin: round; stroke-width: 9; }
+.wcm-floor-road.is-primary { stroke-width: 22; }
+.wcm-floor-road.is-tertiary { stroke-width: 16; }
+.wcm-floor-road.is-market { stroke: #ffe3a3; stroke-width: 18; }
+.wcm-floor-road-label { font-size: 8px; fill: #7b8794; text-anchor: middle; dominant-baseline: middle; paint-order: stroke; stroke: #fff; stroke-width: 2.5px; }
+.wcm-floor-leader line { stroke: #556; stroke-opacity: .35; stroke-width: .8; }
+.wcm-floor-leader circle { fill: #556; fill-opacity: .5; }
+.wcm-floor-block { stroke: #fff; stroke-width: 1.5; }
+.wcm-floor a:focus-visible .wcm-floor-block, .wcm-floor a:hover .wcm-floor-block { stroke: #111; stroke-width: 2; }
+.wcm-floor-num { font-size: 12px; font-weight: 800; fill: #fff; text-anchor: middle; }
+.wcm-floor-name { font-size: 7.5px; font-weight: 600; fill: #fff; text-anchor: middle; }
+.wcm-floor-station path { fill: #7b3fa0; }
+.wcm-floor-station rect { fill: #fff; stroke: #7b3fa0; }
+.wcm-floor-station text { font-size: 8px; font-weight: 700; fill: #7b3fa0; text-anchor: middle; }
+.wcm-floor-compass circle { fill: #fff; stroke: #9aa5b1; }
+.wcm-floor-compass text { font-size: 10px; font-weight: 800; text-anchor: middle; fill: #334; }
+.wcm-floor-attrib { margin: 2px 0 10px; font-size: 10px; color: var(--muted); text-align: right; }
+.wcm-floor-index { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-bottom: 16px; }
+.wcm-floor-index h3 { margin: 0 0 4px; padding: 3px 8px; border-radius: 6px; color: #fff; font-size: 12px; }
+.wcm-floor-index ul { list-style: none; margin: 0; padding: 0; }
+.wcm-floor-index a { display: flex; align-items: center; gap: 6px; min-height: 32px; font-size: 12.5px; color: inherit; text-decoration: none; }
+.wcm-floor-index a span { flex: none; min-width: 24px; height: 20px; border-radius: 5px; color: #fff; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; }

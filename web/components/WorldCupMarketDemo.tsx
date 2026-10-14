@@ -34,6 +34,7 @@ import { worldCupMarketLiveMapEnabled, worldCupMarketWalkingEnabled } from "../l
 import { parseStorePhones } from "../lib/worldCupMarketPhone";
 import { htmlLangFor } from "../lib/localePreference";
 import WorldCupMarketStaticMap from "./WorldCupMarketStaticMap";
+import WorldCupMarketFloorMap from "./WorldCupMarketFloorMap";
 
 // The NAVER SDK is loaded only in the browser.
 const WorldCupMarketMap = dynamic(() => import("./WorldCupMarketMap"), { ssr: false });
@@ -522,7 +523,7 @@ function MarketOverview({ locale, onSelect, onPinSelect }: {
       <div className="worldcup-market-overview-map">
         {worldCupMarketLiveMapEnabled()
           ? <WorldCupMarketMap stores={stores} selectedId="" here={null} onSelect={onPinSelect} locale={locale} mode="overview" />
-          : <WorldCupMarketStaticMap stores={stores} selectedId="" onSelect={onPinSelect} locale={locale} mode="overview" />}
+          : <WorldCupMarketFloorMap stores={stores} onSelect={onPinSelect} locale={locale} />}
       </div>
       <section className="worldcup-market-overview-list" aria-labelledby="worldcup-market-list-title">
         <div className="worldcup-market-section-heading">
