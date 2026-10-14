@@ -674,6 +674,19 @@
 .wcm-floor-name { fill: #2c3a44; font-weight: 600; }
 .wcm-floor-street { font-size: 9px; fill: #9aa3ab; letter-spacing: .02em; }
 .wcm-floor-street.is-alley { text-anchor: middle; font-size: 10px; fill: #b0b8bf; letter-spacing: .2em; }
+.wcm-floor-street.is-upright { writing-mode: vertical-rl; text-orientation: upright; letter-spacing: .08em; dominant-baseline: middle; }
+.wcm-floor-dirs { display: inline-flex; flex-wrap: wrap; gap: 4px 12px; }
+.wcm-floor-plan.is-horizontal, .wcm-floor-dirs.is-horizontal { display: none; }
+@media (min-width: 900px) {
+  /* The overview is a 640px phone frame; widen it only while the floor plan is shown. */
+  .worldcup-market-demo:has(.wcm-floor) { max-width: 1148px; }
+  .wcm-floor { max-width: 1100px; }
+  .wcm-floor-plan.is-horizontal { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .wcm-floor-plan.is-horizontal .wcm-floor-svg { min-width: 1100px; }
+  .wcm-floor-plan.is-horizontal, .wcm-floor-dirs.is-horizontal { display: block; }
+  .wcm-floor-dirs.is-horizontal { display: inline-flex; }
+  .wcm-floor-plan.is-vertical, .wcm-floor-dirs.is-vertical { display: none; }
+}
 .wcm-floor-note { margin: 6px 0 0; font-size: 10.5px; line-height: 1.5; color: #98a1a8; }
 .wcm-floor-note a { color: inherit; }
 /* Reference-style index (replaces the old store list) */

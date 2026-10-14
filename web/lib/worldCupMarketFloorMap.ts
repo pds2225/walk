@@ -58,6 +58,7 @@ export interface FloorPlanLayout {
   readonly buildings: readonly FloorBuilding[];
   readonly cuts: readonly FloorStreetCut[];
   readonly northAngle: number;
+  readonly street: number;
   readonly stations: readonly { id: string; nameKo: string; nameEn: string; angle: number }[];
 }
 
@@ -94,7 +95,9 @@ function crossings(alley: readonly P[], minY: number, maxY: number): { y: number
   return out.sort((a, b) => a.y - b.y);
 }
 
-export function buildFloorMapLayout(stores: readonly WorldCupMarketStore[]): FloorPlanLayout {
+export type FloorPlanOptions = Partial<Record<"alley" | "stallDepth" | "stallHeight" | "street", number>>;
+
+export function buildFloorMapLayout(stores: readonly WorldCupMarketStore[], options: FloorPlanOptions = {}): FloorPlanLayout {
   const alley = alleyPolyline();
   // Ordering uses all 45 points so filtering never moves a stall.
   const points = WORLD_CUP_MARKET_MAP_PLACEMENTS.map((p) => {
@@ -108,8 +111,8 @@ export function buildFloorMapLayout(stores: readonly WorldCupMarketStore[]): Flo
   const bySeg: { left: typeof points; right: typeof points }[] = Array.from({ length: segCount }, () => ({ left: [], right: [] }));
   for (const p of points) (p.side < 0 ? bySeg[segmentOf(p.y)]!.left : bySeg[segmentOf(p.y)]!.right).push(p);
 
-  const F = FLOOR_PLAN;
-  const alleyX = (F.width - F.alley) / 2;
+  const F = { ...FLOOR_PLAN, ...options };
+  const alleyX = F.margin + F.stallDepth;
   const sideX = { "-1": alleyX - F.stallDepth, "1": alleyX + F.alley } as const;
   const byId = new Map(stores.map((s) => [s.id, s]));
   const stalls: FloorStall[] = [], buildings: FloorBuilding[] = [], cuts: FloorStreetCut[] = [];
@@ -119,7 +122,8 @@ export function buildFloorMapLayout(stores: readonly WorldCupMarketStore[]): Flo
     const h = rows * F.stallHeight;
     for (const side of [-1, 1] as const) {
       const list = (side < 0 ? seg.left : seg.right).sort((a, b) => a.y - b.y || a.storeId.localeCompare(b.storeId));
-      buildings.push({ x: sideX[side], y, width: F.stallDepth, height: h });
+      // Footprint only where stalls exist: no empty gray blocks.
+      if (list.length) buildings.push({ x: sideX[side], y, width: F.stallDepth, height: h });
       const each = list.length ? h / list.length : 0;
       list.forEach((p, k) => {
         const store = byId.get(p.storeId); if (!store) return;
@@ -131,8 +135,9 @@ export function buildFloorMapLayout(stores: readonly WorldCupMarketStore[]): Flo
     if (cut) { cuts.push({ y: y + F.street / 2, name: cut.name, left: cut.left, right: cut.right }); y += F.street; }
   });
   const height = Math.round(y + F.bottom);
+  const width = alleyX * 2 + F.alley;
   return {
-    width: F.width, height, alley: { x: alleyX, width: F.alley }, stalls, buildings, cuts,
+    width, height, alley: { x: alleyX, width: F.alley }, stalls, buildings, cuts, street: F.street,
     northAngle: planAngle(0, 1),
     stations: FLOOR_MAP_STATIONS.map((s) => { const r = toPlan(s.latitude, s.longitude); return { id: s.id, nameKo: s.nameKo, nameEn: s.nameEn, angle: Math.atan2(r.y, r.x) * 180 / Math.PI }; }),
   };
