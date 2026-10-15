@@ -654,3 +654,56 @@
   .worldcup-market-demo .worldcup-market-locale-switcher button { padding: 0 5px; font-size: 11px; }
   .worldcup-market-mobile-brand strong { font-size: 17px; }
 }
+
+/* Floor-directory map (draft v2) */
+.wcm-floor { max-width: 460px; margin: 0 auto; }
+.wcm-floor-head { padding: 4px 2px 8px; border-bottom: 2px solid #263238; margin-bottom: 8px; }
+.wcm-floor-head h2 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -0.02em; color: #1f2a33; }
+.wcm-floor-head p { margin: 2px 0 0; font-size: 12px; color: #78838c; }
+.wcm-floor-legend, .wcm-floor-chips { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 0 0 6px; font-size: 11.5px; color: #4a555e; }
+.wcm-floor-legend span, .wcm-floor-chips span { display: inline-flex; align-items: center; gap: 4px; }
+.wcm-floor-icon { width: 16px; height: 16px; }
+.wcm-floor-icon circle { fill: #fff; stroke: #9aa5ae; stroke-width: 1.2; }
+.wcm-floor-icon path { fill: #37474f; }
+.wcm-floor-chips i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; }
+.wcm-floor-svg { display: block; width: 100%; height: auto; margin-top: 4px; }
+.wcm-floor-stall { stroke: #fff; stroke-width: 1.5; }
+.wcm-floor a:hover .wcm-floor-stall, .wcm-floor a:focus-visible .wcm-floor-stall { filter: brightness(.96); }
+.wcm-floor-stall-sel { fill: none; stroke: #263238; stroke-width: 2.5; }
+.wcm-floor-badge { font-size: 9.5px; font-weight: 700; fill: #fff; text-anchor: middle; }
+.wcm-floor-label { fill: #24313b; font-weight: 600; }
+.wcm-floor-num { font-weight: 800; fill: #111a21; }
+.wcm-floor-plan.is-horizontal .wcm-floor-svg { max-width: 960px; margin: 0 auto; }
+.wcm-floor-name { fill: #2c3a44; font-weight: 600; }
+.wcm-floor-street { font-size: 9px; fill: #9aa3ab; letter-spacing: .02em; }
+.wcm-floor-street.is-alley { text-anchor: middle; font-size: 10px; fill: #b0b8bf; letter-spacing: .2em; }
+.wcm-floor-street.is-upright { writing-mode: vertical-rl; text-orientation: upright; letter-spacing: .08em; dominant-baseline: middle; }
+.wcm-floor-myloc { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; margin: 0 0 8px; font-size: 12px; color: #c0392b; }
+.wcm-floor-myloc .is-hint { color: #98a1a8; font-size: 11px; }
+.wcm-floor-myloc button { display: inline-flex; align-items: center; gap: 4px; padding: 6px 12px; border: 1px solid #1e88e5; border-radius: 999px; background: #fff; color: #1e88e5; font-weight: 700; font-size: 13px; cursor: pointer; }
+.wcm-floor-myloc button:disabled { opacity: .6; }
+.wcm-floor-dirs { display: inline-flex; flex-wrap: wrap; gap: 4px 12px; }
+.wcm-floor-plan.is-horizontal, .wcm-floor-dirs.is-horizontal { display: none; }
+@media (min-width: 900px) {
+  /* The overview is a 640px phone frame; widen it only while the floor plan is shown. */
+  .worldcup-market-demo:has(.wcm-floor) { max-width: 1040px; }
+  .wcm-floor { max-width: 1100px; }
+  .wcm-floor-plan.is-horizontal { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .wcm-floor-plan.is-horizontal, .wcm-floor-dirs.is-horizontal { display: block; }
+  .wcm-floor-dirs.is-horizontal { display: inline-flex; }
+  .wcm-floor-plan.is-vertical, .wcm-floor-dirs.is-vertical { display: none; }
+}
+.wcm-floor-note { margin: 6px 0 0; font-size: 10.5px; line-height: 1.5; color: #98a1a8; }
+.wcm-floor-note a { color: inherit; }
+/* Reference-style index (replaces the old store list) */
+.worldcup-market-overview-list ul.wcm-index { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 12px; }
+.wcm-index li.wcm-index-head { grid-column: 1 / -1; margin: 12px 0 4px; padding: 3px 8px; border-radius: 4px; color: #fff; font-size: 12px; font-weight: 700; }
+.worldcup-market-overview-list .wcm-index button { min-height: 32px; white-space: nowrap; padding: 4px 0; gap: 7px; border: 0; border-bottom: 1px solid #eef0f2; border-radius: 0; background: none; }
+.wcm-index button strong { display: block; font-size: 13px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wcm-index button > span:last-child { min-width: 0; }
+.wcm-index button small { display: block; font-size: 10.5px; color: #8a949c; }
+.wcm-index .wcm-index-badge { flex: 0 0 auto; min-width: 26px; height: 18px; padding: 0 4px; border-radius: 4px; color: #fff; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
+@media (min-width: 900px) {
+  .worldcup-market-overview-list ul.wcm-index { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .worldcup-market-overview.has-floor .worldcup-market-overview-list { max-width: 960px; margin: 0 auto; }
+}

@@ -1376,3 +1376,12 @@ PR =
 - (1) section_view: 상세 화면 menu/location/nearby 섹션 도달(IntersectionObserver, 40%), store_view(=상세 마운트)당 섹션별 1회. src=섹션명.
 - (2) store_leave: 상세를 떠날 때(점포 변경·뒤로·주변 화면·pagehide·visibilitychange hidden) dwell_sec 기록. 다시 보이면 새 구간 시작 → 체류시간은 session+store 기준 합계. 컬럼 `events.dwell_sec int`(0–86400), 이벤트 check 제약 확장. 마이그레이션 `20261013010000_events_section_dwell.sql`.
 - (8) 이탈: 새 이벤트 없음. session_id는 sessionStorage(탭 단위), 막히면 메모리 폴백. page_view만 있고 store_view 없는 세션 비율로 계산.
+
+## [ ] KN-FLOOR-DIRECTORY-MAP-20261014 — 메인 지도를 백화점 층별 안내도 스타일로 (DRAFT, 리뷰 대기)
+- v2 (2026-10-14 오후): Dasom 피드백 반영. COEX 스타필드 B1 스타일: 회색 건물 바탕, 흰색 골목·옆길, 골목 양옆에 이어붙인 밝은 파스텔 업종색 점포 칸(번호 배지+이름, 자동 축소·2줄), 선택 점포 진한 테두리, 아이콘 범례(북·역 방향)·업종 색 칩, 구 목록 제거 → 업종색 색인(모바일 2열·데스크톱 4열). 번호 1–45 유지(QR /q/NN). 순서는 근사 좌표 기준, 실측 아님.
+
+- 요청: Dasom (2026-10-14). 참고: 현대백화점 floorMap, COEX/스타필드 안내도.
+- 첫 화면 고정 안내도 이미지 → SVG 평면도. 도로는 OSM 중심선(ODbL, 2026-10-14 bbox 스냅샷), 점포 블록은 기존 근사 표시점(worldCupMarketMapLayout) 기준으로 망원로7길 양옆 격자에 정렬, 이동 시 리더선. 새 위치 생성 없음, "개략도·실측 아님" 표시.
+- 업종 그룹 색, 블록 번호(+짧은 이름), 블록/색인 모두 점포 링크. 역 방향 표시(망원역·마포구청역, 방향만).
+- 데이터 공백: 입구·화장실·고객센터 위치 없음 → 미표시. 상세 "위치" 블록은 기존 이미지 지도 유지.
+- 머지 금지: Dasom 리뷰 후 결정.

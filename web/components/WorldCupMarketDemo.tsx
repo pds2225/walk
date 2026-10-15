@@ -34,6 +34,8 @@ import { worldCupMarketLiveMapEnabled, worldCupMarketWalkingEnabled } from "../l
 import { parseStorePhones } from "../lib/worldCupMarketPhone";
 import { htmlLangFor } from "../lib/localePreference";
 import WorldCupMarketStaticMap from "./WorldCupMarketStaticMap";
+import WorldCupMarketFloorMap from "./WorldCupMarketFloorMap";
+import { FLOOR_MAP_COLORS } from "../lib/worldCupMarketFloorMap";
 
 // The NAVER SDK is loaded only in the browser.
 const WorldCupMarketMap = dynamic(() => import("./WorldCupMarketMap"), { ssr: false });
@@ -510,7 +512,7 @@ function MarketOverview({ locale, onSelect, onPinSelect }: {
     WORLD_CUP_MARKET_STORES.some((store) => store.categoryGroup === item)), []);
   const stores = useMemo(() => WORLD_CUP_MARKET_STORES.filter((store) => group === null || store.categoryGroup === group), [group]);
   return (
-    <div className="worldcup-market-overview">
+    <div className={`worldcup-market-overview${worldCupMarketLiveMapEnabled() ? "" : " has-floor"}`}>
       <div className="worldcup-market-overview-heading">
         <h1>{ui.market}</h1>
         <p>{ui.subtitle}</p>
@@ -522,26 +524,26 @@ function MarketOverview({ locale, onSelect, onPinSelect }: {
       <div className="worldcup-market-overview-map">
         {worldCupMarketLiveMapEnabled()
           ? <WorldCupMarketMap stores={stores} selectedId="" here={null} onSelect={onPinSelect} locale={locale} mode="overview" />
-          : <WorldCupMarketStaticMap stores={stores} selectedId="" onSelect={onPinSelect} locale={locale} mode="overview" />}
+          : <WorldCupMarketFloorMap stores={stores} onSelect={onPinSelect} locale={locale} />}
       </div>
       <section className="worldcup-market-overview-list" aria-labelledby="worldcup-market-list-title">
         <div className="worldcup-market-section-heading">
           <h2 id="worldcup-market-list-title">{ui.storeList}</h2>
           <span role="status">{ui.storesCount(stores.length)}</span>
         </div>
-        <ul aria-label={ui.storeList}>
-          {stores.map((store) => <li key={store.id}>
-            <button type="button" onClick={() => onSelect(store.id)}>
-              <span className="worldcup-market-store-number">{store.corridorOrder}</span>
-              <span>
-                <strong>{localizeStoreName(store, locale)}</strong>
-                <StoreNameReading store={store} locale={locale} />
-                <small>{localizeCategory(store.category, locale)}</small>
-              </span>
-              {getWorldCupMarketMapPlacement(store.id)?.approximate ? <small className="worldcup-market-approximate">{ui.approximateLocation}</small> : null}
-              <span aria-hidden="true">›</span>
-            </button>
-          </li>)}
+        <ul className="wcm-index" aria-label={ui.storeList}>
+          {[...stores].sort((a, b) => (a.corridorOrder ?? 999) - (b.corridorOrder ?? 999)).map((store) => {
+            const g = store.categoryGroup ?? "unknown";
+            return <li key={store.id}>
+              <button type="button" onClick={() => onSelect(store.id)}>
+                <span className="wcm-index-badge" style={{ background: FLOOR_MAP_COLORS[g].strong }}>{store.corridorOrder}</span>
+                <span>
+                  <strong>{localizeStoreName(store, locale)}</strong>
+                  <StoreNameReading store={store} locale={locale} />
+                </span>
+              </button>
+            </li>;
+          })}
         </ul>
       </section>
     </div>
