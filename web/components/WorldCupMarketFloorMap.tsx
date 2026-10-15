@@ -53,11 +53,11 @@ export default function WorldCupMarketFloorMap({ stores, locale, onSelect, selec
     setMyLoc({ kind: "locating" });
     const ok = (pos: GeolocationPosition) => setMyLoc({ kind: "fix", lat: pos.coords.latitude, lng: pos.coords.longitude, acc: pos.coords.accuracy });
     const fail = (err: GeolocationPositionError) => setMyLoc({ kind: err.code === err.PERMISSION_DENIED ? "denied" : err.code === err.TIMEOUT ? "timeout" : "unavailable" });
-    // GPS first (10s); on timeout/unavailable fall back to network location (10s, cached ≤2 min).
+    // Fresh GPS fix first (10s, no cache: a re-tap after walking must not show the old spot); fallback network location (10s, ≤1 min cache).
     navigator.geolocation.getCurrentPosition(ok, (err) => {
       if (err.code === err.PERMISSION_DENIED) { fail(err); return; }
-      navigator.geolocation.getCurrentPosition(ok, fail, { enableHighAccuracy: false, timeout: 10000, maximumAge: 120000 });
-    }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 });
+      navigator.geolocation.getCurrentPosition(ok, fail, { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 });
+    }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
   };
   const fixV: MyLocationResult | null = myLoc.kind === "fix" ? locateOnPlan(vertical, affV, myLoc.lat, myLoc.lng, myLoc.acc) : null;
   const fixH: MyLocationResult | null = myLoc.kind === "fix" ? locateOnPlan(horizontal, affH, myLoc.lat, myLoc.lng, myLoc.acc) : null;
