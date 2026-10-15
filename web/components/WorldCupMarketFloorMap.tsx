@@ -17,10 +17,10 @@ export interface WorldCupMarketFloorMapProps {
 }
 
 /** Phones: one wide column beside the alley, ~6–8 stalls per screen. */
-const VERTICAL_PLAN = { singleColumn: true, margin: 6, alley: 26, stallDepth: 318, stallHeight: 84, street: 26 } as const;
+const VERTICAL_PLAN = { singleColumn: true, margin: 6, alley: 26, stallDepth: 318, stallHeight: 98, street: 26 } as const;
 /** Desktop: both sides of the alley, wide blocks. */
 const WIDE_PLAN = { margin: 10, alley: 48, stallDepth: 400, stallHeight: 60, street: 32 } as const;
-const LABEL_FONT = { max: 26, min: 15 } as const;
+const LABEL_FONT = { max: 30, min: 15 } as const;
 const MY_LOCATION_TEXT: Record<Locale, { button: string; locating: string; outside: string; inaccurate: string; denied: string; unavailable: string; privacy: string }> = {
   ko: { button: "내 위치", locating: "위치 확인 중…", outside: "시장 밖에 계신 것 같아요.", inaccurate: "위치가 정확하지 않아요. 잠시 후 다시 눌러 주세요.", denied: "위치 권한이 거부됐어요. 브라우저 설정에서 허용해 주세요.", unavailable: "위치를 가져올 수 없어요.", privacy: "위치는 이 기기에서만 쓰고 저장하거나 보내지 않아요." },
   en: { button: "My location", locating: "Locating…", outside: "You are outside the market.", inaccurate: "Location is inaccurate. Please try again shortly.", denied: "Location permission was denied. Allow it in your browser settings.", unavailable: "Location is unavailable.", privacy: "Your location stays on this device and is never stored or sent." },
