@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { track } from "../lib/track";
 import type React from "react";
 import { getWorldCupMarketUiText, type Locale } from "../lib/i18n";
@@ -21,13 +21,13 @@ const VERTICAL_PLAN = { margin: 4, alley: 22, stallDepth: 166, stallHeight: 58, 
 /** Desktop: both sides of the alley, wide blocks. */
 const WIDE_PLAN = { margin: 10, alley: 48, stallDepth: 400, stallHeight: 60, street: 32 } as const;
 const LABEL_FONT = { max: 30, min: 12 } as const;
-const MY_LOCATION_TEXT: Record<Locale, { button: string; locating: string; outside: string; inaccurate: string; denied: string; unavailable: string; privacy: string }> = {
-  ko: { button: "내 위치", locating: "위치 확인 중…", outside: "시장 밖에 계신 것 같아요.", inaccurate: "위치가 정확하지 않아요. 잠시 후 다시 눌러 주세요.", denied: "위치 권한이 거부됐어요. 브라우저 설정에서 허용해 주세요.", unavailable: "위치를 가져올 수 없어요.", privacy: "위치는 이 기기에서만 쓰고 저장하거나 보내지 않아요." },
-  en: { button: "My location", locating: "Locating…", outside: "You are outside the market.", inaccurate: "Location is inaccurate. Please try again shortly.", denied: "Location permission was denied. Allow it in your browser settings.", unavailable: "Location is unavailable.", privacy: "Your location stays on this device and is never stored or sent." },
-  ja: { button: "現在地", locating: "現在地を確認中…", outside: "市場の外にいるようです。", inaccurate: "位置情報が不正確です。少し待ってからもう一度お試しください。", denied: "位置情報の許可が拒否されました。ブラウザの設定で許可してください。", unavailable: "位置情報を取得できません。", privacy: "位置情報はこの端末内でのみ使用し、保存・送信しません。" },
-  zh: { button: "我的位置", locating: "正在定位…", outside: "您似乎不在市场内。", inaccurate: "定位不准确，请稍后再试。", denied: "位置权限被拒绝，请在浏览器设置中允许。", unavailable: "无法获取位置。", privacy: "位置仅在本设备上使用，不会保存或发送。" },
+const MY_LOCATION_TEXT: Record<Locale, { button: string; locating: string; outside: string; inaccurate: string; denied: string; unavailable: string; privacy: string; shown: string; timeout: string; away: (d: string) => string; acc: (m: number) => string }> = {
+  ko: { button: "내 위치", locating: "위치 확인 중…", outside: "시장 밖에 계신 것 같아요.", inaccurate: "위치가 정확하지 않아요. 잠시 후 다시 눌러 주세요.", denied: "위치 권한이 거부됐어요. 브라우저 설정에서 허용해 주세요.", unavailable: "위치를 가져올 수 없어요.", privacy: "위치는 이 기기에서만 쓰고 저장하거나 보내지 않아요.", shown: "지도에 파란 점으로 표시했어요.", timeout: "위치 확인이 오래 걸려요. 밖이나 창가에서 다시 눌러 주세요.", away: (d) => `시장에서 약 ${d} 떨어져 있어요.`, acc: (m) => `(현재 오차 약 ${m}m)` },
+  en: { button: "My location", locating: "Locating…", outside: "You are outside the market.", inaccurate: "Location is inaccurate. Please try again shortly.", denied: "Location permission was denied. Allow it in your browser settings.", unavailable: "Location is unavailable.", privacy: "Your location stays on this device and is never stored or sent.", shown: "Shown as a blue dot on the map.", timeout: "Locating took too long. Try again outdoors or near a window.", away: (d) => `About ${d} from the market.`, acc: (m) => `(accuracy about ${m} m)` },
+  ja: { button: "現在地", locating: "現在地を確認中…", outside: "市場の外にいるようです。", inaccurate: "位置情報が不正確です。少し待ってからもう一度お試しください。", denied: "位置情報の許可が拒否されました。ブラウザの設定で許可してください。", unavailable: "位置情報を取得できません。", privacy: "位置情報はこの端末内でのみ使用し、保存・送信しません。", shown: "地図に青い点で表示しました。", timeout: "位置の取得に時間がかかっています。屋外や窓際でもう一度お試しください。", away: (d) => `市場から約${d}離れています。`, acc: (m) => `（誤差 約${m}m）` },
+  zh: { button: "我的位置", locating: "正在定位…", outside: "您似乎不在市场内。", inaccurate: "定位不准确，请稍后再试。", denied: "位置权限被拒绝，请在浏览器设置中允许。", unavailable: "无法获取位置。", privacy: "位置仅在本设备上使用，不会保存或发送。", shown: "已在地图上用蓝点显示。", timeout: "定位时间过长，请到室外或窗边再试。", away: (d) => `距市场约${d}。`, acc: (m) => `（误差约${m}米）` },
 };
-type MyLocState = { kind: "idle" | "locating" | "denied" | "unavailable" } | { kind: "fix"; lat: number; lng: number; acc: number };
+type MyLocState = { kind: "idle" | "locating" | "denied" | "unavailable" | "timeout" } | { kind: "fix"; lat: number; lng: number; acc: number };
 type Rect = { x: number; y: number; width: number; height: number };
 
 function Arrow({ angle }: { readonly angle: number }) {
@@ -51,16 +51,28 @@ export default function WorldCupMarketFloorMap({ stores, locale, onSelect, selec
     track("my_location_click", { locale }); // no coordinates, ever
     if (typeof navigator === "undefined" || !navigator.geolocation) { setMyLoc({ kind: "unavailable" }); return; }
     setMyLoc({ kind: "locating" });
-    navigator.geolocation.getCurrentPosition(
-      (pos) => setMyLoc({ kind: "fix", lat: pos.coords.latitude, lng: pos.coords.longitude, acc: pos.coords.accuracy }),
-      (err) => setMyLoc({ kind: err.code === err.PERMISSION_DENIED ? "denied" : "unavailable" }),
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 },
-    );
+    const ok = (pos: GeolocationPosition) => setMyLoc({ kind: "fix", lat: pos.coords.latitude, lng: pos.coords.longitude, acc: pos.coords.accuracy });
+    const fail = (err: GeolocationPositionError) => setMyLoc({ kind: err.code === err.PERMISSION_DENIED ? "denied" : err.code === err.TIMEOUT ? "timeout" : "unavailable" });
+    // GPS first (10s); on timeout/unavailable fall back to network location (10s, cached ≤2 min).
+    navigator.geolocation.getCurrentPosition(ok, (err) => {
+      if (err.code === err.PERMISSION_DENIED) { fail(err); return; }
+      navigator.geolocation.getCurrentPosition(ok, fail, { enableHighAccuracy: false, timeout: 10000, maximumAge: 120000 });
+    }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 });
   };
   const fixV: MyLocationResult | null = myLoc.kind === "fix" ? locateOnPlan(vertical, affV, myLoc.lat, myLoc.lng, myLoc.acc) : null;
   const fixH: MyLocationResult | null = myLoc.kind === "fix" ? locateOnPlan(horizontal, affH, myLoc.lat, myLoc.lng, myLoc.acc) : null;
+  const fmtDist = (m: number) => (m >= 1000 ? `${(m / 1000).toFixed(m >= 10000 ? 0 : 1)}km` : `${Math.max(10, Math.round(m / 10) * 10)}m`);
   const myMsg = myLoc.kind === "locating" ? mt.locating : myLoc.kind === "denied" ? mt.denied : myLoc.kind === "unavailable" ? mt.unavailable
-    : fixV && fixV.kind !== "ok" ? mt[fixV.kind] : null;
+    : myLoc.kind === "timeout" ? mt.timeout
+    : fixV?.kind === "outside" ? `${mt.outside} ${mt.away(fmtDist(fixV.distanceM))}`
+    : fixV?.kind === "inaccurate" ? `${mt.inaccurate} ${mt.acc(fixV.accuracyM)}`
+    : fixV?.kind === "ok" ? mt.shown : null;
+  // Bring the dot into view: on phones the map is long and the dot can be off-screen.
+  useEffect(() => {
+    if (fixV?.kind !== "ok") return;
+    const el = [...document.querySelectorAll<SVGGElement>(".wcm-floor-me")].find((g) => g.getBoundingClientRect().width > 0);
+    el?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+  }, [myLoc]); // eslint-disable-line react-hooks/exhaustive-deps
   const byId = new Map(stores.map((s) => [s.id, s]));
   const ko = locale === "ko";
   const groups = WORLD_CUP_MARKET_CATEGORY_GROUP_ORDER.filter((g) => WORLD_CUP_MARKET_STORES.some((s) => s.categoryGroup === g));
@@ -129,7 +141,7 @@ export default function WorldCupMarketFloorMap({ stores, locale, onSelect, selec
       </div>
       <div className="wcm-floor-myloc">
         <button type="button" onClick={locate} disabled={myLoc.kind === "locating"}><span aria-hidden="true">◎</span> {mt.button}</button>
-        {myMsg ? <span role="status">{myMsg}</span> : <span className="is-hint">{mt.privacy}</span>}
+        {myMsg ? <span role="status" className={fixV?.kind === "ok" ? "is-ok" : undefined}>{myMsg}</span> : <span className="is-hint">{mt.privacy}</span>}
       </div>
       <div className="wcm-floor-chips">
         {groups.map((g) => <span key={g}><i style={{ background: FLOOR_MAP_COLORS[g].strong }} />{localizeCategoryGroup(g, locale)}</span>)}

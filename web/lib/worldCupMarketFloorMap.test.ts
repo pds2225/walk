@@ -45,7 +45,11 @@ describe("my location (on-device only)", () => {
   });
   it("rejects inaccurate fixes and points outside the market", () => {
     expect(locateOnPlan(layout, affine, p.displayLocation.latitude, p.displayLocation.longitude, 120).kind).toBe("inaccurate");
-    expect(locateOnPlan(layout, affine, 37.5665, 126.978, 10).kind).toBe("outside");
+    const far = locateOnPlan(layout, affine, 37.5665, 126.978, 10);
+    expect(far.kind).toBe("outside");
+    if (far.kind === "outside") expect(far.distanceM).toBeGreaterThan(5000);
+    // Far away with poor accuracy still says "outside" (with distance), not "inaccurate".
+    expect(locateOnPlan(layout, affine, 37.5665, 126.978, 300).kind).toBe("outside");
   });
 });
 

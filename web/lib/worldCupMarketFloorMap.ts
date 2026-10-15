@@ -207,16 +207,20 @@ export const MY_LOCATION_MARGIN_M = 60;
 
 export type MyLocationResult =
   | { readonly kind: "ok"; readonly x: number; readonly y: number; readonly radius: number }
-  | { readonly kind: "outside" } | { readonly kind: "inaccurate" };
+  | { readonly kind: "outside"; readonly distanceM: number } | { readonly kind: "inaccurate"; readonly accuracyM: number };
 
 /** Vertical-plan position of a fix, or why it can't be shown. Pure; nothing leaves the device. */
 export function locateOnPlan(layout: FloorPlanLayout, affine: Affine, latitude: number, longitude: number, accuracyM: number): MyLocationResult {
-  if (!(accuracyM <= MY_LOCATION_MAX_ACCURACY_M)) return { kind: "inaccurate" };
   const e = (longitude - FLOOR_MAP_REFERENCE.longitude) * LON_SCALE, n = (latitude - FLOOR_MAP_REFERENCE.latitude) * METERS_PER_LAT;
   const pts = WORLD_CUP_MARKET_MAP_PLACEMENTS.map((p) => toPlan(p.displayLocation.latitude, p.displayLocation.longitude));
   const me = rotateMeters(e, n), M = MY_LOCATION_MARGIN_M;
   const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y);
-  if (me.x < Math.min(...xs) - M || me.x > Math.max(...xs) + M || me.y < Math.min(...ys) - M || me.y > Math.max(...ys) + M) return { kind: "outside" };
+  // Distance (m) from the fix to the market's store-point bounding box, in plan metres.
+  const dx = Math.max(Math.min(...xs) - me.x, 0, me.x - Math.max(...xs)), dy = Math.max(Math.min(...ys) - me.y, 0, me.y - Math.max(...ys));
+  const distanceM = Math.hypot(dx, dy);
+  // Clearly away (even allowing for poor accuracy) → outside with distance; checked before accuracy.
+  if (distanceM > M + Math.min(accuracyM || 0, 500)) return { kind: "outside", distanceM: Math.round(distanceM) };
+  if (!(accuracyM <= MY_LOCATION_MAX_ACCURACY_M)) return { kind: "inaccurate", accuracyM: Math.round(accuracyM) };
   const [a, b, c, d, ee, f] = affine;
   const x = Math.min(layout.width, Math.max(0, a * e + b * n + c)), y = Math.min(layout.height, Math.max(0, d * e + ee * n + f));
   const scale = Math.sqrt(Math.abs(a * ee - b * d)); // plan units per metre
