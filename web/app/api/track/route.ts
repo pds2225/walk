@@ -1,4 +1,4 @@
-/** Funnel event collector for K-TRIP (/worldcup-market, app=ktrip) and WALK (/, app=walk). Inserts into public.events server-side (no IP, no coordinates). */
+/** Funnel event collector for K-TRIP (/worldcup-market, app=worldcup-market) and WALK (/, app=walk). Inserts into public.events server-side (no IP, no coordinates). */
 import { after, NextResponse } from "next/server";
 import { DETAIL_SECTIONS, isFunnelEvent, isWalkEvent, WALK_COORD_EVENTS, WALK_ERROR_TYPES, WALK_HOME_VIEW_COOKIE, WALK_HOME_VIEW_DEDUPE_SECONDS, WALK_SOURCES, MAX_DWELL_SECONDS, STORE_VIEW_COOKIE_PREFIX, STORE_VIEW_DEDUPE_SECONDS, STORE_VIEW_SOURCES } from "../../../lib/funnelEvents";
 import { insertSupabaseRow, QR_LANDING_COOKIE, trackRateBuckets as buckets, storeIdFromQrNumber, storeNumberFromId, VISITOR_COOKIE } from "../../../lib/qrScan";
@@ -126,7 +126,7 @@ export async function POST(request: Request) {
     path: str(body["path"], 128),
     user_agent: request.headers.get("user-agent")?.slice(0, 512) ?? null,
     dwell_sec: dwellSec,
-    ...(walk ? { app: "walk", query_len: queryLen, error_type: errorType, ...(coords ?? {}) } : {}),
+    ...(walk ? { app: "walk", query_len: queryLen, error_type: errorType, ...(coords ?? {}) } : { app: "worldcup-market" }),
   };
   after(async () => {
     await insertSupabaseRow("events", row);
