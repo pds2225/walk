@@ -722,9 +722,7 @@
 .wcm-floor a.is-selected .wcm-floor-label, .wcm-floor a.is-selected .wcm-floor-num { fill: #fff; }
 
 /* Category filter on the floor map: every store stays in colour; matches are lifted. */
-.wcm-floor a.is-hl .wcm-floor-stall { stroke: #1f2a33; stroke-width: 3.5; paint-order: stroke; }
-.wcm-floor a.is-hl { filter: drop-shadow(0 3px 5px rgba(0, 0, 0, .28)); }
-.wcm-floor a.is-dim { opacity: .72; }
+.wcm-floor a.is-dim { opacity: .3; }
 
 /* Bigger header text on the floor map (phone ≥15px). */
 .wcm-floor-legend, .wcm-floor-chips { font-size: 15px; gap: 6px 14px; }

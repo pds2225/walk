@@ -550,14 +550,13 @@ function MarketOverview({ locale, onSelect, onPinSelect }: {
         <button type="button" aria-pressed={group === null} onClick={() => setGroup(null)}>{ui.allCategories}</button>
         {groups.map((item) => <button type="button" key={item} aria-pressed={group === item} onClick={() => setGroup(item)}>{localizeCategoryGroup(item, locale)}</button>)}
       </div>
-      {group !== null ? storeList : null}
+      {storeList}
       <div className="worldcup-market-overview-map">
         {worldCupMarketLiveMapEnabled()
           ? <WorldCupMarketMap stores={stores} selectedId="" here={null} onSelect={onPinSelect} locale={locale} mode="overview" />
           : <WorldCupMarketFloorMap stores={WORLD_CUP_MARKET_STORES} onSelect={onPinSelect} locale={locale}
               highlightIds={group === null ? null : new Set(stores.map((store) => store.id))} />}
       </div>
-      {group === null ? storeList : null}
     </div>
   );
 }

@@ -21,9 +21,9 @@ export interface WorldCupMarketFloorMapProps {
 }
 
 /** Phones: both sides of a centre alley, real side and order kept. */
-const VERTICAL_PLAN = { margin: 4, alley: 22, stallDepth: 166, stallHeight: 88, street: 24 } as const;
+const VERTICAL_PLAN = { margin: 4, alley: 55, stallDepth: 150, stallHeight: 88, street: 24 } as const;
 /** Desktop: both sides of the alley, wide blocks. */
-const WIDE_PLAN = { margin: 10, alley: 48, stallDepth: 400, stallHeight: 60, street: 32 } as const;
+const WIDE_PLAN = { margin: 10, alley: 120, stallDepth: 364, stallHeight: 60, street: 32 } as const;
 const LABEL_FONT = { max: 30, min: 12 } as const;
 const MY_LOCATION_TEXT: Record<Locale, { button: string; locating: string; outside: string; inaccurate: string; denied: string; unavailable: string; privacy: string; shown: string; timeout: string; away: (d: string) => string; acc: (m: number) => string }> = {
   ko: { button: "내 위치", locating: "위치 확인 중…", outside: "시장 밖에 계신 것 같아요.", inaccurate: "위치가 정확하지 않아요. 잠시 후 다시 눌러 주세요.", denied: "위치 권한이 꺼져 있어요.", unavailable: "위치를 가져올 수 없어요.", privacy: "위치는 이 기기에서만 쓰고 저장하거나 보내지 않아요.", shown: "지도에 파란 점으로 표시했어요.", timeout: "위치 확인이 오래 걸려요. 밖이나 창가에서 다시 눌러 주세요.", away: (d) => `시장에서 약 ${d} 떨어져 있어요.`, acc: (m) => `(현재 오차 약 ${m}m)` },
