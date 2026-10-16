@@ -90,4 +90,26 @@ describe("POST /api/track", () => {
     await post({ event: "store_leave", store_id: "worldcup-market-23", dwell_sec: 999999.4 }, "ktrip_vid=abcdef12-3456");
     expect(await insertedRow()).toMatchObject({ event: "store_leave", dwell_sec: 86400 });
   });
+
+  it("stores WALK events as app=walk with query length / error type only, no store", async () => {
+    expect((await post({ event: "search", query_len: 5, src: "hit" })).status).toBe(202);
+    const row = await insertedRow();
+    expect(row).toMatchObject({ event: "search", app: "walk", query_len: 5, src: "hit", store_id: null });
+    expect(JSON.stringify(row)).not.toContain("1.2.3.4");
+    expect((await post({ event: "search" })).status).toBe(400);
+    expect((await post({ event: "route_error", error_type: "bogus" })).status).toBe(400);
+    expect((await post({ event: "nav_start", store_id: "worldcup-market-01" })).status).toBe(400);
+  });
+  it("keeps coordinates only on WALK nav events and drops them when WALK_STORE_COORDS=off", async () => {
+    await post({ event: "nav_progress", lat: 37.55, lng: 126.91, accuracy_m: 8 });
+    expect(await insertedRow()).toMatchObject({ app: "walk", lat: 37.55, lng: 126.91, accuracy_m: 8 });
+    afterTasks.length = 0; fetchMock.mockClear();
+    await post({ event: "page_view", lat: 37.55, lng: 126.91 });
+    const ktrip = await insertedRow();
+    expect(ktrip.lat).toBeUndefined(); expect(ktrip.app).toBeUndefined();
+    afterTasks.length = 0; fetchMock.mockClear();
+    vi.stubEnv("WALK_STORE_COORDS", "off");
+    await post({ event: "arrive", lat: 37.55, lng: 126.91 });
+    expect((await insertedRow()).lat).toBeUndefined();
+  });
 });
