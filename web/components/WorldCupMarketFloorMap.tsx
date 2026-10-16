@@ -6,8 +6,8 @@ import type React from "react";
 import { getWorldCupMarketUiText, type Locale } from "../lib/i18n";
 import { qrDestinationPath } from "../lib/qrScan";
 import { buildFloorMapLayout, fitInlineLabel, fitPlanAffine, locateOnPlan, FLOOR_MAP_COLORS, type FloorPlanLayout, type MyLocationResult } from "../lib/worldCupMarketFloorMap";
-import { localizeCategory, localizeCategoryGroup, localizeStoreName } from "../lib/worldCupMarketStoreCopy";
-import { WORLD_CUP_MARKET_CATEGORY_GROUP_ORDER, WORLD_CUP_MARKET_STORES, type WorldCupMarketStore } from "../lib/worldCupMarketStores";
+import { localizeCategory, localizeStoreName } from "../lib/worldCupMarketStoreCopy";
+import { type WorldCupMarketStore } from "../lib/worldCupMarketStores";
 
 export interface WorldCupMarketFloorMapProps {
   readonly stores: readonly WorldCupMarketStore[];
@@ -18,6 +18,8 @@ export interface WorldCupMarketFloorMapProps {
   readonly variant?: "overview" | "detail";
   /** Category filter: these stores are emphasised; all stores stay drawn in colour. */
   readonly highlightIds?: ReadonlySet<string> | null;
+  /** Overview: bump to request "my location" (e.g. after a list pick) so dot and picked store show together. */
+  readonly locateKey?: number;
 }
 
 /** Phones: both sides of a centre alley, real side and order kept. */
@@ -35,7 +37,7 @@ type MyLocState = { kind: "idle" | "locating" | "denied" | "unavailable" | "time
 type Rect = { x: number; y: number; width: number; height: number };
 
 /** Department-store style directory plan (schematic, positions approximate). */
-export default function WorldCupMarketFloorMap({ stores, locale, onSelect, selectedId = "", variant = "overview", highlightIds = null }: WorldCupMarketFloorMapProps) {
+export default function WorldCupMarketFloorMap({ stores, locale, onSelect, selectedId = "", variant = "overview", highlightIds = null, locateKey = 0 }: WorldCupMarketFloorMapProps) {
   const detail = variant === "detail";
   const rootRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
@@ -59,14 +61,7 @@ export default function WorldCupMarketFloorMap({ stores, locale, onSelect, selec
     plans.forEach((el) => io.observe(el));
     return () => io.disconnect();
   }, [detail]);
-  const hlKey = highlightIds ? [...highlightIds].sort().join(",") : "";
-  useEffect(() => {
-    if (!hlKey) return;
-    const first = [...(rootRef.current?.querySelectorAll<SVGGraphicsElement>("a.is-hl") ?? [])]
-      .filter((el) => el.getBoundingClientRect().width > 0)
-      .sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top || a.getBoundingClientRect().left - b.getBoundingClientRect().left)[0];
-    first?.scrollIntoView?.({ behavior: "smooth", block: "center" });
-  }, [hlKey]);
+  // Filtering must not move the page (Dasom 2026-10-16): no auto-scroll on highlight change.
   const ui = getWorldCupMarketUiText(locale);
   const vertical = useMemo(() => buildFloorMapLayout(stores, VERTICAL_PLAN), [stores]);
   // Wide screens: same plan rotated so the alley runs left→right (west-ish end on the left).
@@ -88,6 +83,20 @@ export default function WorldCupMarketFloorMap({ stores, locale, onSelect, selec
       navigator.geolocation.getCurrentPosition(ok, fail, { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 });
     }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
   };
+  useEffect(() => { if (locateKey > 0) locate(); }, [locateKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Overview pick: bring the picked store (red) into view.
+  useEffect(() => {
+    if (detail || !selectedId) return;
+    const el = [...(rootRef.current?.querySelectorAll<SVGGraphicsElement>(`a[data-store-id="${selectedId}"]`) ?? [])].find((g) => g.getBoundingClientRect().width > 0);
+    if (!el) return;
+    const me = [...document.querySelectorAll<SVGGElement>(".wcm-floor-me")].find((g) => g.getBoundingClientRect().width > 0);
+    if (me && typeof window.scrollBy === "function") {
+      const a = me.getBoundingClientRect(), b = el.getBoundingClientRect();
+      window.scrollBy({ top: (Math.min(a.top, b.top) + Math.max(a.bottom, b.bottom)) / 2 - window.innerHeight / 2, behavior: "smooth" });
+      return;
+    }
+    el.scrollIntoView?.({ behavior: "smooth", block: "center" });
+  }, [detail, selectedId]);
   const fixV: MyLocationResult | null = myLoc.kind === "fix" ? locateOnPlan(vertical, affV, myLoc.lat, myLoc.lng, myLoc.acc) : null;
   const fixH: MyLocationResult | null = myLoc.kind === "fix" ? locateOnPlan(horizontal, affH, myLoc.lat, myLoc.lng, myLoc.acc) : null;
   const fmtDist = (m: number) => (m >= 1000 ? `${(m / 1000).toFixed(m >= 10000 ? 0 : 1)}km` : `${Math.max(10, Math.round(m / 10) * 10)}m`);
@@ -100,12 +109,19 @@ export default function WorldCupMarketFloorMap({ stores, locale, onSelect, selec
   useEffect(() => {
     if (fixV?.kind !== "ok") return;
     const el = [...document.querySelectorAll<SVGGElement>(".wcm-floor-me")].find((g) => g.getBoundingClientRect().width > 0);
-    el?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+    if (!el) return;
+    // With a picked store, frame both: centre the midpoint of the dot and the store.
+    const sel = selectedId && !detail ? [...(rootRef.current?.querySelectorAll<SVGGraphicsElement>(`a[data-store-id="${selectedId}"]`) ?? [])].find((g) => g.getBoundingClientRect().width > 0) : undefined;
+    if (sel && typeof window.scrollBy === "function") {
+      const a = el.getBoundingClientRect(), b = sel.getBoundingClientRect();
+      const mid = (Math.min(a.top, b.top) + Math.max(a.bottom, b.bottom)) / 2;
+      window.scrollBy({ top: mid - window.innerHeight / 2, behavior: "smooth" });
+      return;
+    }
+    el.scrollIntoView?.({ behavior: "smooth", block: "center" });
   }, [myLoc]); // eslint-disable-line react-hooks/exhaustive-deps
   const byId = new Map(stores.map((s) => [s.id, s]));
   const ko = locale === "ko";
-  const groups = WORLD_CUP_MARKET_CATEGORY_GROUP_ORDER.filter((g) => WORLD_CUP_MARKET_STORES.some((s) => s.categoryGroup === g));
-  const title = ko ? "망원동 월드컵시장" : ui.market;
   const alleyLabel = `망원로7길 · ${ko ? "시장 골목" : "market alley"}`;
 
   function renderPlan(plan: FloorPlanLayout, rotated: boolean) {
@@ -159,17 +175,10 @@ export default function WorldCupMarketFloorMap({ stores, locale, onSelect, selec
   return (
     <div ref={rootRef} className={`wcm-floor${detail ? " is-detail" : ""}`} data-map-provider="floor">
       {detail ? null : <>
-      <div className="wcm-floor-head">
-        <h2>{title}</h2>
-        <p>{ko ? "시장 안내도" : "Market directory"}</p>
-      </div>
       {/* Floating "my location" button + toast, shown while the map is on screen. */}
       <div className={`wcm-floor-myloc${mapOnScreen ? "" : " is-offscreen"}`}>
         {myMsg ? <span role="status" className={`wcm-floor-toast${fixV?.kind === "ok" ? " is-ok" : ""}`}>{myMsg}</span> : null}
         <button type="button" onClick={locate} disabled={myLoc.kind === "locating"}><span aria-hidden="true">◎</span> {mt.button}</button>
-      </div>
-      <div className="wcm-floor-chips">
-        {groups.map((g) => <span key={g}><i style={{ background: FLOOR_MAP_COLORS[g].strong }} />{localizeCategoryGroup(g, locale)}</span>)}
       </div>
       </>}
       <div className="wcm-floor-plan is-vertical">{renderPlan(vertical, false)}</div>
