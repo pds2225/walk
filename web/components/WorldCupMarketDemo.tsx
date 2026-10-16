@@ -49,6 +49,7 @@ interface WorldCupMarketDemoProps {
 type DisplayProduct = StoreProduct;
 type DemoScreen = "map" | "detail";
 
+const VIEW_DETAIL: Record<Locale, string> = { ko: "상세 보기", en: "Details", ja: "詳細を見る", zh: "查看详情" };
 const LOCALE_LABELS: Record<Locale, string> = { ko: "한국어", en: "English", ja: "日本語", zh: "中文" };
 
 function walkLabel(locale: Locale, ui: ReturnType<typeof getWorldCupMarketUiText>): string {
@@ -415,6 +416,12 @@ function MarketOverview({ locale, onSelect, onPinSelect }: {
 }) {
   const ui = getWorldCupMarketUiText(locale);
   const [group, setGroup] = useState<WorldCupMarketCategoryGroup | null>(null);
+  // List tap only marks the store on the full map (red; the my-location dot stays as is); tap again or "상세 보기" opens detail.
+  const [picked, setPicked] = useState<string | null>(null);
+  const pick = (storeId: string) => {
+    if (picked === storeId) { onSelect(storeId); return; }
+    setPicked(storeId);
+  };
   const groups = useMemo(() => WORLD_CUP_MARKET_CATEGORY_GROUP_ORDER.filter((item) =>
     WORLD_CUP_MARKET_STORES.some((store) => store.categoryGroup === item)), []);
   const stores = useMemo(() => WORLD_CUP_MARKET_STORES.filter((store) => group === null || store.categoryGroup === group), [group]);
@@ -428,14 +435,16 @@ function MarketOverview({ locale, onSelect, onPinSelect }: {
         <ul className="wcm-index" aria-label={ui.storeList}>
           {[...stores].sort((a, b) => (a.corridorOrder ?? 999) - (b.corridorOrder ?? 999)).map((store) => {
             const g = store.categoryGroup ?? "unknown";
-            return <li key={store.id}>
-              <button type="button" onClick={() => onSelect(store.id)}>
+            const isPicked = picked === store.id;
+            return <li key={store.id} className={isPicked ? "is-picked" : undefined}>
+              <button type="button" aria-pressed={isPicked} onClick={() => pick(store.id)}>
                 <span className="wcm-index-badge" style={{ background: FLOOR_MAP_COLORS[g].strong }}>{store.corridorOrder}</span>
                 <span>
                   <strong>{localizeStoreName(store, locale)}</strong>
                   <StoreNameReading store={store} locale={locale} />
                 </span>
               </button>
+              {isPicked ? <button type="button" className="wcm-index-detail" onClick={() => onSelect(store.id)}>{VIEW_DETAIL[locale]} ›</button> : null}
             </li>;
           })}
         </ul>
@@ -455,7 +464,7 @@ function MarketOverview({ locale, onSelect, onPinSelect }: {
       <div className="worldcup-market-overview-map">
         {worldCupMarketLiveMapEnabled()
           ? <WorldCupMarketMap stores={stores} selectedId="" here={null} onSelect={onPinSelect} locale={locale} mode="overview" />
-          : <WorldCupMarketFloorMap stores={WORLD_CUP_MARKET_STORES} onSelect={onPinSelect} locale={locale}
+          : <WorldCupMarketFloorMap stores={WORLD_CUP_MARKET_STORES} onSelect={onPinSelect} locale={locale} selectedId={picked ?? ""}
               highlightIds={group === null ? null : new Set(stores.map((store) => store.id))} />}
       </div>
     </div>

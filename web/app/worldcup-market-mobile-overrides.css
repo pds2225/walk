@@ -770,3 +770,8 @@ html, body { overflow-anchor: none; }
 .worldcup-market-nearby-rail .wcm-photo-crop { height: auto; }
 .worldcup-market-mobile-hero-image { display: block; }
 @media (min-width: 720px) { .wcm-photo-crop.is-hero { max-width: 640px; margin: 0 auto; } }
+/* List pick: selected row + "상세 보기" */
+.worldcup-market-overview-list .wcm-index li.is-picked { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; background: #fdecec; border-radius: 8px; padding: 0 8px; }
+.worldcup-market-overview-list .wcm-index li.is-picked > button:first-child { flex: 1 1 auto; border-bottom: 0; }
+.worldcup-market-overview-list .wcm-index li.is-picked strong { color: #c62828; font-weight: 800; }
+.worldcup-market-overview-list .wcm-index button.wcm-index-detail { flex: 0 0 auto; min-height: 36px; padding: 0 12px; border-radius: 999px; background: #e53935; color: #fff; font-size: 14px; font-weight: 700; border: 0; }
