@@ -1,5 +1,8 @@
 /** Funnel events for /worldcup-market (shared by client and /api/track). */
-export const FUNNEL_EVENTS = ["page_view", "store_view", "phone_click", "map_pin_click", "directions", "language_change", "section_view", "store_leave", "my_location_click"] as const;
+export const FUNNEL_EVENTS = ["page_view", "store_view", "phone_click", "map_pin_click", "directions", "language_change", "section_view", "store_leave", "my_location_click", "location_fix"] as const;
+/** Worldcup Market events that may carry coordinates, only with geo_consent=true (WCM_STORE_COORDS=off drops them). */
+export const WCM_COORD_EVENTS = ["location_fix", "store_view", "map_pin_click"] as const;
+export const WCM_LOCATION_SOURCES = ["auto", "button"] as const;
 /** WALK walking-nav app (/) step events. Stored with app = 'walk'; never mixed with K-TRIP. */
 export const WALK_EVENTS = ["home_view", "search", "destination_select", "nav_start", "nav_progress", "reroute", "arrive", "route_error"] as const;
 /**

@@ -5,6 +5,7 @@ import { track } from "../lib/track";
 import type React from "react";
 import { getWorldCupMarketUiText, type Locale } from "../lib/i18n";
 import { qrDestinationPath } from "../lib/qrScan";
+import { consentedPosition, getGeoConsent, GEO_CONSENT_TEXT, rememberFix, setGeoConsent } from "../lib/wcmGeoConsent";
 import { buildFloorMapLayout, fitInlineLabel, fitPlanAffine, locateOnPlan, FLOOR_MAP_COLORS, type FloorPlanLayout, type MyLocationResult } from "../lib/worldCupMarketFloorMap";
 import { localizeCategory, localizeStoreName } from "../lib/worldCupMarketStoreCopy";
 import { type WorldCupMarketStore } from "../lib/worldCupMarketStores";
@@ -69,6 +70,24 @@ export default function WorldCupMarketFloorMap({ stores, locale, onSelect, selec
   const affH = useMemo(() => fitPlanAffine(horizontal), [horizontal]);
   const [myLoc, setMyLoc] = useState<MyLocState>({ kind: "idle" });
   const mt = MY_LOCATION_TEXT[locale] ?? MY_LOCATION_TEXT.en;
+  // Location storage needs consent: asked once on the first fix; decline = nothing sent.
+  const [askConsent, setAskConsent] = useState<null | "auto" | "button">(null);
+  const sendFix = (src: "auto" | "button") => {
+    const position = consentedPosition();
+    if (position) track("location_fix", { locale, src, position, geoConsent: true });
+  };
+  const onFix = (fix: { latitude: number; longitude: number; accuracyMeters: number | null }, src: "auto" | "button") => {
+    rememberFix(fix);
+    const consent = getGeoConsent();
+    if (consent === null) setAskConsent(src);
+    else if (consent === "yes") sendFix(src);
+  };
+  const answerConsent = (yes: boolean) => {
+    setGeoConsent(yes ? "yes" : "no");
+    if (yes && askConsent) sendFix(askConsent);
+    setAskConsent(null);
+  };
+  const ct = GEO_CONSENT_TEXT[locale] ?? GEO_CONSENT_TEXT.en;
   // Only a button tap scrolls the page to the dot; the automatic locate on load must not move the page.
   const manualLocateRef = useRef(false);
   const locate = (manual = true) => {
@@ -76,7 +95,10 @@ export default function WorldCupMarketFloorMap({ stores, locale, onSelect, selec
     if (manual) track("my_location_click", { locale }); // no coordinates, ever
     if (typeof navigator === "undefined" || !navigator.geolocation) { setMyLoc({ kind: "unavailable" }); return; }
     setMyLoc({ kind: "locating" });
-    const ok = (pos: GeolocationPosition) => setMyLoc({ kind: "fix", lat: pos.coords.latitude, lng: pos.coords.longitude, acc: pos.coords.accuracy });
+    const ok = (pos: GeolocationPosition) => {
+      setMyLoc({ kind: "fix", lat: pos.coords.latitude, lng: pos.coords.longitude, acc: pos.coords.accuracy });
+      onFix({ latitude: pos.coords.latitude, longitude: pos.coords.longitude, accuracyMeters: pos.coords.accuracy }, manual ? "button" : "auto");
+    };
     const fail = (err: GeolocationPositionError) => setMyLoc({ kind: err.code === err.PERMISSION_DENIED ? "denied" : err.code === err.TIMEOUT ? "timeout" : "unavailable" });
     // Fresh GPS fix first (10s, no cache: a re-tap after walking must not show the old spot); fallback network location (10s, ≤1 min cache).
     navigator.geolocation.getCurrentPosition(ok, (err) => {
@@ -199,6 +221,11 @@ export default function WorldCupMarketFloorMap({ stores, locale, onSelect, selec
     <div ref={rootRef} className={`wcm-floor${detail ? " is-detail" : ""}`} data-map-provider="floor">
       {detail ? null : <>
       {/* Floating "my location" button + toast, shown while the map is on screen. */}
+      {askConsent ? <div className="wcm-geo-consent" role="dialog" aria-modal="false" aria-labelledby="wcm-geo-consent-title">
+        <strong id="wcm-geo-consent-title">{ct.title}</strong>
+        <p>{ct.body}</p>
+        <div><button type="button" onClick={() => answerConsent(false)}>{ct.no}</button><button type="button" className="is-yes" onClick={() => answerConsent(true)}>{ct.yes}</button></div>
+      </div> : null}
       {meEdge && mapOnScreen ? <button type="button" className={`wcm-floor-me-edge is-${meEdge}`} onClick={goToMe}>{meEdge === "up" ? "↑" : "↓"} {mt.button}</button> : null}
       <div className={`wcm-floor-myloc${mapOnScreen ? "" : " is-offscreen"}`}>
         {myMsg ? <span role="status" className={`wcm-floor-toast${fixV?.kind === "ok" ? " is-ok" : ""}`}>{myMsg}</span> : null}

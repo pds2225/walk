@@ -112,4 +112,25 @@ describe("POST /api/track", () => {
     await post({ event: "arrive", lat: 37.55, lng: 126.91 });
     expect((await insertedRow()).lat).toBeUndefined();
   });
+  it("worldcup-market: coordinates only with geo_consent on location_fix/store_view/map_pin_click; never IP", async () => {
+    const reset = () => { afterTasks.length = 0; fetchMock.mockClear(); };
+    await post({ event: "location_fix", src: "auto", lat: 37.5587, lng: 126.905, accuracy_m: 12, geo_consent: true });
+    const row = await insertedRow();
+    expect(row).toMatchObject({ app: "worldcup-market", event: "location_fix", src: "auto", lat: 37.5587, lng: 126.905, accuracy_m: 12, geo_consent: true });
+    expect(JSON.stringify(row)).not.toContain("1.2.3.4");
+    reset();
+    // No consent: location_fix is not stored at all; other events drop coordinates.
+    await post({ event: "location_fix", src: "auto", lat: 37.5587, lng: 126.905 });
+    expect(afterTasks).toHaveLength(0);
+    await post({ event: "map_pin_click", lat: 37.5587, lng: 126.905 });
+    const noConsent = await insertedRow();
+    expect(noConsent.lat).toBeUndefined(); expect(noConsent.geo_consent).toBeUndefined();
+    reset();
+    await post({ event: "page_view", lat: 37.5587, lng: 126.905, geo_consent: true });
+    expect((await insertedRow()).lat).toBeUndefined();
+    reset();
+    vi.stubEnv("WCM_STORE_COORDS", "off");
+    await post({ event: "map_pin_click", lat: 37.5587, lng: 126.905, geo_consent: true });
+    expect((await insertedRow()).lat).toBeUndefined();
+  });
 });

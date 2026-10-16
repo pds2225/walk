@@ -39,6 +39,8 @@ export interface TrackInput {
   readonly errorType?: string | null;
   /** WALK nav position (only nav_start/nav_progress/reroute/arrive, when WALK_STORE_COORDS). */
   readonly position?: { readonly latitude: number; readonly longitude: number; readonly accuracyMeters?: number | null } | null;
+  /** Worldcup Market: the user agreed to location storage (required server-side for coordinates). */
+  readonly geoConsent?: boolean;
 }
 
 /**
@@ -57,6 +59,7 @@ export function track(event: FunnelEvent, input: TrackInput = {}): void {
       query_len: input.queryLen ?? null,
       error_type: input.errorType ?? null,
       ...(input.position ? { lat: input.position.latitude, lng: input.position.longitude, accuracy_m: input.position.accuracyMeters ?? null } : {}),
+      ...(input.geoConsent ? { geo_consent: true } : {}),
       session_id: getSessionId(),
       path: window.location.pathname,
     });

@@ -772,3 +772,11 @@ html, body { overflow-anchor: none; }
 .wcm-floor-me-edge.is-up { top: max(12px, env(safe-area-inset-top)); }
 .wcm-floor-me-edge.is-down { bottom: max(84px, calc(env(safe-area-inset-bottom) + 72px)); }
 .wcm-floor-myloc .wcm-floor-toast.is-ok { color: #fff; }
+/* Location storage consent (once) */
+.wcm-geo-consent { position: fixed; left: 12px; right: 12px; bottom: max(16px, env(safe-area-inset-bottom)); z-index: 60; padding: 16px; border-radius: 14px; background: #fff; box-shadow: 0 8px 28px rgba(0,0,0,.28); font-size: 16px; line-height: 1.5; color: #1f2a33; }
+.wcm-geo-consent strong { display: block; font-size: 17px; margin-bottom: 4px; }
+.wcm-geo-consent p { margin: 0 0 12px; }
+.wcm-geo-consent div { display: flex; gap: 8px; justify-content: flex-end; }
+.wcm-geo-consent button { min-height: 44px; padding: 0 18px; border-radius: 999px; border: 1px solid #c9d1d9; background: #fff; font-size: 16px; font-weight: 700; color: #1f2a33; }
+.wcm-geo-consent button.is-yes { border-color: #1e88e5; background: #1e88e5; color: #fff; }
+@media (min-width: 720px) { .wcm-geo-consent { left: auto; right: 24px; max-width: 420px; } }
