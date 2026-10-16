@@ -33,6 +33,10 @@ import { getWorldCupMarketMapPlacement } from "../lib/worldCupMarketMapLayout";
 import { worldCupMarketLiveMapEnabled, worldCupMarketWalkingEnabled } from "../lib/worldCupMarketFeatures";
 import { parseStorePhones } from "../lib/worldCupMarketPhone";
 import { htmlLangFor } from "../lib/localePreference";
+import { consentedPosition } from "../lib/wcmGeoConsent";
+
+/** Coordinates ride along only after consent (see wcmGeoConsent). */
+function geo() { const position = consentedPosition(); return position ? { position, geoConsent: true } : {}; }
 import WorldCupMarketStaticMap from "./WorldCupMarketStaticMap";
 import WorldCupMarketFloorMap from "./WorldCupMarketFloorMap";
 import { FLOOR_MAP_COLORS } from "../lib/worldCupMarketFloorMap";
@@ -329,7 +333,7 @@ function StoreDetail({ store, locale, onStartWalking, onSelect }: {
       <section className="worldcup-market-mobile-section worldcup-market-detail-location" aria-labelledby="worldcup-market-location-map-title">
         <h3 id="worldcup-market-location-map-title">{ui.locationTitle}</h3>
         <WorldCupMarketFloorMap stores={WORLD_CUP_MARKET_STORES} selectedId={store.id} locale={locale} variant="detail"
-          onSelect={(storeId) => { track("map_pin_click", { storeId, locale, src: "detail" }); onSelect(storeId); }} />
+          onSelect={(storeId) => { track("map_pin_click", { storeId, locale, src: "detail", ...geo() }); onSelect(storeId); }} />
       </section>
       <nav className="worldcup-market-mobile-section worldcup-market-detail-nearby" aria-label={ui.selectShop}>
         <h3>{ui.nearbyTitle}</h3>
@@ -495,7 +499,7 @@ export default function WorldCupMarketDemo({ locale, onLocaleChange, onStartWalk
       return;
     }
     if (screenName === "detail") {
-      track("store_view", { storeId: selectedId, locale: localeRef.current, src: viewSourceRef.current });
+      track("store_view", { storeId: selectedId, locale: localeRef.current, src: viewSourceRef.current, ...geo() });
       viewSourceRef.current = "switcher";
     }
   }, [screenName, selectedId, urlSynced]);
@@ -557,7 +561,7 @@ export default function WorldCupMarketDemo({ locale, onLocaleChange, onStartWalk
           locale={locale}
           onSelect={(storeId) => selectStore(storeId, "list")}
           onPinSelect={(storeId) => {
-            track("map_pin_click", { storeId, locale, src: "overview" });
+            track("map_pin_click", { storeId, locale, src: "overview", ...geo() });
             selectStore(storeId, "map");
           }}
         />

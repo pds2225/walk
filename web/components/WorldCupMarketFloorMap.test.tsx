@@ -37,4 +37,25 @@ describe("WorldCupMarketFloorMap my location", () => {
     render(<WorldCupMarketFloorMap stores={WORLD_CUP_MARKET_STORES} locale="ko" onSelect={vi.fn()} />);
     expect(await screen.findByText("위치 권한이 꺼져 있어요.")).toBeTruthy();
   });
+  it("첫 위치에서 한 번 동의를 묻고, 동의하면 location_fix에 좌표를, 거절하면 아무것도 보내지 않는다", async () => {
+    const { fireEvent } = await import("@testing-library/react");
+    window.localStorage.clear();
+    stubGeo((ok) => ok({ coords: { latitude: 37.5587, longitude: 126.905, accuracy: 12 } } as GeolocationPosition));
+    const view = render(<WorldCupMarketFloorMap stores={WORLD_CUP_MARKET_STORES} locale="ko" onSelect={vi.fn()} />);
+    fireEvent.click(await screen.findByRole("button", { name: "동의" }));
+    expect(window.localStorage.getItem("wcm:geo-consent")).toBe("yes");
+    expect(trackMock).toHaveBeenCalledWith("location_fix", expect.objectContaining({ src: "auto", geoConsent: true, position: expect.objectContaining({ latitude: 37.5587 }) }));
+    view.unmount(); trackMock.mockClear();
+    // Remembered: no prompt again, fixes keep being sent.
+    render(<WorldCupMarketFloorMap stores={WORLD_CUP_MARKET_STORES} locale="ko" onSelect={vi.fn()} />);
+    await waitFor(() => expect(trackMock).toHaveBeenCalledWith("location_fix", expect.anything()));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    cleanup(); trackMock.mockClear();
+    window.localStorage.clear();
+    render(<WorldCupMarketFloorMap stores={WORLD_CUP_MARKET_STORES} locale="ja" onSelect={vi.fn()} />);
+    fireEvent.click(await screen.findByRole("button", { name: "拒否する" }));
+    expect(window.localStorage.getItem("wcm:geo-consent")).toBe("no");
+    expect(trackMock).not.toHaveBeenCalledWith("location_fix", expect.anything());
+    expect(screen.getByText("地図に青い点で表示しました。")).toBeTruthy();
+  });
 });

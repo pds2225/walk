@@ -1,6 +1,6 @@
-/** Funnel event collector for K-TRIP (/worldcup-market, app=worldcup-market) and WALK (/, app=walk). Inserts into public.events server-side (no IP, no coordinates). */
+/** Funnel event collector for K-TRIP (/worldcup-market, app=worldcup-market) and WALK (/, app=walk). Inserts into public.events server-side (never IP; coordinates only for WALK movement events and consented K-TRIP location events). */
 import { after, NextResponse } from "next/server";
-import { DETAIL_SECTIONS, isFunnelEvent, isWalkEvent, WALK_COORD_EVENTS, WALK_ERROR_TYPES, WALK_HOME_VIEW_COOKIE, WALK_HOME_VIEW_DEDUPE_SECONDS, WALK_SOURCES, MAX_DWELL_SECONDS, STORE_VIEW_COOKIE_PREFIX, STORE_VIEW_DEDUPE_SECONDS, STORE_VIEW_SOURCES } from "../../../lib/funnelEvents";
+import { DETAIL_SECTIONS, isFunnelEvent, isWalkEvent, WALK_COORD_EVENTS, WALK_ERROR_TYPES, WALK_HOME_VIEW_COOKIE, WALK_HOME_VIEW_DEDUPE_SECONDS, WALK_SOURCES, WCM_COORD_EVENTS, WCM_LOCATION_SOURCES, MAX_DWELL_SECONDS, STORE_VIEW_COOKIE_PREFIX, STORE_VIEW_DEDUPE_SECONDS, STORE_VIEW_SOURCES } from "../../../lib/funnelEvents";
 import { insertSupabaseRow, QR_LANDING_COOKIE, trackRateBuckets as buckets, storeIdFromQrNumber, storeNumberFromId, VISITOR_COOKIE } from "../../../lib/qrScan";
 import { WORLD_CUP_MARKET_STORES } from "../../../lib/worldCupMarketStores";
 
@@ -92,6 +92,18 @@ export async function POST(request: Request) {
       response.cookies.set(WALK_HOME_VIEW_COOKIE, "1", { httpOnly: true, sameSite: "lax", secure, path: "/api/track", maxAge: WALK_HOME_VIEW_DEDUPE_SECONDS });
     }
   }
+  let geoConsent = false;
+  if (!walk) {
+    if (event === "location_fix") src = src && (WCM_LOCATION_SOURCES as readonly string[]).includes(src) ? src : null;
+    const lat = body["lat"], lng = body["lng"], acc = body["accuracy_m"];
+    if (body["geo_consent"] === true && process.env.WCM_STORE_COORDS !== "off" && (WCM_COORD_EVENTS as readonly string[]).includes(event)
+      && typeof lat === "number" && typeof lng === "number" && Math.abs(lat) <= 90 && Math.abs(lng) <= 180) {
+      geoConsent = true;
+      coords = { lat: Math.round(lat * 1e6) / 1e6, lng: Math.round(lng * 1e6) / 1e6,
+        accuracy_m: typeof acc === "number" && Number.isFinite(acc) && acc >= 0 ? Math.min(Math.round(acc * 10) / 10, 100000) : null };
+    }
+    if (event === "location_fix" && !coords) return response; // nothing to store without consent
+  }
   if (event === "section_view" && !(src && (DETAIL_SECTIONS as readonly string[]).includes(src))) {
     return NextResponse.json({ ok: false, error: "unknown section" }, { status: 400 });
   }
@@ -126,7 +138,7 @@ export async function POST(request: Request) {
     path: str(body["path"], 128),
     user_agent: request.headers.get("user-agent")?.slice(0, 512) ?? null,
     dwell_sec: dwellSec,
-    ...(walk ? { app: "walk", query_len: queryLen, error_type: errorType, ...(coords ?? {}) } : { app: "worldcup-market" }),
+    ...(walk ? { app: "walk", query_len: queryLen, error_type: errorType, ...(coords ?? {}) } : { app: "worldcup-market", ...(coords ? { ...coords, geo_consent: geoConsent } : {}) }),
   };
   after(async () => {
     await insertSupabaseRow("events", row);
