@@ -759,17 +759,6 @@ html, body { overflow-anchor: none; }
 .worldcup-market-nearby-rail strong { font-size: 15px; }
 .worldcup-market-nearby-rail small { font-size: 14px; }
 .worldcup-market-mobile-section { padding-top: 14px; padding-bottom: 14px; }
-/* Store posters (800x800): photo sits at x30–610, y30–375; the name/address/hours text and
-   the bottom name banner below it duplicate the page text, so show only the photo area. */
-.wcm-photo-crop { display: block; position: relative; width: 100%; aspect-ratio: 580 / 345; overflow: hidden; background: #eef2f7; }
-.worldcup-market-nearby-rail .wcm-photo-crop img,
-.worldcup-market-mobile-hero-image .wcm-photo-crop img.worldcup-market-hero-photo {
-  display: block; position: static; width: 137.93%; max-width: none; height: auto; max-height: none; min-height: 0;
-  margin: -5.17% 0 0 -5.17%; object-fit: fill;
-}
-.worldcup-market-nearby-rail .wcm-photo-crop { height: auto; }
-.worldcup-market-mobile-hero-image { display: block; }
-@media (min-width: 720px) { .wcm-photo-crop.is-hero { max-width: 640px; margin: 0 auto; } }
 /* List pick: selected row + "상세 보기" */
 .worldcup-market-overview-list .wcm-index li.is-picked { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; background: #fdecec; border-radius: 8px; padding: 0 8px; }
 .worldcup-market-overview-list .wcm-index li.is-picked > button:first-child { flex: 1 1 auto; border-bottom: 0; }

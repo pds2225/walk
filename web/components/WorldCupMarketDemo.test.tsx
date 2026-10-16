@@ -238,7 +238,7 @@ describe("World Cup Market demo", () => {
     expect(within(screen.getByRole("list", { name: ui.storeList })).getAllByRole("button")).toHaveLength(45);
   });
 
-  it("상세에 저장·공유 버튼이 없고 대표 사진은 사진 영역만 잘라 표시한다", () => {
+  it("상세에 저장·공유 버튼이 없고 대표 사진은 잘리지 않는 전용 클래스로 표시한다", () => {
     window.history.replaceState(null, "", `/worldcup-market?store=${fixtures.stores[0]!.id}`);
     const view = render(<WorldCupMarketDemo locale="ko" onStartWalking={vi.fn()} />);
     expect(screen.getByRole("heading", { level: 2 })).toBeTruthy();
@@ -246,8 +246,7 @@ describe("World Cup Market demo", () => {
     expect(view.container.querySelector(".worldcup-market-mobile-actions")).toBeNull();
     const photo = view.container.querySelector("img.worldcup-market-hero-photo");
     expect(photo?.getAttribute("alt")).toContain("대표 이미지");
-    // Poster text/banner duplicates the page, so only the photo area is shown.
-    expect(photo?.parentElement?.classList.contains("wcm-photo-crop")).toBe(true);
+    expect(view.container.querySelector("img.worldcup-market-hero-backdrop")?.getAttribute("aria-hidden")).toBe("true");
   });
 
   it("인기 메뉴는 사진 자리 없는 텍스트 카드로 보여준다", () => {

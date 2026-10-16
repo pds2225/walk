@@ -311,7 +311,8 @@ function StoreDetail({ store, locale, onStartWalking, onSelect }: {
     <article ref={detailRef} className="worldcup-market-mobile-detail" aria-labelledby="worldcup-market-selected-title">
       <div className="worldcup-market-mobile-hero-image">
         {image ? <>
-          <span className="wcm-photo-crop is-hero"><img className="worldcup-market-hero-photo" src={image.url} alt={`${name} ${ui.shopPhoto}`} loading="eager" /></span>
+          <img className="worldcup-market-hero-backdrop" src={image.url} alt="" aria-hidden="true" />
+          <img className="worldcup-market-hero-photo" src={image.url} alt={`${name} ${ui.shopPhoto}`} loading="eager" />
         </> : <div className="worldcup-market-store-image-fallback" role="img" aria-label={`${name} ${ui.aboutShop}`}><span>{localizeCategory(store.category, locale)}</span></div>}
       </div>
       <div className="worldcup-market-mobile-detail-body">
@@ -396,7 +397,7 @@ function NearbyShopRail({ selectedId, locale, onSelect, sortByDistance = false }
                 onSelect(store.id);
               }}
             >
-              {image ? <span className="wcm-photo-crop"><img src={image.url} alt="" /></span> : <span className="worldcup-market-nearby-thumb-fallback" aria-hidden="true" />}
+              {image ? <img src={image.url} alt="" /> : <span className="worldcup-market-nearby-thumb-fallback" aria-hidden="true" />}
               <strong>{name}</strong>
               <StoreNameReading store={store} locale={locale} />
               <small>{localizeCategory(store.category, locale)}</small>
