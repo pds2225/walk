@@ -118,7 +118,7 @@ describe("World Cup Market demo", () => {
     expect(screen.getAllByText("고구마").length).toBeGreaterThan(0);
     expect(screen.getByText("08:00 ~ 19:00 (일요일 휴무)")).toBeTruthy();
     expect(document.querySelector('[data-fact="price"]')).toBeNull();
-    expect(document.querySelector(".worldcup-market-not-confirmed")?.textContent).toContain("가격");
+    expect(document.querySelector(".worldcup-market-not-confirmed")).toBeNull();
     expect(screen.queryByText("미확인")).toBeNull();
     expect(screen.queryByTestId("worldcup-market-map")).toBeNull();
     expect(screen.queryByText(/37\.\d+/)).toBeNull();
@@ -135,7 +135,7 @@ describe("World Cup Market demo", () => {
     expect(screen.getByText("11:00 ~ 23:00")).toBeTruthy();
     expect(screen.getByText("02-334-8295")).toBeTruthy();
     expect(document.querySelector('[data-fact="price"]')).toBeNull();
-    expect(document.querySelector(".worldcup-market-not-confirmed")?.textContent).toContain("가격");
+    expect(document.querySelector(".worldcup-market-not-confirmed")).toBeNull();
     expect(screen.queryByText("미확인")).toBeNull();
     expect(screen.queryByText(/\d+원/)).toBeNull();
 
@@ -148,7 +148,7 @@ describe("World Cup Market demo", () => {
     fireEvent.click(screen.getAllByRole("button", { name: /무진장맛집/ })[0]!);
     expect(screen.getAllByText(/3000원의 행복/).length).toBeGreaterThan(0);
     expect(document.querySelector('[data-fact="price"]')).toBeNull();
-    expect(document.querySelector(".worldcup-market-not-confirmed")?.textContent).toContain("가격");
+    expect(document.querySelector(".worldcup-market-not-confirmed")).toBeNull();
     expect(screen.queryByText("미확인")).toBeNull();
     expect(screen.queryByText("3,000원")).toBeNull();
   });
@@ -219,12 +219,10 @@ describe("World Cup Market demo", () => {
     }
     expect(untranslatedTextNodes(view.container), `${locale} ${store.id} detail`).toEqual([]);
 
-    fireEvent.click(screen.getByRole("button", { name: ui.nearbyEntry }));
-    expect(view.container.querySelector(".worldcup-market-nearby-selected span")?.textContent)
-      .toBe(localizeDescription(store.descriptionKo, locale) ?? ui.unknown);
-    expect(view.container.querySelector(".worldcup-market-nearby-screen")?.textContent)
-      .toContain(localizeAddress(store.address, locale));
-    expect(untranslatedTextNodes(view.container), `${locale} ${store.id} nearby`).toEqual([]);
+    // One merged detail page: address once, no separate nearby screen.
+    expect(screen.queryByRole("button", { name: ui.nearbyEntry })).toBeNull();
+    expect(detail.textContent?.split(localizeAddress(store.address, locale)).length, "address shown once").toBe(2);
+    expect(view.container.querySelector(".worldcup-market-detail-nearby .worldcup-market-nearby-rail")).toBeTruthy();
 
     // Localization changes the rendered copy, never the source facts or the
     // unknown-location fixtures used by these component tests.
@@ -240,7 +238,7 @@ describe("World Cup Market demo", () => {
     expect(within(screen.getByRole("list", { name: ui.storeList })).getAllByRole("button")).toHaveLength(45);
   });
 
-  it("상세에 저장·공유 버튼이 없고 대표 사진은 잘리지 않는 전용 클래스로 표시한다", () => {
+  it("상세에 저장·공유 버튼이 없고 대표 사진은 사진 영역만 잘라 표시한다", () => {
     window.history.replaceState(null, "", `/worldcup-market?store=${fixtures.stores[0]!.id}`);
     const view = render(<WorldCupMarketDemo locale="ko" onStartWalking={vi.fn()} />);
     expect(screen.getByRole("heading", { level: 2 })).toBeTruthy();
@@ -248,7 +246,8 @@ describe("World Cup Market demo", () => {
     expect(view.container.querySelector(".worldcup-market-mobile-actions")).toBeNull();
     const photo = view.container.querySelector("img.worldcup-market-hero-photo");
     expect(photo?.getAttribute("alt")).toContain("대표 이미지");
-    expect(view.container.querySelector("img.worldcup-market-hero-backdrop")?.getAttribute("aria-hidden")).toBe("true");
+    // Poster text/banner duplicates the page, so only the photo area is shown.
+    expect(photo?.parentElement?.classList.contains("wcm-photo-crop")).toBe(true);
   });
 
   it("인기 메뉴는 사진 자리 없는 텍스트 카드로 보여준다", () => {
@@ -265,7 +264,6 @@ describe("World Cup Market demo", () => {
     const onStartWalking = vi.fn();
     render(<WorldCupMarketDemo locale="ko" onStartWalking={onStartWalking} />);
 
-    fireEvent.click(screen.getByRole("button", { name: /주변 점포 · 지도/ }));
     expect(screen.getByRole("heading", { name: "주변 점포" })).toBeTruthy();
     expect(screen.getByText("서울 마포구 망원로7길 31")).toBeTruthy();
     expect(screen.queryByTestId("worldcup-market-map")).toBeNull();
@@ -293,9 +291,8 @@ describe("World Cup Market demo", () => {
     fireEvent.click(walk);
     expect(onStartWalking).toHaveBeenLastCalledWith({ name: first.nameKo, coordinate: first.navigationTarget });
 
-    fireEvent.click(screen.getByRole("button", { name: /주변 점포 · 지도/ }));
     expect(screen.getAllByTestId("worldcup-market-floor-map").some((m) => m.getAttribute("data-variant") === "detail")).toBe(true);
-    expect(screen.getByRole("note").textContent).toContain("같은 주소 좌표를 공유하는 점포 수: 2");
+    expect(screen.queryByText(/좌표를 공유하는/)).toBeNull();
     expect(screen.getByText("지도와 케이트립 도보안내는 계속 사용할 수 있습니다.")).toBeTruthy();
     const second = fixtures.stores[1];
     if (!second) throw new Error("점포 fixture가 없습니다");
@@ -307,7 +304,6 @@ describe("World Cup Market demo", () => {
     if (!unknown) throw new Error("점포 fixture가 없습니다");
     fireEvent.click(screen.getByRole("listitem", { name: unknown.nameKo }));
     expect((screen.getByRole("button", { name: "여기로 가기" }) as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByText("위치: 미확인")).toBeTruthy();
     expect(screen.getByText("점포 위치가 미확인이라 지도 핀과 도보안내를 사용할 수 없습니다.")).toBeTruthy();
     expect(screen.queryByRole("note")).toBeNull();
   });
@@ -450,10 +446,9 @@ describe("World Cup Market demo", () => {
       expect(screen.getAllByText(localizeCategory(store.category, locale), { exact: true }).length).toBeGreaterThan(0);
       expect(screen.getByText(ui.representativeMenu)).toBeTruthy();
       expect(document.querySelector('[data-fact="price"]')).toBeNull();
-      expect(document.querySelector(".worldcup-market-not-confirmed")?.textContent).toContain(ui.notConfirmedFields);
+      expect(document.querySelector(".worldcup-market-not-confirmed")).toBeNull();
     }
 
-    fireEvent.click(screen.getByRole("button", { name: getWorldCupMarketUiText("ko").nearbyEntry }));
     for (const locale of locales) {
       const ui = getWorldCupMarketUiText(locale);
       fireEvent.click(screen.getByRole("button", { name: ({ ko: "한국어", en: "English", ja: "日本語", zh: "中文" } as const)[locale] }));
@@ -464,7 +459,6 @@ describe("World Cup Market demo", () => {
         .getByRole("listitem", { name: localizeStoreName(store, locale) });
       expect(within(firstStore).getByText(localizeCategory(store.category, locale))).toBeTruthy();
     }
-    fireEvent.click(screen.getByRole("button", { name: "뒤로" }));
     fireEvent.click(screen.getByRole("button", { name: "시장 지도로 돌아가기" }));
     expect(screen.getByRole("heading", { name: "망원동 월드컵시장" })).toBeTruthy();
     expect(window.location.search).toBe("");
@@ -475,7 +469,6 @@ describe("World Cup Market demo", () => {
     locateStore(0);
     render(<WorldCupMarketDemo locale="ko" onStartWalking={vi.fn()} />);
     expect(screen.queryByRole("button", { name: "여기로 가기" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: /주변 점포 · 지도/ }));
     expect(screen.queryByRole("button", { name: "여기로 가기" })).toBeNull();
   });
 
@@ -512,21 +505,17 @@ describe("World Cup Market demo", () => {
     expect(screen.queryByTestId("worldcup-market-map")).toBeNull();
   });
 
-  it("주변 화면을 열면 history 항목을 추가로 push하고, 뒤로가기(popstate)로 상세에 복귀한다", () => {
-    window.history.replaceState(null, "", "/worldcup-market?store=worldcup-market-01");
-    render(<WorldCupMarketDemo locale="ko" onStartWalking={vi.fn()} />);
-    const lengthBeforeNearby = window.history.length;
-
-    fireEvent.click(screen.getByRole("button", { name: /주변 점포 · 지도/ }));
-    expect(screen.getByRole("heading", { name: "주변 점포" })).toBeTruthy();
-    expect(window.history.length).toBe(lengthBeforeNearby + 1);
-    expect(window.location.search).toContain("view=nearby");
-    expect(window.location.search).toContain("store=worldcup-market-01");
-
-    window.history.replaceState(null, "", "/worldcup-market?store=worldcup-market-01");
-    act(() => { window.dispatchEvent(new Event("popstate")); });
+  it("상세 한 페이지: 점포 정보 → 안내 박스 → 주변 점포 → 위치 → 거리뷰 순서, 옛 ?view=nearby 링크도 상세로 연다", () => {
+    window.history.replaceState(null, "", "/worldcup-market?store=worldcup-market-01&view=nearby");
+    const view = render(<WorldCupMarketDemo locale="ko" onStartWalking={vi.fn()} />);
     expect(screen.getByRole("heading", { name: "부부야채" })).toBeTruthy();
-    expect(window.location.search).not.toContain("view=nearby");
+    const order = [".worldcup-market-mobile-detail-body", ".worldcup-market-about-shop", ".worldcup-market-detail-nearby", ".worldcup-market-detail-location", ".worldcup-market-detail-storefront"]
+      .map((sel) => view.container.querySelector(sel));
+    order.forEach((el) => expect(el).toBeTruthy());
+    for (let i = 1; i < order.length; i += 1) {
+      expect(order[i - 1]!.compareDocumentPosition(order[i]!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    }
+    expect(view.container.textContent).not.toMatch(/좌표를 공유하는|대략 위치/);
   });
 
   it("앱 안의 뒤로 버튼은 history가 없는 ?store= 딥링크에서도 빈 화면이 아니라 목록으로 이동(replace)한다", () => {
@@ -584,9 +573,9 @@ describe("World Cup Market demo", () => {
     render(<WorldCupMarketDemo locale="ko" onStartWalking={vi.fn()} />);
     fireEvent.click(within(screen.getByRole("list", { name: "점포 목록" })).getByRole("button", { name: /부부야채/ }));
     expect(push).toHaveBeenCalledTimes(1);
-    const switcher = within(screen.getByRole("navigation", { name: getWorldCupMarketUiText("ko").selectShop }));
-    fireEvent.click(switcher.getByRole("button", { name: /가락농산물/ }));
-    fireEvent.click(switcher.getByRole("button", { name: /무진장전집/ }));
+    const switcher = () => within(screen.getByRole("navigation", { name: getWorldCupMarketUiText("ko").selectShop }));
+    fireEvent.click(switcher().getByRole("button", { name: /가락농산물/ }));
+    fireEvent.click(switcher().getByRole("button", { name: /무진장전집/ }));
     expect(push).toHaveBeenCalledTimes(1);
     expect(replace).toHaveBeenCalled();
     expect(window.location.search).toContain("store=worldcup-market-04");

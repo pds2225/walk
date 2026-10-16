@@ -47,7 +47,7 @@ interface WorldCupMarketDemoProps {
 }
 
 type DisplayProduct = StoreProduct;
-type DemoScreen = "map" | "detail" | "nearby";
+type DemoScreen = "map" | "detail";
 
 const LOCALE_LABELS: Record<Locale, string> = { ko: "한국어", en: "English", ja: "日本語", zh: "中文" };
 
@@ -58,20 +58,6 @@ function walkLabel(locale: Locale, ui: ReturnType<typeof getWorldCupMarketUiText
 function priceText(price: number | null, priceLabel: string | null, locale: Locale): string | null {
   if (price !== null) return formatKrwPrice(price, locale);
   return localizePriceLabel(priceLabel, locale);
-}
-
-/** 상세 화면에서 값이 없어 숨긴 항목 이름. 한 줄로 모아 작게 보여준다. */
-function missingStoreFields(store: WorldCupMarketStore, locale: Locale): string[] {
-  const ui = getWorldCupMarketUiText(locale);
-  const signature = representativeFact(store);
-  const missing: string[] = [];
-  if (!signature.name) missing.push(ui.representativeMenu);
-  if (priceText(signature.price, signature.priceLabel, locale) === null) missing.push(ui.price);
-  if (!localizeHours(store.businessHours, locale)) missing.push(ui.hours);
-  if (parseStorePhones(store.phone).length === 0) missing.push(ui.phone);
-  if (store.purchaseInfo.takeout === null) missing.push(ui.takeout);
-  if (store.purchaseInfo.dineIn === null) missing.push(ui.dineIn);
-  return missing;
 }
 
 function displayProducts(store: WorldCupMarketStore): DisplayProduct[] {
@@ -96,8 +82,8 @@ function screenFromSearch(search: string): { readonly screen: DemoScreen; readon
   const params = new URLSearchParams(search);
   const requestedStore = params.get("store");
   if (!hasStore(requestedStore)) return { screen: "map", storeId: null };
-  const screen: DemoScreen = params.get("view") === "nearby" ? "nearby" : "detail";
-  return { screen, storeId: requestedStore };
+  // Old ?view=nearby links land on the single merged detail page.
+  return { screen: "detail", storeId: requestedStore };
 }
 
 function buildMarketUrl(storeId: string | null, nearby: boolean): string {
@@ -107,13 +93,6 @@ function buildMarketUrl(storeId: string | null, nearby: boolean): string {
   if (nearby) url.searchParams.set("view", "nearby");
   else url.searchParams.delete("view");
   return `${url.pathname}${url.search}${url.hash}`;
-}
-
-/** Updates the store param in place (no new history entry); keeps the current map/nearby view. */
-function updateStoreDeepLink(storeId: string | null): void {
-  if (typeof window === "undefined") return;
-  const nearby = new URLSearchParams(window.location.search).get("view") === "nearby";
-  window.history.replaceState(window.history.state, "", buildMarketUrl(storeId, nearby));
 }
 
 function WorldCupMarketMobileHeader({ locale, onLocaleChange, onBack, backLabel }: {
@@ -289,7 +268,6 @@ function StoreAbout({ store, locale }: { readonly store: WorldCupMarketStore; re
     store.purchaseInfo.takeout === null ? null : { key: "takeout", label: ui.takeout, value: store.purchaseInfo.takeout },
     store.purchaseInfo.dineIn === null ? null : { key: "dineIn", label: ui.dineIn, value: store.purchaseInfo.dineIn },
   ].filter((item): item is { key: string; label: string; value: boolean } => item !== null);
-  const missing = missingStoreFields(store, locale);
   // The description is shown once, at the top of the detail screen.
   return (
     <section className="worldcup-market-mobile-section worldcup-market-about-shop" aria-labelledby="worldcup-market-about-shop-title">
@@ -307,9 +285,6 @@ function StoreAbout({ store, locale }: { readonly store: WorldCupMarketStore; re
         </dl>
       ) : null}
       {orderNote ? <p className="worldcup-market-order-note"><strong>{ui.orderNote}</strong>{orderNote}</p> : null}
-      {missing.length > 0 ? (
-        <p className="worldcup-market-not-confirmed"><span>{ui.notConfirmedFields}</span> {missing.join(" · ")}</p>
-      ) : null}
     </section>
   );
 }
@@ -320,11 +295,11 @@ function StoreNameReading({ store, locale }: { readonly store: WorldCupMarketSto
   return <small className="worldcup-market-name-reading">{reading}</small>;
 }
 
-function StoreDetail({ store, locale, onStartWalking, onOpenNearby }: {
+function StoreDetail({ store, locale, onStartWalking, onSelect }: {
   readonly store: WorldCupMarketStore;
   readonly locale: Locale;
   readonly onStartWalking: WorldCupMarketDemoProps["onStartWalking"];
-  readonly onOpenNearby: () => void;
+  readonly onSelect: (storeId: string) => void;
 }) {
   const ui = getWorldCupMarketUiText(locale);
   const image = store.storeImages[0];
@@ -335,15 +310,13 @@ function StoreDetail({ store, locale, onStartWalking, onOpenNearby }: {
     <article ref={detailRef} className="worldcup-market-mobile-detail" aria-labelledby="worldcup-market-selected-title">
       <div className="worldcup-market-mobile-hero-image">
         {image ? <>
-          <img className="worldcup-market-hero-backdrop" src={image.url} alt="" aria-hidden="true" />
-          <img className="worldcup-market-hero-photo" src={image.url} alt={`${name} ${ui.shopPhoto}`} loading="eager" />
+          <span className="wcm-photo-crop is-hero"><img className="worldcup-market-hero-photo" src={image.url} alt={`${name} ${ui.shopPhoto}`} loading="eager" /></span>
         </> : <div className="worldcup-market-store-image-fallback" role="img" aria-label={`${name} ${ui.aboutShop}`}><span>{localizeCategory(store.category, locale)}</span></div>}
       </div>
       <div className="worldcup-market-mobile-detail-body">
         <h2 id="worldcup-market-selected-title">{name}</h2>
         <StoreNameReading store={store} locale={locale} />
         <p className="worldcup-market-mobile-category">{localizeCategory(store.category, locale)}</p>
-        {getWorldCupMarketMapPlacement(store.id)?.approximate ? <small className="worldcup-market-approximate">{ui.approximateLocation}</small> : null}
         {localizeDescription(store.descriptionKo, locale) ? <p className="worldcup-market-mobile-description">{localizeDescription(store.descriptionKo, locale)}</p> : null}
         {locale !== "ko" ? <p className="worldcup-market-source-notice">{ui.originalSourceNotice}</p> : null}
         <StoreKeyFacts store={store} locale={locale} />
@@ -351,12 +324,19 @@ function StoreDetail({ store, locale, onStartWalking, onOpenNearby }: {
       </div>
       <MenuCarousel store={store} locale={locale} />
       <StoreAbout store={store} locale={locale} />
-      <div className="worldcup-market-nearby-entry">
-        <button type="button" onClick={onOpenNearby}>
-          <span>{ui.nearbyEntry}</span>
-          <span aria-hidden="true">›</span>
-        </button>
-      </div>
+      <nav className="worldcup-market-mobile-section worldcup-market-detail-nearby" aria-label={ui.selectShop}>
+        <h3>{ui.nearbyTitle}</h3>
+        <NearbyShopRail selectedId={store.id} locale={locale} onSelect={onSelect} sortByDistance />
+      </nav>
+      <section className="worldcup-market-mobile-section worldcup-market-detail-location" aria-labelledby="worldcup-market-location-map-title">
+        <h3 id="worldcup-market-location-map-title">{ui.locationTitle}</h3>
+        <WorldCupMarketFloorMap stores={WORLD_CUP_MARKET_STORES} selectedId={store.id} locale={locale} variant="detail"
+          onSelect={(storeId) => { track("map_pin_click", { storeId, locale, src: "detail" }); onSelect(storeId); }} />
+      </section>
+      <section className="worldcup-market-mobile-section worldcup-market-detail-storefront" aria-labelledby="worldcup-market-storefront-title">
+        <h3 id="worldcup-market-storefront-title">{ui.storefrontTitle}</h3>
+        <WorldCupMarketStreetView key={`storefront-${store.id}`} store={store} locale={locale} />
+      </section>
     </article>
   );
 }
@@ -415,7 +395,7 @@ function NearbyShopRail({ selectedId, locale, onSelect, sortByDistance = false }
                 onSelect(store.id);
               }}
             >
-              {image ? <img src={image.url} alt="" /> : <span className="worldcup-market-nearby-thumb-fallback" aria-hidden="true" />}
+              {image ? <span className="wcm-photo-crop"><img src={image.url} alt="" /></span> : <span className="worldcup-market-nearby-thumb-fallback" aria-hidden="true" />}
               <strong>{name}</strong>
               <StoreNameReading store={store} locale={locale} />
               <small>{localizeCategory(store.category, locale)}</small>
@@ -425,85 +405,6 @@ function NearbyShopRail({ selectedId, locale, onSelect, sortByDistance = false }
       })}
     </ul>
     </div>
-  );
-}
-
-function NearbyScreen({ store, selectedId, locale, onLocaleChange, onSelect, onBack, onStartWalking }: {
-  readonly store: WorldCupMarketStore;
-  readonly selectedId: string;
-  readonly locale: Locale;
-  readonly onLocaleChange?: ((locale: Locale) => void) | undefined;
-  readonly onSelect: (storeId: string) => void;
-  readonly onBack: () => void;
-  readonly onStartWalking: WorldCupMarketDemoProps["onStartWalking"];
-}) {
-  const ui = getWorldCupMarketUiText(locale);
-  const image = store.storeImages[0];
-
-  const sharedLocationCount = store.storeLocation
-    ? WORLD_CUP_MARKET_STORES.filter((item) => item.storeLocation
-      && item.storeLocation.latitude === store.storeLocation?.latitude
-      && item.storeLocation.longitude === store.storeLocation?.longitude).length
-    : 0;
-
-  return (
-    <section className="worldcup-market-nearby-screen" aria-labelledby="worldcup-market-nearby-title">
-      <WorldCupMarketMobileHeader locale={locale} onLocaleChange={onLocaleChange} onBack={onBack} />
-      <div className="worldcup-market-nearby-heading">
-        <p>{ui.nearbyEyebrow}</p>
-        <h2 id="worldcup-market-nearby-title">{ui.nearbyTitle}</h2>
-        {locale !== "ko" ? <p className="worldcup-market-source-notice">{ui.originalSourceNotice}</p> : null}
-      </div>
-      <NearbyShopRail selectedId={selectedId} locale={locale} onSelect={onSelect} />
-
-      <article className="worldcup-market-nearby-selected">
-        {image ? <img src={image.url} alt="" /> : null}
-        <div>
-          <h3>{localizeStoreName(store, locale)}</h3>
-          <StoreNameReading store={store} locale={locale} />
-          <p>{localizeCategory(store.category, locale)}</p>
-          <span>{localizeDescription(store.descriptionKo, locale) ?? ui.unknown}</span>
-        </div>
-      </article>
-
-
-      <section className="worldcup-market-nearby-block" aria-labelledby="worldcup-market-location-map-title">
-        <div className="worldcup-market-nearby-block-heading">
-          <h3 id="worldcup-market-location-map-title">{ui.locationTitle}</h3>
-          <span>{ui.market}</span>
-        </div>
-        <p>{localizeAddress(store.address, locale)}</p>
-        {getWorldCupMarketMapPlacement(store.id)?.approximate ? <small className="worldcup-market-approximate">{ui.approximateLocation}</small> : null}
-        {sharedLocationCount > 1 ? (
-          <p role="note">{ui.sharedLocationNotice.replace("{count}", String(sharedLocationCount))}</p>
-        ) : null}
-        {!store.storeLocation && WORLD_CUP_MARKET_STORES.some((item) => item.storeLocation) ? (
-          <p role="status">{ui.locationTitle}: {ui.unknown}</p>
-        ) : null}
-        <WorldCupMarketFloorMap stores={WORLD_CUP_MARKET_STORES} selectedId={selectedId} locale={locale} variant="detail"
-          onSelect={(storeId) => { track("map_pin_click", { storeId, locale, src: "detail" }); onSelect(storeId); }} />
-      </section>
-
-      {worldCupMarketWalkingEnabled() ? <div className="worldcup-market-nearby-cta">
-        <button type="button" disabled={store.navigationTarget === null}
-        onClick={() => {
-          const coordinate = store.navigationTarget;
-          if (!coordinate) return;
-          track("directions", { storeId: store.id, locale });
-          onStartWalking({ name: localizeStoreName(store, locale), coordinate });
-        }}>
-          {walkLabel(locale, ui)}
-        </button>
-      </div> : null}
-
-      <section className="worldcup-market-nearby-block" aria-labelledby="worldcup-market-storefront-title">
-        <div className="worldcup-market-nearby-block-heading">
-          <h3 id="worldcup-market-storefront-title">{ui.storefrontTitle}</h3>
-          <span>{store.streetView.provider === "NAVER" ? "NAVER Panorama" : "Google Street View"}</span>
-        </div>
-        <WorldCupMarketStreetView key={`storefront-${store.id}`} store={store} locale={locale} />
-      </section>
-    </section>
   );
 }
 
@@ -542,13 +443,13 @@ function MarketOverview({ locale, onSelect, onPinSelect }: {
   );
   return (
     <div className={`worldcup-market-overview${worldCupMarketLiveMapEnabled() ? "" : " has-floor"}`}>
-      <div className="worldcup-market-overview-heading">
+      <div className="worldcup-market-overview-heading visually-hidden">
         <h1>{ui.market}</h1>
         <p>{ui.subtitle}</p>
       </div>
       <div className="worldcup-market-category-filter" role="group" aria-label={ui.categoryFilter}>
         <button type="button" aria-pressed={group === null} onClick={() => setGroup(null)}>{ui.allCategories}</button>
-        {groups.map((item) => <button type="button" key={item} aria-pressed={group === item} onClick={() => setGroup(item)}>{localizeCategoryGroup(item, locale)}</button>)}
+        {groups.map((item) => <button type="button" key={item} aria-pressed={group === item} onClick={() => setGroup(item)}><i aria-hidden="true" style={{ background: FLOOR_MAP_COLORS[item].strong }} />{localizeCategoryGroup(item, locale)}</button>)}
       </div>
       {storeList}
       <div className="worldcup-market-overview-map">
@@ -637,16 +538,6 @@ export default function WorldCupMarketDemo({ locale, onLocaleChange, onStartWalk
     restoreMapScrollIfNeeded();
   }, [restoreMapScrollIfNeeded]);
 
-  const openNearby = useCallback(() => {
-    window.history.pushState(null, "", buildMarketUrl(selectedId, true));
-    setScreenName("nearby");
-  }, [selectedId]);
-
-  const closeNearby = useCallback(() => {
-    setScreenName("detail");
-    window.history.replaceState(null, "", buildMarketUrl(selectedId, false));
-  }, [selectedId]);
-
   if (!selected) return null;
 
   if (screenName === "map") {
@@ -665,35 +556,11 @@ export default function WorldCupMarketDemo({ locale, onLocaleChange, onStartWalk
     );
   }
 
-  if (screenName === "nearby") {
-    return (
-      <section className="worldcup-market-demo worldcup-market-mobile-screen" lang={htmlLangFor(locale)} aria-label={getWorldCupMarketUiText(locale).title}>
-        <NearbyScreen
-          store={selected}
-          selectedId={selectedId}
-          locale={locale}
-          onLocaleChange={onLocaleChange}
-          onSelect={(storeId) => {
-            track("store_view", { storeId, locale, src: "nearby" });
-            setSelectedId(storeId);
-            updateStoreDeepLink(storeId);
-          }}
-          onBack={closeNearby}
-          onStartWalking={onStartWalking}
-        />
-      </section>
-    );
-  }
-
   return (
     <section className="worldcup-market-demo worldcup-market-mobile-screen" lang={htmlLangFor(locale)} aria-labelledby="worldcup-market-demo-title">
       <WorldCupMarketMobileHeader locale={locale} onLocaleChange={onLocaleChange} onBack={backToMap} backLabel={ui.backToMap} />
       <h1 id="worldcup-market-demo-title" className="visually-hidden">{ui.title}</h1>
-      <StoreDetail key={selected.id} store={selected} locale={locale} onStartWalking={onStartWalking} onOpenNearby={openNearby} />
-      <nav className="worldcup-market-detail-nearby" aria-label={ui.selectShop}>
-        <h3>{ui.nearbyTitle}</h3>
-        <NearbyShopRail selectedId={selectedId} locale={locale} onSelect={selectStore} sortByDistance />
-      </nav>
+      <StoreDetail key={selected.id} store={selected} locale={locale} onStartWalking={onStartWalking} onSelect={selectStore} />
     </section>
   );
 }

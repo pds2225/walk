@@ -739,3 +739,34 @@
   box-shadow: 0 4px 14px rgba(0, 0, 0, .25); }
 .wcm-floor-toast.is-ok { background: #1565c0; }
 .worldcup-market-overview-list.is-filtered { margin: 4px 0 12px; }
+
+/* Simplify + bigger text (Dasom 2026-10-16) */
+html, body { overflow-anchor: none; }
+.worldcup-market-mobile-screen { font-size: 16.5px; }
+.worldcup-market-category-filter button { min-height: 42px; padding: 0 14px; font-size: 15px; display: inline-flex; align-items: center; gap: 6px; }
+.worldcup-market-category-filter button i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.worldcup-market-overview-list .wcm-index button { min-height: 46px; padding: 8px 0; }
+.wcm-index button strong { font-size: 16px; font-weight: 600; }
+.wcm-index button small { font-size: 14px; }
+.wcm-index .wcm-index-badge { min-width: 30px; height: 24px; font-size: 14px; }
+.worldcup-market-section-heading h2, .worldcup-market-mobile-section h3 { font-size: 19px; }
+.worldcup-market-section-heading span { font-size: 14px; }
+.worldcup-market-mobile-detail h2 { font-size: 24px; }
+.worldcup-market-mobile-description, .worldcup-market-about-shop p, .worldcup-market-mobile-key-facts dd, .worldcup-market-purchase-facts dd { font-size: 16.5px; line-height: 1.55; }
+.worldcup-market-mobile-category, .worldcup-market-mobile-key-facts dt, .worldcup-market-purchase-facts dt, .worldcup-market-source-notice, .worldcup-market-name-reading, .wcm-floor-note { font-size: 14px; }
+.worldcup-market-menu-card strong { font-size: 16px; }
+.worldcup-market-menu-card span { font-size: 15px; }
+.worldcup-market-nearby-rail strong { font-size: 15px; }
+.worldcup-market-nearby-rail small { font-size: 14px; }
+.worldcup-market-mobile-section { padding-top: 14px; padding-bottom: 14px; }
+/* Store posters (800x800): photo sits at x30–610, y30–375; the name/address/hours text and
+   the bottom name banner below it duplicate the page text, so show only the photo area. */
+.wcm-photo-crop { display: block; position: relative; width: 100%; aspect-ratio: 580 / 345; overflow: hidden; background: #eef2f7; }
+.worldcup-market-nearby-rail .wcm-photo-crop img,
+.worldcup-market-mobile-hero-image .wcm-photo-crop img.worldcup-market-hero-photo {
+  display: block; position: static; width: 137.93%; max-width: none; height: auto; max-height: none; min-height: 0;
+  margin: -5.17% 0 0 -5.17%; object-fit: fill;
+}
+.worldcup-market-nearby-rail .wcm-photo-crop { height: auto; }
+.worldcup-market-mobile-hero-image { display: block; }
+@media (min-width: 720px) { .wcm-photo-crop.is-hero { max-width: 640px; margin: 0 auto; } }
