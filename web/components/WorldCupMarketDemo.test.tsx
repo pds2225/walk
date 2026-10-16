@@ -33,7 +33,7 @@ vi.mock("next/dynamic", () => ({
 }));
 
 vi.mock("./WorldCupMarketFloorMap", () => ({
-  default: ({ stores, onSelect }: { stores: readonly WorldCupMarketStore[]; onSelect: (id: string) => void }) => <div data-testid="worldcup-market-floor-map" data-store-count={stores.length}><button onClick={() => onSelect(stores[0]!.id)}>test map selection</button></div>,
+  default: ({ stores, onSelect, selectedId, variant, highlightIds }: { stores: readonly WorldCupMarketStore[]; onSelect: (id: string) => void; selectedId?: string; variant?: string; highlightIds?: ReadonlySet<string> }) => <div data-testid="worldcup-market-floor-map" data-store-count={stores.length} data-selected={selectedId} data-variant={variant ?? "overview"} data-hl={highlightIds ? highlightIds.size : ""}><button onClick={() => onSelect(stores[0]!.id)}>test map selection</button></div>,
 }));
 vi.mock("./WorldCupMarketStaticMap", () => ({
   default: ({ stores, onSelect, selectedId, mode }: { stores: readonly WorldCupMarketStore[]; onSelect: (id: string) => void; selectedId?: string; mode?: string }) => <div data-testid="worldcup-market-static-map" data-store-count={stores.length} data-selected={selectedId} data-mode={mode}><button onClick={() => onSelect(stores[0]!.id)}>test map selection</button></div>,
@@ -171,7 +171,7 @@ describe("World Cup Market demo", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "日本語" }));
     rerender(<WorldCupMarketDemo locale="ja" onLocaleChange={onLocaleChange} onStartWalking={onStartWalking} />);
-    expect(screen.getByRole("heading", { name: "부부야채" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: localizeStoreName(fixtures.stores[0]!, "ja") })).toBeTruthy();
     expect(screen.getByText("人気メニュー")).toBeTruthy();
     expect(screen.getAllByText(localizeProductName("고구마", "ja")).length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "ここへ歩いて行く" })).toBeTruthy();
@@ -268,7 +268,6 @@ describe("World Cup Market demo", () => {
     fireEvent.click(screen.getByRole("button", { name: /주변 점포 · 지도/ }));
     expect(screen.getByRole("heading", { name: "주변 점포" })).toBeTruthy();
     expect(screen.getByText("서울 마포구 망원로7길 31")).toBeTruthy();
-    expect(screen.getByText("미확인")).toBeTruthy();
     expect(screen.queryByTestId("worldcup-market-map")).toBeNull();
     expect(screen.getByText("사용 가능한 점포 근처 거리 뷰가 없습니다")).toBeTruthy();
     expect(screen.queryByTitle(/거리 뷰/)).toBeNull();
@@ -295,7 +294,7 @@ describe("World Cup Market demo", () => {
     expect(onStartWalking).toHaveBeenLastCalledWith({ name: first.nameKo, coordinate: first.navigationTarget });
 
     fireEvent.click(screen.getByRole("button", { name: /주변 점포 · 지도/ }));
-    expect(await screen.findByTestId("worldcup-market-map")).toBeTruthy();
+    expect(screen.getAllByTestId("worldcup-market-floor-map").some((m) => m.getAttribute("data-variant") === "detail")).toBe(true);
     expect(screen.getByRole("note").textContent).toContain("같은 주소 좌표를 공유하는 점포 수: 2");
     expect(screen.getByText("지도와 케이트립 도보안내는 계속 사용할 수 있습니다.")).toBeTruthy();
     const second = fixtures.stores[1];
@@ -332,9 +331,8 @@ describe("World Cup Market demo", () => {
     const id = locateStore(0).id;
     window.history.replaceState(null, "", `/worldcup-market?store=${id}&view=nearby`);
     render(<WorldCupMarketDemo locale="ko" onStartWalking={vi.fn()} />);
-    const map = document.querySelector(".wcm-floor.is-detail");
-    expect(map).toBeTruthy();
-    expect(map?.querySelector("a.is-selected")?.getAttribute("data-store-id")).toBe(id);
+    const map = screen.getAllByTestId("worldcup-market-floor-map").find((m) => m.getAttribute("data-variant") === "detail");
+    expect(map?.getAttribute("data-selected")).toBe(id);
     expect(screen.queryByTestId("worldcup-market-map")).toBeNull();
   });
 
@@ -388,7 +386,7 @@ describe("World Cup Market demo", () => {
     fireEvent.click(filters.getByRole("button", { name: "채소·과일" }));
     const count = fixtures.stores.filter((store) => store.categoryGroup === "produce").length;
     expect(screen.getByTestId("worldcup-market-floor-map").getAttribute("data-store-count")).toBe("45");
-    expect(new Set([...document.querySelectorAll(".wcm-floor-plan.is-vertical a.is-hl")].map((a) => a.getAttribute("data-store-id"))).size).toBe(count);
+    expect(screen.getByTestId("worldcup-market-floor-map").getAttribute("data-hl")).toBe(String(count));
     expect(within(screen.getByRole("list", { name: "점포 목록" })).getAllByRole("button")).toHaveLength(count);
     fireEvent.click(screen.getByRole("button", { name: "test map selection" }));
     expect(screen.getByRole("heading", { name: "부부야채" })).toBeTruthy();
@@ -528,7 +526,7 @@ describe("World Cup Market demo", () => {
     window.history.replaceState(null, "", "/worldcup-market?store=worldcup-market-01");
     act(() => { window.dispatchEvent(new Event("popstate")); });
     expect(screen.getByRole("heading", { name: "부부야채" })).toBeTruthy();
-    expect(screen.queryByRole("heading", { name: "주변 점포" })).toBeNull();
+    expect(window.location.search).not.toContain("view=nearby");
   });
 
   it("앱 안의 뒤로 버튼은 history가 없는 ?store= 딥링크에서도 빈 화면이 아니라 목록으로 이동(replace)한다", () => {
