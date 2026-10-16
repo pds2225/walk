@@ -129,7 +129,7 @@ describe("World Cup Market demo", () => {
     const onStartWalking = vi.fn();
     render(<WorldCupMarketDemo locale="ko" onStartWalking={onStartWalking} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "무진장전집" }));
+    fireEvent.click(screen.getAllByRole("button", { name: /무진장전집/ })[0]);
     expect(screen.getByRole("heading", { name: "무진장전집" })).toBeTruthy();
     expect(screen.getAllByText("야채곱창").length).toBeGreaterThan(0);
     expect(screen.getByText("11:00 ~ 23:00")).toBeTruthy();
@@ -145,7 +145,7 @@ describe("World Cup Market demo", () => {
 
   it("슬로건의 3000원을 메뉴 가격으로 올리지 않는다", () => {
     render(<WorldCupMarketDemo locale="ko" onStartWalking={vi.fn()} />);
-    fireEvent.click(screen.getByRole("button", { name: "무진장맛집" }));
+    fireEvent.click(screen.getAllByRole("button", { name: /무진장맛집/ })[0]);
     expect(screen.getAllByText(/3000원의 행복/).length).toBeGreaterThan(0);
     expect(document.querySelector('[data-fact="price"]')).toBeNull();
     expect(document.querySelector(".worldcup-market-not-confirmed")?.textContent).toContain("가격");
@@ -163,7 +163,7 @@ describe("World Cup Market demo", () => {
     fireEvent.click(screen.getByRole("button", { name: "English" }));
     rerender(<WorldCupMarketDemo locale="en" onLocaleChange={onLocaleChange} onStartWalking={onStartWalking} />);
     expect(screen.getByRole("heading", { name: "Bubu Vegetables" })).toBeTruthy();
-    expect(screen.getByText("Vegetables")).toBeTruthy();
+    expect(screen.getAllByText("Vegetables").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Sweet potato").length).toBeGreaterThan(0);
     expect(screen.queryByText("고구마")).toBeNull();
     expect(screen.getByText("Popular Menu")).toBeTruthy();
@@ -265,7 +265,7 @@ describe("World Cup Market demo", () => {
     const onStartWalking = vi.fn();
     render(<WorldCupMarketDemo locale="ko" onStartWalking={onStartWalking} />);
 
-    fireEvent.click(screen.getByRole("button", { name: /주변 점포 · 360 · 지도/ }));
+    fireEvent.click(screen.getByRole("button", { name: /주변 점포 · 지도/ }));
     expect(screen.getByRole("heading", { name: "주변 점포" })).toBeTruthy();
     expect(screen.getByText("서울 마포구 망원로7길 31")).toBeTruthy();
     expect(screen.getByText("미확인")).toBeTruthy();
@@ -294,7 +294,7 @@ describe("World Cup Market demo", () => {
     fireEvent.click(walk);
     expect(onStartWalking).toHaveBeenLastCalledWith({ name: first.nameKo, coordinate: first.navigationTarget });
 
-    fireEvent.click(screen.getByRole("button", { name: /주변 점포 · 360 · 지도/ }));
+    fireEvent.click(screen.getByRole("button", { name: /주변 점포 · 지도/ }));
     expect(await screen.findByTestId("worldcup-market-map")).toBeTruthy();
     expect(screen.getByRole("note").textContent).toContain("같은 주소 좌표를 공유하는 점포 수: 2");
     expect(screen.getByText("지도와 케이트립 도보안내는 계속 사용할 수 있습니다.")).toBeTruthy();
@@ -332,9 +332,9 @@ describe("World Cup Market demo", () => {
     const id = locateStore(0).id;
     window.history.replaceState(null, "", `/worldcup-market?store=${id}&view=nearby`);
     render(<WorldCupMarketDemo locale="ko" onStartWalking={vi.fn()} />);
-    const map = screen.getByTestId("worldcup-market-static-map");
-    expect(map.getAttribute("data-mode")).toBe("detail");
-    expect(map.getAttribute("data-selected")).toBe(id);
+    const map = document.querySelector(".wcm-floor.is-detail");
+    expect(map).toBeTruthy();
+    expect(map?.querySelector("a.is-selected")?.getAttribute("data-store-id")).toBe(id);
     expect(screen.queryByTestId("worldcup-market-map")).toBeNull();
   });
 
@@ -387,7 +387,8 @@ describe("World Cup Market demo", () => {
     expect(filters.queryByRole("button", { name: "야채" })).toBeNull();
     fireEvent.click(filters.getByRole("button", { name: "채소·과일" }));
     const count = fixtures.stores.filter((store) => store.categoryGroup === "produce").length;
-    expect(screen.getByTestId("worldcup-market-floor-map").getAttribute("data-store-count")).toBe(String(count));
+    expect(screen.getByTestId("worldcup-market-floor-map").getAttribute("data-store-count")).toBe("45");
+    expect(new Set([...document.querySelectorAll(".wcm-floor-plan.is-vertical a.is-hl")].map((a) => a.getAttribute("data-store-id"))).size).toBe(count);
     expect(within(screen.getByRole("list", { name: "점포 목록" })).getAllByRole("button")).toHaveLength(count);
     fireEvent.click(screen.getByRole("button", { name: "test map selection" }));
     expect(screen.getByRole("heading", { name: "부부야채" })).toBeTruthy();
@@ -448,7 +449,7 @@ describe("World Cup Market demo", () => {
       const ui = getWorldCupMarketUiText(locale);
       fireEvent.click(screen.getByRole("button", { name: ({ ko: "한국어", en: "English", ja: "日本語", zh: "中文" } as const)[locale] }));
       expect(screen.getByRole("heading", { name: localizeStoreName(store, locale) })).toBeTruthy();
-      expect(screen.getByText(localizeCategory(store.category, locale), { exact: true })).toBeTruthy();
+      expect(screen.getAllByText(localizeCategory(store.category, locale), { exact: true }).length).toBeGreaterThan(0);
       expect(screen.getByText(ui.representativeMenu)).toBeTruthy();
       expect(document.querySelector('[data-fact="price"]')).toBeNull();
       expect(document.querySelector(".worldcup-market-not-confirmed")?.textContent).toContain(ui.notConfirmedFields);
@@ -476,7 +477,7 @@ describe("World Cup Market demo", () => {
     locateStore(0);
     render(<WorldCupMarketDemo locale="ko" onStartWalking={vi.fn()} />);
     expect(screen.queryByRole("button", { name: "여기로 가기" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: /주변 점포 · 360 · 지도/ }));
+    fireEvent.click(screen.getByRole("button", { name: /주변 점포 · 지도/ }));
     expect(screen.queryByRole("button", { name: "여기로 가기" })).toBeNull();
   });
 
@@ -518,7 +519,7 @@ describe("World Cup Market demo", () => {
     render(<WorldCupMarketDemo locale="ko" onStartWalking={vi.fn()} />);
     const lengthBeforeNearby = window.history.length;
 
-    fireEvent.click(screen.getByRole("button", { name: /주변 점포 · 360 · 지도/ }));
+    fireEvent.click(screen.getByRole("button", { name: /주변 점포 · 지도/ }));
     expect(screen.getByRole("heading", { name: "주변 점포" })).toBeTruthy();
     expect(window.history.length).toBe(lengthBeforeNearby + 1);
     expect(window.location.search).toContain("view=nearby");

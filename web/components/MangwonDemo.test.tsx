@@ -84,7 +84,7 @@ describe("MangwonDemo Mobile Screen 01", () => {
     expect(screen.getByText("人気メニュー")).toBeTruthy();
     expect(screen.getByRole("button", { name: "ここへ歩いて行く" })).toBeTruthy();
 
-    fireEvent.click(screen.getByRole("button", { name: /周辺の店舗 · 360 · 地図/ }));
+    fireEvent.click(screen.getByRole("button", { name: /周辺の店舗 · 地図/ }));
     expect(screen.getByRole("heading", { name: "周辺の店舗" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "店舗付近のストリートビュー" })).toBeTruthy();
     expect(screen.getByText("利用できる店舗正面ビューがありません")).toBeTruthy();
@@ -124,7 +124,7 @@ describe("MangwonDemo Mobile Screen 01", () => {
     const onStartWalking = vi.fn();
     render(<MangwonDemo locale="ko" onStartWalking={onStartWalking} />);
 
-    fireEvent.click(screen.getByRole("button", { name: /주변 점포 · 360 · 지도/ }));
+    fireEvent.click(screen.getByRole("button", { name: /주변 점포 · 지도/ }));
     expect(screen.getByRole("heading", { name: "주변 점포" })).toBeTruthy();
     expect(await screen.findByTestId("mangwon-market-map")).toBeTruthy();
     expect(screen.getByRole("heading", { name: "점포 근처 거리 뷰" })).toBeTruthy();
@@ -148,7 +148,7 @@ describe("MangwonDemo Mobile Screen 01", () => {
     vi.stubEnv("NEXT_PUBLIC_GOOGLE_MAPS_API_KEY", "test-maps-key");
     render(<MangwonDemo locale="en" onStartWalking={vi.fn()} />);
 
-    fireEvent.click(screen.getByRole("button", { name: /Nearby Shops · 360 · Map/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Nearby Shops · Map/ }));
     const hunhun = await screen.findByTitle("Hunhun Hotteok Street View near this store");
     const hunhunSrc = hunhun.getAttribute("src") ?? "";
     expect(hunhunSrc.startsWith("https://www.google.com/maps/embed/v1/streetview?")).toBe(true);
