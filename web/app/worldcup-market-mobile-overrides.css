@@ -767,3 +767,7 @@ html, body { overflow-anchor: none; }
 /* List: translated name only, up to 2 lines (no Korean reading underneath) */
 .worldcup-market-overview-list .wcm-index button { white-space: normal; align-items: center; }
 .wcm-index button strong { white-space: normal; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; line-height: 1.25; overflow-wrap: anywhere; }
+/* Edge arrow toward my location (dot off screen) */
+.wcm-floor-me-edge { position: fixed; left: 50%; transform: translateX(-50%); z-index: 41; padding: 8px 16px; border: 0; border-radius: 999px; background: #1e88e5; color: #fff; font-size: 15px; font-weight: 800; box-shadow: 0 4px 14px rgba(0,0,0,.25); }
+.wcm-floor-me-edge.is-up { top: max(12px, env(safe-area-inset-top)); }
+.wcm-floor-me-edge.is-down { bottom: max(84px, calc(env(safe-area-inset-bottom) + 72px)); }
