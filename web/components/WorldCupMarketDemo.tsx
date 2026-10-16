@@ -311,7 +311,8 @@ function StoreDetail({ store, locale, onStartWalking, onSelect }: {
     <article ref={detailRef} className="worldcup-market-mobile-detail" aria-labelledby="worldcup-market-selected-title">
       <div className="worldcup-market-mobile-hero-image">
         {image ? <>
-          <span className="wcm-photo-crop is-hero"><img className="worldcup-market-hero-photo" src={image.url} alt={`${name} ${ui.shopPhoto}`} loading="eager" /></span>
+          <img className="worldcup-market-hero-backdrop" src={image.url} alt="" aria-hidden="true" />
+          <img className="worldcup-market-hero-photo" src={image.url} alt={`${name} ${ui.shopPhoto}`} loading="eager" />
         </> : <div className="worldcup-market-store-image-fallback" role="img" aria-label={`${name} ${ui.aboutShop}`}><span>{localizeCategory(store.category, locale)}</span></div>}
       </div>
       <div className="worldcup-market-mobile-detail-body">
@@ -325,15 +326,15 @@ function StoreDetail({ store, locale, onStartWalking, onSelect }: {
       </div>
       <MenuCarousel store={store} locale={locale} />
       <StoreAbout store={store} locale={locale} />
-      <nav className="worldcup-market-mobile-section worldcup-market-detail-nearby" aria-label={ui.selectShop}>
-        <h3>{ui.nearbyTitle}</h3>
-        <NearbyShopRail selectedId={store.id} locale={locale} onSelect={onSelect} sortByDistance />
-      </nav>
       <section className="worldcup-market-mobile-section worldcup-market-detail-location" aria-labelledby="worldcup-market-location-map-title">
         <h3 id="worldcup-market-location-map-title">{ui.locationTitle}</h3>
         <WorldCupMarketFloorMap stores={WORLD_CUP_MARKET_STORES} selectedId={store.id} locale={locale} variant="detail"
           onSelect={(storeId) => { track("map_pin_click", { storeId, locale, src: "detail" }); onSelect(storeId); }} />
       </section>
+      <nav className="worldcup-market-mobile-section worldcup-market-detail-nearby" aria-label={ui.selectShop}>
+        <h3>{ui.nearbyTitle}</h3>
+        <NearbyShopRail selectedId={store.id} locale={locale} onSelect={onSelect} sortByDistance />
+      </nav>
       <section className="worldcup-market-mobile-section worldcup-market-detail-storefront" aria-labelledby="worldcup-market-storefront-title">
         <h3 id="worldcup-market-storefront-title">{ui.storefrontTitle}</h3>
         <WorldCupMarketStreetView key={`storefront-${store.id}`} store={store} locale={locale} />
@@ -396,7 +397,7 @@ function NearbyShopRail({ selectedId, locale, onSelect, sortByDistance = false }
                 onSelect(store.id);
               }}
             >
-              {image ? <span className="wcm-photo-crop"><img src={image.url} alt="" /></span> : <span className="worldcup-market-nearby-thumb-fallback" aria-hidden="true" />}
+              {image ? <img src={image.url} alt="" /> : <span className="worldcup-market-nearby-thumb-fallback" aria-hidden="true" />}
               <strong>{name}</strong>
               <StoreNameReading store={store} locale={locale} />
               <small>{localizeCategory(store.category, locale)}</small>
@@ -441,7 +442,6 @@ function MarketOverview({ locale, onSelect, onPinSelect }: {
                 <span className="wcm-index-badge" style={{ background: FLOOR_MAP_COLORS[g].strong }}>{store.corridorOrder}</span>
                 <span>
                   <strong>{localizeStoreName(store, locale)}</strong>
-                  <StoreNameReading store={store} locale={locale} />
                 </span>
               </button>
               {isPicked ? <button type="button" className="wcm-index-detail" onClick={() => onSelect(store.id)}>{VIEW_DETAIL[locale]} ›</button> : null}
