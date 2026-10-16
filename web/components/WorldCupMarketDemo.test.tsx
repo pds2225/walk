@@ -178,8 +178,8 @@ describe("World Cup Market demo", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "中文" }));
     rerender(<WorldCupMarketDemo locale="zh" onLocaleChange={onLocaleChange} onStartWalking={onStartWalking} />);
-    expect(screen.getByRole("heading", { name: "부부야채" })).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "嘉乐农产物" }));
+    expect(screen.getByRole("heading", { name: "夫妇蔬菜" })).toBeTruthy();
+    fireEvent.click(screen.getAllByRole("button", { name: /嘉乐农产物/ })[0]);
     expect(screen.getByRole("heading", { name: "嘉乐农产物" })).toBeTruthy();
     expect(screen.getByText("热门菜单")).toBeTruthy();
     expect(screen.getByRole("button", { name: "开始步行导航" })).toBeTruthy();
