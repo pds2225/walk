@@ -441,7 +441,6 @@ function MarketOverview({ locale, onSelect, onPinSelect }: {
                 <span className="wcm-index-badge" style={{ background: FLOOR_MAP_COLORS[g].strong }}>{store.corridorOrder}</span>
                 <span>
                   <strong>{localizeStoreName(store, locale)}</strong>
-                  <StoreNameReading store={store} locale={locale} />
                 </span>
               </button>
               {isPicked ? <button type="button" className="wcm-index-detail" onClick={() => onSelect(store.id)}>{VIEW_DETAIL[locale]} ›</button> : null}

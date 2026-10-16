@@ -575,6 +575,8 @@ describe("World Cup Market demo", () => {
     rerender(<WorldCupMarketDemo locale="ja" onStartWalking={vi.fn()} />);
     const ui = getWorldCupMarketUiText("ja");
     expect(within(screen.getByRole("list", { name: ui.storeList })).getAllByText(kana).length).toBeGreaterThan(0);
+    // Store list shows the translated name only (no Korean reading underneath).
+    expect(within(screen.getByRole("list", { name: ui.storeList })).queryAllByText(store.nameKo)).toHaveLength(0);
 
     fireEvent.click(within(screen.getByRole("list", { name: ui.storeList })).getByRole("button", { name: new RegExp(kana) }));
 
