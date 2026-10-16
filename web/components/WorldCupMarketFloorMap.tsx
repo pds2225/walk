@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { track } from "../lib/track";
 import type React from "react";
 import { getWorldCupMarketUiText, type Locale } from "../lib/i18n";
@@ -14,6 +14,10 @@ export interface WorldCupMarketFloorMapProps {
   readonly locale: Locale;
   readonly onSelect: (storeId: string) => void;
   readonly selectedId?: string;
+  /** "detail": plan only (no title/legend/my-location), scrollable, selected store in red and scrolled into view. */
+  readonly variant?: "overview" | "detail";
+  /** Category filter: these stores are emphasised; all stores stay drawn in colour. */
+  readonly highlightIds?: ReadonlySet<string> | null;
 }
 
 /** Phones: both sides of a centre alley, real side and order kept. */
@@ -30,14 +34,39 @@ const MY_LOCATION_TEXT: Record<Locale, { button: string; locating: string; outsi
 type MyLocState = { kind: "idle" | "locating" | "denied" | "unavailable" | "timeout" } | { kind: "fix"; lat: number; lng: number; acc: number };
 type Rect = { x: number; y: number; width: number; height: number };
 
-function Arrow({ angle }: { readonly angle: number }) {
-  return <svg className="wcm-floor-icon" viewBox="-10 -10 20 20" aria-hidden="true">
-    <circle r="9.2" /><g transform={`rotate(${angle.toFixed(1)})`}><path d="M7 0 L-5 -3.6 L-5 3.6 Z" /></g>
-  </svg>;
-}
-
 /** Department-store style directory plan (schematic, positions approximate). */
-export default function WorldCupMarketFloorMap({ stores, locale, onSelect, selectedId = "" }: WorldCupMarketFloorMapProps) {
+export default function WorldCupMarketFloorMap({ stores, locale, onSelect, selectedId = "", variant = "overview", highlightIds = null }: WorldCupMarketFloorMapProps) {
+  const detail = variant === "detail";
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!detail || !selectedId) return;
+    for (const box of rootRef.current?.querySelectorAll<HTMLDivElement>(".wcm-floor-plan") ?? []) {
+      const el = box.querySelector<SVGGraphicsElement>(`a[data-store-id="${selectedId}"]`);
+      if (!el || box.clientHeight === 0) continue;
+      const b = box.getBoundingClientRect(), r = el.getBoundingClientRect();
+      box.scrollTop += r.top - b.top - (box.clientHeight - r.height) / 2;
+    }
+  }, [detail, selectedId]);
+  const [mapOnScreen, setMapOnScreen] = useState(true);
+  useEffect(() => {
+    if (detail || typeof IntersectionObserver === "undefined") return;
+    const plans = [...(rootRef.current?.querySelectorAll(".wcm-floor-plan") ?? [])];
+    const seen = new Map<Element, boolean>();
+    const io = new IntersectionObserver((entries) => {
+      for (const e of entries) seen.set(e.target, e.isIntersecting);
+      setMapOnScreen([...seen.values()].some(Boolean));
+    });
+    plans.forEach((el) => io.observe(el));
+    return () => io.disconnect();
+  }, [detail]);
+  const hlKey = highlightIds ? [...highlightIds].sort().join(",") : "";
+  useEffect(() => {
+    if (!hlKey) return;
+    const first = [...(rootRef.current?.querySelectorAll<SVGGraphicsElement>("a.is-hl") ?? [])]
+      .filter((el) => el.getBoundingClientRect().width > 0)
+      .sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top || a.getBoundingClientRect().left - b.getBoundingClientRect().left)[0];
+    first?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+  }, [hlKey]);
   const ui = getWorldCupMarketUiText(locale);
   const vertical = useMemo(() => buildFloorMapLayout(stores, VERTICAL_PLAN), [stores]);
   // Wide screens: same plan rotated so the alley runs left→right (west-ish end on the left).
@@ -110,7 +139,7 @@ export default function WorldCupMarketFloorMap({ stores, locale, onSelect, selec
         const color = FLOOR_MAP_COLORS[s.group];
         const narrow = s.width < 200, pad = narrow ? 7 : 12; // phone blocks are half-width
         const label = fitInlineLabel(String(s.number ?? ""), name, s.width - pad * 2, narrow ? 24 : LABEL_FONT.max, narrow ? 15 : LABEL_FONT.min);
-        return <a key={s.storeId} href={qrDestinationPath(s.storeId)} data-store-id={s.storeId} className={selected ? "is-selected" : undefined}
+        return <a key={s.storeId} href={qrDestinationPath(s.storeId)} data-store-id={s.storeId} className={[selected ? "is-selected" : "", highlightIds ? (highlightIds.has(s.storeId) ? "is-hl" : "is-dim") : ""].filter(Boolean).join(" ") || undefined}
           aria-label={`${s.number}. ${name} · ${localizeCategory(store.category, locale)} · ${ui.approximateLocation}`}
           onClick={(e) => { e.preventDefault(); onSelect(s.storeId); }}>
           <rect className="wcm-floor-stall" x={s.x} y={s.y} width={s.width} height={s.height} fill={color.fill} />
@@ -128,26 +157,24 @@ export default function WorldCupMarketFloorMap({ stores, locale, onSelect, selec
     </svg>;
   }
   return (
-    <div className="wcm-floor" data-map-provider="floor">
+    <div ref={rootRef} className={`wcm-floor${detail ? " is-detail" : ""}`} data-map-provider="floor">
+      {detail ? null : <>
       <div className="wcm-floor-head">
         <h2>{title}</h2>
         <p>{ko ? "시장 안내도" : "Market directory"}</p>
       </div>
-      <div className="wcm-floor-legend">
-        {[false, true].map((rot) => <span key={String(rot)} className={`wcm-floor-dirs ${rot ? "is-horizontal" : "is-vertical"}`}>
-          <span><Arrow angle={layout.northAngle} />{ko ? "북" : "N"}</span>
-          {layout.stations.map((s) => <span key={s.id}><Arrow angle={s.angle} />{ko ? s.nameKo : s.nameEn}</span>)}
-        </span>)}
-      </div>
-      <div className="wcm-floor-myloc">
+      {/* Floating "my location" button + toast, shown while the map is on screen. */}
+      <div className={`wcm-floor-myloc${mapOnScreen ? "" : " is-offscreen"}`}>
+        {myMsg ? <span role="status" className={`wcm-floor-toast${fixV?.kind === "ok" ? " is-ok" : ""}`}>{myMsg}</span> : null}
         <button type="button" onClick={locate} disabled={myLoc.kind === "locating"}><span aria-hidden="true">◎</span> {mt.button}</button>
-        {myMsg ? <span role="status" className={fixV?.kind === "ok" ? "is-ok" : undefined}>{myMsg}</span> : <span className="is-hint">{mt.privacy}</span>}
       </div>
       <div className="wcm-floor-chips">
         {groups.map((g) => <span key={g}><i style={{ background: FLOOR_MAP_COLORS[g].strong }} />{localizeCategoryGroup(g, locale)}</span>)}
       </div>
+      </>}
       <div className="wcm-floor-plan is-vertical">{renderPlan(vertical, false)}</div>
       <div className="wcm-floor-plan is-horizontal">{renderPlan(horizontal, false)}</div>
+      {detail ? null : <p className="wcm-floor-note">{mt.privacy}</p>}
       <p className="wcm-floor-note">{ko ? "개략도입니다. 점포 위치와 순서는 주소 기반 추정이며 실측이 아닙니다. 입구·화장실 정보는 아직 없습니다." : ui.mapGuideApproximate}
         {" · "}<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap</a></p>
     </div>

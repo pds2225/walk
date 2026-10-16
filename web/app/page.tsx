@@ -107,7 +107,15 @@ export default function Home() {
   const localeRef = useRef(locale);
   localeRef.current = locale;
   // Step logging (app=walk): no coordinates, IP, or search text — only event, locale, and small codes.
-  useEffect(() => { track("home_view", { locale: localeRef.current }); }, []);
+  useEffect(() => {
+    // Client-side 3-min guard too: two near-simultaneous home_view beacons both arrived without the dedupe cookie.
+    try {
+      const last = Number(window.sessionStorage.getItem("walk:hv-at") ?? 0);
+      if (Date.now() - last < 180_000) return;
+      window.sessionStorage.setItem("walk:hv-at", String(Date.now()));
+    } catch { /* storage blocked: rely on the server cookie */ }
+    track("home_view", { locale: localeRef.current });
+  }, []);
 
   useEffect(() => {
     const metadata = getServiceMetadata(locale, "home");

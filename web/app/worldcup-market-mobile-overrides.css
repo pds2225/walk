@@ -708,3 +708,36 @@
   .worldcup-market-overview-list ul.wcm-index { grid-template-columns: repeat(5, minmax(0, 1fr)); }
   .worldcup-market-overview.has-floor .worldcup-market-overview-list { max-width: 960px; margin: 0 auto; }
 }
+
+/* Nearby rail: fixed card size in every language. Without min-width:0 a long
+   nowrap name (EN/JA) widened its card, the 100%-wide photo grew with it, and
+   the tallest card set the rail height, leaving a blank gap above the summary. */
+.worldcup-market-nearby-rail > li { min-width: 0; width: 128px; max-width: 128px; }
+.worldcup-market-nearby-rail > li button img,
+.worldcup-market-nearby-rail > li button .worldcup-market-nearby-thumb-fallback { width: 100%; height: 92px; aspect-ratio: auto; object-fit: cover; }
+
+/* Detail "Location" map: plan only, scrollable, current store in red. */
+.wcm-floor.is-detail .wcm-floor-plan { max-height: 420px; overflow-y: auto; border-radius: 12px; }
+.wcm-floor a.is-selected .wcm-floor-stall { fill: #e53935; }
+.wcm-floor a.is-selected .wcm-floor-label, .wcm-floor a.is-selected .wcm-floor-num { fill: #fff; }
+
+/* Category filter on the floor map: every store stays in colour; matches are lifted. */
+.wcm-floor a.is-hl .wcm-floor-stall { stroke: #1f2a33; stroke-width: 3.5; paint-order: stroke; }
+.wcm-floor a.is-hl { filter: drop-shadow(0 3px 5px rgba(0, 0, 0, .28)); }
+.wcm-floor a.is-dim { opacity: .72; }
+
+/* Bigger header text on the floor map (phone ≥15px). */
+.wcm-floor-legend, .wcm-floor-chips { font-size: 15px; gap: 6px 14px; }
+.wcm-floor-icon { width: 20px; height: 20px; }
+.wcm-floor-chips i { width: 14px; height: 14px; border-radius: 4px; }
+/* Floating "my location" (overview map). */
+.wcm-floor-myloc { position: fixed; right: max(16px, env(safe-area-inset-right)); bottom: max(20px, env(safe-area-inset-bottom)); z-index: 40;
+  display: flex; flex-direction: column; align-items: flex-end; gap: 8px; margin: 0; max-width: min(320px, calc(100vw - 32px)); transition: opacity .2s; }
+.wcm-floor-myloc.is-offscreen { opacity: 0; pointer-events: none; }
+.wcm-floor-myloc button { padding: 13px 20px; border: 0; border-radius: 999px; background: #1e88e5; color: #fff; font-size: 17px; font-weight: 800;
+  box-shadow: 0 6px 18px rgba(30, 136, 229, .45); gap: 8px; }
+.wcm-floor-myloc button span { font-size: 20px; }
+.wcm-floor-toast { padding: 10px 14px; border-radius: 12px; background: rgba(31, 42, 51, .94); color: #fff; font-size: 15px; line-height: 1.4;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .25); }
+.wcm-floor-toast.is-ok { background: #1565c0; }
+.worldcup-market-overview-list.is-filtered { margin: 4px 0 12px; }

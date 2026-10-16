@@ -131,7 +131,7 @@ function WorldCupMarketMobileHeader({ locale, onLocaleChange, onBack, backLabel 
           navigate away (history.back() used to leave the market entirely). */}
       {onBack ? <button type="button" className="worldcup-market-back-button" aria-label={backLabel ?? ui.back} onClick={goBack}>‹</button> : null}
       <div className="worldcup-market-mobile-brand">
-        <strong>{ui.serviceName}</strong>
+        <a href={`/worldcup-market?lang=${locale}`} aria-label={`${ui.serviceName} · ${ui.market}`}><strong>{ui.serviceName}</strong></a>
       </div>
       <p className="worldcup-market-header-title">{ui.market}</p>
       <div className="worldcup-market-locale-switcher" role="group" aria-label={ui.chooseLanguage}>
@@ -361,7 +361,17 @@ function StoreDetail({ store, locale, onStartWalking, onOpenNearby }: {
   );
 }
 
-function NearbyShopRail({ selectedId, locale, onSelect }: {
+/** All stores, nearest first (selected first), by the existing approximate display points. */
+function storesByDistance(selectedId: string): readonly WorldCupMarketStore[] {
+  const at = (id: string) => getWorldCupMarketMapPlacement(id)?.displayLocation ?? null;
+  const o = at(selectedId);
+  if (!o) return WORLD_CUP_MARKET_STORES;
+  const d = (id: string) => { const p = at(id); return p ? Math.hypot(p.latitude - o.latitude, (p.longitude - o.longitude) * 0.79) : Infinity; };
+  return [...WORLD_CUP_MARKET_STORES].sort((a, b) => d(a.id) - d(b.id));
+}
+
+function NearbyShopRail({ selectedId, locale, onSelect, sortByDistance = false }: {
+  readonly sortByDistance?: boolean;
   readonly selectedId: string;
   readonly locale: Locale;
   readonly onSelect: (storeId: string) => void;
@@ -390,7 +400,7 @@ function NearbyShopRail({ selectedId, locale, onSelect }: {
     {!edges.start ? <button type="button" className="worldcup-market-rail-arrow is-prev" aria-label={ui.railPrevious} onClick={() => scrollByPage(-1)}>‹</button> : null}
     {!edges.end ? <button type="button" className="worldcup-market-rail-arrow is-next" aria-label={ui.railNext} onClick={() => scrollByPage(1)}>›</button> : null}
     <ul ref={railRef} className="worldcup-market-nearby-rail" aria-label={ui.nearbyTitle} onScroll={updateEdges}>
-      {WORLD_CUP_MARKET_STORES.map((store) => {
+      {(sortByDistance ? storesByDistance(selectedId) : WORLD_CUP_MARKET_STORES).map((store) => {
         const image = store.storeImages[0];
         const selected = store.id === selectedId;
         const name = localizeStoreName(store, locale);
@@ -456,13 +466,6 @@ function NearbyScreen({ store, selectedId, locale, onLocaleChange, onSelect, onB
         </div>
       </article>
 
-      <section className="worldcup-market-nearby-block" aria-labelledby="worldcup-market-storefront-title">
-        <div className="worldcup-market-nearby-block-heading">
-          <h3 id="worldcup-market-storefront-title">{ui.storefrontTitle}</h3>
-          <span>{store.streetView.provider === "NAVER" ? "NAVER Panorama" : "Google Street View"}</span>
-        </div>
-        <WorldCupMarketStreetView key={`storefront-${store.id}`} store={store} locale={locale} />
-      </section>
 
       <section className="worldcup-market-nearby-block" aria-labelledby="worldcup-market-location-map-title">
         <div className="worldcup-market-nearby-block-heading">
@@ -477,13 +480,8 @@ function NearbyScreen({ store, selectedId, locale, onLocaleChange, onSelect, onB
         {!store.storeLocation && WORLD_CUP_MARKET_STORES.some((item) => item.storeLocation) ? (
           <p role="status">{ui.locationTitle}: {ui.unknown}</p>
         ) : null}
-        {WORLD_CUP_MARKET_STORES.some((item) => item.storeLocation) ? (
-          worldCupMarketLiveMapEnabled()
-            ? <WorldCupMarketMap stores={WORLD_CUP_MARKET_STORES} selectedId={selectedId} here={null} onSelect={onSelect} locale={locale} mode="detail" />
-            : <WorldCupMarketStaticMap stores={WORLD_CUP_MARKET_STORES} selectedId={selectedId} onSelect={(storeId) => { track("map_pin_click", { storeId, locale, src: "detail" }); onSelect(storeId); }} locale={locale} mode="detail" />
-        ) : (
-          <p role="status">{ui.unknown}</p>
-        )}
+        <WorldCupMarketFloorMap stores={WORLD_CUP_MARKET_STORES} selectedId={selectedId} locale={locale} variant="detail"
+          onSelect={(storeId) => { track("map_pin_click", { storeId, locale, src: "detail" }); onSelect(storeId); }} />
       </section>
 
       {worldCupMarketWalkingEnabled() ? <div className="worldcup-market-nearby-cta">
@@ -497,6 +495,14 @@ function NearbyScreen({ store, selectedId, locale, onLocaleChange, onSelect, onB
           {walkLabel(locale, ui)}
         </button>
       </div> : null}
+
+      <section className="worldcup-market-nearby-block" aria-labelledby="worldcup-market-storefront-title">
+        <div className="worldcup-market-nearby-block-heading">
+          <h3 id="worldcup-market-storefront-title">{ui.storefrontTitle}</h3>
+          <span>{store.streetView.provider === "NAVER" ? "NAVER Panorama" : "Google Street View"}</span>
+        </div>
+        <WorldCupMarketStreetView key={`storefront-${store.id}`} store={store} locale={locale} />
+      </section>
     </section>
   );
 }
@@ -511,22 +517,9 @@ function MarketOverview({ locale, onSelect, onPinSelect }: {
   const groups = useMemo(() => WORLD_CUP_MARKET_CATEGORY_GROUP_ORDER.filter((item) =>
     WORLD_CUP_MARKET_STORES.some((store) => store.categoryGroup === item)), []);
   const stores = useMemo(() => WORLD_CUP_MARKET_STORES.filter((store) => group === null || store.categoryGroup === group), [group]);
-  return (
-    <div className={`worldcup-market-overview${worldCupMarketLiveMapEnabled() ? "" : " has-floor"}`}>
-      <div className="worldcup-market-overview-heading">
-        <h1>{ui.market}</h1>
-        <p>{ui.subtitle}</p>
-      </div>
-      <div className="worldcup-market-category-filter" role="group" aria-label={ui.categoryFilter}>
-        <button type="button" aria-pressed={group === null} onClick={() => setGroup(null)}>{ui.allCategories}</button>
-        {groups.map((item) => <button type="button" key={item} aria-pressed={group === item} onClick={() => setGroup(item)}>{localizeCategoryGroup(item, locale)}</button>)}
-      </div>
-      <div className="worldcup-market-overview-map">
-        {worldCupMarketLiveMapEnabled()
-          ? <WorldCupMarketMap stores={stores} selectedId="" here={null} onSelect={onPinSelect} locale={locale} mode="overview" />
-          : <WorldCupMarketFloorMap stores={stores} onSelect={onPinSelect} locale={locale} />}
-      </div>
-      <section className="worldcup-market-overview-list" aria-labelledby="worldcup-market-list-title">
+  // Filtered: the short list sits right under the chips, above the map. "All": full list stays below the map.
+  const storeList = (
+      <section className={`worldcup-market-overview-list${group === null ? "" : " is-filtered"}`} aria-labelledby="worldcup-market-list-title">
         <div className="worldcup-market-section-heading">
           <h2 id="worldcup-market-list-title">{ui.storeList}</h2>
           <span role="status">{ui.storesCount(stores.length)}</span>
@@ -546,6 +539,25 @@ function MarketOverview({ locale, onSelect, onPinSelect }: {
           })}
         </ul>
       </section>
+  );
+  return (
+    <div className={`worldcup-market-overview${worldCupMarketLiveMapEnabled() ? "" : " has-floor"}`}>
+      <div className="worldcup-market-overview-heading">
+        <h1>{ui.market}</h1>
+        <p>{ui.subtitle}</p>
+      </div>
+      <div className="worldcup-market-category-filter" role="group" aria-label={ui.categoryFilter}>
+        <button type="button" aria-pressed={group === null} onClick={() => setGroup(null)}>{ui.allCategories}</button>
+        {groups.map((item) => <button type="button" key={item} aria-pressed={group === item} onClick={() => setGroup(item)}>{localizeCategoryGroup(item, locale)}</button>)}
+      </div>
+      {group !== null ? storeList : null}
+      <div className="worldcup-market-overview-map">
+        {worldCupMarketLiveMapEnabled()
+          ? <WorldCupMarketMap stores={stores} selectedId="" here={null} onSelect={onPinSelect} locale={locale} mode="overview" />
+          : <WorldCupMarketFloorMap stores={WORLD_CUP_MARKET_STORES} onSelect={onPinSelect} locale={locale}
+              highlightIds={group === null ? null : new Set(stores.map((store) => store.id))} />}
+      </div>
+      {group === null ? storeList : null}
     </div>
   );
 }
@@ -679,7 +691,10 @@ export default function WorldCupMarketDemo({ locale, onLocaleChange, onStartWalk
       <WorldCupMarketMobileHeader locale={locale} onLocaleChange={onLocaleChange} onBack={backToMap} backLabel={ui.backToMap} />
       <h1 id="worldcup-market-demo-title" className="visually-hidden">{ui.title}</h1>
       <StoreDetail key={selected.id} store={selected} locale={locale} onStartWalking={onStartWalking} onOpenNearby={openNearby} />
-      <StoreSwitcher stores={WORLD_CUP_MARKET_STORES} selectedId={selectedId} locale={locale} onSelect={selectStore} />
+      <nav className="worldcup-market-detail-nearby" aria-label={ui.selectShop}>
+        <h3>{ui.nearbyTitle}</h3>
+        <NearbyShopRail selectedId={selectedId} locale={locale} onSelect={selectStore} sortByDistance />
+      </nav>
     </section>
   );
 }

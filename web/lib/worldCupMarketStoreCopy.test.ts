@@ -38,16 +38,19 @@ describe("월드컵시장 점포 표기", () => {
     for (const store of WORLD_CUP_MARKET_STORES) {
       expect(localizeStoreName(store, "ko")).toBe(store.nameKo);
       expect(localizeStoreName(store, "en")).toBe(store.nameEn);
-      expect(localizeStoreName(store, "ja")).toBe(store.nameKo);
-      expect(localizeStoreName(store, "zh")).toBe(store.nameZh ?? store.nameKo);
+      expect(localizeStoreName(store, "ja")).toBe(WORLD_CUP_MARKET_NAME_READINGS[store.id]);
+      expect(localizeStoreName(store, "ja")).not.toMatch(/[가-힣]/);
+      expect(localizeStoreName(store, "en")).not.toMatch(/[가-힣]/);
+      expect(localizeStoreName(store, "zh")).not.toMatch(/[가-힣]/);
+      if (store.nameZh) expect(localizeStoreName(store, "zh")).toBe(store.nameZh);
     }
     expect(localizeStoreName(WORLD_CUP_MARKET_STORES[1]!, "zh")).toBe("嘉乐农产物");
-    expect(localizeStoreName(WORLD_CUP_MARKET_STORES[0]!, "zh")).toBe("부부야채");
+    expect(localizeStoreName(WORLD_CUP_MARKET_STORES[0]!, "zh")).toBe("夫妇蔬菜");
   });
 
-  it("JA에서만 한글 상점명 옆에 가타카나 읽기를 덧붙이고, 다른 언어에는 없다", () => {
+  it("JA에서만 가타카나 상점명 옆에 한글 원래 이름을 덧붙이고, 다른 언어에는 없다", () => {
     for (const store of WORLD_CUP_MARKET_STORES) {
-      expect(getStoreNameReading(store, "ja")).toBe(WORLD_CUP_MARKET_NAME_READINGS[store.id]);
+      expect(getStoreNameReading(store, "ja")).toBe(store.nameKo);
       expect(getStoreNameReading(store, "ko")).toBeNull();
       expect(getStoreNameReading(store, "en")).toBeNull();
       expect(getStoreNameReading(store, "zh")).toBeNull();
