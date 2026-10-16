@@ -14,21 +14,25 @@ export function formatKrwPrice(amount: number, locale: Locale): string {
   return locale === "ko" ? `${formatted}원` : `₩${formatted}`;
 }
 
+/** ZH names for stores whose source has none (translated, not from the blog). */
+const ZH_NAME_FALLBACK: Readonly<Record<string, string>> = { "worldcup-market-01": "夫妇蔬菜" };
+
 export function localizeStoreName(store: WorldCupMarketStore, locale: Locale): string {
   if (locale === "en") return store.nameEn ?? store.nameKo;
-  if (locale === "zh") return store.nameZh ?? store.nameKo;
+  if (locale === "zh") return store.nameZh ?? ZH_NAME_FALLBACK[store.id] ?? store.nameKo;
+  // JA: katakana transliteration of the Korean name (no official Japanese names exist).
+  if (locale === "ja") return WORLD_CUP_MARKET_NAME_READINGS[store.id] ?? store.nameKo;
   return store.nameKo;
 }
 
 /**
- * JA has no separate store name field, so localizeStoreName keeps the Korean
- * name as the primary text. This katakana reading is shown alongside it so a
- * visitor can sound the name out against the physical signage. It is a
- * pronunciation aid, not an official Japanese store name.
+ * JA shows the katakana transliteration as the store name (localizeStoreName);
+ * the original Hangul name is shown alongside so a visitor can match the
+ * physical signage. Other locales show nothing extra.
  */
 export function getStoreNameReading(store: WorldCupMarketStore, locale: Locale): string | null {
   if (locale !== "ja") return null;
-  return WORLD_CUP_MARKET_NAME_READINGS[store.id] ?? null;
+  return WORLD_CUP_MARKET_NAME_READINGS[store.id] ? store.nameKo : null;
 }
 
 type TranslatedCopy = Readonly<Record<string, Readonly<Record<Exclude<Locale, "ko">, string>>>>;
