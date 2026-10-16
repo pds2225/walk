@@ -326,15 +326,15 @@ function StoreDetail({ store, locale, onStartWalking, onSelect }: {
       </div>
       <MenuCarousel store={store} locale={locale} />
       <StoreAbout store={store} locale={locale} />
-      <nav className="worldcup-market-mobile-section worldcup-market-detail-nearby" aria-label={ui.selectShop}>
-        <h3>{ui.nearbyTitle}</h3>
-        <NearbyShopRail selectedId={store.id} locale={locale} onSelect={onSelect} sortByDistance />
-      </nav>
       <section className="worldcup-market-mobile-section worldcup-market-detail-location" aria-labelledby="worldcup-market-location-map-title">
         <h3 id="worldcup-market-location-map-title">{ui.locationTitle}</h3>
         <WorldCupMarketFloorMap stores={WORLD_CUP_MARKET_STORES} selectedId={store.id} locale={locale} variant="detail"
           onSelect={(storeId) => { track("map_pin_click", { storeId, locale, src: "detail" }); onSelect(storeId); }} />
       </section>
+      <nav className="worldcup-market-mobile-section worldcup-market-detail-nearby" aria-label={ui.selectShop}>
+        <h3>{ui.nearbyTitle}</h3>
+        <NearbyShopRail selectedId={store.id} locale={locale} onSelect={onSelect} sortByDistance />
+      </nav>
       <section className="worldcup-market-mobile-section worldcup-market-detail-storefront" aria-labelledby="worldcup-market-storefront-title">
         <h3 id="worldcup-market-storefront-title">{ui.storefrontTitle}</h3>
         <WorldCupMarketStreetView key={`storefront-${store.id}`} store={store} locale={locale} />

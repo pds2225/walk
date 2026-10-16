@@ -521,11 +521,11 @@ describe("World Cup Market demo", () => {
     expect(screen.queryByTestId("worldcup-market-map")).toBeNull();
   });
 
-  it("상세 한 페이지: 점포 정보 → 안내 박스 → 주변 점포 → 위치 → 거리뷰 순서, 옛 ?view=nearby 링크도 상세로 연다", () => {
+  it("상세 한 페이지: 점포 정보 → 안내 박스 → 위치 → 주변 점포 → 거리뷰 순서, 옛 ?view=nearby 링크도 상세로 연다", () => {
     window.history.replaceState(null, "", "/worldcup-market?store=worldcup-market-01&view=nearby");
     const view = render(<WorldCupMarketDemo locale="ko" onStartWalking={vi.fn()} />);
     expect(screen.getByRole("heading", { name: "부부야채" })).toBeTruthy();
-    const order = [".worldcup-market-mobile-detail-body", ".worldcup-market-about-shop", ".worldcup-market-detail-nearby", ".worldcup-market-detail-location", ".worldcup-market-detail-storefront"]
+    const order = [".worldcup-market-mobile-detail-body", ".worldcup-market-about-shop", ".worldcup-market-detail-location", ".worldcup-market-detail-nearby", ".worldcup-market-detail-storefront"]
       .map((sel) => view.container.querySelector(sel));
     order.forEach((el) => expect(el).toBeTruthy());
     for (let i = 1; i < order.length; i += 1) {
