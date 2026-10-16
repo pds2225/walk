@@ -18,8 +18,6 @@ export interface WorldCupMarketFloorMapProps {
   readonly variant?: "overview" | "detail";
   /** Category filter: these stores are emphasised; all stores stay drawn in colour. */
   readonly highlightIds?: ReadonlySet<string> | null;
-  /** Overview: bump to request "my location" (e.g. after a list pick) so dot and picked store show together. */
-  readonly locateKey?: number;
 }
 
 /** Phones: both sides of a centre alley, real side and order kept. */
@@ -37,7 +35,7 @@ type MyLocState = { kind: "idle" | "locating" | "denied" | "unavailable" | "time
 type Rect = { x: number; y: number; width: number; height: number };
 
 /** Department-store style directory plan (schematic, positions approximate). */
-export default function WorldCupMarketFloorMap({ stores, locale, onSelect, selectedId = "", variant = "overview", highlightIds = null, locateKey = 0 }: WorldCupMarketFloorMapProps) {
+export default function WorldCupMarketFloorMap({ stores, locale, onSelect, selectedId = "", variant = "overview", highlightIds = null }: WorldCupMarketFloorMapProps) {
   const detail = variant === "detail";
   const rootRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
@@ -71,8 +69,11 @@ export default function WorldCupMarketFloorMap({ stores, locale, onSelect, selec
   const affH = useMemo(() => fitPlanAffine(horizontal), [horizontal]);
   const [myLoc, setMyLoc] = useState<MyLocState>({ kind: "idle" });
   const mt = MY_LOCATION_TEXT[locale] ?? MY_LOCATION_TEXT.en;
-  const locate = () => {
-    track("my_location_click", { locale }); // no coordinates, ever
+  // Only a button tap scrolls the page to the dot; the automatic locate on load must not move the page.
+  const manualLocateRef = useRef(false);
+  const locate = (manual = true) => {
+    manualLocateRef.current = manual;
+    if (manual) track("my_location_click", { locale }); // no coordinates, ever
     if (typeof navigator === "undefined" || !navigator.geolocation) { setMyLoc({ kind: "unavailable" }); return; }
     setMyLoc({ kind: "locating" });
     const ok = (pos: GeolocationPosition) => setMyLoc({ kind: "fix", lat: pos.coords.latitude, lng: pos.coords.longitude, acc: pos.coords.accuracy });
@@ -83,7 +84,8 @@ export default function WorldCupMarketFloorMap({ stores, locale, onSelect, selec
       navigator.geolocation.getCurrentPosition(ok, fail, { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 });
     }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
   };
-  useEffect(() => { if (locateKey > 0) locate(); }, [locateKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Dasom 2026-10-16: ask for location automatically on the market map so the blue dot is always there.
+  useEffect(() => { if (!detail) locate(false); }, [detail]); // eslint-disable-line react-hooks/exhaustive-deps
   // Overview pick: bring the picked store (red) into view.
   useEffect(() => {
     if (detail || !selectedId) return;
@@ -92,8 +94,13 @@ export default function WorldCupMarketFloorMap({ stores, locale, onSelect, selec
     const me = [...document.querySelectorAll<SVGGElement>(".wcm-floor-me")].find((g) => g.getBoundingClientRect().width > 0);
     if (me && typeof window.scrollBy === "function") {
       const a = me.getBoundingClientRect(), b = el.getBoundingClientRect();
-      window.scrollBy({ top: (Math.min(a.top, b.top) + Math.max(a.bottom, b.bottom)) / 2 - window.innerHeight / 2, behavior: "smooth" });
-      return;
+      const top = Math.min(a.top, b.top), bottom = Math.max(a.bottom, b.bottom);
+      // Both fit (leaving room for header/button): centre them together. Otherwise the store wins
+      // and the edge arrow points to my location.
+      if (bottom - top <= window.innerHeight - 160) {
+        window.scrollBy({ top: (top + bottom) / 2 - window.innerHeight / 2, behavior: "smooth" });
+        return;
+      }
     }
     el.scrollIntoView?.({ behavior: "smooth", block: "center" });
   }, [detail, selectedId]);
@@ -107,7 +114,7 @@ export default function WorldCupMarketFloorMap({ stores, locale, onSelect, selec
     : fixV?.kind === "ok" ? mt.shown : null;
   // Bring the dot into view: on phones the map is long and the dot can be off-screen.
   useEffect(() => {
-    if (fixV?.kind !== "ok") return;
+    if (fixV?.kind !== "ok" || !manualLocateRef.current) return;
     const el = [...document.querySelectorAll<SVGGElement>(".wcm-floor-me")].find((g) => g.getBoundingClientRect().width > 0);
     if (!el) return;
     // With a picked store, frame both: centre the midpoint of the dot and the store.
@@ -120,6 +127,22 @@ export default function WorldCupMarketFloorMap({ stores, locale, onSelect, selec
     }
     el.scrollIntoView?.({ behavior: "smooth", block: "center" });
   }, [myLoc]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Edge arrow toward my location when the dot is off screen.
+  const [meEdge, setMeEdge] = useState<"up" | "down" | null>(null);
+  useEffect(() => {
+    if (detail || fixV?.kind !== "ok") { setMeEdge(null); return; }
+    const update = () => {
+      const me = [...document.querySelectorAll<SVGGElement>(".wcm-floor-me")].find((g) => g.getBoundingClientRect().width > 0);
+      if (!me) { setMeEdge(null); return; }
+      const r = me.getBoundingClientRect();
+      setMeEdge(r.bottom < 60 ? "up" : r.top > window.innerHeight - 20 ? "down" : null);
+    };
+    update();
+    window.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    return () => { window.removeEventListener("scroll", update); window.removeEventListener("resize", update); };
+  }, [detail, fixV?.kind, myLoc]); // eslint-disable-line react-hooks/exhaustive-deps
+  const goToMe = () => [...document.querySelectorAll<SVGGElement>(".wcm-floor-me")].find((g) => g.getBoundingClientRect().width > 0)?.scrollIntoView?.({ behavior: "smooth", block: "center" });
   const byId = new Map(stores.map((s) => [s.id, s]));
   const ko = locale === "ko";
   const alleyLabel = `망원로7길 · ${ko ? "시장 골목" : "market alley"}`;
@@ -176,9 +199,10 @@ export default function WorldCupMarketFloorMap({ stores, locale, onSelect, selec
     <div ref={rootRef} className={`wcm-floor${detail ? " is-detail" : ""}`} data-map-provider="floor">
       {detail ? null : <>
       {/* Floating "my location" button + toast, shown while the map is on screen. */}
+      {meEdge && mapOnScreen ? <button type="button" className={`wcm-floor-me-edge is-${meEdge}`} onClick={goToMe}>{meEdge === "up" ? "↑" : "↓"} {mt.button}</button> : null}
       <div className={`wcm-floor-myloc${mapOnScreen ? "" : " is-offscreen"}`}>
         {myMsg ? <span role="status" className={`wcm-floor-toast${fixV?.kind === "ok" ? " is-ok" : ""}`}>{myMsg}</span> : null}
-        <button type="button" onClick={locate} disabled={myLoc.kind === "locating"}><span aria-hidden="true">◎</span> {mt.button}</button>
+        <button type="button" onClick={() => locate()} disabled={myLoc.kind === "locating"}><span aria-hidden="true">◎</span> {mt.button}</button>
       </div>
       </>}
       <div className="wcm-floor-plan is-vertical">{renderPlan(vertical, false)}</div>
