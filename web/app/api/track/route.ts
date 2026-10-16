@@ -1,6 +1,6 @@
-/** Funnel event collector for /worldcup-market. Inserts into public.events server-side (no IP). */
+/** Funnel event collector for K-TRIP (/worldcup-market, app=ktrip) and WALK (/, app=walk). Inserts into public.events server-side (no IP, no coordinates). */
 import { after, NextResponse } from "next/server";
-import { DETAIL_SECTIONS, isFunnelEvent, MAX_DWELL_SECONDS, STORE_VIEW_COOKIE_PREFIX, STORE_VIEW_DEDUPE_SECONDS, STORE_VIEW_SOURCES } from "../../../lib/funnelEvents";
+import { DETAIL_SECTIONS, isFunnelEvent, isWalkEvent, WALK_COORD_EVENTS, WALK_ERROR_TYPES, WALK_HOME_VIEW_COOKIE, WALK_HOME_VIEW_DEDUPE_SECONDS, WALK_SOURCES, MAX_DWELL_SECONDS, STORE_VIEW_COOKIE_PREFIX, STORE_VIEW_DEDUPE_SECONDS, STORE_VIEW_SOURCES } from "../../../lib/funnelEvents";
 import { insertSupabaseRow, QR_LANDING_COOKIE, trackRateBuckets as buckets, storeIdFromQrNumber, storeNumberFromId, VISITOR_COOKIE } from "../../../lib/qrScan";
 import { WORLD_CUP_MARKET_STORES } from "../../../lib/worldCupMarketStores";
 
@@ -64,7 +64,34 @@ export async function POST(request: Request) {
   }
   if (limited(visitorId, Date.now())) return NextResponse.json({ ok: false }, { status: 429 });
 
+  const walk = isWalkEvent(event);
+  if (walk && storeId) return NextResponse.json({ ok: false, error: "store not allowed" }, { status: 400 });
   let src = str(body["src"], 16);
+  let queryLen: number | null = null, errorType: string | null = null;
+  let coords: { lat: number; lng: number; accuracy_m: number | null } | null = null;
+  if (walk) {
+    src = src && (WALK_SOURCES as readonly string[]).includes(src) ? src : null;
+    if (event === "search") {
+      const q = body["query_len"];
+      if (typeof q !== "number" || !Number.isFinite(q) || q < 0) return NextResponse.json({ ok: false, error: "query_len required" }, { status: 400 });
+      queryLen = Math.min(Math.round(q), 200);
+    }
+    if (event === "route_error") {
+      const e = body["error_type"];
+      if (!(typeof e === "string" && (WALK_ERROR_TYPES as readonly string[]).includes(e))) return NextResponse.json({ ok: false, error: "unknown error_type" }, { status: 400 });
+      errorType = e;
+    }
+    const lat = body["lat"], lng = body["lng"], acc = body["accuracy_m"];
+    if (process.env.WALK_STORE_COORDS !== "off" && (WALK_COORD_EVENTS as readonly string[]).includes(event)
+      && typeof lat === "number" && typeof lng === "number" && Math.abs(lat) <= 90 && Math.abs(lng) <= 180) {
+      coords = { lat: Math.round(lat * 1e6) / 1e6, lng: Math.round(lng * 1e6) / 1e6,
+        accuracy_m: typeof acc === "number" && Number.isFinite(acc) && acc >= 0 ? Math.min(Math.round(acc * 10) / 10, 100000) : null };
+    }
+    if (event === "home_view") {
+      if (readCookie(cookies, WALK_HOME_VIEW_COOKIE)) return response; // same visitor within 3 min
+      response.cookies.set(WALK_HOME_VIEW_COOKIE, "1", { httpOnly: true, sameSite: "lax", secure, path: "/api/track", maxAge: WALK_HOME_VIEW_DEDUPE_SECONDS });
+    }
+  }
   if (event === "section_view" && !(src && (DETAIL_SECTIONS as readonly string[]).includes(src))) {
     return NextResponse.json({ ok: false, error: "unknown section" }, { status: 400 });
   }
@@ -99,6 +126,7 @@ export async function POST(request: Request) {
     path: str(body["path"], 128),
     user_agent: request.headers.get("user-agent")?.slice(0, 512) ?? null,
     dwell_sec: dwellSec,
+    ...(walk ? { app: "walk", query_len: queryLen, error_type: errorType, ...(coords ?? {}) } : {}),
   };
   after(async () => {
     await insertSupabaseRow("events", row);

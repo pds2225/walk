@@ -8,6 +8,14 @@ import { useNavigation } from "../lib/useNavigation";
 import type { Coordinate, PlaceHit, RouteResponse } from "../lib/types";
 import { getServiceMetadata, getUiText, LOCALE_OPTIONS, type Locale } from "../lib/i18n";
 import { primeSpeech } from "../lib/voice";
+import { track } from "../lib/track";
+import { WALK_PROGRESS_DISTANCE_M, WALK_PROGRESS_INTERVAL_MS, WALK_STORE_COORDS } from "../lib/funnelEvents";
+
+const pos = (f: Fix | null | undefined) => (WALK_STORE_COORDS && f ? { latitude: f.latitude, longitude: f.longitude, accuracyMeters: f.accuracyMeters } : null);
+function metersBetween(a: Coordinate, b: Coordinate): number {
+  const r = Math.PI / 180, x = (b.longitude - a.longitude) * r * Math.cos(((a.latitude + b.latitude) / 2) * r), y = (b.latitude - a.latitude) * r;
+  return Math.hypot(x, y) * 6_371_000;
+}
 import RoadviewViewer from "../components/RoadviewViewer";
 import type { RoadviewProvider } from "../lib/roadview";
 import { selectRoadviewProvider } from "../lib/roadviewProviders";
@@ -96,6 +104,10 @@ export default function Home() {
   }, []);
 
   const ui = getUiText(locale);
+  const localeRef = useRef(locale);
+  localeRef.current = locale;
+  // Step logging (app=walk): no coordinates, IP, or search text — only event, locale, and small codes.
+  useEffect(() => { track("home_view", { locale: localeRef.current }); }, []);
 
   useEffect(() => {
     const metadata = getServiceMetadata(locale, "home");
@@ -118,6 +130,17 @@ export default function Home() {
   const { fix, error: geoError } = useWatchPosition(wantWatch);
   const { headingDegrees: compass, request: requestCompass } = useCompass(wantWatch);
   const currentFix = fix ?? originFix;
+  const currentFixRef = useRef<Fix | null>(null);
+  currentFixRef.current = currentFix;
+  // nav_progress: while navigating, every 30 s or 50 m (WALK_STORE_COORDS).
+  const lastProgress = useRef<{ at: number; fix: Fix } | null>(null);
+  useEffect(() => {
+    if (!WALK_STORE_COORDS || phase !== "navigating" || !fix) return;
+    const last = lastProgress.current, now = Date.now();
+    if (last && now - last.at < WALK_PROGRESS_INTERVAL_MS && metersBetween(last.fix, fix) < WALK_PROGRESS_DISTANCE_M) return;
+    lastProgress.current = { at: now, fix };
+    if (last) track("nav_progress", { locale: localeRef.current, position: pos(fix) });
+  }, [fix, phase]);
   // 지도 핀 표시 전용 — 판정(useNavigation)·재탐색·Roadview 는 currentFix(raw)를 그대로 쓴다.
   const displayFix = useSmoothedFix(currentFix);
 
@@ -144,6 +167,7 @@ export default function Home() {
       navigationSession.current += 1;
       setRerouting(false);
       setPhase("arrived");
+      track("arrive", { locale: localeRef.current, position: pos(currentFixRef.current) });
     }
   }, [phase, nav.arrived]);
 
@@ -161,6 +185,7 @@ export default function Home() {
       if (!dest || !routeResponse || rerouting) return;
       const session = navigationSession.current;
       setRerouting(true);
+      track("reroute", { locale, position: pos(current) });
       try {
         const resp = await fetch("/api/route", {
           method: "POST",
@@ -176,6 +201,7 @@ export default function Home() {
           return;
         }
         if (!resp.ok) {
+          track("route_error", { locale, errorType: "reroute_http" });
           setError((body as { error?: string }).error ?? ui.rerouteFailed);
           return;
         }
@@ -184,13 +210,14 @@ export default function Home() {
         setError(null);
       } catch {
         if (navigationSession.current === session && phaseRef.current === "navigating") {
+          track("route_error", { locale, errorType: "reroute_network" });
           setError(ui.rerouteFailed);
         }
       } finally {
         if (navigationSession.current === session) setRerouting(false);
       }
     },
-    [dest, rerouting, routeResponse, ui.rerouteFailed],
+    [dest, locale, rerouting, routeResponse, ui.rerouteFailed],
   );
 
   useEffect(() => {
@@ -242,12 +269,16 @@ export default function Home() {
         const body: unknown = await resp.json();
         // 타이핑이 계속돼 더 새로운 요청이 나갔으면 이 응답은 버린다(순서 뒤집힘 방지).
         if (seq !== searchSeq.current) return;
+        const found = resp.ok ? ((body as { hits?: PlaceHit[] }).hits ?? []).length : 0;
+        if (resp.ok) track("search", { locale: localeRef.current, queryLen: q.length, src: found > 0 ? "hit" : "miss" });
+        else track("route_error", { locale: localeRef.current, errorType: "search_http" });
         setHits(resp.ok ? ((body as { hits?: PlaceHit[] }).hits ?? []) : []);
         setMissHint(resp.ok ? ((body as { hint?: string | null }).hint ?? null) : null);
         setError(resp.ok ? null : ((body as { error?: string }).error ?? null));
         setSearched(true);
       } catch {
         if (seq === searchSeq.current) {
+          track("route_error", { locale: localeRef.current, errorType: "search_network" });
           setHits([]);
           setMissHint(null);
           setSearched(true);
@@ -293,6 +324,7 @@ export default function Home() {
         origin = await getCurrentPositionOnce();
       } catch (err) {
         if (navigationSession.current !== session) return;
+        track("route_error", { locale, errorType: "location" });
         setError(err instanceof Error ? err.message : ui.locating);
         setPhase("destination_selected");
         return;
@@ -309,6 +341,7 @@ export default function Home() {
         const body: unknown = await resp.json();
         if (navigationSession.current !== session) return;
         if (!resp.ok) {
+          track("route_error", { locale, errorType: "route_http" });
           setError((body as { error?: string }).error ?? ui.routeFailed);
           setPhase("destination_selected");
           return;
@@ -317,8 +350,11 @@ export default function Home() {
         setOriginFix(origin);
         rememberRecent(target);
         setPhase("navigating");   // 이 시점부터만 watchPosition 이 시작된다
+        track("nav_start", { locale, position: pos(origin) });
+        lastProgress.current = { at: Date.now(), fix: origin };
       } catch {
         if (navigationSession.current !== session) return;
+        track("route_error", { locale, errorType: "route_network" });
         setError(ui.routeFailed);
         setPhase("destination_selected");
       }
@@ -332,6 +368,7 @@ export default function Home() {
     setQuery(hit.name);
     setHits([]);
     setPhase("destination_selected");
+    track("destination_select", { locale: localeRef.current, src: "search" });
   }, []);
 
   const reset = useCallback(() => {
@@ -489,7 +526,7 @@ export default function Home() {
                 type="button"
                 className="chip"
                 disabled={busy}
-                onClick={() => void startWalking(r)}
+                onClick={() => { track("destination_select", { locale, src: "recent" }); void startWalking(r); }}
               >
                 {r.name}
               </button>
