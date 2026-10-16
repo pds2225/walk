@@ -106,7 +106,7 @@ describe("POST /api/track", () => {
     afterTasks.length = 0; fetchMock.mockClear();
     await post({ event: "page_view", lat: 37.55, lng: 126.91 });
     const ktrip = await insertedRow();
-    expect(ktrip.lat).toBeUndefined(); expect(ktrip.app).toBeUndefined();
+    expect(ktrip.lat).toBeUndefined(); expect(ktrip.app).toBe("worldcup-market");
     afterTasks.length = 0; fetchMock.mockClear();
     vi.stubEnv("WALK_STORE_COORDS", "off");
     await post({ event: "arrive", lat: 37.55, lng: 126.91 });
