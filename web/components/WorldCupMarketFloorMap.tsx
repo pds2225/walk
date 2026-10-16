@@ -17,7 +17,7 @@ export interface WorldCupMarketFloorMapProps {
 }
 
 /** Phones: both sides of a centre alley, real side and order kept. */
-const VERTICAL_PLAN = { margin: 4, alley: 22, stallDepth: 166, stallHeight: 58, street: 24 } as const;
+const VERTICAL_PLAN = { margin: 4, alley: 22, stallDepth: 166, stallHeight: 88, street: 24 } as const;
 /** Desktop: both sides of the alley, wide blocks. */
 const WIDE_PLAN = { margin: 10, alley: 48, stallDepth: 400, stallHeight: 60, street: 32 } as const;
 const LABEL_FONT = { max: 30, min: 12 } as const;
@@ -109,7 +109,7 @@ export default function WorldCupMarketFloorMap({ stores, locale, onSelect, selec
         const selected = s.storeId === selectedId;
         const color = FLOOR_MAP_COLORS[s.group];
         const narrow = s.width < 200, pad = narrow ? 7 : 12; // phone blocks are half-width
-        const label = fitInlineLabel(String(s.number ?? ""), name, s.width - pad * 2, narrow ? 22 : LABEL_FONT.max, narrow ? 15 : LABEL_FONT.min);
+        const label = fitInlineLabel(String(s.number ?? ""), name, s.width - pad * 2, narrow ? 24 : LABEL_FONT.max, narrow ? 15 : LABEL_FONT.min);
         return <a key={s.storeId} href={qrDestinationPath(s.storeId)} data-store-id={s.storeId} className={selected ? "is-selected" : undefined}
           aria-label={`${s.number}. ${name} · ${localizeCategory(store.category, locale)} · ${ui.approximateLocation}`}
           onClick={(e) => { e.preventDefault(); onSelect(s.storeId); }}>
