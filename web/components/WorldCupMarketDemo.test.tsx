@@ -129,7 +129,7 @@ describe("World Cup Market demo", () => {
     const onStartWalking = vi.fn();
     render(<WorldCupMarketDemo locale="ko" onStartWalking={onStartWalking} />);
 
-    fireEvent.click(screen.getAllByRole("button", { name: /무진장전집/ })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: /무진장전집/ })[0]!);
     expect(screen.getByRole("heading", { name: "무진장전집" })).toBeTruthy();
     expect(screen.getAllByText("야채곱창").length).toBeGreaterThan(0);
     expect(screen.getByText("11:00 ~ 23:00")).toBeTruthy();
@@ -145,7 +145,7 @@ describe("World Cup Market demo", () => {
 
   it("슬로건의 3000원을 메뉴 가격으로 올리지 않는다", () => {
     render(<WorldCupMarketDemo locale="ko" onStartWalking={vi.fn()} />);
-    fireEvent.click(screen.getAllByRole("button", { name: /무진장맛집/ })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: /무진장맛집/ })[0]!);
     expect(screen.getAllByText(/3000원의 행복/).length).toBeGreaterThan(0);
     expect(document.querySelector('[data-fact="price"]')).toBeNull();
     expect(document.querySelector(".worldcup-market-not-confirmed")?.textContent).toContain("가격");
@@ -179,7 +179,7 @@ describe("World Cup Market demo", () => {
     fireEvent.click(screen.getByRole("button", { name: "中文" }));
     rerender(<WorldCupMarketDemo locale="zh" onLocaleChange={onLocaleChange} onStartWalking={onStartWalking} />);
     expect(screen.getByRole("heading", { name: "夫妇蔬菜" })).toBeTruthy();
-    fireEvent.click(screen.getAllByRole("button", { name: /嘉乐农产物/ })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: /嘉乐农产物/ })[0]!);
     expect(screen.getByRole("heading", { name: "嘉乐农产物" })).toBeTruthy();
     expect(screen.getByText("热门菜单")).toBeTruthy();
     expect(screen.getByRole("button", { name: "开始步行导航" })).toBeTruthy();
