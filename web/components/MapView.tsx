@@ -122,11 +122,11 @@ export default function MapView({
       userMoved.current = true;
       instance.stop();
     };
-    const canvas = instance.getCanvas();
-    canvas.addEventListener("pointerdown", pauseFollow);
-    canvas.addEventListener("touchstart", pauseFollow, { passive: true });
-    canvas.addEventListener("wheel", pauseFollow, { passive: true });
-    canvas.addEventListener("keydown", pauseFollow);
+    const interactionSurface = instance.getContainer();
+    interactionSurface.addEventListener("pointerdown", pauseFollow);
+    interactionSurface.addEventListener("touchstart", pauseFollow, { passive: true });
+    interactionSurface.addEventListener("wheel", pauseFollow, { passive: true });
+    interactionSurface.addEventListener("keydown", pauseFollow);
     instance.on("dragstart", pauseFollow);
 
     // 배경 타일을 못 받으면 배경만 버리고 경로선은 살린다(FALLBACK_STYLE 주석 참조).
@@ -189,10 +189,10 @@ export default function MapView({
     });
 
     return () => {
-      canvas.removeEventListener("pointerdown", pauseFollow);
-      canvas.removeEventListener("touchstart", pauseFollow);
-      canvas.removeEventListener("wheel", pauseFollow);
-      canvas.removeEventListener("keydown", pauseFollow);
+      interactionSurface.removeEventListener("pointerdown", pauseFollow);
+      interactionSurface.removeEventListener("touchstart", pauseFollow);
+      interactionSurface.removeEventListener("wheel", pauseFollow);
+      interactionSurface.removeEventListener("keydown", pauseFollow);
       instance.off("dragstart", pauseFollow);
       instance.remove();
       map.current = null;

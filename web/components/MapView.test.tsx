@@ -6,6 +6,7 @@ import MapView from "./MapView";
 
 interface FakeMap {
   canvas: HTMLCanvasElement;
+  surface: HTMLDivElement;
   emit(event: string): void;
   easeTo: ReturnType<typeof vi.fn>;
   fitBounds: ReturnType<typeof vi.fn>;
@@ -22,6 +23,7 @@ const fake = vi.hoisted(() => ({
 vi.mock("maplibre-gl", () => {
   class Map {
     canvas = document.createElement("canvas");
+    surface = document.createElement("div");
     listeners = new globalThis.Map<string, () => void>();
     easeTo = vi.fn();
     fitBounds = vi.fn();
@@ -31,8 +33,9 @@ vi.mock("maplibre-gl", () => {
     addSource = vi.fn();
     addLayer = vi.fn();
     source = { setData: vi.fn() };
-    constructor() { fake.maps.push(this); }
+    constructor() { this.surface.appendChild(this.canvas); fake.maps.push(this); }
     getCanvas() { return this.canvas; }
+    getContainer() { return this.surface; }
     isStyleLoaded() { return true; }
     getSource() { return this.source; }
     on(event: string, handler: () => void) { this.listeners.set(event, handler); }
