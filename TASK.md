@@ -12,8 +12,9 @@
 - 기존 원인: GPS 1m 변위에서 course 계산·센서 이동방향 없으면 0° 대입; relative deviceorientation(alpha)를 북쪽 기준으로 표시; 10m drifting, 15m hard deviation의 위치정확도 완충 부족.
 - 변경: 신뢰 가능한 8~15m 누적 GPS 변위 및 보행 속도로 course 추정(비정상 순간 점프 제외); 절대방위/iOS compass만 지도 회전에 사용하고 원형 각도 smoothing. GPS 불확실성 이내 drift 경고 억제, hard 이탈은 기존 accuracy gate에 5m 여유 및 최소 20m 요구.
 - 비변경: Streamlit/Python 공통 route engine·골든트레이스·도착 반경·회전 미이행 안전 로직·UI·이전 map-pan PR #180 유지.
-- CHECKPOINT: 기준 origin/main `4b1e05f4383dc3d06c88d87d8b5f331e1f148d6d`, 브랜치 `fix/walk-heading-deviation-20261022`, 수용성 검증은 CI 및 실제 모바일 GPS E2E 별도.
-- 상태: 초기 구현 커밋 작성 중. 모바일 실사용 및 운영 배포 미검증. main 병합 전.
+- CHECKPOINT: 기준 origin/main `4b1e05f4383dc3d06c88d87d8b5f331e1f148d6d`, 브랜치 `fix/walk-heading-deviation-20261022`, PR #181 (https://github.com/pds2225/walk/pull/181). 검증한 기능 커밋 `269d8b0384ab4676fa0636a564f21e71551fc1e4`.
+- 검증: GitHub Actions web+route-engine 497 tests(47 files), ESLint, TypeScript, 두 패키지 빌드, docs-gate 전부 PASS. Vercel walk/k-navi Preview status SUCCESS. 실제 모바일 GPS E2E는 미검증.
+- 상태: 코드 및 CI 검증 완료, 운영 main 병합/운영 배포 미실행. 모바일 실기기에서 heading 품질·정상 보행 오탐 비교 후 최종 승인 필요.
 
 ## WALK-ORIGIN-20261022 — Vercel 웹 출발지 선택 복구 (2026-10-22)
 - 요청: 기본 출발지는 현행 GPS 자동 지정 유지. '출발지 변경'은 기본 접힘인 보조 기능으로 두고, 기존 단순한 첫 화면의 목적지 검색·걷기 주요 동선을 보존한다.
