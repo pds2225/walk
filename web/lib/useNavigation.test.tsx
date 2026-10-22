@@ -101,6 +101,8 @@ describe("회전 미이행 accuracy gate (실제 route engine)", () => {
     expect(hook.result.current.result?.reasons).toContain("distance_over_deviation_threshold");
     expect(hook.result.current.state).toBe("drifting");
     await feed(hook, fix(32, 16, 41_000, 5));
+    expect(hook.result.current.state).toBe("drifting"); // 16m는 20m hard-confirm 안전여유 미달
+    await feed(hook, fix(34, 23, 49_000, 5));
     expect(hook.result.current.state).toBe("deviated");
   });
 });
@@ -130,5 +132,39 @@ describe("tick 디버그 로그", () => {
       rawState: "passed_turn", state: "passed_turn", accuracyM: 25,
       fixReliable: true, distanceClearsAccuracy: false, confirmedByAccuracy: true,
     }));
+  });
+});
+
+describe("GPS heading confidence", () => {
+  it("정지 중 1m 위치 흔들림을 GPS 이동방향으로 사용하지 않는다", async () => {
+    const hook = navigation(STRAIGHT_ROUTE);
+    const stationary = (east: number, t: number): Fix => ({
+      ...moveCoordinateByMeters(ORIGIN, east, 0),
+      accuracyMeters: 10,
+      headingDegrees: null,
+      speedMetersPerSecond: null,
+      timestampMs: t,
+    });
+    await feed(hook, stationary(0, 1_000));
+    await feed(hook, stationary(1, 2_000));
+    await feed(hook, stationary(-1, 3_000));
+    expect(hook.result.current.movementHeadingDegrees).toBeNull();
+    expect(hook.result.current.result?.metrics.speedMetersPerSecond).toBe(0);
+  });
+
+  it("여러 정상 보행 표본의 누적 이동으로 heading을 계산한다", async () => {
+    const hook = navigation(STRAIGHT_ROUTE);
+    const walking = (north: number, t: number): Fix => ({
+      ...moveCoordinateByMeters(ORIGIN, 0, north),
+      accuracyMeters: 5,
+      headingDegrees: null,
+      speedMetersPerSecond: null,
+      timestampMs: t,
+    });
+    await feed(hook, walking(0, 1_000));
+    await feed(hook, walking(3, 4_000));
+    expect(hook.result.current.movementHeadingDegrees).toBeNull();
+    await feed(hook, walking(9, 10_000));
+    expect(hook.result.current.movementHeadingDegrees).toBeCloseTo(0, 0);
   });
 });

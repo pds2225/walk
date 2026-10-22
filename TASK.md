@@ -7,6 +7,14 @@
 > Status: **ACTIVE**
 
 
+## WALK-DIRECTION-20261022 — 방향 신뢰도 및 이탈 오탐 보정 (2026-10-22)
+- 요청: Vercel 웹 길안내에서 방향 정확도가 낮고, 정상 보행을 이탈로 판단하는 민감도가 높음. 기존 Streamlit과 기능 차이를 확인하고 웹만 최소 보정.
+- 기존 원인: GPS 1m 변위에서 course 계산·센서 이동방향 없으면 0° 대입; relative deviceorientation(alpha)를 북쪽 기준으로 표시; 10m drifting, 15m hard deviation의 위치정확도 완충 부족.
+- 변경: 신뢰 가능한 8~15m 누적 GPS 변위 및 보행 속도로 course 추정(비정상 순간 점프 제외); 절대방위/iOS compass만 지도 회전에 사용하고 원형 각도 smoothing. GPS 불확실성 이내 drift 경고 억제, hard 이탈은 기존 accuracy gate에 5m 여유 및 최소 20m 요구.
+- 비변경: Streamlit/Python 공통 route engine·골든트레이스·도착 반경·회전 미이행 안전 로직·UI·이전 map-pan PR #180 유지.
+- CHECKPOINT: 기준 origin/main `4b1e05f4383dc3d06c88d87d8b5f331e1f148d6d`, 브랜치 `fix/walk-heading-deviation-20261022`, 수용성 검증은 CI 및 실제 모바일 GPS E2E 별도.
+- 상태: 초기 구현 커밋 작성 중. 모바일 실사용 및 운영 배포 미검증. main 병합 전.
+
 ## WALK-ORIGIN-20261022 — Vercel 웹 출발지 선택 복구 (2026-10-22)
 - 요청: 기본 출발지는 현행 GPS 자동 지정 유지. '출발지 변경'은 기본 접힘인 보조 기능으로 두고, 기존 단순한 첫 화면의 목적지 검색·걷기 주요 동선을 보존한다.
 - 구현: Next.js 홈에서 기존 /api/places 검색 재사용, 선택된 출발지로 /api/route 호출. 지정 출발지는 GPS 실시간 추적과 혼동하지 않도록 '경로 미리보기'만 표시하고, '현재 위치에서 안내'는 GPS 위치를 새로 수신해 시작한다.
