@@ -461,7 +461,7 @@ export default function Home() {
   // 임의 출발지는 실제 GPS와 다른 장소일 수 있으므로 실시간 안내로 취급하지 않는다.
   if (phase === "preview" && routeResponse) {
     return (
-      <main className="nav-screen">
+      <main className="nav-screen nav-preview">
         <div className="language-bar">
           <label>
             <span className="visually-hidden">{ui.language}</span>
