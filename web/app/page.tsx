@@ -356,9 +356,6 @@ export default function Home() {
   const startWalking = useCallback(
     async (target: Recent, originOverride: Recent | null = selectedOrigin) => {
       primeSpeech(locale); // 모바일 브라우저가 사용자 제스처 뒤의 TTS를 허용하도록 예열한다
-      // iOS DeviceOrientation 권한은 비동기 위치/경로 요청 뒤에는 사용자 제스처로
-      // 간주되지 않을 수 있으므로, 첫 await 전에 요청한다.
-      requestCompass();
       const session = navigationSession.current + 1;
       navigationSession.current = session;
       roadviewProvider.current = selectRoadviewProvider();
@@ -376,6 +373,8 @@ export default function Home() {
       if (originOverride) {
         origin = originOverride.coordinate;
       } else {
+        // iOS 방향 권한은 GPS를 기다리기 전 사용자 제스처 안에서만 요청한다.
+        requestCompass();
         try {
           gpsOrigin = await getCurrentPositionOnce();
           origin = gpsOrigin;
@@ -485,7 +484,13 @@ export default function Home() {
           offRoute={false}
         />
         <div className="nav-actions">
-          <button type="button" onClick={() => dest && void startWalking(dest, null)}>{ui.startHere}</button>
+          <button type="button" onClick={() => {
+            if (!dest) return;
+            setSelectedOrigin(null);
+            setOriginQuery("");
+            setOriginEditorOpen(false);
+            void startWalking(dest, null);
+          }}>{ui.startHere}</button>
           <button type="button" className="stop" onClick={() => { setPhase("destination_selected"); setRouteResponse(null); }}>
             {ui.backToSearch}
           </button>
