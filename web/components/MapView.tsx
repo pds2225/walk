@@ -116,9 +116,18 @@ export default function MapView({
     });
     map.current = instance;
 
-    // 사용자가 직접 지도를 만졌으면 자동 따라가기를 멈춘다 — 주변을 살펴보는 중에
-    // 화면이 계속 현재 위치로 튕겨 돌아오면 지도를 볼 수가 없다.
-    instance.on("dragstart", () => { userMoved.current = true; });
+    // GPS easeTo 중 손가락으로 이동을 시작하면 dragstart 전에 다시 중앙으로
+    // 튕길 수 있다. 최초 입력에서 즉시 따라가기를 멈추고 진행 중 애니메이션도 끊는다.
+    const pauseFollow = () => {
+      userMoved.current = true;
+      instance.stop();
+    };
+    const canvas = instance.getCanvas();
+    canvas.addEventListener("pointerdown", pauseFollow);
+    canvas.addEventListener("touchstart", pauseFollow, { passive: true });
+    canvas.addEventListener("wheel", pauseFollow, { passive: true });
+    canvas.addEventListener("keydown", pauseFollow);
+    instance.on("dragstart", pauseFollow);
 
     // 배경 타일을 못 받으면 배경만 버리고 경로선은 살린다(FALLBACK_STYLE 주석 참조).
     // setStyle 은 다시 'load' 를 발생시켜 아래 레이어 등록이 그대로 이어진다.
@@ -176,10 +185,15 @@ export default function MapView({
       });
 
       ready.current = true;
-      fitRoute(instance, routeRef.current);   // 폴백 경로로 늦게 load 된 경우에도 화면을 맞춘다
+      if (!userMoved.current) fitRoute(instance, routeRef.current); // 수동 이동 중 스타일 재로드가 일어나도 시점을 보존한다
     });
 
     return () => {
+      canvas.removeEventListener("pointerdown", pauseFollow);
+      canvas.removeEventListener("touchstart", pauseFollow);
+      canvas.removeEventListener("wheel", pauseFollow);
+      canvas.removeEventListener("keydown", pauseFollow);
+      instance.off("dragstart", pauseFollow);
       instance.remove();
       map.current = null;
       ready.current = false;
@@ -196,8 +210,8 @@ export default function MapView({
     (instance.getSource("turns") as GeoJSONSource | undefined)?.setData(turnFeatures(route));
     (instance.getSource("dest") as GeoJSONSource | undefined)?.setData(destFeature(route));
 
-    if (route && route.polyline.length >= 2) userMoved.current = false;
-    fitRoute(instance, route);
+    // 재탐색으로 route 객체가 바뀌더라도 사용자 시점을 임의로 초기화하지 않는다.
+    if (!userMoved.current) fitRoute(instance, route);
   }, [route]);
 
   // ── 현재 위치 마커 + 따라가기 ──────────────────────────────────────────────

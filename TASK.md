@@ -7,6 +7,15 @@
 > Status: **ACTIVE**
 
 
+## WALK-MAP-PAN-20261022 — GPS 추적 중 지도 수동 이동 불가 수정 (2026-10-22)
+- 요청: 안내 중 지도 화면을 손가락으로 이동하면 GPS/방향 갱신에 의해 지도가 자동으로 제자리로 튀는 현상 수정. 기존 UI와 내 위치 버튼 보존.
+- 원인(코드): 기존 MapView는 dragstart 이후에만 사용자 이동을 감지하며, 재탐색 때 userMoved를 false로 초기화하고 fitBounds를 강제함.
+- 구현: 포인터/터치/휠/키 입력 즉시 자동 카메라 추적 중단, 마커 GPS 업데이트는 유지, 재탐색 및 지도의 load 재발생 때 수동 시점 보존. 기존 '내 위치' 클릭 시 GPS 중심 추적 재개.
+- 검증: MapView 직접 회귀테스트(위치 틱·수동 이동·재탐색·load·복귀 버튼), 기존 경로 안내 테스트, web typecheck/빌드와 CI 확인. 실제 모바일 GPS E2E 및 Vercel 배포는 별도 확인 필요.
+- CHECKPOINT: 브랜치 `fix/map-manual-pan-20261022`; 변경 `web/components/MapView.tsx`, `web/components/MapView.test.tsx`; 시작 기준 main `4b1e05f4383dc3d06c88d87d8b5f331e1f148d6d`.
+- 상태: 수정 구현/테스트 코드 작성, GitHub CI 및 모바일 실사용 검증 진행 전. PR 머지 및 운영 배포 미실행.
+
+
 ## WALK-ORIGIN-20261022 — Vercel 웹 출발지 선택 복구 (2026-10-22)
 - 요청: 기본 출발지는 현행 GPS 자동 지정 유지. '출발지 변경'은 기본 접힘인 보조 기능으로 두고, 기존 단순한 첫 화면의 목적지 검색·걷기 주요 동선을 보존한다.
 - 구현: Next.js 홈에서 기존 /api/places 검색 재사용, 선택된 출발지로 /api/route 호출. 지정 출발지는 GPS 실시간 추적과 혼동하지 않도록 '경로 미리보기'만 표시하고, '현재 위치에서 안내'는 GPS 위치를 새로 수신해 시작한다.
