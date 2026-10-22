@@ -49,6 +49,14 @@ interface UiText {
   readonly collapse: string;
   readonly moreRecent: string;
   readonly startWalking: string;
+  readonly startPointLabel: string;
+  readonly changeStartPoint: string;
+  readonly startPointPlaceholder: string;
+  readonly useCurrentLocation: string;
+  readonly previewRoute: string;
+  readonly previewNotice: string;
+  readonly startHere: string;
+  readonly backToSearch: string;
   readonly locating: string;
   readonly findingRoute: string;
   readonly rerouting: string;
@@ -89,6 +97,14 @@ const UI: Record<Locale, UiText> = {
     collapse: "접기",
     moreRecent: "최근 목적지 더 보기",
     startWalking: "걷기",
+    startPointLabel: "출발지",
+    changeStartPoint: "출발지 변경",
+    startPointPlaceholder: "출발할 장소를 검색하세요",
+    useCurrentLocation: "현재 위치 사용",
+    previewRoute: "경로 미리보기",
+    previewNotice: "지정한 출발지의 경로입니다. 실시간 길안내는 현재 위치에서 시작합니다.",
+    startHere: "현재 위치에서 안내 시작",
+    backToSearch: "돌아가기",
     locating: "현재 위치 확인 중…",
     findingRoute: "경로 찾는 중…",
     rerouting: "경로를 다시 찾는 중…",
@@ -132,6 +148,14 @@ const UI: Record<Locale, UiText> = {
     collapse: "Collapse",
     moreRecent: "Show more recent destinations",
     startWalking: "Start walking",
+    startPointLabel: "Starting point",
+    changeStartPoint: "Change starting point",
+    startPointPlaceholder: "Search for a starting point",
+    useCurrentLocation: "Use current location",
+    previewRoute: "Preview route",
+    previewNotice: "Route from your chosen starting point. Live guidance starts from your current location.",
+    startHere: "Navigate from current location",
+    backToSearch: "Back",
     locating: "Finding your location…",
     findingRoute: "Finding a route…",
     rerouting: "Finding a new route…",
@@ -175,6 +199,14 @@ const UI: Record<Locale, UiText> = {
     collapse: "閉じる",
     moreRecent: "最近の目的地をもっと見る",
     startWalking: "徒歩案内を開始",
+    startPointLabel: "出発地",
+    changeStartPoint: "出発地を変更",
+    startPointPlaceholder: "出発地を検索",
+    useCurrentLocation: "現在地を使う",
+    previewRoute: "ルートをプレビュー",
+    previewNotice: "指定した出発地からのルートです。リアルタイム案内は現在地から開始します。",
+    startHere: "現在地から案内開始",
+    backToSearch: "戻る",
     locating: "現在地を確認中…",
     findingRoute: "ルートを検索中…",
     rerouting: "ルートを再検索中…",
@@ -218,6 +250,14 @@ const UI: Record<Locale, UiText> = {
     collapse: "收起",
     moreRecent: "查看更多最近目的地",
     startWalking: "开始步行",
+    startPointLabel: "出发地",
+    changeStartPoint: "更改出发地",
+    startPointPlaceholder: "搜索出发地",
+    useCurrentLocation: "使用当前位置",
+    previewRoute: "预览路线",
+    previewNotice: "这是从指定出发地规划的路线。实时导航从当前位置开始。",
+    startHere: "从当前位置开始导航",
+    backToSearch: "返回",
     locating: "正在确认位置…",
     findingRoute: "正在查找路线…",
     rerouting: "正在重新规划路线…",
