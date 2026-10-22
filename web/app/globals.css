@@ -123,6 +123,52 @@ html, body {
 }
 .chip-more { flex: 0 0 56px; font-size: 20px; }
 
+/* 출발지는 평소 보조 텍스트 한 줄만 보인다. */
+.origin-control { margin-top: 6px; }
+.origin-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 42px;
+  max-width: 100%;
+  padding: 4px 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.origin-toggle span { flex: none; }
+.origin-panel {
+  margin-top: 4px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.origin-input {
+  width: 100%;
+  height: 52px;
+  padding: 0 12px;
+  border: 1.5px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 16px;
+}
+.origin-input:focus { outline: none; border-color: var(--blue); }
+.origin-reset {
+  min-height: 44px;
+  padding: 4px 0;
+  border: 0;
+  background: transparent;
+  color: var(--blue);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 .primary {
   width: 100%;
   height: 74px;
