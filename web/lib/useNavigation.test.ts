@@ -29,22 +29,28 @@ function makeResult(state: DeviationState, distanceFromRouteMeters: number): Eng
 }
 
 describe("applyDeviationAccuracyGate", () => {
-  it("distance < accuracy이면 deviated를 drifting/monitor로 완화한다", () => {
+  it("측위 오차 범위 내 16m 이탈은 경고하지 않고 on_route를 유지한다", () => {
     const decision = applyDeviationAccuracyGate(makeResult("deviated", 16), 25);
-
     expect(decision.fixReliable).toBe(true);
     expect(decision.distanceClearsAccuracy).toBe(false);
-    expect(decision.result.state).toBe("drifting");
-    expect(decision.result.suggestedNextAction).toBe("monitor");
+    expect(decision.result.state).toBe("on_route");
+    expect(decision.result.suggestedNextAction).toBe("none");
   });
 
-  it("distance >= accuracy이고 fix가 신뢰 가능하면 deviated를 유지한다", () => {
-    const decision = applyDeviationAccuracyGate(makeResult("deviated", 25), 25);
+  it("GPS 정확도에 5m 완충 여유를 주고 30m부터 hard deviation을 허용한다", () => {
+    const near = applyDeviationAccuracyGate(makeResult("deviated", 25), 25);
+    expect(near.distanceClearsAccuracy).toBe(true);
+    expect(near.result.state).toBe("drifting");
+    const far = applyDeviationAccuracyGate(makeResult("deviated", 30), 25);
+    expect(far.result.state).toBe("deviated");
+    expect(far.result.suggestedNextAction).toBe("reroute_candidate");
+  });
 
-    expect(decision.fixReliable).toBe(true);
-    expect(decision.distanceClearsAccuracy).toBe(true);
-    expect(decision.result.state).toBe("deviated");
-    expect(decision.result.suggestedNextAction).toBe("reroute_candidate");
+  it("drifting도 GPS 불확실성 반경 안이면 on_route로 억제한다", () => {
+    const near = applyDeviationAccuracyGate(makeResult("drifting", 11), 25);
+    const far = applyDeviationAccuracyGate(makeResult("drifting", 22), 25);
+    expect(near.result.state).toBe("on_route");
+    expect(far.result.state).toBe("drifting");
   });
 
   it("기존 30m accuracy gate를 넘으면 거리 조건을 충족해도 hard deviation을 억제한다", () => {
