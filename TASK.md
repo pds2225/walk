@@ -12,8 +12,8 @@
 - 원인(코드): 기존 MapView는 dragstart 이후에만 사용자 이동을 감지하며, 재탐색 때 userMoved를 false로 초기화하고 fitBounds를 강제함.
 - 구현: 포인터/터치/휠/키 입력 즉시 자동 카메라 추적 중단, 마커 GPS 업데이트는 유지, 재탐색 및 지도의 load 재발생 때 수동 시점 보존. 기존 '내 위치' 클릭 시 GPS 중심 추적 재개.
 - 검증: MapView 직접 회귀테스트(위치 틱·수동 이동·재탐색·load·복귀 버튼), 기존 경로 안내 테스트, web typecheck/빌드와 CI 확인. 실제 모바일 GPS E2E 및 Vercel 배포는 별도 확인 필요.
-- CHECKPOINT: 브랜치 `fix/map-manual-pan-20261022`; 변경 `web/components/MapView.tsx`, `web/components/MapView.test.tsx`; 시작 기준 main `4b1e05f4383dc3d06c88d87d8b5f331e1f148d6d`.
-- 상태: 수정 구현/테스트 코드 작성, GitHub CI 및 모바일 실사용 검증 진행 전. PR 머지 및 운영 배포 미실행.
+- CHECKPOINT: 브랜치 `fix/map-manual-pan-20261022`, PR #180 (https://github.com/pds2225/walk/pull/180), 변경 `web/components/MapView.tsx`, `web/components/MapView.test.tsx`; 시작 기준 main `4b1e05f4383dc3d06c88d87d8b5f331e1f148d6d`, 기능 커밋 `e43c9b666df454424a1e6386ad90c2dbdf5131ae`.
+- 상태: 변경 직접 테스트 2개 및 기존 테스트·lint·TypeScript·route-engine/web 빌드·docs-gate 모두 GitHub Actions PASS (`e43c9b6`). Vercel Preview 체크 성공. 모바일 실제 GPS/수동 터치 E2E 미검증, PR 미병합, production 미반영.
 
 
 ## WALK-ORIGIN-20261022 — Vercel 웹 출발지 선택 복구 (2026-10-22)
