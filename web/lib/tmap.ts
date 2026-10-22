@@ -8,6 +8,7 @@
 import { angularDifference, bearingDegrees, distanceMeters } from "@walk/route-engine";
 import type { Coordinate, RouteModel, TurnDirection, TurnPoint } from "@walk/route-engine";
 import type { PlaceHit, RouteResponse } from "./types";
+import { compareExactStationHits } from "./stationSearch";
 
 const PEDESTRIAN_URL = "https://apis.openapi.sk.com/tmap/routes/pedestrian";
 const POI_URL = "https://apis.openapi.sk.com/tmap/pois";
@@ -213,10 +214,19 @@ function poiHits(body: unknown, center: Coordinate | null): PlaceHit[] {
   const hits: PlaceHit[] = [];
   for (const raw of pois) {
     const poi = raw as Record<string, unknown>;
-    const lat = Number(poi["frontLat"] ?? poi["noorLat"]);
-    const lon = Number(poi["frontLon"] ?? poi["noorLon"]);
     const name = String(poi["name"] ?? "").trim();
-    if (!name || !Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+    // front 좌표가 "0"이거나 한국 범위 밖이면 정류장/역 중심 좌표로 폴백한다.
+    // ?? 연산자만 사용하면 문자열 "0"이 유효한 목적지로 남아 비정상 경로를 만든다.
+    const valid = (lat: number, lon: number) =>
+      Number.isFinite(lat) && Number.isFinite(lon) &&
+      lat >= 33.0 && lat <= 39.5 && lon >= 124.0 && lon <= 132.0;
+    let lat = Number(poi["frontLat"]);
+    let lon = Number(poi["frontLon"]);
+    if (!valid(lat, lon)) {
+      lat = Number(poi["noorLat"]);
+      lon = Number(poi["noorLon"]);
+    }
+    if (!name || !valid(lat, lon)) continue;
     const coordinate: Coordinate = { latitude: lat, longitude: lon };
     hits.push(
       center
@@ -319,8 +329,11 @@ export async function searchTmapPlaces(query: string, center: Coordinate | null,
     return true;
   });
 
-  if (center) {
-    unique.sort((a, b) => (a.distanceMeters ?? Infinity) - (b.distanceMeters ?? Infinity));
-  }
+  // TMAP 내부 후보도 자르기 전에 정확한 역명을 우선한다.
+  // 주변 상점이 limit 을 채워 실제 역 POI가 누락되는 문제를 막는다.
+  unique.sort((a, b) =>
+    compareExactStationHits(query, a.name, b.name) ||
+    (center ? (a.distanceMeters ?? Infinity) - (b.distanceMeters ?? Infinity) : 0),
+  );
   return unique.slice(0, limit);
 }

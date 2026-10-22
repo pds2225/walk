@@ -14,6 +14,7 @@ import { kakaoLocalAvailable, searchKakaoLocal } from "./kakao";
 import { naverLocalAvailable, searchLocal } from "./naver";
 import { TmapError, searchTmapPlaces, tmapAvailable } from "./tmap";
 import type { PlaceHit } from "./types";
+import { compareExactStationHits } from "./stationSearch";
 
 /**
  * 표시 이름이 같고 이만큼(m) 안에 있으면 같은 곳으로 본다.
@@ -118,11 +119,12 @@ export async function searchDestinations(
   const merged = [...interleaved, ...value(tmap)];
 
   const unique = dedupe(merged);
-  // 현재 위치를 알면 가까운 순으로 — 동명 장소 오선택을 줄인다. 다만 거리를 모르는
-  // 후보(주소 지오코딩 결과 등)를 뒤로 밀어내지 않도록 안정 정렬을 유지한다.
-  if (center) {
-    unique.sort((a, b) => (a.distanceMeters ?? Infinity) - (b.distanceMeters ?? Infinity));
-  }
+  // "판교역"처럼 역명 단독 검색은 정확한 역 본체를 주변 상점보다 우선한다.
+  // 같은 일치 수준 안에서는 기존 거리순/제공자 순서를 그대로 보존한다.
+  unique.sort((a, b) =>
+    compareExactStationHits(query, a.name, b.name) ||
+    (center ? (a.distanceMeters ?? Infinity) - (b.distanceMeters ?? Infinity) : 0),
+  );
 
   const hits = unique.slice(0, limit);
   return { hits, hint: hits.length === 0 ? missingSourceHint() : null };

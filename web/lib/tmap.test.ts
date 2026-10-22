@@ -4,8 +4,8 @@
  * 이 로직은 파이썬 `route_builder._route_from_tmap_features` 와 같은 규칙이어야 한다.
  * 둘이 갈리면 같은 길에서 Streamlit 판과 웹 판의 회전 안내가 달라진다.
  */
-import { describe, expect, it } from "vitest";
-import { isSignificantTurn, routeFromFeatures } from "./tmap";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { isSignificantTurn, routeFromFeatures, searchTmapPlaces } from "./tmap";
 import type { Coordinate } from "@walk/route-engine";
 import { moveCoordinateByMeters } from "@walk/route-engine";
 
@@ -104,5 +104,43 @@ describe("isSignificantTurn", () => {
     const gentle: Coordinate[] = [];
     for (let i = 0; i < 30; i += 1) gentle.push(at(i * 2, i * i * 0.01));
     expect(isSignificantTurn(gentle, 15)).toBe(false);
+  });
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
+});
+
+describe("TMAP 역 목적지 좌표 안전성", () => {
+  it("0으로 들어온 출입구 좌표는 역 중심 좌표로 대체하고 잘못된 후보는 제거한다", async () => {
+    vi.stubEnv("TMAP_APP_KEY", "test-only");
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => new Response(JSON.stringify(
+      String(url).includes("/pois?")
+        ? { searchPoiInfo: { pois: { poi: [
+          { name: "판교역", frontLat: "0", frontLon: "0", noorLat: "37.3948", noorLon: "127.1112" },
+          { name: "판교역 잘못된 좌표", frontLat: "0", frontLon: "0", noorLat: "0", noorLon: "0" },
+        ] } } }
+        : { coordinateInfo: { coordinate: [] } },
+    ), { status: 200 })));
+    const hits = await searchTmapPlaces("판교역", null);
+    expect(hits).toHaveLength(1);
+    expect(hits[0]?.coordinate).toEqual({ latitude: 37.3948, longitude: 127.1112 });
+  });
+
+  it("TMAP 거리순 limit 적용 전에 실제 역명 후보를 우선한다", async () => {
+    vi.stubEnv("TMAP_APP_KEY", "test-only");
+    const far = at(500, 0);
+    const near = at(20, 0);
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => new Response(JSON.stringify(
+      String(url).includes("/pois?")
+        ? { searchPoiInfo: { pois: { poi: [
+          { name: "판교역 맛집", frontLat: String(near.latitude), frontLon: String(near.longitude) },
+          { name: "판교역", frontLat: String(far.latitude), frontLon: String(far.longitude) },
+        ] } } }
+        : { coordinateInfo: { coordinate: [] } },
+    ), { status: 200 })));
+    const hits = await searchTmapPlaces("판교역", ORIGIN, 1);
+    expect(hits.map((h) => h.name)).toEqual(["판교역"]);
   });
 });

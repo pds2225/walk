@@ -58,6 +58,47 @@ afterEach(() => {
 reset();
 
 describe("searchDestinations", () => {
+  it("판교역 검색 시 더 가까운 판교역 맛집보다 정확한 역을 먼저 제시한다", async () => {
+    mockSearchKakao.mockResolvedValue([
+      { name: "경기 성남시 판교역 맛집", coordinate: at(30, 0), distanceMeters: 30 },
+    ]);
+    mockSearchTmap.mockResolvedValue([
+      { name: "판교역", coordinate: at(600, 0), distanceMeters: 600 },
+    ]);
+    const { hits } = await searchDestinations("판교역", ORIGIN);
+    expect(hits.map((h) => h.name)).toEqual(["판교역", "경기 성남시 판교역 맛집"]);
+  });
+
+  it("판교(부역명)역을 같은 역으로 보고 상점보다 우선한다", async () => {
+    mockSearchKakao.mockResolvedValue([
+      { name: "판교역 카페", coordinate: at(30, 0) },
+    ]);
+    mockSearchTmap.mockResolvedValue([
+      { name: "경기 성남시 판교(판교테크노밸리)역", coordinate: at(300, 0) },
+    ]);
+    const { hits } = await searchDestinations("판교역", null);
+    expect(hits[0]?.name).toBe("경기 성남시 판교(판교테크노밸리)역");
+  });
+
+  it("서로 다른 판교역 후보는 정확일치 그룹 내에서 가까운 순으로 둔다", async () => {
+    mockSearchLocal.mockResolvedValue([
+      { name: "충남 서천군 판교역", coordinate: at(2000, 0), distanceMeters: 2000 },
+      { name: "경기 성남시 판교역", coordinate: at(120, 0), distanceMeters: 120 },
+    ]);
+    const { hits } = await searchDestinations("판교역", ORIGIN);
+    expect(hits.map((h) => h.name)).toEqual(["경기 성남시 판교역", "충남 서천군 판교역"]);
+  });
+
+  it("역 출구 지정 검색에는 역 본체 우선순위를 적용하지 않는다", async () => {
+    mockSearchLocal.mockResolvedValue([
+      { name: "판교역", coordinate: at(300, 0), distanceMeters: 300 },
+      { name: "판교역 1번 출구", coordinate: at(30, 0), distanceMeters: 30 },
+    ]);
+    const { hits } = await searchDestinations("판교역 1번 출구", ORIGIN);
+    expect(hits[0]?.name).toBe("판교역 1번 출구");
+  });
+
+
   it("네이버 지역검색 결과를 TMAP 보다 앞에 둔다", async () => {
     mockSearchLocal.mockResolvedValue([{ name: "동네치킨", coordinate: at(10, 0) }]);
     mockSearchTmap.mockResolvedValue([{ name: "서울시청", coordinate: at(500, 0) }]);

@@ -15,6 +15,13 @@
 - 검증(최종 기능 커밋 `5b3e74ab6c249efab994fc55e4e2333fef1d9c2c`): GitHub Actions test/docs-gate PASS, lint/typecheck(route-engine·web)/빌드 PASS, Vercel preview READY (https://walk-b6qb1afph-ekth3691-8902s-projects.vercel.app).
 - 상태: 작업 브랜치 구현 및 자동 검증 완료. 모바일 브라우저 실사용 E2E·운영 배포는 미검증/미반영. PR은 Draft 유지하고 병합하지 않았다.
 
+## WALK-PANGYO-DEST-20261022 — 판교역 목적지·경로 오선택 방지 (2026-10-22)
+- 요청: 웹 WALK 판교역 목적지가 잘못 선택되고 경로가 비정상적임. 사용자 범위는 커밋까지만(새 PR·병합·운영 배포 금지).
+- 코드 원인 후보: 검색 제공자/거리 정렬이 역명 일치보다 우선하여 주변 상점이 상단에 표시됨. TMAP POI front 좌표의 문자열 "0"은 기존 ?? 폴백을 통과하여 잘못된 목적지 좌표가 될 수 있음.
+- 수정: 역명 단독 검색에 한정해 정확한 역명 후보를 주변 상점보다 우선, 괄호식 부역명 지원, 출구·일반 장소 검색의 기존 정책 유지. TMAP POI 좌표는 한국 범위 검증 후 대체 좌표 사용, 불량 좌표 제외. 역 좌표 하드코딩·GPS 탐색 동작·UI 변경 없음.
+- 검증 목표: 판교역 역/상점/부역명/동명이역/특정 출구 및 TMAP zero좌표 회귀. 실제 판교역 GPS·실제 검색제공자 응답·TMAP 경로 E2E는 별도 현장 확인이 필요함.
+- 작업 브랜치: `fix/walk-station-destination-20261022`. 상태: commit-only; PR/merge/deploy 미진행.
+
 # GLOBAL DEFAULT GUARDRAILS — 모든 TASK 기본 안전장치
 
 > 아래 규칙은 이 저장소의 **모든 현재/미래 TASK와 실행 프롬프트에 자동 적용**한다.
