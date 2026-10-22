@@ -7,6 +7,14 @@
 > Status: **ACTIVE**
 
 
+## WALK-ORIGIN-20261022 — Vercel 웹 출발지 선택 복구 (2026-10-22)
+- 요청: 기본 출발지는 현행 GPS 자동 지정 유지. '출발지 변경'은 기본 접힘인 보조 기능으로 두고, 기존 단순한 첫 화면의 목적지 검색·걷기 주요 동선을 보존한다.
+- 구현: Next.js 홈에서 기존 /api/places 검색 재사용, 선택된 출발지로 /api/route 호출. 지정 출발지는 GPS 실시간 추적과 혼동하지 않도록 '경로 미리보기'만 표시하고, '현재 위치에서 안내'는 GPS 위치를 새로 수신해 시작한다.
+- 검증: 기본 GPS 경로 회귀, 변경 출발지 API 요청, 변경 시 GPS 비호출·워처 비구독, 선택 취소/언어, 웹 빌드·테스트, Vercel Preview 확인 후 필요 시 production 반영. 기존 Streamlit 코드는 변경하지 않는다.
+- CHECKPOINT: 브랜치 `feat/walk-optional-origin-20261022`, Draft PR #179 (https://github.com/pds2225/walk/pull/179); 기능 파일 `web/app/page.tsx`, `web/app/globals.css`, `web/lib/i18n.ts`, `web/app/page.test.tsx`.
+- 검증(최종 기능 커밋 `5b3e74ab6c249efab994fc55e4e2333fef1d9c2c`): GitHub Actions test/docs-gate PASS, lint/typecheck(route-engine·web)/빌드 PASS, Vercel preview READY (https://walk-b6qb1afph-ekth3691-8902s-projects.vercel.app).
+- 상태: 작업 브랜치 구현 및 자동 검증 완료. 모바일 브라우저 실사용 E2E·운영 배포는 미검증/미반영. PR은 Draft 유지하고 병합하지 않았다.
+
 # GLOBAL DEFAULT GUARDRAILS — 모든 TASK 기본 안전장치
 
 > 아래 규칙은 이 저장소의 **모든 현재/미래 TASK와 실행 프롬프트에 자동 적용**한다.

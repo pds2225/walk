@@ -41,7 +41,7 @@ const LOCALE_KEY = "walk.locale.v1";
  * watchPosition 이 켜진다. 목적지를 고르는 것만으로 GPS 구독이 시작되던 것이
  * 화면이 계속 깜빡이던 근본 원인이었다.
  */
-type Phase = "idle" | "destination_selected" | "acquiring_location" | "routing" | "navigating" | "arrived";
+type Phase = "idle" | "destination_selected" | "acquiring_location" | "routing" | "preview" | "navigating" | "arrived";
 
 interface Recent {
   readonly name: string;
@@ -97,6 +97,13 @@ export default function Home() {
   const [roadviewOpen, setRoadviewOpen] = useState(false);
   const [recents, setRecents] = useState<Recent[]>([]);
   const [recentsExpanded, setRecentsExpanded] = useState(false);
+  const [originEditorOpen, setOriginEditorOpen] = useState(false);
+  const [originQuery, setOriginQuery] = useState("");
+  const [originHits, setOriginHits] = useState<PlaceHit[]>([]);
+  const [originSearching, setOriginSearching] = useState(false);
+  const [originSearched, setOriginSearched] = useState(false);
+  const [originSearchError, setOriginSearchError] = useState<string | null>(null);
+  const [selectedOrigin, setSelectedOrigin] = useState<Recent | null>(null);
 
   useEffect(() => {
     setRecents(loadRecents());
@@ -298,6 +305,42 @@ export default function Home() {
     return () => clearTimeout(timer);
   }, [query, dest]);
 
+  // 선택 시에만 기존 장소 검색 API를 재사용한다. 접혀 있으면 요청하지 않는다.
+  useEffect(() => {
+    const q = originQuery.trim();
+    if (!originEditorOpen || !q || selectedOrigin) {
+      setOriginHits([]);
+      setOriginSearching(false);
+      setOriginSearched(false);
+      setOriginSearchError(null);
+      return;
+    }
+    let cancelled = false;
+    const controller = new AbortController();
+    setOriginSearching(true);
+    const timer = setTimeout(async () => {
+      try {
+        const resp = await fetch(`/api/places?q=${encodeURIComponent(q)}`, { signal: controller.signal });
+        const body: unknown = await resp.json();
+        if (cancelled) return;
+        setOriginHits(resp.ok ? ((body as { hits?: PlaceHit[] }).hits ?? []) : []);
+        setOriginSearchError(resp.ok
+          ? ((body as { hint?: string | null }).hint ?? null)
+          : ((body as { error?: string }).error ?? ui.routeFailed));
+        setOriginSearched(true);
+      } catch {
+        if (!cancelled) {
+          setOriginHits([]);
+          setOriginSearchError(ui.routeFailed);
+          setOriginSearched(true);
+        }
+      } finally {
+        if (!cancelled) setOriginSearching(false);
+      }
+    }, SEARCH_DEBOUNCE_MS);
+    return () => { cancelled = true; clearTimeout(timer); controller.abort(); };
+  }, [originEditorOpen, originQuery, selectedOrigin, ui.routeFailed]);
+
   const rememberRecent = useCallback((entry: Recent) => {
     setRecents((prev) => {
       const next = [entry, ...prev.filter((r) => r.name !== entry.name)].slice(0, RECENT_MAX);
@@ -311,11 +354,8 @@ export default function Home() {
   }, []);
 
   const startWalking = useCallback(
-    async (target: Recent) => {
+    async (target: Recent, originOverride: Recent | null = selectedOrigin) => {
       primeSpeech(locale); // 모바일 브라우저가 사용자 제스처 뒤의 TTS를 허용하도록 예열한다
-      // iOS DeviceOrientation 권한은 비동기 위치/경로 요청 뒤에는 사용자 제스처로
-      // 간주되지 않을 수 있으므로, 첫 await 전에 요청한다.
-      requestCompass();
       const session = navigationSession.current + 1;
       navigationSession.current = session;
       roadviewProvider.current = selectRoadviewProvider();
@@ -327,15 +367,24 @@ export default function Home() {
       lastRerouteFixTimestamp.current = null;
       lastRerouteAtMs.current = null;
       setPhase("acquiring_location");
-      let origin: Fix;
-      try {
-        origin = await getCurrentPositionOnce();
-      } catch (err) {
-        if (navigationSession.current !== session) return;
-        track("route_error", { locale, errorType: "location" });
-        setError(err instanceof Error ? err.message : ui.locating);
-        setPhase("destination_selected");
-        return;
+      // 수동 출발지는 미래 경로 확인용. 실제 길안내는 새 GPS로 시작한다.
+      let gpsOrigin: Fix | null = null;
+      let origin: Coordinate;
+      if (originOverride) {
+        origin = originOverride.coordinate;
+      } else {
+        // iOS 방향 권한은 GPS를 기다리기 전 사용자 제스처 안에서만 요청한다.
+        requestCompass();
+        try {
+          gpsOrigin = await getCurrentPositionOnce();
+          origin = gpsOrigin;
+        } catch (err) {
+          if (navigationSession.current !== session) return;
+          track("route_error", { locale, errorType: "location" });
+          setError(err instanceof Error ? err.message : ui.locating);
+          setPhase("destination_selected");
+          return;
+        }
       }
 
       if (navigationSession.current !== session) return;
@@ -355,11 +404,15 @@ export default function Home() {
           return;
         }
         setRouteResponse(body as RouteResponse);
-        setOriginFix(origin);
+        setOriginFix(gpsOrigin);
         rememberRecent(target);
-        setPhase("navigating");   // 이 시점부터만 watchPosition 이 시작된다
-        track("nav_start", { locale, position: pos(origin) });
-        lastProgress.current = { at: Date.now(), fix: origin };
+        if (originOverride) {
+          setPhase("preview");  // GPS 추적 없이 지정한 출발지의 경로만 보여준다
+        } else if (gpsOrigin) {
+          setPhase("navigating");  // 이 시점부터만 watchPosition 이 시작된다
+          track("nav_start", { locale, position: pos(gpsOrigin) });
+          lastProgress.current = { at: Date.now(), fix: gpsOrigin };
+        }
       } catch {
         if (navigationSession.current !== session) return;
         track("route_error", { locale, errorType: "route_network" });
@@ -367,7 +420,7 @@ export default function Home() {
         setPhase("destination_selected");
       }
     },
-    [locale, rememberRecent, requestCompass, ui.routeFailed, ui.locating],
+    [locale, rememberRecent, requestCompass, selectedOrigin, ui.routeFailed, ui.locating],
   );
 
   const pick = useCallback((hit: PlaceHit) => {
@@ -387,6 +440,9 @@ export default function Home() {
     setDest(null);
     setQuery("");
     setHits([]);
+    setSelectedOrigin(null);
+    setOriginQuery("");
+    setOriginEditorOpen(false);
     setError(null);
     setRerouting(false);
     setRoadviewOpen(false);
@@ -401,6 +457,48 @@ export default function Home() {
     setDest(null);
     setPhase((p) => (p === "navigating" || p === "arrived" ? p : "idle"));
   }, []);
+
+  // 임의 출발지는 실제 GPS와 다른 장소일 수 있으므로 실시간 안내로 취급하지 않는다.
+  if (phase === "preview" && routeResponse) {
+    return (
+      <main className="nav-screen nav-preview">
+        <div className="language-bar">
+          <label>
+            <span className="visually-hidden">{ui.language}</span>
+            <select aria-label={ui.language} value={locale} onChange={(e) => changeLocale(e.target.value as Locale)}>
+              {LOCALE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </select>
+          </label>
+        </div>
+        <div className="banner">
+          <strong>{ui.previewRoute}</strong>
+          <span>{ui.startPointLabel}: {selectedOrigin?.name} → {dest?.name}</span>
+          <span>{ui.previewNotice}</span>
+        </div>
+        <MapView
+          route={routeResponse.route}
+          here={null}
+          viewHeadingDegrees={null}
+          movementHeadingDegrees={null}
+          headingUp={false}
+          offRoute={false}
+        />
+        <div className="nav-actions">
+          <button type="button" onClick={() => {
+            if (!dest) return;
+            setSelectedOrigin(null);
+            setOriginQuery("");
+            setOriginEditorOpen(false);
+            void startWalking(dest, null);
+          }}>{ui.startHere}</button>
+          <button type="button" className="stop" onClick={() => { setPhase("destination_selected"); setRouteResponse(null); }}>
+            {ui.backToSearch}
+          </button>
+        </div>
+        {error ? <p className="error" role="alert">{error}</p> : null}
+      </main>
+    );
+  }
 
   // ── 안내 중 화면 ──────────────────────────────────────────────────────────
   if ((phase === "navigating" || phase === "arrived") && routeResponse) {
@@ -524,6 +622,58 @@ export default function Home() {
         </ul>
       ) : null}
 
+      <div className="origin-control">
+        <button
+          type="button"
+          className="origin-toggle"
+          aria-expanded={originEditorOpen}
+          aria-controls="origin-panel"
+          onClick={() => {
+            setOriginEditorOpen((open) => !open);
+            if (originEditorOpen && !selectedOrigin) setOriginQuery("");
+          }}
+        >
+          {selectedOrigin ? `${ui.startPointLabel}: ${selectedOrigin.name} · ${ui.changeStartPoint}` : ui.changeStartPoint}
+          <span aria-hidden="true">{originEditorOpen ? "⌃" : "⌄"}</span>
+        </button>
+      </div>
+      {originEditorOpen ? (
+        <section id="origin-panel" className="origin-panel">
+          <input
+            className="origin-input"
+            type="search"
+            inputMode="search"
+            aria-label={ui.startPointLabel}
+            placeholder={ui.startPointPlaceholder}
+            value={originQuery}
+            onChange={(e) => { setOriginQuery(e.target.value); setSelectedOrigin(null); }}
+          />
+          {originSearching ? <p className="hint">{ui.searchLoading}</p> : null}
+          {originSearchError && !originSearching ? <p className="error">{originSearchError}</p> : null}
+          {originSearched && !originSearching && originHits.length === 0 && !originSearchError ? (
+            <p className="hint">{ui.noMatch(originQuery.trim())}</p>
+          ) : null}
+          {originHits.length > 0 ? (
+            <ul className="hits" aria-label={ui.startPointLabel}>
+              {originHits.map((hit) => (
+                <li key={`${hit.name}-${hit.coordinate.latitude}-${hit.coordinate.longitude}`}>
+                  <button type="button" onClick={() => {
+                    setSelectedOrigin({ name: hit.name, coordinate: hit.coordinate });
+                    setOriginQuery(hit.name);
+                    setOriginEditorOpen(false);
+                  }}>{hit.name}</button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          <button type="button" className="origin-reset" onClick={() => {
+            setSelectedOrigin(null);
+            setOriginQuery("");
+            setOriginEditorOpen(false);
+          }}>{ui.useCurrentLocation}</button>
+        </section>
+      ) : null}
+
       {shown.length > 0 ? (
         <>
           <p className="hint">{ui.recents}</p>
@@ -559,7 +709,7 @@ export default function Home() {
         disabled={!dest || busy}
         onClick={() => dest && void startWalking(dest)}
       >
-        {phase === "acquiring_location" ? ui.locating : phase === "routing" ? ui.findingRoute : ui.startWalking}
+        {phase === "acquiring_location" ? ui.locating : phase === "routing" ? ui.findingRoute : selectedOrigin ? ui.previewRoute : ui.startWalking}
       </button>
 
       {error ? <p className="error">{error}</p> : null}
