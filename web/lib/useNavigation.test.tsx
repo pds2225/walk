@@ -74,13 +74,13 @@ describe("회전 미이행 accuracy gate (실제 route engine)", () => {
     }));
   });
 
-  it("저정확도 passed_turn은 여전히 drifting으로 완화하고 경고 음성을 내지 않는다", async () => {
+  it("저정확도 passed_turn은 오차 범위 안의 약한 증거를 경고하지 않는다", async () => {
     const hook = navigation(TURN_ROUTE, true);
     await feed(hook, fix(32, 0, 1_000, 40));
     await feed(hook, fix(52, 0, 2_000, 40));
 
     expect(hook.result.current.result?.reasons).toContain("missed_expected_turn");
-    expect(hook.result.current.state).toBe("drifting");
+    expect(hook.result.current.state).toBe("on_route");
     expect(SpeechQueue.prototype.enqueue).not.toHaveBeenCalledWith(expect.objectContaining({
       eventId: "navigation:state:passed_turn",
     }));
@@ -99,7 +99,7 @@ describe("회전 미이행 accuracy gate (실제 route engine)", () => {
       await feed(hook, fix(20 + i * 2, 16, 1_000 + i * 8_000));
     }
     expect(hook.result.current.result?.reasons).toContain("distance_over_deviation_threshold");
-    expect(hook.result.current.state).toBe("drifting");
+    expect(hook.result.current.state).toBe("on_route"); // 횡거리 16m < GNSS 정확도 25m
     await feed(hook, fix(32, 16, 41_000, 5));
     expect(hook.result.current.state).toBe("drifting"); // 16m는 20m hard-confirm 안전여유 미달
     await feed(hook, fix(34, 23, 49_000, 5));

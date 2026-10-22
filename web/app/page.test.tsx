@@ -431,7 +431,8 @@ describe("TEST E — 확정 이탈은 active route 를 실제로 재탐색한다
       await waitFor(() => expect(screen.queryByText("경로를 다시 찾는 중…")).toBeNull());
       expect(screen.getByRole("button", { name: "안내 중지" })).toBeTruthy();
     } else {
-      expect(screen.getByText("길에서 조금 벗어났어요")).toBeTruthy();
+      // 정확도 40m에 비해 횡거리 12m 이탈은 충분한 경고 근거가 아님.
+      expect(screen.queryByText("길에서 조금 벗어났어요")).toBeNull();
     }
   });
 
