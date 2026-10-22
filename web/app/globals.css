@@ -184,6 +184,9 @@ html, body {
 .primary:disabled { background: #c8ced9; cursor: default; }
 
 /* ── 안내 화면 ───────────────────────────────────────────────────────────── */
+/* 수동 출발지 미리보기에는 GPS가 없으므로 눌러도 동작하지 않는 '내 위치' 버튼을 숨긴다. */
+.nav-preview .recenter { display: none; }
+
 .nav-screen {
   display: flex;
   flex-direction: column;
