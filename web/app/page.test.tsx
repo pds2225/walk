@@ -39,6 +39,7 @@ type ErrorCb = (err: GeolocationPositionError) => void;
 
 const ORIGIN: Coordinate = { latitude: 37.5665, longitude: 126.978 };
 const DEST_COORD = moveCoordinateByMeters(ORIGIN, 200, 0);
+const MANUAL_ORIGIN = moveCoordinateByMeters(ORIGIN, 350, 0);
 const ROUTE: RouteModel = { polyline: [ORIGIN, DEST_COORD], turnPoints: [] };
 const REROUTE_START = moveCoordinateByMeters(ORIGIN, 50, 90);
 const REROUTED_ROUTE: RouteModel = {
@@ -95,11 +96,13 @@ function routeCallCount() {
 }
 
 function installFetchMock() {
-  fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+  fetchMock = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
     const url = String(input);
     if (url.startsWith("/api/places")) {
       return new Response(
-        JSON.stringify({ hits: [{ name: "경복궁", coordinate: DEST_COORD }], hint: null }),
+        JSON.stringify({ hits: [url.includes(encodeURIComponent("서울역"))
+          ? { name: "서울역", coordinate: MANUAL_ORIGIN }
+          : { name: "경복궁", coordinate: DEST_COORD }], hint: null }),
         { status: 200 },
       );
     }
@@ -179,6 +182,51 @@ describe("TEST A — 목적지 선택은 어떤 geolocation API 도 부르지 �
     expect(screen.queryByText("검색 중…")).toBeNull();
     expect(screen.queryByText("현재 위치 확인 중…")).toBeNull();
     expect(document.querySelector(".error")).toBeNull();
+  });
+});
+
+describe("TEST I — 출발지 변경은 숨겨진 보조 기능이며 수동 위치는 미리보기 전용", () => {
+  it("수동 출발지 경로를 찾지만 GPS 조회와 실시간 추적은 하지 않는다", async () => {
+    await pickDestination();
+    expect(screen.queryByRole("searchbox", { name: "출발지" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /출발지 변경/ }));
+    fireEvent.change(screen.getByRole("searchbox", { name: "출발지" }), { target: { value: "서울역" } });
+    const list = await screen.findByRole("list", { name: "출발지" });
+    fireEvent.click(within(list).getByRole("button", { name: "서울역" }));
+
+    expect(screen.queryByRole("searchbox", { name: "출발지" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "경로 미리보기" }));
+    await waitFor(() => expect(screen.getByText(/지정한 출발지의 경로입니다/)).toBeTruthy());
+
+    const call = fetchMock.mock.calls.find((item) => String(item[0]) === "/api/route");
+    expect(call).toBeDefined();
+    const payload = JSON.parse(String(call?.[1]?.body)) as { origin: Coordinate; dest: Coordinate };
+    expect(payload.origin).toEqual(MANUAL_ORIGIN);
+    expect(payload.dest).toEqual(DEST_COORD);
+    expect(mockGetCurrentPosition).not.toHaveBeenCalled();
+    expect(mockWatchPosition).not.toHaveBeenCalled();
+    expect(screen.getByTestId("map-view")).toBeTruthy();
+  });
+
+  it("미리보기에서 현재 위치 안내 시작 시 GPS로 다시 경로를 계산한다", async () => {
+    mockGetCurrentPosition.mockImplementation((success: SuccessCb) => success(position(ORIGIN, 1000)));
+    mockWatchPosition.mockImplementation(() => 42);
+    await pickDestination();
+    fireEvent.click(screen.getByRole("button", { name: /출발지 변경/ }));
+    fireEvent.change(screen.getByRole("searchbox", { name: "출발지" }), { target: { value: "서울역" } });
+    fireEvent.click(within(await screen.findByRole("list", { name: "출발지" })).getByRole("button", { name: "서울역" }));
+    fireEvent.click(screen.getByRole("button", { name: "경로 미리보기" }));
+    await screen.findByText(/지정한 출발지의 경로입니다/);
+    fireEvent.click(screen.getByRole("button", { name: "현재 위치에서 안내 시작" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "안내 중지" })).toBeTruthy());
+
+    expect(mockGetCurrentPosition).toHaveBeenCalledTimes(1);
+    expect(mockWatchPosition).toHaveBeenCalledTimes(1);
+    expect(routeCallCount()).toBe(2);
+    const calls = fetchMock.mock.calls.filter((item) => String(item[0]) === "/api/route");
+    const payload = JSON.parse(String(calls[1]?.[1]?.body)) as { origin: Coordinate };
+    expect(payload.origin.latitude).toBe(ORIGIN.latitude);
+    expect(payload.origin.longitude).toBe(ORIGIN.longitude);
   });
 });
 
