@@ -54,8 +54,11 @@ export function applyDeviationAccuracyGate(
     rawResult.state === "passed_turn" && !fixReliable;
   const suppressDrift = rawResult.state === "drifting" && !driftConfident;
 
-  const downgradeState =
-    (downgradeDeviation || downgradePassedTurn)
+  // '회전 미이행'은 위치 오차가 큰 경우에도 on_route로 확정해선 안 된다.
+  // 강한 경고와 재탐색만 보류하고 보수적인 drifting 상태를 유지한다.
+  const downgradeState = downgradePassedTurn
+    ? "drifting"
+    : downgradeDeviation
       ? (driftConfident ? "drifting" : "on_route")
       : suppressDrift ? "on_route" : null;
   return {
