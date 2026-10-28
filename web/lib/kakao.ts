@@ -57,7 +57,7 @@ export function parseKakaoDocuments(
     if (lat < 33.0 || lat > 39.5 || lon < 124.0 || lon > 132.0) continue;
 
     const name = String(doc.place_name ?? "").trim();
-    const addr = String(doc.road_address_name ?? doc.address_name ?? "").trim();
+    const addr = String(doc.road_address_name ?? "").trim() || String(doc.address_name ?? "").trim();
     const display = name || addr || query;
 
     const coordinate: Coordinate = { latitude: lat, longitude: lon };
