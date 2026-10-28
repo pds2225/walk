@@ -59,7 +59,7 @@ function dedupe(hits: readonly PlaceHit[]): PlaceHit[] {
   const byName = new Map<string, number[]>();
   const out: PlaceHit[] = [];
   for (const hit of hits) {
-    const normalizedName = hit.name.replace(/\\s+/g, " ").trim().toLocaleLowerCase();
+    const normalizedName = hit.name.replace(/\s+/g, " ").trim().toLocaleLowerCase();
     const nearby = (byName.get(normalizedName) ?? []).find(
       (index) => distanceMeters(out[index]!.coordinate, hit.coordinate) <= DEDUP_NEAR_M,
     );
