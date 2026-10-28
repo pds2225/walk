@@ -22,7 +22,8 @@ describe("parseLocalItems", () => {
       [{ ...SEOUL, title: "동네<b>치킨</b>", roadAddress: "서울 중구 세종대로 110" }],
       "치킨", null);
 
-    expect(hit?.name).toBe("서울 중구 세종대로 110 동네치킨");
+    expect(hit?.name).toBe("동네치킨");
+    expect(hit?.address).toBe("서울 중구 세종대로 110");
   });
 
   it("주소가 없으면 상호만 쓴다", () => {
@@ -35,7 +36,8 @@ describe("parseLocalItems", () => {
     const [hit] = parseLocalItems(
       [{ ...SEOUL, title: "가게", roadAddress: "도로명", address: "지번" }], "가게", null);
 
-    expect(hit?.name).toBe("도로명 가게");
+    expect(hit?.name).toBe("가게");
+    expect(hit?.address).toBe("도로명");
   });
 
   it("한국 범위를 벗어난 좌표는 버린다", () => {
