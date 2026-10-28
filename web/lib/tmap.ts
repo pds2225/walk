@@ -260,7 +260,7 @@ function addressHits(body: unknown): PlaceHit[] {
       .filter(Boolean)
       .join(" ");
     if (!name) continue;
-    hits.push({ name, coordinate: { latitude: lat, longitude: lon } });
+    hits.push({ name, address: name, coordinate: { latitude: lat, longitude: lon } });
   }
   return hits;
 }
