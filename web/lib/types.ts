@@ -7,7 +7,7 @@ export type { Coordinate, RouteModel };
 export interface PlaceHit {
   readonly name: string;
   /** 동명 상호를 구분할 수 있는 원본 도로명/지번 주소. 누락 시 임의 추정하지 않는다. */
-  readonly address?: string;
+  readonly address?: string | undefined;
   readonly coordinate: Coordinate;
   /** 현재 위치를 함께 보냈을 때만 채워진다(직선거리, m). */
   readonly distanceMeters?: number;
