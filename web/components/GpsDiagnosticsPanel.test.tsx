@@ -35,7 +35,7 @@ describe("접힌 GPS 진단 패널", () => {
     view.rerender(<GpsDiagnosticsPanel fix={fix(120, 2000)} compassHeading={null} movementHeading={null} error={null} locale="ko" />);
     await waitFor(() => expect(screen.getByText("GPS 상태 · 위치 급변 의심")).toBeTruthy());
     fireEvent.click(view.container.querySelector("summary")!);
-    expect(screen.getByText("위치 급변 의심 횟수")).toBeTruthy();
+    expect(screen.getByText("수용 위치 기준 급변 의심 횟수")).toBeTruthy();
     view.rerender(<GpsDiagnosticsPanel fix={fix(1, 3000)} compassHeading={270} movementHeading={90} error={null} locale="ko" />);
     await waitFor(() => expect(screen.getByText("GPS 상태 · 좋음")).toBeTruthy());
     expect(screen.getByText("기기 나침반")).toBeTruthy();
