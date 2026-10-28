@@ -58,13 +58,13 @@ export function parseKakaoDocuments(
 
     const name = String(doc.place_name ?? "").trim();
     const addr = String(doc.road_address_name ?? doc.address_name ?? "").trim();
-    const display = name && addr ? `${addr} ${name}` : name || addr || query;
+    const display = name || addr || query;
 
     const coordinate: Coordinate = { latitude: lat, longitude: lon };
     out.push(
       center
-        ? { name: display, coordinate, distanceMeters: Math.round(distanceMeters(center, coordinate)) }
-        : { name: display, coordinate },
+        ? { name: display, address: addr || undefined, coordinate, distanceMeters: Math.round(distanceMeters(center, coordinate)) }
+        : { name: display, address: addr || undefined, coordinate },
     );
   }
   return out;
