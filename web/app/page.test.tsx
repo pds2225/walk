@@ -431,8 +431,10 @@ describe("TEST E — 확정 이탈은 active route 를 실제로 재탐색한다
       await waitFor(() => expect(screen.queryByText("경로를 다시 찾는 중…")).toBeNull());
       expect(screen.getByRole("button", { name: "안내 중지" })).toBeTruthy();
     } else {
-      // 정확도 40m에 비해 횡거리 12m 이탈은 충분한 경고 근거가 아님.
-      expect(screen.queryByText("길에서 조금 벗어났어요")).toBeNull();
+      // 40m 오차에서는 확정 이탈·재탐색을 보류하되 회전 미이행 가능성은 drifting으로 유지한다.
+      expect(screen.getByText("길에서 조금 벗어났어요")).toBeTruthy();
+      expect(routeCallCount()).toBe(1);
+      expect(document.querySelector(".banner-off")).toBeNull();
     }
   });
 
