@@ -70,6 +70,21 @@ describe("GPS 품질 진단", () => {
     expect(s.stationary).toBe(false);
   });
 
+  it("정지 추정 직후 진단 점프가 나타나면 오래된 정지 상태를 즉시 해제한다", () => {
+    let s = initialGpsDiagnostics();
+    s = updateGpsDiagnostics(s, sample(0, 0, 1000, 5));
+    s = updateGpsDiagnostics(s, sample(1, 0, 2000, 5));
+    s = updateGpsDiagnostics(s, sample(1, 1, 3000, 5));
+    expect(s.stationary).toBe(true);
+    s = updateGpsDiagnostics(s, sample(120, 0, 4000, 40));
+    expect(s.lastWasJump).toBe(true);
+    expect(s.stationary).toBe(false);
+    expect(s.lastAccepted?.timestampMs).toBe(3000);
+    expect(s.lastAccuracyMeters).toBe(40);
+    expect(s.received).toBe(4);
+    expect(s.suspectedJumps).toBe(1);
+  });
+
   it("위치 정확도가 낮으면 정지라고 확정하지 않는다", () => {
     let s = initialGpsDiagnostics();
     for (const t of [1000, 2000, 3000]) s = updateGpsDiagnostics(s, sample(0, 0, t, 42));
