@@ -108,6 +108,15 @@ describe("applyDeviationAccuracyGate", () => {
     expect(decision.result.suggestedNextAction).toBe("reroute_candidate");
   });
 
+  it.each([31, 40, 50])("불확실한 회전 미이행(오차 %sm)은 거리와 무관하게 drifting으로 보수적으로 표시한다", (accuracy) => {
+    for (const distance of [0, 8, 11, 35]) {
+      const decision = applyDeviationAccuracyGate(makeResult("passed_turn", distance), accuracy);
+      expect(decision.fixReliable).toBe(false);
+      expect(decision.result.state).toBe("drifting");
+      expect(decision.result.suggestedNextAction).toBe("monitor");
+    }
+  });
+
   it("passed_turn에도 기존 30m accuracy gate는 유지한다", () => {
     const decision = applyDeviationAccuracyGate(makeResult("passed_turn", 35), 31);
 
