@@ -16,6 +16,9 @@
 - CHECKPOINT: base main `4b1e05f4383dc3d06c88d87d8b5f331e1f148d6d`, 작업 브랜치 `feat/walk-gps-diagnostics-20261025`. 비교 근거 `streamlit_walk_engine/gps_filter.py` 및 `web/app/page.tsx`.
 - VERIFY: Vitest 순수 진단 및 React 패널 테스트, 기존 테스트/Lint/TS/빌드, Vercel 프리뷰. 실외 GPS·나침반 실제 환경에서 정지와 순간 튐의 구별 및 UI 체감 검증 전까지 실사용 DONE 아님.
 - 상태: 구현과 PR 검증 진행 중. main 병합/운영 배포 금지(별도 확인 후).
+- AUTO-HARDEN (2026-10-28): GPS >50m로 버려진 측정값은 진단에 전달되지 않는 기존 분리를 유지하며, 현재 측정 확인 불가/마지막 GPS 필터 통과값을 구분 표시함. GPS 필터 통과 표본(진단 점프 의심 포함)과 진단 정지 기준의 레이블을 명확히 하고, 점프 시 이전 정지 추정 해제, 도착 후 진단 패널 숨김. 4개 언어 유지. GPS/항법 Hook·route-engine·재탐색 로직 변경 없음.
+- AUTO-VERIFY: PR #183 커밋 `0fe0b3a936e6107e214c67474e7936cd4980ec2e`에서 Vitest 513/513, 49/49 파일, Lint, packages/web TypeScript, route-engine/web Build, docs-gate PASS. 실내/실외 실기기 테스트는 실시하지 않음. (이후 문서 커밋은 별도 SHA)
+- FIELD-BATCH-PENDING: 사용자가 실기기 확인은 나중에 한 번에 수행하도록 지시. Android 실외 정지·보행, 건물 밀집/약신호, GPS 급변·신호 회복, 나침반 90° 회전, 기존 이탈 경고·재탐색·도착, 4개 언어·진단 UI를 일괄 검증할 것. 결과 확인 전 USER_E2E DONE/병합/운영 배포 금지.
 
 ## WALK-ORIGIN-20261022 — Vercel 웹 출발지 선택 복구 (2026-10-22)
 - 요청: 기본 출발지는 현행 GPS 자동 지정 유지. '출발지 변경'은 기본 접힘인 보조 기능으로 두고, 기존 단순한 첫 화면의 목적지 검색·걷기 주요 동선을 보존한다.
