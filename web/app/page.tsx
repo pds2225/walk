@@ -556,13 +556,15 @@ export default function Home() {
           </div>
         ) : null}
 
-        <GpsDiagnosticsPanel
-          fix={currentFix}
-          compassHeading={compass}
-          movementHeading={nav.movementHeadingDegrees}
-          error={geoError}
-          locale={locale}
-        />
+        {phase === "navigating" ? (
+          <GpsDiagnosticsPanel
+            fix={currentFix}
+            compassHeading={compass}
+            movementHeading={nav.movementHeadingDegrees}
+            error={geoError}
+            locale={locale}
+          />
+        ) : null}
 
         <div className="nav-actions">
           <button type="button" onClick={() => setHeadingUp((v) => !v)}>
