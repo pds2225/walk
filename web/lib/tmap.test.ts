@@ -4,8 +4,8 @@
  * 이 로직은 파이썬 `route_builder._route_from_tmap_features` 와 같은 규칙이어야 한다.
  * 둘이 갈리면 같은 길에서 Streamlit 판과 웹 판의 회전 안내가 달라진다.
  */
-import { describe, expect, it } from "vitest";
-import { isSignificantTurn, routeFromFeatures } from "./tmap";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { isSignificantTurn, routeFromFeatures, searchTmapPlaces } from "./tmap";
 import type { Coordinate } from "@walk/route-engine";
 import { moveCoordinateByMeters } from "@walk/route-engine";
 
@@ -104,5 +104,34 @@ describe("isSignificantTurn", () => {
     const gentle: Coordinate[] = [];
     for (let i = 0; i < 30; i += 1) gentle.push(at(i * 2, i * i * 0.01));
     expect(isSignificantTurn(gentle, 15)).toBe(false);
+  });
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
+});
+
+describe("TMAP 장소 검색 주소 복원", () => {
+  it("동명 진도식당의 도로명 주소와 지번 주소를 분리해 반환한다", async () => {
+    vi.stubEnv("TMAP_APP_KEY", "test-placeholder");
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input).includes("/tmap/pois?")) {
+        return new Response(JSON.stringify({ searchPoiInfo: { pois: { poi: [
+          { name: "진도식당", frontLat: "37.5665", frontLon: "126.9780", upperAddrName: "서울", middleAddrName: "중구", roadName: "세종대로", firstBuildNo: "110" },
+          { name: "진도식당", frontLat: "37.5500", frontLon: "126.9100", upperAddrName: "서울", middleAddrName: "마포구", lowerAddrName: "합정동", firstNo: "123", secondNo: "4" },
+        ] } } }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ coordinateInfo: { coordinate: [] } }), { status: 200 });
+    }));
+
+    const hits = await searchTmapPlaces("진도식당", null, 15);
+    expect(hits).toHaveLength(2);
+    expect(hits.map((hit) => hit.name)).toEqual(["진도식당", "진도식당"]);
+    expect(hits.map((hit) => hit.address)).toEqual([
+      "서울 중구 세종대로 110",
+      "서울 마포구 합정동 123-4",
+    ]);
+    expect(hits[0]?.distanceMeters).toBeUndefined();
   });
 });
