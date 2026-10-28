@@ -73,6 +73,8 @@ export function updateGpsDiagnostics(state: GpsDiagnostics, fix: Fix): GpsDiagno
       suspectedJumps: state.suspectedJumps + 1,
       jumpStreak: state.jumpStreak + 1,
       lastWasJump: true,
+      // 의심 점프를 발견한 순간에는 직전의 정지 추정을 유지하지 않는다.
+      stationary: false,
     };
   }
 
