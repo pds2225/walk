@@ -18,25 +18,28 @@ describe("parseKakaoDocuments", () => {
     expect(hit?.coordinate.longitude).toBeCloseTo(126.978, 4);
   });
 
-  it("도로명 주소 뒤에 상호를 붙인다 (네이버와 같은 표시 형식)", () => {
+  it("도로명 주소와 상호를 분리한다", () => {
     const [hit] = parseKakaoDocuments(
       [{ ...SEOUL, place_name: "동네치킨", road_address_name: "서울 중구 세종대로 110" }],
       "치킨", null);
 
-    expect(hit?.name).toBe("서울 중구 세종대로 110 동네치킨");
+    expect(hit?.name).toBe("동네치킨");
+    expect(hit?.address).toBe("서울 중구 세종대로 110");
   });
 
   it("도로명이 없으면 지번 주소를 쓴다", () => {
     const [hit] = parseKakaoDocuments(
       [{ ...SEOUL, place_name: "가게", address_name: "서울 중구 태평로1가 31" }], "가게", null);
 
-    expect(hit?.name).toBe("서울 중구 태평로1가 31 가게");
+    expect(hit?.name).toBe("가게");
+    expect(hit?.address).toBe("서울 중구 태평로1가 31");
   });
 
   it("주소가 없으면 상호만 쓴다", () => {
     const [hit] = parseKakaoDocuments([{ ...SEOUL, place_name: "동네치킨" }], "치킨", null);
 
     expect(hit?.name).toBe("동네치킨");
+    expect(hit?.address).toBeUndefined();
   });
 
   it("한국 범위를 벗어난 좌표는 버린다", () => {
