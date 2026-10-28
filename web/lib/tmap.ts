@@ -206,6 +206,23 @@ export async function fetchWalkingRoute(origin: Coordinate, dest: Coordinate): P
 
 // ── 장소 검색 ────────────────────────────────────────────────────────────────
 
+/** TMAP POI가 제공하는 주소를 도로명 우선, 없으면 지번으로 조합한다. */
+function poiAddress(poi: Record<string, unknown>): string | undefined {
+  const part = (key: string) => String(poi[key] ?? "").trim();
+  const region = [part("upperAddrName"), part("middleAddrName")].filter(Boolean);
+  const road = part("roadName");
+  const building = part("firstBuildNo");
+  const buildingSub = part("secondBuildNo");
+  if (road && building && building !== "0") {
+    return [...region, road, building + (buildingSub && buildingSub !== "0" ? `-${buildingSub}` : "")].join(" ");
+  }
+  const lot = part("firstNo");
+  const lotSub = part("secondNo");
+  const lotNumber = lot && lot !== "0" ? lot + (lotSub && lotSub !== "0" ? `-${lotSub}` : "") : "";
+  const address = [...region, part("lowerAddrName"), lotNumber || part("detailAddrName")].filter(Boolean).join(" ");
+  return address || undefined;
+}
+
 function poiHits(body: unknown, center: Coordinate | null): PlaceHit[] {
   const pois = (body as { searchPoiInfo?: { pois?: { poi?: unknown } } })?.searchPoiInfo?.pois?.poi;
   if (!Array.isArray(pois)) return [];
@@ -218,10 +235,11 @@ function poiHits(body: unknown, center: Coordinate | null): PlaceHit[] {
     const name = String(poi["name"] ?? "").trim();
     if (!name || !Number.isFinite(lat) || !Number.isFinite(lon)) continue;
     const coordinate: Coordinate = { latitude: lat, longitude: lon };
+    const address = poiAddress(poi);
     hits.push(
       center
-        ? { name, coordinate, distanceMeters: Math.round(distanceMeters(center, coordinate)) }
-        : { name, coordinate },
+        ? { name, address, coordinate, distanceMeters: Math.round(distanceMeters(center, coordinate)) }
+        : { name, address, coordinate },
     );
   }
   return hits;
