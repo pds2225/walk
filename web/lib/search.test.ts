@@ -89,6 +89,34 @@ describe("searchDestinations", () => {
     expect(hits).toHaveLength(2);
   });
 
+  it("진도식당 같은 동명 식당이 다른 주소에 있으면 후보를 모두 보존한다", async () => {
+    mockSearchKakao.mockResolvedValue([
+      { name: "진도식당", address: "서울 마포구 월드컵로 1", coordinate: at(0, 0) },
+      { name: "진도식당", address: "서울 영등포구 여의대로 2", coordinate: at(1500, 0) },
+    ]);
+    mockSearchLocal.mockResolvedValue([
+      { name: "진도식당", address: "서울 마포구 월드컵로 1", coordinate: at(8, 0) },
+    ]);
+
+    const { hits } = await searchDestinations("진도식당", null);
+    expect(hits).toHaveLength(2);
+    expect(hits.map((hit) => hit.address)).toEqual([
+      "서울 마포구 월드컵로 1",
+      "서울 영등포구 여의대로 2",
+    ]);
+    expect(hits.every((hit) => hit.distanceMeters === undefined)).toBe(true);
+  });
+
+  it("같은 지점에서 주소가 없는 공급자보다 주소가 있는 공급자 결과를 보존한다", async () => {
+    mockSearchKakao.mockResolvedValue([{ name: "진도식당", coordinate: at(0, 0) }]);
+    mockSearchLocal.mockResolvedValue([
+      { name: "진도식당", address: "서울 마포구 월드컵로 1", coordinate: at(15, 0) },
+    ]);
+    const { hits } = await searchDestinations("진도식당", null);
+    expect(hits).toHaveLength(1);
+    expect(hits[0]?.address).toBe("서울 마포구 월드컵로 1");
+  });
+
   it("현재 위치를 주면 가까운 순으로 정렬한다", async () => {
     mockSearchLocal.mockResolvedValue([
       { name: "먼곳", coordinate: at(900, 0), distanceMeters: 900 },
