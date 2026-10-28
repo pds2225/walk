@@ -230,7 +230,7 @@ describe("TEST I — 출발지 변경은 숨겨진 보조 기능이며 수동 �
     fireEvent.click(screen.getByRole("button", { name: /출발지 변경/ }));
     fireEvent.change(screen.getByRole("searchbox", { name: "출발지" }), { target: { value: "서울역" } });
     const list = await screen.findByRole("list", { name: "출발지" });
-    fireEvent.click(within(list).getByRole("button", { name: "서울역" }));
+    fireEvent.click(within(list).getByRole("button", { name: /서울역/ }));
 
     expect(screen.queryByRole("searchbox", { name: "출발지" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "경로 미리보기" }));
@@ -252,7 +252,7 @@ describe("TEST I — 출발지 변경은 숨겨진 보조 기능이며 수동 �
     await pickDestination();
     fireEvent.click(screen.getByRole("button", { name: /출발지 변경/ }));
     fireEvent.change(screen.getByRole("searchbox", { name: "출발지" }), { target: { value: "서울역" } });
-    fireEvent.click(within(await screen.findByRole("list", { name: "출발지" })).getByRole("button", { name: "서울역" }));
+    fireEvent.click(within(await screen.findByRole("list", { name: "출발지" })).getByRole("button", { name: /서울역/ }));
     fireEvent.click(screen.getByRole("button", { name: "경로 미리보기" }));
     await screen.findByText(/지정한 출발지의 경로입니다/);
     fireEvent.click(screen.getByRole("button", { name: "현재 위치에서 안내 시작" }));
