@@ -15,6 +15,7 @@
 - CHECKPOINT: 기준 origin/main `4b1e05f4383dc3d06c88d87d8b5f331e1f148d6d`, 브랜치 `fix/walk-heading-deviation-20261022`, PR #181 (https://github.com/pds2225/walk/pull/181). 검증한 기능 커밋 `269d8b0384ab4676fa0636a564f21e71551fc1e4`.
 - 검증: GitHub Actions web+route-engine 497 tests(47 files), ESLint, TypeScript, 두 패키지 빌드, docs-gate 전부 PASS. Vercel walk/k-navi Preview status SUCCESS. 실제 모바일 GPS E2E는 미검증.
 - 상태: 코드 및 CI 검증 완료, 운영 main 병합/운영 배포 미실행. 모바일 실기기에서 heading 품질·정상 보행 오탐 비교 후 최종 승인 필요.
+- 2026-10-28 재점검: PR #181 Codex P2(`passed_turn` 저정확도·근거리에서 `on_route`로 잘못 완화)을 회귀 기준으로 등록. 저정확도 `passed_turn`은 `drifting/monitor`로만 완화하고 확정 경고는 보류, 신뢰 가능한 `passed_turn`의 기존 동작 유지. 나침반 구독 해제 시 이전 표시 각도 초기화. 단위·hook 회귀 테스트 추가. 수동 실기기 검증은 사용자 지시로 다른 GPS/방향 검증과 일괄 후순위, 병합·운영 배포 금지. CI는 새 HEAD 검사 결과로만 최종 판정.
 
 ## WALK-ORIGIN-20261022 — Vercel 웹 출발지 선택 복구 (2026-10-22)
 - 요청: 기본 출발지는 현행 GPS 자동 지정 유지. '출발지 변경'은 기본 접힘인 보조 기능으로 두고, 기존 단순한 첫 화면의 목적지 검색·걷기 주요 동선을 보존한다.
