@@ -40,6 +40,14 @@ describe("parseLocalItems", () => {
     expect(hit?.address).toBe("도로명");
   });
 
+  it("네이버 도로명주소가 빈 문자열이면 지번주소로 대체한다", () => {
+    const [hit] = parseLocalItems(
+      [{ ...SEOUL, title: "진도식당", roadAddress: "", address: "서울 중구 태평로1가 31" }],
+      "진도식당", null,
+    );
+    expect(hit?.address).toBe("서울 중구 태평로1가 31");
+  });
+
   it("한국 범위를 벗어난 좌표는 버린다", () => {
     // 좌표계를 잘못 읽은 값 — 엉뚱한 곳으로 안내하느니 후보에서 빼는 게 낫다
     const hits = parseLocalItems(
