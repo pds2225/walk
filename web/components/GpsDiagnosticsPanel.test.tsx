@@ -35,7 +35,7 @@ describe("접힌 GPS 진단 패널", () => {
     view.rerender(<GpsDiagnosticsPanel fix={fix(120, 2000)} compassHeading={null} movementHeading={null} error={null} locale="ko" />);
     await waitFor(() => expect(screen.getByText("GPS 상태 · 위치 급변 의심")).toBeTruthy());
     fireEvent.click(view.container.querySelector("summary")!);
-    expect(screen.getByText("수용 위치 기준 급변 의심 횟수")).toBeTruthy();
+    expect(screen.getByText("진단용 위치 급변 의심 횟수")).toBeTruthy();
     view.rerender(<GpsDiagnosticsPanel fix={fix(1, 3000)} compassHeading={270} movementHeading={90} error={null} locale="ko" />);
     await waitFor(() => expect(screen.getByText("GPS 상태 · 좋음")).toBeTruthy());
     expect(screen.getByText("기기 나침반")).toBeTruthy();
@@ -52,7 +52,7 @@ describe("접힌 GPS 진단 패널", () => {
     view.rerender(<GpsDiagnosticsPanel fix={f3} compassHeading={null} movementHeading={null} error={null} locale="ko" />);
     await waitFor(() => expect(screen.getByText("GPS 상태 · 좋음")).toBeTruthy());
     fireEvent.click(view.container.querySelector("summary")!);
-    expect(screen.getByText("수용 위치 표본 수")).toBeTruthy();
+    expect(screen.getByText("GPS 필터 통과 표본 수")).toBeTruthy();
     expect(screen.getByText("3")).toBeTruthy();
     expect(screen.getByText("정지 추정")).toBeTruthy();
 
@@ -62,7 +62,7 @@ describe("접힌 GPS 진단 패널", () => {
     await waitFor(() => expect(screen.getByText("GPS 상태 · 불안정")).toBeTruthy());
     expect(screen.getByText("현재 GPS 측정")).toBeTruthy();
     expect(screen.getByText("확인 불가 (새 위치 반영 안 됨)")).toBeTruthy();
-    expect(screen.getByText("마지막 수용 위치 오차")).toBeTruthy();
+    expect(screen.getByText("최근 GPS 필터 통과 위치 오차")).toBeTruthy();
     expect(screen.getByText("±5m")).toBeTruthy();
     expect(screen.getByText("3")).toBeTruthy();
     expect(screen.getByText("정지 추정")).toBeTruthy();
@@ -72,6 +72,21 @@ describe("접힌 GPS 진단 패널", () => {
     expect(screen.getByText("4")).toBeTruthy();
     expect(screen.queryByText("확인 불가 (새 위치 반영 안 됨)")).toBeNull();
     expect(screen.getByText("GPS 상태 · 좋음")).toBeTruthy();
+  });
+
+  it("진단에서 의심한 점프는 GPS 필터 통과 표본에 포함되고 오차는 최신 표본 기준이다", async () => {
+    const first = fix(0, 1000, 5);
+    const jumped = fix(120, 2000, 40);
+    const view = render(<GpsDiagnosticsPanel fix={first} compassHeading={null} movementHeading={null} error={null} locale="ko" />);
+    view.rerender(<GpsDiagnosticsPanel fix={jumped} compassHeading={null} movementHeading={null} error={null} locale="ko" />);
+    await waitFor(() => expect(screen.getByText("GPS 상태 · 위치 급변 의심")).toBeTruthy());
+    fireEvent.click(view.container.querySelector("summary")!);
+    expect(screen.getByText("GPS 필터 통과 표본 수")).toBeTruthy();
+    expect(screen.getByText("2")).toBeTruthy();
+    expect(screen.getByText("진단용 위치 급변 의심 횟수")).toBeTruthy();
+    expect(screen.getByText("±40m")).toBeTruthy();
+    expect(screen.getByText("최근 GPS 필터 통과 위치 오차")).toBeTruthy();
+    expect(screen.queryByText("±5m")).toBeNull();
   });
 
   it("위치 급변 표시보다 GPS 수신 오류를 우선 보여준다", async () => {
