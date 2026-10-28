@@ -42,6 +42,14 @@ describe("parseKakaoDocuments", () => {
     expect(hit?.address).toBeUndefined();
   });
 
+  it("카카오 도로명주소가 빈 문자열이면 지번주소로 대체한다", () => {
+    const [hit] = parseKakaoDocuments(
+      [{ ...SEOUL, place_name: "진도식당", road_address_name: "", address_name: "서울 중구 태평로1가 31" }],
+      "진도식당", null,
+    );
+    expect(hit?.address).toBe("서울 중구 태평로1가 31");
+  });
+
   it("한국 범위를 벗어난 좌표는 버린다", () => {
     // x/y 를 뒤집어 보낸 응답 — 그대로 쓰면 엉뚱한 곳으로 안내한다
     const hits = parseKakaoDocuments(
