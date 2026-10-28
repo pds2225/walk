@@ -63,13 +63,13 @@ export function parseLocalItems(
     const name = String(item.title ?? "").replace(HTML_TAG_RE, "").trim();
     const addr = String(item.roadAddress ?? item.address ?? "").trim();
     // 한국식 표기: '주소 뒤 상호'(예: '서울 종로구 사직로 161 경복궁')
-    const display = name && addr ? `${addr} ${name}` : name || addr || query;
+    const display = name || addr || query;
 
     const coordinate: Coordinate = { latitude: lat, longitude: lon };
     out.push(
       center
-        ? { name: display, coordinate, distanceMeters: Math.round(distanceMeters(center, coordinate)) }
-        : { name: display, coordinate },
+        ? { name: display, address: addr || undefined, coordinate, distanceMeters: Math.round(distanceMeters(center, coordinate)) }
+        : { name: display, address: addr || undefined, coordinate },
     );
   }
   return out;
