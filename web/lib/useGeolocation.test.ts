@@ -206,6 +206,24 @@ describe("useCompass absolute direction", () => {
     expect(hook.result.current.headingDegrees).toBe(270);
   });
 
+  it("안내 중지와 새 세션 시작 사이에 이전 나침반 방위를 재사용하지 않는다", () => {
+    const hook = renderHook(({ enabled }) => useCompass(enabled), { initialProps: { enabled: true } });
+    const first = new Event("deviceorientationabsolute");
+    Object.defineProperty(first, "alpha", { value: 90 });
+    act(() => window.dispatchEvent(first));
+    expect(hook.result.current.headingDegrees).toBe(270);
+
+    hook.rerender({ enabled: false });
+    expect(hook.result.current.headingDegrees).toBeNull();
+    hook.rerender({ enabled: true });
+    expect(hook.result.current.headingDegrees).toBeNull();
+
+    const next = new Event("deviceorientationabsolute");
+    Object.defineProperty(next, "alpha", { value: 180 });
+    act(() => window.dispatchEvent(next));
+    expect(hook.result.current.headingDegrees).toBe(180);
+  });
+
   it("북쪽을 지날 때 짧은 각도로 스무딩하며 부정확한 iOS heading은 무시한다", () => {
     const hook = renderHook(() => useCompass(true));
     function send(degrees: number, accuracy?: number) {
