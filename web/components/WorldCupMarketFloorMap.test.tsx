@@ -42,6 +42,10 @@ describe("WorldCupMarketFloorMap my location", () => {
     window.localStorage.clear();
     stubGeo((ok) => ok({ coords: { latitude: 37.5587, longitude: 126.905, accuracy: 12 } } as GeolocationPosition));
     const view = render(<WorldCupMarketFloorMap stores={WORLD_CUP_MARKET_STORES} locale="ko" onSelect={vi.fn()} />);
+    const policy = await screen.findByRole("link", { name: "개인정보 처리방침" });
+    expect(policy.getAttribute("href")).toBe("/worldcup-market/privacy");
+    expect(policy.getAttribute("target")).toBe("_blank");
+    expect(screen.getByRole("button", { name: "동의 안 함" })).toBeTruthy();
     fireEvent.click(await screen.findByRole("button", { name: "동의" }));
     expect(window.localStorage.getItem("wcm:geo-consent")).toBe("yes");
     expect(trackMock).toHaveBeenCalledWith("location_fix", expect.objectContaining({ src: "auto", geoConsent: true, position: expect.objectContaining({ latitude: 37.5587 }) }));
@@ -53,7 +57,7 @@ describe("WorldCupMarketFloorMap my location", () => {
     cleanup(); trackMock.mockClear();
     window.localStorage.clear();
     render(<WorldCupMarketFloorMap stores={WORLD_CUP_MARKET_STORES} locale="ja" onSelect={vi.fn()} />);
-    fireEvent.click(await screen.findByRole("button", { name: "拒否する" }));
+    fireEvent.click(await screen.findByRole("button", { name: "同意しない" }));
     expect(window.localStorage.getItem("wcm:geo-consent")).toBe("no");
     expect(trackMock).not.toHaveBeenCalledWith("location_fix", expect.anything());
     expect(screen.getByText("地図に青い点で表示しました。")).toBeTruthy();

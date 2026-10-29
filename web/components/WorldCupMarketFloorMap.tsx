@@ -5,7 +5,7 @@ import { track } from "../lib/track";
 import type React from "react";
 import { getWorldCupMarketUiText, type Locale } from "../lib/i18n";
 import { qrDestinationPath } from "../lib/qrScan";
-import { consentedPosition, getGeoConsent, GEO_CONSENT_TEXT, rememberFix, setGeoConsent } from "../lib/wcmGeoConsent";
+import { consentedPosition, getGeoConsent, GEO_CONSENT_TEXT, PRIVACY_POLICY_PATH, rememberFix, setGeoConsent } from "../lib/wcmGeoConsent";
 import { buildFloorMapLayout, fitInlineLabel, fitPlanAffine, locateOnPlan, FLOOR_MAP_COLORS, type FloorPlanLayout, type MyLocationResult } from "../lib/worldCupMarketFloorMap";
 import { localizeCategory, localizeStoreName } from "../lib/worldCupMarketStoreCopy";
 import { type WorldCupMarketStore } from "../lib/worldCupMarketStores";
@@ -221,9 +221,8 @@ export default function WorldCupMarketFloorMap({ stores, locale, onSelect, selec
     <div ref={rootRef} className={`wcm-floor${detail ? " is-detail" : ""}`} data-map-provider="floor">
       {detail ? null : <>
       {/* Floating "my location" button + toast, shown while the map is on screen. */}
-      {askConsent ? <div className="wcm-geo-consent" role="dialog" aria-modal="false" aria-labelledby="wcm-geo-consent-title">
-        <strong id="wcm-geo-consent-title">{ct.title}</strong>
-        <p>{ct.body}</p>
+      {askConsent ? <div className="wcm-geo-consent" role="dialog" aria-modal="false" aria-label={ct.label}>
+        <p>{ct.before}<a href={PRIVACY_POLICY_PATH} target="_blank" rel="noopener noreferrer">{ct.link}</a>{ct.after}</p>
         <div><button type="button" onClick={() => answerConsent(false)}>{ct.no}</button><button type="button" className="is-yes" onClick={() => answerConsent(true)}>{ct.yes}</button></div>
       </div> : null}
       {meEdge && mapOnScreen ? <button type="button" className={`wcm-floor-me-edge is-${meEdge}`} onClick={goToMe}>{meEdge === "up" ? "↑" : "↓"} {mt.button}</button> : null}
