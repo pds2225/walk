@@ -7,6 +7,13 @@
 > Status: **ACTIVE**
 
 
+## WALK-SEARCH-RETRY-20261029 — 검색 중심 GPS 갱신 무한 재시도 차단
+- 원인: 병합 PR #190 Codex P2. 캐시된 검색 기준 위치가 2분 경과한 뒤 재조회가 실패하면 목적지/출발지 검색 effect가 `searchCenterAsked`를 매 렌더에서 초기화하여 중복 위치요청을 유발함. 2.5초 fallback 이후 진행 중인 요청도 중첩될 수 있음.
+- 해결: 단발 검색 GPS 조회의 in-flight guard를 실제 완료까지 유지하고 시도 시각을 기준으로 2분 재요청 상한 적용. 목적지·출발지 동일 가드 공유. 검색 API, fallback 안내, GPS watch, 항법 엔진 불변.
+- 브랜치: `fix/walk-search-center-retry-20261029`, 기준 main `b0f63d368cd4283555fa6937a070971cd177971d`.
+- VERIFY: 갱신 실패 후 상태 갱신/검색어 변경에도 단시간 GPS 재요청 없음, 출발지 공유 guard, 정상 좌표 갱신, 기존 검색/경로 회귀, Vitest·lint·TypeScript·build·docs-gate.
+- 병합 조건: 최신 HEAD CI PASS, 미해결 신규 P2+ 0, main 충돌 없음. 모바일 수동 현장 검증은 추후 일괄 수행하며 현재 USER_E2E는 미완료로 구분.
+
 ## WALK-PLACE-DEDUP-20261029 — 60m 이내 동명 장소 주소 충돌 보존 (PR #184 후속)
 - 근거: PR #184 병합 이후 Codex P2. `web/lib/search.ts`의 이름+60m 기준은 다른 주소의 인접 동명 매장을 잘못 병합할 수 있음.
 - 수정 범위: 이름이 동일하고 60m 이내여도 **양쪽 원본 주소가 있고 정규화 후 다르면 각 후보 보존**. 주소가 동일하거나 한쪽만 누락됐으면 기존 중복 제거·주소 채우기 유지. 60m 기준·검색 순서·상한·API 타입·화면·GPS·경로 엔진 변경 금지.
