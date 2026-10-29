@@ -146,15 +146,6 @@ export default function Home() {
   const { fix, error: geoError } = useWatchPosition(wantWatch);
   const { headingDegrees: compass, request: requestCompass } = useCompass(wantWatch);
   const currentFix = fix ?? originFix;
-  // 검색 중에는 실시간 GPS가 꺼져 있어 좌표 없이 검색되면 서버 기본 위치(시청 부근) 기준이 된다.
-  // 검색어를 입력하면 현재 위치를 한 번만 받아 검색 기준으로 쓴다(구독 아님).
-  const [searchCenter, setSearchCenter] = useState<Fix | null>(null);
-  const searchCenterAsked = useRef(false);
-  const askSearchCenter = useCallback(() => {
-    if (searchCenterAsked.current) return;
-    searchCenterAsked.current = true;
-    getCurrentPositionOnce().then(setSearchCenter, () => {});
-  }, []);
   const currentFixRef = useRef<Fix | null>(null);
   currentFixRef.current = currentFix;
   // nav_progress: while navigating, every 30 s or 50 m (WALK_STORE_COORDS).
@@ -281,16 +272,14 @@ export default function Home() {
       setSearching(false);
       return;
     }
-    if (!currentFix && !searchCenter) askSearchCenter();
     const seq = ++searchSeq.current;
     setSearching(true);
     const timer = setTimeout(async () => {
       try {
         const params = new URLSearchParams({ q });
-        const center = currentFix ?? searchCenter;
-        if (center) {
-          params.set("lat", String(center.latitude));
-          params.set("lon", String(center.longitude));
+        if (fix) {
+          params.set("lat", String(fix.latitude));
+          params.set("lon", String(fix.longitude));
         }
         const resp = await fetch(`/api/places?${params}`);
         const body: unknown = await resp.json();
@@ -315,7 +304,7 @@ export default function Home() {
       }
     }, SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(timer);
-  }, [query, dest, searchCenter]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [query, dest]);
 
   // 선택 시에만 기존 장소 검색 API를 재사용한다. 접혀 있으면 요청하지 않는다.
   useEffect(() => {
@@ -327,19 +316,12 @@ export default function Home() {
       setOriginSearchError(null);
       return;
     }
-    if (!currentFixRef.current && !searchCenter) askSearchCenter();
     let cancelled = false;
     const controller = new AbortController();
     setOriginSearching(true);
     const timer = setTimeout(async () => {
       try {
-        const params = new URLSearchParams({ q });
-        const center = currentFixRef.current ?? searchCenter;
-        if (center) {
-          params.set("lat", String(center.latitude));
-          params.set("lon", String(center.longitude));
-        }
-        const resp = await fetch(`/api/places?${params}`, { signal: controller.signal });
+        const resp = await fetch(`/api/places?q=${encodeURIComponent(q)}`, { signal: controller.signal });
         const body: unknown = await resp.json();
         if (cancelled) return;
         setOriginHits(resp.ok ? ((body as { hits?: PlaceHit[] }).hits ?? []) : []);
@@ -358,7 +340,7 @@ export default function Home() {
       }
     }, SEARCH_DEBOUNCE_MS);
     return () => { cancelled = true; clearTimeout(timer); controller.abort(); };
-  }, [originEditorOpen, originQuery, selectedOrigin, ui.routeFailed, searchCenter]);
+  }, [originEditorOpen, originQuery, selectedOrigin, ui.routeFailed]);
 
   const rememberRecent = useCallback((entry: Recent) => {
     setRecents((prev) => {
