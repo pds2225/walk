@@ -31,8 +31,11 @@ describe("WorldCupMarketFloorMap my location", () => {
       const props = { stores: WORLD_CUP_MARKET_STORES, locale: "ko" as const, onSelect: vi.fn(), selectedId: storeId };
       const { rerender } = render(<WorldCupMarketFloorMap {...props} highlightIds={new Set([storeId])} />);
       expect(scrollIntoView).not.toHaveBeenCalled();
-      // 필터가 아닌 명시적 점포 선택은 기존 스크롤 동작을 유지한다.
+      // '전체'로 필터 해제만 하면 기존 선택 점포로 화면이 튀지 않는다.
       rerender(<WorldCupMarketFloorMap {...props} highlightIds={null} />);
+      expect(scrollIntoView).not.toHaveBeenCalled();
+      // 필터 해제 후 새 점포를 직접 고른 경우에는 기존 스크롤을 유지한다.
+      rerender(<WorldCupMarketFloorMap {...props} selectedId={WORLD_CUP_MARKET_STORES[1]!.id} highlightIds={null} />);
       expect(scrollIntoView).toHaveBeenCalled();
     } finally {
       if (previous) Object.defineProperty(SVGElement.prototype, "scrollIntoView", previous);
