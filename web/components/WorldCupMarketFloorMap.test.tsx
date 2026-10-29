@@ -7,6 +7,8 @@ vi.mock("../lib/track", () => ({ track: trackMock }));
 
 import WorldCupMarketFloorMap from "./WorldCupMarketFloorMap";
 import { WORLD_CUP_MARKET_STORES } from "../lib/worldCupMarketStores";
+import { GEO_CONSENT_TEXT } from "../lib/wcmGeoConsent";
+import WorldCupMarketPrivacyPage from "../app/worldcup-market/privacy/page";
 
 function stubGeo(impl: (ok: PositionCallback, fail: PositionErrorCallback) => void) {
   const getCurrentPosition = vi.fn(impl);
@@ -15,6 +17,30 @@ function stubGeo(impl: (ok: PositionCallback, fail: PositionErrorCallback) => vo
 }
 
 afterEach(() => { cleanup(); trackMock.mockClear(); });
+
+describe("월드컵시장 위치 수집 실제 고지", () => {
+  it("4개 언어 동의문이 고정밀로 전송할 수 있는 위도·경도·정확도를 빠짐없이 고지한다", () => {
+    const cases = [
+      [GEO_CONSENT_TEXT.ko.after, "위도·경도", "정확도", "대략적인"],
+      [GEO_CONSENT_TEXT.en.after, "latitude and longitude", "accuracy", "approximate"],
+      [GEO_CONSENT_TEXT.ja.after, "緯度・経度", "精度", "おおよそ"],
+      [GEO_CONSENT_TEXT.zh.after, "纬度、经度", "精度", "大致"],
+    ];
+    for (const [copy, coords, accuracy, misleading] of cases) {
+      expect(copy).toContain(coords);
+      expect(copy).toContain(accuracy);
+      expect(copy).not.toContain(misleading);
+    }
+  });
+
+  it("한국어·영어 개인정보 처리방침도 같은 고정밀 좌표 수집 사실을 명시한다", () => {
+    const view = render(<WorldCupMarketPrivacyPage />);
+    expect(view.getByText(/고정밀 GPS 좌표 포함 가능/)).toBeTruthy();
+    expect(view.getByText(/precise GPS coordinates/)).toBeTruthy();
+    expect(view.container.textContent).not.toContain("대략적인 위치");
+    expect(view.container.textContent).not.toContain("approximate location");
+  });
+});
 
 describe("WorldCupMarketFloorMap my location", () => {
   it("카테고리 필터 강조 시 목록을 지나 SVG 점포로 자동 스크롤하지 않는다", () => {
@@ -43,6 +69,7 @@ describe("WorldCupMarketFloorMap my location", () => {
       bounds.mockRestore();
     }
   });
+
 
   it("전체 지도는 로드 시 위치를 자동 요청하고(클릭 이벤트 기록 없음) 페이지를 스크롤하지 않는다", async () => {
     const scrollTo = vi.fn(); window.scrollTo = scrollTo as unknown as typeof window.scrollTo;

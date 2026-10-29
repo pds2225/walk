@@ -7,6 +7,20 @@
 > Status: **ACTIVE**
 
 
+## WALK-SEARCH-RETRY-20261029 — 검색 중심 GPS 갱신 무한 재시도 차단
+- 원인: 병합 PR #190 Codex P2. 캐시된 검색 기준 위치가 2분 경과한 뒤 재조회가 실패하면 목적지/출발지 검색 effect가 `searchCenterAsked`를 매 렌더에서 초기화하여 중복 위치요청을 유발함. 2.5초 fallback 이후 진행 중인 요청도 중첩될 수 있음.
+- 해결: 단발 검색 GPS 조회의 in-flight guard를 실제 완료까지 유지하고 시도 시각을 기준으로 2분 재요청 상한 적용. 목적지·출발지 동일 가드 공유. 검색 API, fallback 안내, GPS watch, 항법 엔진 불변.
+- 브랜치: `fix/walk-search-center-retry-20261029`, 기준 main `b0f63d368cd4283555fa6937a070971cd177971d`.
+- VERIFY: 갱신 실패 후 상태 갱신/검색어 변경에도 단시간 GPS 재요청 없음, 출발지 공유 guard, 정상 좌표 갱신, 기존 검색/경로 회귀, Vitest·lint·TypeScript·build·docs-gate.
+- 병합 조건: 최신 HEAD CI PASS, 미해결 신규 P2+ 0, main 충돌 없음. 모바일 수동 현장 검증은 추후 일괄 수행하며 현재 USER_E2E는 미완료로 구분.
+
+## WCM-LOCATION-DISCLOSURE-20261029 — 월드컵시장 동의문구 실제 위치 좌표 정밀도 고지
+- 원인: PR #185 Codex P2. 4개 언어 동의 안내 및 개인정보 처리방침에 '대략적인/approximate' 표현이 남아 있으나 API는 브라우저 GPS 좌표를 소수 6자리(고정밀)까지 저장.
+- 수정: 수집 항목을 '위도·경도 좌표 및 정확도'로 명확히 표현하고 개인정보 처리방침의 한국어·영어 문구 동기화. 저장 정밀도·동의 흐름·파기기간(1년)·네트워크 및 DB 계약 변경 금지.
+- 브랜치: `fix/worldcup-location-disclosure-20261029`, 기준 main `b0f63d368cd4283555fa6937a070971cd177971d`.
+- VERIFY: 네 언어 동의 문구, 방침 한국어/영어 정합성 및 기존 동의/거부 표시·전송·보관 기능 회귀 테스트, CI.
+- 병합: HEAD CI PASS·신규 미해결 P2+ 0·main 충돌 없음. 실기기 테스트는 추후 일괄. 법률 적합성 최종 검토는 별도.
+
 ## WCM-RAIL-P2-20261029 — 카테고리 필터 목록 고정·주변 점포 이미지 지연 로딩
 - 원인: PR #170 Codex P2 두 건. 필터 선택 뒤 floor SVG 점포를 페이지 단위 scrollIntoView로 찾아가 위쪽 필터 목록이 화면에서 사라짐. 상세 인접점포 rail의 poster 이미지 45개가 모두 즉시 내려받힐 수 있음.
 - 조치: 필터가 활성화된 상태에서만 자동 page-scroll 건너뛰며, 명시 점포 선택/내 위치 버튼 동작 보존. 주변 rail의 offscreen `img`에 native lazy loading 및 async decode 적용. 콘텐츠 수량·점포 순서·이미지 원본 보존.

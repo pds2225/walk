@@ -10,7 +10,7 @@ export default function WorldCupMarketPrivacyPage() {
       <h1>개인정보 처리방침</h1>
       <p>망원 월드컵시장 안내 서비스(이하 &ldquo;서비스&rdquo;)는 이용자의 개인정보를 아래와 같이 처리합니다.</p>
       <h2>1. 수집 항목</h2>
-      <p>이용자가 위치 정보 수집에 동의한 경우에 한해 대략적인 위치 좌표(위도·경도, 정확도)를 수집합니다. IP 주소는 저장하지 않습니다.</p>
+      <p>이용자가 위치 정보 수집에 동의한 경우에 한해 위치 좌표(위도·경도) 및 위치 정확도 정보(고정밀 GPS 좌표 포함 가능)를 수집합니다. IP 주소는 저장하지 않습니다.</p>
       <h2>2. 수집 목적</h2>
       <p>시장 지도와 길 안내 등 서비스 개선을 위한 이용 통계 분석에만 사용합니다.</p>
       <h2>3. 보관 기간 및 파기</h2>
@@ -26,7 +26,7 @@ export default function WorldCupMarketPrivacyPage() {
       <p>개인정보 관련 문의·열람·삭제 요청은 위 이메일로 연락해 주세요.</p>
       <hr />
       <h2 lang="en">Privacy Policy (English)</h2>
-      <p lang="en">Only if you agree, we collect your approximate location (latitude, longitude, accuracy) to improve the service. We do not store your IP address. Location data is deleted automatically 1 year after collection. If you decline, you can still use the map and no location is stored. Operator and privacy officer: PARK DASOM, ekth3691@gmail.com, 11 Eoulmadang-ro 3-gil, Mapo-gu, Seoul.</p>
+      <p lang="en">Only if you agree, we collect your location coordinates (latitude and longitude) and accuracy (which may include precise GPS coordinates) to improve the service. We do not store your IP address. Location data is deleted automatically 1 year after collection. If you decline, you can still use the map and no location is stored. Operator and privacy officer: PARK DASOM, ekth3691@gmail.com, 11 Eoulmadang-ro 3-gil, Mapo-gu, Seoul.</p>
     </main>
   );
 }

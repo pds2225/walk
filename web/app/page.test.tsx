@@ -262,6 +262,29 @@ describe("TEST A — 검색은 단발 위치로 기준을 잡고, 연속 추적�
     expect(mockWatchPosition).not.toHaveBeenCalled();
   });
 
+  it("검색 기준이 만료되고 위치 권한이 거부되어도 실패 후 무한 재요청하지 않는다", async () => {
+    let now = Date.now();
+    vi.spyOn(Date, "now").mockImplementation(() => now);
+    render(<Home />);
+    fireEvent.change(screen.getByLabelText("목적지"), { target: { value: "진도식당" } });
+    await waitFor(() => expect(mockSearchCenter).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(placesCallCount()).toBeGreaterThan(0));
+
+    // 정상으로 얻은 중심 좌표가 2분 경과한 직후 권한이 철회됨.
+    now += 121_000;
+    mockSearchCenter.mockImplementation((_ok: SuccessCb, err: ErrorCb) =>
+      err({ code: 1, message: "denied", PERMISSION_DENIED: 1, POSITION_UNAVAILABLE: 2, TIMEOUT: 3 } as GeolocationPositionError));
+    fireEvent.change(screen.getByLabelText("목적지"), { target: { value: "진도식당 서울" } });
+    await waitFor(() => expect(mockSearchCenter).toHaveBeenCalledTimes(2));
+
+    // 실패 상태로 재렌더되거나 출발지 검색을 열어도 동일한 단발 조회를 반복하지 않는다.
+    fireEvent.click(screen.getByRole("button", { name: /출발지 변경|출발지/ }));
+    fireEvent.change(screen.getByRole("searchbox", { name: /출발지/ }), { target: { value: "서울역" } });
+    await new Promise((resolve) => setTimeout(resolve, 450));
+    expect(mockSearchCenter).toHaveBeenCalledTimes(2);
+    expect(mockWatchPosition).not.toHaveBeenCalled();
+  });
+
   it("주소 지오코딩 결과(name=address)는 빈 줄 없이 '주소 검색 결과'로 일관 표시한다", async () => {
     fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
       if (String(input).startsWith("/api/places")) {

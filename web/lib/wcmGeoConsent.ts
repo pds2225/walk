@@ -37,8 +37,8 @@ export const PRIVACY_POLICY_PATH = "/worldcup-market/privacy";
 
 /** Popup copy: one sentence; `link` is rendered as a hyperlink to the privacy policy (new tab). */
 export const GEO_CONSENT_TEXT = {
-  ko: { label: "위치 정보 수집 동의", before: "", link: "개인정보 처리방침", after: "에 따라 서비스 개선을 위한 대략적인 위치 정보 수집·저장(보관 기간 1년)에 동의하시겠습니까?", yes: "동의", no: "동의 안 함" },
-  en: { label: "Location consent", before: "In accordance with our ", link: "Privacy Policy", after: ", do you agree to the collection and storage of your approximate location to improve our service (retained for 1 year)?", yes: "Agree", no: "Disagree" },
-  ja: { label: "位置情報の収集への同意", before: "", link: "プライバシーポリシー", after: "に基づき、サービス改善のためのおおよその位置情報の収集・保存（保存期間1年）に同意しますか？", yes: "同意する", no: "同意しない" },
-  zh: { label: "位置信息收集同意", before: "根据", link: "隐私政策", after: "，您是否同意为改进服务而收集并保存您的大致位置信息（保存期限1年）？", yes: "同意", no: "不同意" },
+  ko: { label: "위치 정보 수집 동의", before: "", link: "개인정보 처리방침", after: "에 따라 서비스 개선을 위한 위치 좌표(위도·경도)와 정확도 정보 수집·저장(보관 기간 1년)에 동의하시겠습니까?", yes: "동의", no: "동의 안 함" },
+  en: { label: "Location consent", before: "In accordance with our ", link: "Privacy Policy", after: ", do you agree to the collection and storage of your location coordinates (latitude and longitude) and accuracy to improve our service (retained for 1 year)?", yes: "Agree", no: "Disagree" },
+  ja: { label: "位置情報の収集への同意", before: "", link: "プライバシーポリシー", after: "に基づき、サービス改善のための位置座標（緯度・経度）と精度情報の収集・保存（保存期間1年）に同意しますか？", yes: "同意する", no: "同意しない" },
+  zh: { label: "位置信息收集同意", before: "根据", link: "隐私政策", after: "，您是否同意为改进服务而收集并保存您的位置坐标（纬度、经度）及精度信息（保存期限1年）？", yes: "同意", no: "不同意" },
 } as const;
