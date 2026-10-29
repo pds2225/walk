@@ -89,7 +89,26 @@ export default function WorldCupMarketFloorMap({ stores, locale, onSelect, selec
   };
   const ct = GEO_CONSENT_TEXT[locale] ?? GEO_CONSENT_TEXT.en;
   // Only a button tap scrolls the page to the dot; the automatic locate on load must not move the page.
+  // Follow = keep the dot centred on live updates. A tap on 「내 위치」 turns it on; touching/scrolling
+  // the page turns it off (the location watch keeps running), so the user can pan freely.
   const manualLocateRef = useRef(false);
+  const watchIdRef = useRef<number | null>(null);
+  const startWatch = () => {
+    if (watchIdRef.current !== null || typeof navigator === "undefined" || !navigator.geolocation?.watchPosition) return;
+    watchIdRef.current = navigator.geolocation.watchPosition(
+      (pos) => setMyLoc({ kind: "fix", lat: pos.coords.latitude, lng: pos.coords.longitude, acc: pos.coords.accuracy }),
+      () => {},
+      { enableHighAccuracy: true, timeout: 20000, maximumAge: 5000 },
+    );
+  };
+  useEffect(() => () => { if (watchIdRef.current !== null) navigator.geolocation?.clearWatch(watchIdRef.current); }, []);
+  useEffect(() => {
+    if (detail) return;
+    const pause = () => { manualLocateRef.current = false; };
+    window.addEventListener("touchstart", pause, { passive: true });
+    window.addEventListener("wheel", pause, { passive: true });
+    return () => { window.removeEventListener("touchstart", pause); window.removeEventListener("wheel", pause); };
+  }, [detail]);
   const locate = (manual = true) => {
     manualLocateRef.current = manual;
     if (manual) track("my_location_click", { locale }); // no coordinates, ever
@@ -98,6 +117,7 @@ export default function WorldCupMarketFloorMap({ stores, locale, onSelect, selec
     const ok = (pos: GeolocationPosition) => {
       setMyLoc({ kind: "fix", lat: pos.coords.latitude, lng: pos.coords.longitude, acc: pos.coords.accuracy });
       onFix({ latitude: pos.coords.latitude, longitude: pos.coords.longitude, accuracyMeters: pos.coords.accuracy }, manual ? "button" : "auto");
+      startWatch();
     };
     const fail = (err: GeolocationPositionError) => setMyLoc({ kind: err.code === err.PERMISSION_DENIED ? "denied" : err.code === err.TIMEOUT ? "timeout" : "unavailable" });
     // Fresh GPS fix first (10s, no cache: a re-tap after walking must not show the old spot); fallback network location (10s, ≤1 min cache).
@@ -164,7 +184,7 @@ export default function WorldCupMarketFloorMap({ stores, locale, onSelect, selec
     window.addEventListener("resize", update);
     return () => { window.removeEventListener("scroll", update); window.removeEventListener("resize", update); };
   }, [detail, fixV?.kind, myLoc]); // eslint-disable-line react-hooks/exhaustive-deps
-  const goToMe = () => [...document.querySelectorAll<SVGGElement>(".wcm-floor-me")].find((g) => g.getBoundingClientRect().width > 0)?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+  const goToMe = () => { manualLocateRef.current = true; [...document.querySelectorAll<SVGGElement>(".wcm-floor-me")].find((g) => g.getBoundingClientRect().width > 0)?.scrollIntoView?.({ behavior: "smooth", block: "center" }); };
   const byId = new Map(stores.map((s) => [s.id, s]));
   const ko = locale === "ko";
   const alleyLabel = `망원로7길 · ${ko ? "시장 골목" : "market alley"}`;
@@ -228,7 +248,7 @@ export default function WorldCupMarketFloorMap({ stores, locale, onSelect, selec
       {meEdge && mapOnScreen ? <button type="button" className={`wcm-floor-me-edge is-${meEdge}`} onClick={goToMe}>{meEdge === "up" ? "↑" : "↓"} {mt.button}</button> : null}
       <div className={`wcm-floor-myloc${mapOnScreen ? "" : " is-offscreen"}`}>
         {myMsg ? <span role="status" className={`wcm-floor-toast${fixV?.kind === "ok" ? " is-ok" : ""}`}>{myMsg}</span> : null}
-        <button type="button" onClick={() => locate()} disabled={myLoc.kind === "locating"}><span aria-hidden="true">◎</span> {mt.button}</button>
+        <button type="button" onClick={() => { locate(); manualLocateRef.current = true; }} disabled={myLoc.kind === "locating"}><span aria-hidden="true">◎</span> {mt.button}</button>
       </div>
       </>}
       <div className="wcm-floor-plan is-vertical">{renderPlan(vertical, false)}</div>
