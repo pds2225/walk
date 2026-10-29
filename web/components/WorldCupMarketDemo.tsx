@@ -401,7 +401,7 @@ function NearbyShopRail({ selectedId, locale, onSelect, sortByDistance = false }
                 onSelect(store.id);
               }}
             >
-              {image ? <img src={image.url} alt="" /> : <span className="worldcup-market-nearby-thumb-fallback" aria-hidden="true" />}
+              {image ? <img src={image.url} alt="" loading="lazy" decoding="async" /> : <span className="worldcup-market-nearby-thumb-fallback" aria-hidden="true" />}
               <strong>{name}</strong>
               <StoreNameReading store={store} locale={locale} />
               <small>{localizeCategory(store.category, locale)}</small>

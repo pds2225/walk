@@ -130,7 +130,8 @@ export default function WorldCupMarketFloorMap({ stores, locale, onSelect, selec
   useEffect(() => { if (!detail) locate(false); }, [detail]); // eslint-disable-line react-hooks/exhaustive-deps
   // Overview pick: bring the picked store (red) into view.
   useEffect(() => {
-    if (detail || !selectedId) return;
+    // 카테고리 필터는 지도 위 목록을 보여주는 동작: SVG로 페이지를 자동 스크롤하지 않는다.
+    if (detail || !selectedId || (highlightIds && highlightIds.size > 0)) return;
     const el = [...(rootRef.current?.querySelectorAll<SVGGraphicsElement>(`a[data-store-id="${selectedId}"]`) ?? [])].find((g) => g.getBoundingClientRect().width > 0);
     if (!el) return;
     const me = [...document.querySelectorAll<SVGGElement>(".wcm-floor-me")].find((g) => g.getBoundingClientRect().width > 0);
@@ -145,7 +146,7 @@ export default function WorldCupMarketFloorMap({ stores, locale, onSelect, selec
       }
     }
     el.scrollIntoView?.({ behavior: "smooth", block: "center" });
-  }, [detail, selectedId]);
+  }, [detail, selectedId]); // eslint-disable-line react-hooks/exhaustive-deps -- 필터만 변경되면 자동 스크롤 금지
   const fixV: MyLocationResult | null = myLoc.kind === "fix" ? locateOnPlan(vertical, affV, myLoc.lat, myLoc.lng, myLoc.acc) : null;
   const fixH: MyLocationResult | null = myLoc.kind === "fix" ? locateOnPlan(horizontal, affH, myLoc.lat, myLoc.lng, myLoc.acc) : null;
   const fmtDist = (m: number) => (m >= 1000 ? `${(m / 1000).toFixed(m >= 10000 ? 0 : 1)}km` : `${Math.max(10, Math.round(m / 10) * 10)}m`);

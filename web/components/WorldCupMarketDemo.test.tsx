@@ -107,6 +107,14 @@ describe("World Cup Market demo", () => {
     window.history.replaceState({}, "", "/");
   });
 
+  it("주변 점포 이미지에는 지연 로딩을 쓰고 현재 상세 대표 사진은 즉시 표시한다", () => {
+    const view = render(<WorldCupMarketDemo locale="ko" onStartWalking={vi.fn()} />);
+    const railImages = [...view.container.querySelectorAll<HTMLImageElement>(".worldcup-market-nearby-rail img")];
+    expect(railImages.length).toBeGreaterThan(0);
+    expect(railImages.every((img) => img.getAttribute("loading") === "lazy" && img.getAttribute("decoding") === "async")).toBe(true);
+    expect(view.container.querySelector<HTMLImageElement>(".worldcup-market-hero-photo")?.getAttribute("loading")).toBe("eager");
+  });
+
   it("상세 딥링크에서 블로그 점포 정보를 유지한다", () => {
     render(<WorldCupMarketDemo locale="ko" onStartWalking={vi.fn()} />);
 
