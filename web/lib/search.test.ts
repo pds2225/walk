@@ -107,6 +107,63 @@ describe("searchDestinations", () => {
     expect(hits.every((hit) => hit.distanceMeters === undefined)).toBe(true);
   });
 
+  it("60m 이내의 동명 장소도 주소가 다르면 둘 다 선택 후보로 보존한다", async () => {
+    mockSearchKakao.mockResolvedValue([
+      { name: "진도식당", address: "서울 마포구 월드컵로 1", coordinate: at(0, 0) },
+    ]);
+    mockSearchLocal.mockResolvedValue([
+      { name: "진도식당", address: "서울 마포구 월드컵로 3", coordinate: at(20, 0) },
+    ]);
+
+    const { hits } = await searchDestinations("진도식당", null);
+    expect(hits.map((hit) => hit.address)).toEqual([
+      "서울 마포구 월드컵로 1",
+      "서울 마포구 월드컵로 3",
+    ]);
+  });
+
+  it("동명·60m 이내의 동일 주소는 공백 차이가 있어도 한 번만 표시한다", async () => {
+    mockSearchKakao.mockResolvedValue([
+      { name: "진도식당", address: "서울 마포구  월드컵로 1", coordinate: at(0, 0) },
+    ]);
+    mockSearchLocal.mockResolvedValue([
+      { name: "진도식당", address: " 서울 마포구 월드컵로 1 ", coordinate: at(20, 0) },
+    ]);
+
+    const { hits } = await searchDestinations("진도식당", null);
+    expect(hits).toHaveLength(1);
+    expect(hits[0]?.address).toBe("서울 마포구  월드컵로 1");
+  });
+
+  it("주소 누락 후보 다음에 근접한 서로 다른 주소 2개가 와도 모두 보존한다", async () => {
+    // 카카오/네이버 인터리브: 주소 없음 -> A -> B. 누락 주소는 A로 채우되 B를 버리면 안 된다.
+    mockSearchKakao.mockResolvedValue([
+      { name: "진도식당", coordinate: at(0, 0) },
+      { name: "진도식당", address: "서울 마포구 월드컵로 3", coordinate: at(20, 0) },
+    ]);
+    mockSearchLocal.mockResolvedValue([
+      { name: "진도식당", address: "서울 마포구 월드컵로 1", coordinate: at(10, 0) },
+    ]);
+
+    const { hits } = await searchDestinations("진도식당", null);
+    expect(hits.map((hit) => hit.address)).toEqual([
+      "서울 마포구 월드컵로 1",
+      "서울 마포구 월드컵로 3",
+    ]);
+  });
+
+  it("주소가 같아도 60m 밖의 동명 장소는 기존처럼 별도로 보존한다", async () => {
+    mockSearchKakao.mockResolvedValue([
+      { name: "진도식당", address: "서울 마포구 월드컵로 1", coordinate: at(0, 0) },
+    ]);
+    mockSearchLocal.mockResolvedValue([
+      { name: "진도식당", address: "서울 마포구 월드컵로 1", coordinate: at(80, 0) },
+    ]);
+
+    const { hits } = await searchDestinations("진도식당", null);
+    expect(hits).toHaveLength(2);
+  });
+
   it("같은 지점에서 주소가 없는 공급자보다 주소가 있는 공급자 결과를 보존한다", async () => {
     mockSearchKakao.mockResolvedValue([{ name: "진도식당", coordinate: at(0, 0) }]);
     mockSearchLocal.mockResolvedValue([
