@@ -3,6 +3,7 @@
  * K-TRIP Worldcup Market location-storage consent (Dasom 2026-10-16).
  * Location always works on the device; coordinates are sent only after an explicit "agree",
  * remembered in localStorage. Declining stores nothing. Never IP.
+ * Retention finalized at 1 year (Dasom 2026-10-29) — see migration 20261016220000 cron job.
  */
 export const GEO_CONSENT_KEY = "wcm:geo-consent";
 export const GEO_RETENTION_DAYS = 365;
@@ -33,8 +34,8 @@ export function consentedPosition(): GeoFix | null {
 }
 
 export const GEO_CONSENT_TEXT = {
-  ko: { title: "위치 저장 동의", body: "서비스 개선을 위해 위치(좌표)를 저장해도 될까요? 저장한 위치는 1년 뒤 삭제해요. 거절해도 지도에서 내 위치는 그대로 볼 수 있어요.", yes: "동의", no: "거절" },
-  en: { title: "Save location?", body: "May we store your location (coordinates) to improve the service? Stored locations are deleted after 1 year. If you decline, your location still shows on the map.", yes: "Agree", no: "Decline" },
-  ja: { title: "位置情報の保存", body: "サービス改善のため位置情報（座標）を保存してもよいですか？保存した位置は1年後に削除します。拒否しても地図上の現在地はそのまま表示されます。", yes: "同意する", no: "拒否する" },
-  zh: { title: "保存位置？", body: "为改进服务，可以保存您的位置（坐标）吗？保存的位置将在1年后删除。即使拒绝，地图上仍会显示您的位置。", yes: "同意", no: "拒绝" },
+  ko: { title: "위치 정보 안내", body: "더 나은 서비스를 위해, 동의하시면 대략적인 위치 좌표를 저장하며 1년 후 삭제됩니다. IP 주소는 저장하지 않아요. 거절해도 지도는 그대로 이용할 수 있어요.", yes: "동의", no: "거절" },
+  en: { title: "We value your privacy", body: "With your consent, we store your approximate location coordinates to improve our service. They are deleted after 1 year, and we do not store your IP address. You can still use the map if you decline.", yes: "Accept", no: "Decline" },
+  ja: { title: "位置情報について", body: "サービス向上のため、同意いただいた場合はおおよその位置座標を保存し、1年後に削除します。IPアドレスは保存しません。拒否しても地図はそのままご利用いただけます。", yes: "同意する", no: "拒否する" },
+  zh: { title: "隐私提示", body: "为改进服务，经您同意后我们会保存您的大致位置坐标，并在1年后删除。我们不会保存您的IP地址。即使拒绝，您仍可正常使用地图。", yes: "接受", no: "拒绝" },
 } as const;
