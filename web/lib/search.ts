@@ -16,11 +16,9 @@ import { TmapError, searchTmapPlaces, tmapAvailable } from "./tmap";
 import type { PlaceHit } from "./types";
 
 /**
- * 표시 이름이 같고 이만큼(m) 안에 있으면 같은 곳으로 본다.
- *
- * 소스마다 같은 가게의 좌표가 조금씩 다르게 온다. 좌표만으로 중복을 걸러내면 같은
- * 이름이 여러 줄로 뜨고, 이름만으로 걸러내면 '다른 동네의 같은 이름 지점'이 사라진다.
- * (파이썬 _DEDUP_NEAR_M 과 같은 값·같은 이유)
+ * 소스별 좌표 오차를 고려한 근접 기준(m). 이름·거리 외에 서로 다른 주소인지도 확인한다.
+ * 같은 이름이어도 서로 다른 주소를 가진 근접 지점은 각각 선택할 수 있어야 한다.
+ * (파이썬 _DEDUP_NEAR_M 과 같은 거리 기준)
  */
 const DEDUP_NEAR_M = 60;
 
