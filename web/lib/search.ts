@@ -55,17 +55,27 @@ export function missingSourceHint(): string | null {
   return null;
 }
 
+/** 주소 공백·대소문자만 정규화한다. 서로 다른 원본 주소를 같은 장소라고 추정하지 않는다. */
+function normalizeAddress(address: string | undefined): string {
+  return (address ?? "").replace(/\s+/g, " ").trim().toLocaleLowerCase();
+}
+
 function dedupe(hits: readonly PlaceHit[]): PlaceHit[] {
   const byName = new Map<string, number[]>();
   const out: PlaceHit[] = [];
   for (const hit of hits) {
     const normalizedName = hit.name.replace(/\s+/g, " ").trim().toLocaleLowerCase();
-    const nearby = (byName.get(normalizedName) ?? []).find(
-      (index) => distanceMeters(out[index]!.coordinate, hit.coordinate) <= DEDUP_NEAR_M,
-    );
+    const hitAddress = normalizeAddress(hit.address);
+    const nearby = (byName.get(normalizedName) ?? []).find((index) => {
+      const existing = out[index]!;
+      if (distanceMeters(existing.coordinate, hit.coordinate) > DEDUP_NEAR_M) return false;
+      const existingAddress = normalizeAddress(existing.address);
+      // 양쪽 주소가 명확히 다르면 가까운 동명 장소라도 별도 목적지다.
+      return !existingAddress || !hitAddress || existingAddress === hitAddress;
+    });
     if (nearby !== undefined) {
       // 동일 지점의 주소가 한 제공자에서만 누락된 경우 더 자세한 쪽을 보존한다.
-      if (!out[nearby]!.address && hit.address) out[nearby] = hit;
+      if (!normalizeAddress(out[nearby]!.address) && hitAddress) out[nearby] = hit;
       continue;
     }
     const indices = byName.get(normalizedName);
