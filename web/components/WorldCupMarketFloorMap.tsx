@@ -146,7 +146,7 @@ export default function WorldCupMarketFloorMap({ stores, locale, onSelect, selec
       }
     }
     el.scrollIntoView?.({ behavior: "smooth", block: "center" });
-  }, [detail, selectedId, highlightIds]);
+  }, [detail, selectedId]); // eslint-disable-line react-hooks/exhaustive-deps — 필터만 변경되면 자동 스크롤 금지
   const fixV: MyLocationResult | null = myLoc.kind === "fix" ? locateOnPlan(vertical, affV, myLoc.lat, myLoc.lng, myLoc.acc) : null;
   const fixH: MyLocationResult | null = myLoc.kind === "fix" ? locateOnPlan(horizontal, affH, myLoc.lat, myLoc.lng, myLoc.acc) : null;
   const fmtDist = (m: number) => (m >= 1000 ? `${(m / 1000).toFixed(m >= 10000 ? 0 : 1)}km` : `${Math.max(10, Math.round(m / 10) * 10)}m`);
