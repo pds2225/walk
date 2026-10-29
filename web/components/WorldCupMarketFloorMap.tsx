@@ -26,11 +26,11 @@ const VERTICAL_PLAN = { margin: 4, alley: 55, stallDepth: 150, stallHeight: 88, 
 /** Desktop: both sides of the alley, wide blocks. */
 const WIDE_PLAN = { margin: 10, alley: 120, stallDepth: 364, stallHeight: 60, street: 32 } as const;
 const LABEL_FONT = { max: 30, min: 12 } as const;
-const MY_LOCATION_TEXT: Record<Locale, { button: string; locating: string; outside: string; inaccurate: string; denied: string; unavailable: string; privacy: string; shown: string; timeout: string; away: (d: string) => string; acc: (m: number) => string }> = {
-  ko: { button: "내 위치", locating: "위치 확인 중…", outside: "시장 밖에 계신 것 같아요.", inaccurate: "위치가 정확하지 않아요. 잠시 후 다시 눌러 주세요.", denied: "위치 권한이 꺼져 있어요.", unavailable: "위치를 가져올 수 없어요.", privacy: "위치는 이 기기에서만 쓰고 저장하거나 보내지 않아요.", shown: "지도에 파란 점으로 표시했어요.", timeout: "위치 확인이 오래 걸려요. 밖이나 창가에서 다시 눌러 주세요.", away: (d) => `시장에서 약 ${d} 떨어져 있어요.`, acc: (m) => `(현재 오차 약 ${m}m)` },
-  en: { button: "My location", locating: "Locating…", outside: "You are outside the market.", inaccurate: "Location is inaccurate. Please try again shortly.", denied: "Location permission is off.", unavailable: "Location is unavailable.", privacy: "Your location stays on this device and is never stored or sent.", shown: "Shown as a blue dot on the map.", timeout: "Locating took too long. Try again outdoors or near a window.", away: (d) => `About ${d} from the market.`, acc: (m) => `(accuracy about ${m} m)` },
-  ja: { button: "現在地", locating: "現在地を確認中…", outside: "市場の外にいるようです。", inaccurate: "位置情報が不正確です。少し待ってからもう一度お試しください。", denied: "位置情報の許可がオフになっています。", unavailable: "位置情報を取得できません。", privacy: "位置情報はこの端末内でのみ使用し、保存・送信しません。", shown: "地図に青い点で表示しました。", timeout: "位置の取得に時間がかかっています。屋外や窓際でもう一度お試しください。", away: (d) => `市場から約${d}離れています。`, acc: (m) => `（誤差 約${m}m）` },
-  zh: { button: "我的位置", locating: "正在定位…", outside: "您似乎不在市场内。", inaccurate: "定位不准确，请稍后再试。", denied: "位置权限已关闭。", unavailable: "无法获取位置。", privacy: "位置仅在本设备上使用，不会保存或发送。", shown: "已在地图上用蓝点显示。", timeout: "定位时间过长，请到室外或窗边再试。", away: (d) => `距市场约${d}。`, acc: (m) => `（误差约${m}米）` },
+const MY_LOCATION_TEXT: Record<Locale, { button: string; locating: string; outside: string; inaccurate: string; denied: string; unavailable: string; shown: string; timeout: string; away: (d: string) => string; acc: (m: number) => string }> = {
+  ko: { button: "내 위치", locating: "위치 확인 중…", outside: "시장 밖에 계신 것 같아요.", inaccurate: "위치가 정확하지 않아요. 잠시 후 다시 눌러 주세요.", denied: "위치 권한이 꺼져 있어요.", unavailable: "위치를 가져올 수 없어요.", shown: "지도에 파란 점으로 표시했어요.", timeout: "위치 확인이 오래 걸려요. 밖이나 창가에서 다시 눌러 주세요.", away: (d) => `시장에서 약 ${d} 떨어져 있어요.`, acc: (m) => `(현재 오차 약 ${m}m)` },
+  en: { button: "My location", locating: "Locating…", outside: "You are outside the market.", inaccurate: "Location is inaccurate. Please try again shortly.", denied: "Location permission is off.", unavailable: "Location is unavailable.", shown: "Shown as a blue dot on the map.", timeout: "Locating took too long. Try again outdoors or near a window.", away: (d) => `About ${d} from the market.`, acc: (m) => `(accuracy about ${m} m)` },
+  ja: { button: "現在地", locating: "現在地を確認中…", outside: "市場の外にいるようです。", inaccurate: "位置情報が不正確です。少し待ってからもう一度お試しください。", denied: "位置情報の許可がオフになっています。", unavailable: "位置情報を取得できません。", shown: "地図に青い点で表示しました。", timeout: "位置の取得に時間がかかっています。屋外や窓際でもう一度お試しください。", away: (d) => `市場から約${d}離れています。`, acc: (m) => `（誤差 約${m}m）` },
+  zh: { button: "我的位置", locating: "正在定位…", outside: "您似乎不在市场内。", inaccurate: "定位不准确，请稍后再试。", denied: "位置权限已关闭。", unavailable: "无法获取位置。", shown: "已在地图上用蓝点显示。", timeout: "定位时间过长，请到室外或窗边再试。", away: (d) => `距市场约${d}。`, acc: (m) => `（误差约${m}米）` },
 };
 type MyLocState = { kind: "idle" | "locating" | "denied" | "unavailable" | "timeout" } | { kind: "fix"; lat: number; lng: number; acc: number };
 type Rect = { x: number; y: number; width: number; height: number };
@@ -89,7 +89,26 @@ export default function WorldCupMarketFloorMap({ stores, locale, onSelect, selec
   };
   const ct = GEO_CONSENT_TEXT[locale] ?? GEO_CONSENT_TEXT.en;
   // Only a button tap scrolls the page to the dot; the automatic locate on load must not move the page.
+  // Follow = keep the dot centred on live updates. A tap on 「내 위치」 turns it on; touching/scrolling
+  // the page turns it off (the location watch keeps running), so the user can pan freely.
   const manualLocateRef = useRef(false);
+  const watchIdRef = useRef<number | null>(null);
+  const startWatch = () => {
+    if (watchIdRef.current !== null || typeof navigator === "undefined" || !navigator.geolocation?.watchPosition) return;
+    watchIdRef.current = navigator.geolocation.watchPosition(
+      (pos) => setMyLoc({ kind: "fix", lat: pos.coords.latitude, lng: pos.coords.longitude, acc: pos.coords.accuracy }),
+      () => {},
+      { enableHighAccuracy: true, timeout: 20000, maximumAge: 5000 },
+    );
+  };
+  useEffect(() => () => { if (watchIdRef.current !== null) navigator.geolocation?.clearWatch(watchIdRef.current); }, []);
+  useEffect(() => {
+    if (detail) return;
+    const pause = () => { manualLocateRef.current = false; };
+    window.addEventListener("touchstart", pause, { passive: true });
+    window.addEventListener("wheel", pause, { passive: true });
+    return () => { window.removeEventListener("touchstart", pause); window.removeEventListener("wheel", pause); };
+  }, [detail]);
   const locate = (manual = true) => {
     manualLocateRef.current = manual;
     if (manual) track("my_location_click", { locale }); // no coordinates, ever
@@ -98,6 +117,7 @@ export default function WorldCupMarketFloorMap({ stores, locale, onSelect, selec
     const ok = (pos: GeolocationPosition) => {
       setMyLoc({ kind: "fix", lat: pos.coords.latitude, lng: pos.coords.longitude, acc: pos.coords.accuracy });
       onFix({ latitude: pos.coords.latitude, longitude: pos.coords.longitude, accuracyMeters: pos.coords.accuracy }, manual ? "button" : "auto");
+      startWatch();
     };
     const fail = (err: GeolocationPositionError) => setMyLoc({ kind: err.code === err.PERMISSION_DENIED ? "denied" : err.code === err.TIMEOUT ? "timeout" : "unavailable" });
     // Fresh GPS fix first (10s, no cache: a re-tap after walking must not show the old spot); fallback network location (10s, ≤1 min cache).
@@ -164,7 +184,7 @@ export default function WorldCupMarketFloorMap({ stores, locale, onSelect, selec
     window.addEventListener("resize", update);
     return () => { window.removeEventListener("scroll", update); window.removeEventListener("resize", update); };
   }, [detail, fixV?.kind, myLoc]); // eslint-disable-line react-hooks/exhaustive-deps
-  const goToMe = () => [...document.querySelectorAll<SVGGElement>(".wcm-floor-me")].find((g) => g.getBoundingClientRect().width > 0)?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+  const goToMe = () => { manualLocateRef.current = true; [...document.querySelectorAll<SVGGElement>(".wcm-floor-me")].find((g) => g.getBoundingClientRect().width > 0)?.scrollIntoView?.({ behavior: "smooth", block: "center" }); };
   const byId = new Map(stores.map((s) => [s.id, s]));
   const ko = locale === "ko";
   const alleyLabel = `망원로7길 · ${ko ? "시장 골목" : "market alley"}`;
@@ -228,12 +248,11 @@ export default function WorldCupMarketFloorMap({ stores, locale, onSelect, selec
       {meEdge && mapOnScreen ? <button type="button" className={`wcm-floor-me-edge is-${meEdge}`} onClick={goToMe}>{meEdge === "up" ? "↑" : "↓"} {mt.button}</button> : null}
       <div className={`wcm-floor-myloc${mapOnScreen ? "" : " is-offscreen"}`}>
         {myMsg ? <span role="status" className={`wcm-floor-toast${fixV?.kind === "ok" ? " is-ok" : ""}`}>{myMsg}</span> : null}
-        <button type="button" onClick={() => locate()} disabled={myLoc.kind === "locating"}><span aria-hidden="true">◎</span> {mt.button}</button>
+        <button type="button" onClick={() => { locate(); manualLocateRef.current = true; }} disabled={myLoc.kind === "locating"}><span aria-hidden="true">◎</span> {mt.button}</button>
       </div>
       </>}
       <div className="wcm-floor-plan is-vertical">{renderPlan(vertical, false)}</div>
       <div className="wcm-floor-plan is-horizontal">{renderPlan(horizontal, false)}</div>
-      {detail ? null : <p className="wcm-floor-note">{mt.privacy}</p>}
       <p className="wcm-floor-note">{ko ? "개략도입니다. 점포 위치와 순서는 주소 기반 추정이며 실측이 아닙니다. 입구·화장실 정보는 아직 없습니다." : ui.mapGuideApproximate}
         {" · "}<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap</a></p>
     </div>
