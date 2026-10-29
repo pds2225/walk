@@ -389,6 +389,40 @@ describe("TEST C — navigating 중 GPS 틱은 엔진에 반영되고 검색 상
   });
 });
 
+
+describe("TEST J — GPS 진단 통합 경로: 필터 거부와 회복", () => {
+  it("50m 초과 fix는 안내와 진단값 모두 유지하고 오류 표시만 갱신하며 회복 후 다시 누적한다", async () => {
+    mockGetCurrentPosition.mockImplementation((success: SuccessCb) => success(position(ORIGIN, 1000, 5)));
+    const watch: { success: SuccessCb | null } = { success: null };
+    mockWatchPosition.mockImplementation((success: SuccessCb) => { watch.success = success; return 42; });
+
+    await pickDestination();
+    fireEvent.click(screen.getByRole("button", { name: "걷기" }));
+    await waitFor(() => expect(mockWatchPosition).toHaveBeenCalledTimes(1));
+    const details = document.querySelector(".gps-diagnostics");
+    expect(details).not.toBeNull();
+    fireEvent.click(details!.querySelector("summary")!);
+    await waitFor(() => expect(screen.getByText("GPS 필터 통과 표본 수")).toBeTruthy());
+    await act(async () => { watch.success?.(position(moveCoordinateByMeters(ORIGIN, 2, 0), 2000, 10)); });
+    await waitFor(() => expect(screen.getByText("±10m")).toBeTruthy());
+
+    const routeCalls = routeCallCount();
+    await act(async () => { watch.success?.(position(moveCoordinateByMeters(ORIGIN, 120, 0), 3000, 100)); });
+    await waitFor(() => expect(screen.getByText("GPS 상태 · 불안정")).toBeTruthy());
+    expect(screen.getByText("확인 불가 (새 위치 반영 안 됨)")).toBeTruthy();
+    expect(screen.getByText("±10m")).toBeTruthy();
+    expect(routeCallCount()).toBe(routeCalls);
+    expect(mockWatchPosition).toHaveBeenCalledTimes(1);
+
+    await act(async () => { watch.success?.(position(moveCoordinateByMeters(ORIGIN, 3, 0), 4000, 8)); });
+    await waitFor(() => expect(screen.getByText("GPS 상태 · 좋음")).toBeTruthy());
+    expect(screen.getByText("±8m")).toBeTruthy();
+    expect(screen.queryByText("확인 불가 (새 위치 반영 안 됨)")).toBeNull();
+    expect(routeCallCount()).toBe(routeCalls);
+    expect(mockWatchPosition).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("TEST G — 사용자 시야방향과 GPS 이동방향은 별도 데이터다", () => {
   it("지도 회전은 나침반을 사용하고 경로 표시는 GPS 이동방향을 유지한다", async () => {
     mockGetCurrentPosition.mockImplementation((success: SuccessCb) => success(position(ORIGIN, 1000)));
@@ -629,6 +663,7 @@ describe("TEST F — 도착은 실시간 위치 안내를 종료한다", () => {
 
     await waitFor(() => expect(screen.getByText("목적지에 도착했습니다")).toBeTruthy());
     await waitFor(() => expect(mockClearWatch).toHaveBeenCalledWith(42));
+    expect(document.querySelector(".gps-diagnostics")).toBeNull(); // 도착 후 GPS 구독 종료: 진단값을 현재 상태로 노출하지 않음
     expect(screen.getByRole("button", { name: "안내 중지" })).toBeTruthy();
   });
 });

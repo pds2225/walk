@@ -218,6 +218,37 @@ html, body {
 .map { width: 100%; height: 100%; }
 .map-off { outline: 3px solid var(--danger); outline-offset: -3px; }
 
+/* GPS 품질 진단은 기본 접힘: 길안내의 지도와 주요 버튼 공간을 유지한다. */
+.gps-diagnostics {
+  flex: 0 0 auto;
+  border-top: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  font-size: 13px;
+}
+.gps-diagnostics summary {
+  cursor: pointer;
+  padding: 7px 16px;
+  color: var(--muted);
+  font-weight: 650;
+}
+.gps-diagnostics dl {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px 12px;
+  padding: 5px 16px 9px;
+  margin: 0;
+}
+.gps-diagnostics dl div { display: contents; }
+.gps-diagnostics dt { color: var(--muted); }
+.gps-diagnostics dd { margin: 0; text-align: right; }
+.gps-diagnostics-note {
+  margin: 0;
+  padding: 2px 16px 10px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
 .roadview-entry {
   flex: 0 0 auto;
   padding: 8px 10px;

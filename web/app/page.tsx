@@ -17,6 +17,7 @@ function metersBetween(a: Coordinate, b: Coordinate): number {
   return Math.hypot(x, y) * 6_371_000;
 }
 import RoadviewViewer from "../components/RoadviewViewer";
+import GpsDiagnosticsPanel from "../components/GpsDiagnosticsPanel";
 import type { RoadviewProvider } from "../lib/roadview";
 import { selectRoadviewProvider } from "../lib/roadviewProviders";
 
@@ -553,6 +554,16 @@ export default function Home() {
               />
             )}
           </div>
+        ) : null}
+
+        {phase === "navigating" ? (
+          <GpsDiagnosticsPanel
+            fix={currentFix}
+            compassHeading={compass}
+            movementHeading={nav.movementHeadingDegrees}
+            error={geoError}
+            locale={locale}
+          />
         ) : null}
 
         <div className="nav-actions">
