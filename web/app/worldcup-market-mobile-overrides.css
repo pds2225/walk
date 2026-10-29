@@ -711,10 +711,11 @@
 
 /* Nearby rail: fixed card size in every language. Without min-width:0 a long
    nowrap name (EN/JA) widened its card, the 100%-wide photo grew with it, and
-   the tallest card set the rail height, leaving a blank gap above the summary. */
+   the tallest card set the rail height, leaving a blank gap above the summary.
+   Keep square object-fit:contain from the earlier nearby-rail rule - do not
+   override to cover (PR #170 P1: poster text at the bottom must stay visible). */
 .worldcup-market-nearby-rail > li { min-width: 0; width: 128px; max-width: 128px; }
-.worldcup-market-nearby-rail > li button img,
-.worldcup-market-nearby-rail > li button .worldcup-market-nearby-thumb-fallback { width: 100%; height: 92px; aspect-ratio: auto; object-fit: cover; }
+
 
 /* Detail "Location" map: plan only, scrollable, current store in red. */
 .wcm-floor.is-detail .wcm-floor-plan { max-height: 420px; overflow-y: auto; border-radius: 12px; }
