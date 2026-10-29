@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getCurrentPositionOnce,
-  getSearchCenterOnce, isDeviationFixReliable, useCompass, useSmoothedFix, useWatchPosition } from "../lib/useGeolocation";
+  getSearchCenterOnce, isDeviationFixReliable, isSearchCenterFresh, SEARCH_ORIGIN_MAX_AGE_MS, useCompass, useSmoothedFix, useWatchPosition } from "../lib/useGeolocation";
 import type { Fix } from "../lib/useGeolocation";
 import { useNavigation } from "../lib/useNavigation";
 import type { Coordinate, PlaceHit, RouteResponse } from "../lib/types";
@@ -154,6 +154,9 @@ export default function Home() {
   const [searchCenter, setSearchCenter] = useState<Fix | null>(null);
   const [searchCenterState, setSearchCenterState] = useState<"idle" | "pending" | "ok" | "failed">("idle");
   const searchCenterAsked = useRef(false);
+  // 검색 기준을 받은 시각(기기 시계). 2분 지나면 다음 검색 때 다시 받는다.
+  const searchCenterAt = useRef(0);
+  const searchCenterStale = () => !searchCenter || Date.now() - searchCenterAt.current > SEARCH_ORIGIN_MAX_AGE_MS;
   const askSearchCenter = useCallback(() => {
     if (searchCenterAsked.current) return;
     searchCenterAsked.current = true;
@@ -161,13 +164,16 @@ export default function Home() {
     // 위치 응답 전 경쟁 상태: 최대 2.5초만 기다리고, 그 뒤엔 좌표 없이 검색하되 안내를 띄운다.
     // 늦게라도 위치가 오면 searchCenter 가 바뀌어 검색이 자동으로 다시 돈다.
     const slow = setTimeout(() => setSearchCenterState((prev) => (prev === "pending" ? "failed" : prev)), 2_500);
-    getSearchCenterOnce().then(
-      (f) => { clearTimeout(slow); setSearchCenter(f); setSearchCenterState("ok"); },
+    getSearchCenterOnce((first) => { clearTimeout(slow); searchCenterAt.current = Date.now(); setSearchCenter(first); setSearchCenterState("ok"); }).then(
+      (f) => { clearTimeout(slow); searchCenterAt.current = Date.now(); setSearchCenter(f); setSearchCenterState("ok"); },
       () => { clearTimeout(slow); setSearchCenterState("failed"); },
     );
   }, []);
+  // 검색 기준: 실시간 fix → 신선한(2분·2km 이내) originFix → 검색용 단발. 오래된 걷기 출발점이
+  // 새 검색 중심보다 앞서지 않게 한다.
+  const searchFix: Fix | null = fix ?? (isSearchCenterFresh(originFix) ? originFix : null);
   const currentFixRef = useRef<Fix | null>(null);
-  currentFixRef.current = currentFix;
+  currentFixRef.current = searchFix;
   // nav_progress: while navigating, every 30 s or 50 m (WALK_STORE_COORDS).
   const lastProgress = useRef<{ at: number; fix: Fix } | null>(null);
   useEffect(() => {
@@ -292,15 +298,19 @@ export default function Home() {
       setSearching(false);
       return;
     }
-    if (!currentFix && !searchCenter) askSearchCenter();
+    if (!searchFix && searchCenterStale()) {
+      // 2분 넘은 검색 기준은 다시 한 번 받는다(이동 후 예전 위치로 정렬 방지).
+      if (searchCenter && searchCenterState !== "pending") searchCenterAsked.current = false;
+      askSearchCenter();
+    }
     const seq = ++searchSeq.current;
     setSearching(true);
     // 위치 응답을 기다리는 중이면 좌표 없는(시청 편향) 검색을 먼저 보내지 않는다.
-    if (!currentFix && !searchCenter && searchCenterState !== "failed") return;
+    if (!searchFix && !searchCenter && searchCenterState !== "failed") return;
     const timer = setTimeout(async () => {
       try {
         const params = new URLSearchParams({ q });
-        const center = currentFix ?? searchCenter;
+        const center = searchFix ?? searchCenter;
         if (center) {
           params.set("lat", String(center.latitude));
           params.set("lon", String(center.longitude));
@@ -340,7 +350,10 @@ export default function Home() {
       setOriginSearchError(null);
       return;
     }
-    if (!currentFixRef.current && !searchCenter) askSearchCenter();
+    if (!currentFixRef.current && searchCenterStale()) {
+      if (searchCenter && searchCenterState !== "pending") searchCenterAsked.current = false;
+      askSearchCenter();
+    }
     if (!currentFixRef.current && !searchCenter && searchCenterState !== "failed") {
       setOriginSearching(true);
       return;
@@ -407,6 +420,8 @@ export default function Home() {
       let gpsOrigin: Fix | null = null;
       let origin: Coordinate;
       if (originOverride) {
+        // 수동 출발지여도 안내 중 방향은 필요하다 — iOS 방향 권한을 제스처 안에서 요청.
+        requestCompass();
         origin = originOverride.coordinate;
       } else {
         // iOS 방향 권한은 GPS를 기다리기 전 사용자 제스처 안에서만 요청한다.
@@ -645,7 +660,7 @@ export default function Home() {
       />
 
       {searching ? <p className="hint">{ui.searchLoading}</p> : null}
-      {query.trim() && !currentFix && !searchCenter && searchCenterState === "failed" ? (
+      {query.trim() && !searchFix && !searchCenter && searchCenterState === "failed" ? (
         <p className="hint">{ui.searchNoLocation}</p>
       ) : null}
 

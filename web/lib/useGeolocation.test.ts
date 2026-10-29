@@ -240,3 +240,15 @@ describe("useCompass absolute direction", () => {
     expect(hook.result.current.headingDegrees).toBeGreaterThan(359);
   });
 });
+
+describe("search center freshness/accuracy", () => {
+  it("rejects stale or very inaccurate fixes, accepts fresh ones", async () => {
+    const { isSearchCenterFresh } = await import("./useGeolocation");
+    const base = { latitude: 37.52, longitude: 126.92, headingDegrees: null, speedMetersPerSecond: null };
+    const now = 1_000_000;
+    expect(isSearchCenterFresh(null, now)).toBe(false);
+    expect(isSearchCenterFresh({ ...base, accuracyMeters: 30, timestampMs: now - 10_000 }, now)).toBe(true);
+    expect(isSearchCenterFresh({ ...base, accuracyMeters: 30, timestampMs: now - 300_000 }, now)).toBe(false);
+    expect(isSearchCenterFresh({ ...base, accuracyMeters: 5_000, timestampMs: now }, now)).toBe(false);
+  });
+});
