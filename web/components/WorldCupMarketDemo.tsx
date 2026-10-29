@@ -115,7 +115,21 @@ function WorldCupMarketMobileHeader({ locale, onLocaleChange, onBack, backLabel 
           navigate away (history.back() used to leave the market entirely). */}
       {onBack ? <button type="button" className="worldcup-market-back-button" aria-label={backLabel ?? ui.back} onClick={goBack}>‹</button> : null}
       <div className="worldcup-market-mobile-brand">
-        <a href={`/worldcup-market?lang=${locale}`} aria-label={`${ui.serviceName} · ${ui.market}`}><strong>{ui.serviceName}</strong></a>
+        <a
+          href={`/worldcup-market?lang=${locale}`}
+          className="worldcup-market-brand-link"
+          aria-label={`${ui.serviceName} · ${ui.market}`}
+        >
+          <img
+            className="worldcup-market-brand-mark"
+            src="/worldcup-market/k-trip-mark.png"
+            alt=""
+            width={22}
+            height={20}
+            decoding="async"
+          />
+          <strong>K-TRIP</strong>
+        </a>
       </div>
       <p className="worldcup-market-header-title">{ui.market}</p>
       <div className="worldcup-market-locale-switcher" role="group" aria-label={ui.chooseLanguage}>
