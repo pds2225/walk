@@ -111,8 +111,8 @@ describe("World Cup Market demo", () => {
     const view = render(<WorldCupMarketDemo locale="ko" onStartWalking={vi.fn()} />);
     const railImages = [...view.container.querySelectorAll<HTMLImageElement>(".worldcup-market-nearby-rail img")];
     expect(railImages.length).toBeGreaterThan(0);
-    expect(railImages.every((img) => img.loading === "lazy" && img.decoding === "async")).toBe(true);
-    expect(view.container.querySelector<HTMLImageElement>(".worldcup-market-hero-photo")?.loading).toBe("eager");
+    expect(railImages.every((img) => img.getAttribute("loading") === "lazy" && img.getAttribute("decoding") === "async")).toBe(true);
+    expect(view.container.querySelector<HTMLImageElement>(".worldcup-market-hero-photo")?.getAttribute("loading")).toBe("eager");
   });
 
   it("상세 딥링크에서 블로그 점포 정보를 유지한다", () => {
