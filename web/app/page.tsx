@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getCurrentPositionOnce,
-  getSearchCenterOnce, isDeviationFixReliable, isSearchCenterFresh, useCompass, useSmoothedFix, useWatchPosition } from "../lib/useGeolocation";
+  getSearchCenterOnce, isDeviationFixReliable, isSearchCenterFresh, SEARCH_ORIGIN_MAX_AGE_MS, useCompass, useSmoothedFix, useWatchPosition } from "../lib/useGeolocation";
 import type { Fix } from "../lib/useGeolocation";
 import { useNavigation } from "../lib/useNavigation";
 import type { Coordinate, PlaceHit, RouteResponse } from "../lib/types";
@@ -154,6 +154,9 @@ export default function Home() {
   const [searchCenter, setSearchCenter] = useState<Fix | null>(null);
   const [searchCenterState, setSearchCenterState] = useState<"idle" | "pending" | "ok" | "failed">("idle");
   const searchCenterAsked = useRef(false);
+  // 검색 기준을 받은 시각(기기 시계). 2분 지나면 다음 검색 때 다시 받는다.
+  const searchCenterAt = useRef(0);
+  const searchCenterStale = () => !searchCenter || Date.now() - searchCenterAt.current > SEARCH_ORIGIN_MAX_AGE_MS;
   const askSearchCenter = useCallback(() => {
     if (searchCenterAsked.current) return;
     searchCenterAsked.current = true;
@@ -161,8 +164,8 @@ export default function Home() {
     // 위치 응답 전 경쟁 상태: 최대 2.5초만 기다리고, 그 뒤엔 좌표 없이 검색하되 안내를 띄운다.
     // 늦게라도 위치가 오면 searchCenter 가 바뀌어 검색이 자동으로 다시 돈다.
     const slow = setTimeout(() => setSearchCenterState((prev) => (prev === "pending" ? "failed" : prev)), 2_500);
-    getSearchCenterOnce((first) => { clearTimeout(slow); setSearchCenter(first); setSearchCenterState("ok"); }).then(
-      (f) => { clearTimeout(slow); setSearchCenter(f); setSearchCenterState("ok"); },
+    getSearchCenterOnce((first) => { clearTimeout(slow); searchCenterAt.current = Date.now(); setSearchCenter(first); setSearchCenterState("ok"); }).then(
+      (f) => { clearTimeout(slow); searchCenterAt.current = Date.now(); setSearchCenter(f); setSearchCenterState("ok"); },
       () => { clearTimeout(slow); setSearchCenterState("failed"); },
     );
   }, []);
@@ -295,7 +298,7 @@ export default function Home() {
       setSearching(false);
       return;
     }
-    if (!searchFix && !isSearchCenterFresh(searchCenter)) {
+    if (!searchFix && searchCenterStale()) {
       // 2분 넘은 검색 기준은 다시 한 번 받는다(이동 후 예전 위치로 정렬 방지).
       if (searchCenter && searchCenterState !== "pending") searchCenterAsked.current = false;
       askSearchCenter();
@@ -347,7 +350,7 @@ export default function Home() {
       setOriginSearchError(null);
       return;
     }
-    if (!currentFixRef.current && !isSearchCenterFresh(searchCenter)) {
+    if (!currentFixRef.current && searchCenterStale()) {
       if (searchCenter && searchCenterState !== "pending") searchCenterAsked.current = false;
       askSearchCenter();
     }
