@@ -17,6 +17,30 @@ function stubGeo(impl: (ok: PositionCallback, fail: PositionErrorCallback) => vo
 afterEach(() => { cleanup(); trackMock.mockClear(); });
 
 describe("WorldCupMarketFloorMap my location", () => {
+  it("카테고리 필터 강조 시 목록을 지나 SVG 점포로 자동 스크롤하지 않는다", () => {
+    stubGeo(() => {}); // 위치 업데이트가 없어도 필터만 검증
+    const storeId = WORLD_CUP_MARKET_STORES[0]!.id;
+    const bounds = vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (this: Element) {
+      const visible = this.matches?.("a[data-store-id]") ?? false;
+      return { width: visible ? 20 : 0, height: 20, top: 50, bottom: 70, left: 0, right: 20, x: 0, y: 50, toJSON: () => ({}) };
+    });
+    const previous = Object.getOwnPropertyDescriptor(SVGElement.prototype, "scrollIntoView");
+    const scrollIntoView = vi.fn();
+    Object.defineProperty(SVGElement.prototype, "scrollIntoView", { configurable: true, value: scrollIntoView });
+    try {
+      const props = { stores: WORLD_CUP_MARKET_STORES, locale: "ko" as const, onSelect: vi.fn(), selectedId: storeId };
+      const { rerender } = render(<WorldCupMarketFloorMap {...props} highlightIds={new Set([storeId])} />);
+      expect(scrollIntoView).not.toHaveBeenCalled();
+      // 필터가 아닌 명시적 점포 선택은 기존 스크롤 동작을 유지한다.
+      rerender(<WorldCupMarketFloorMap {...props} highlightIds={null} />);
+      expect(scrollIntoView).toHaveBeenCalled();
+    } finally {
+      if (previous) Object.defineProperty(SVGElement.prototype, "scrollIntoView", previous);
+      else delete (SVGElement.prototype as { scrollIntoView?: unknown }).scrollIntoView;
+      bounds.mockRestore();
+    }
+  });
+
   it("전체 지도는 로드 시 위치를 자동 요청하고(클릭 이벤트 기록 없음) 페이지를 스크롤하지 않는다", async () => {
     const scrollTo = vi.fn(); window.scrollTo = scrollTo as unknown as typeof window.scrollTo;
     const get = stubGeo(() => {});
