@@ -16,11 +16,9 @@ import { TmapError, searchTmapPlaces, tmapAvailable } from "./tmap";
 import type { PlaceHit } from "./types";
 
 /**
- * 표시 이름이 같고 이만큼(m) 안에 있으면 같은 곳으로 본다.
- *
- * 소스마다 같은 가게의 좌표가 조금씩 다르게 온다. 좌표만으로 중복을 걸러내면 같은
- * 이름이 여러 줄로 뜨고, 이름만으로 걸러내면 '다른 동네의 같은 이름 지점'이 사라진다.
- * (파이썬 _DEDUP_NEAR_M 과 같은 값·같은 이유)
+ * 소스별 좌표 오차를 고려한 근접 기준(m). 이름·거리 외에 서로 다른 주소인지도 확인한다.
+ * 같은 이름이어도 서로 다른 주소를 가진 근접 지점은 각각 선택할 수 있어야 한다.
+ * (파이썬 _DEDUP_NEAR_M 과 같은 거리 기준)
  */
 const DEDUP_NEAR_M = 60;
 
@@ -55,17 +53,27 @@ export function missingSourceHint(): string | null {
   return null;
 }
 
+/** 주소 공백·대소문자만 정규화한다. 서로 다른 원본 주소를 같은 장소라고 추정하지 않는다. */
+function normalizeAddress(address: string | undefined): string {
+  return (address ?? "").replace(/\s+/g, " ").trim().toLocaleLowerCase();
+}
+
 function dedupe(hits: readonly PlaceHit[]): PlaceHit[] {
   const byName = new Map<string, number[]>();
   const out: PlaceHit[] = [];
   for (const hit of hits) {
     const normalizedName = hit.name.replace(/\s+/g, " ").trim().toLocaleLowerCase();
-    const nearby = (byName.get(normalizedName) ?? []).find(
-      (index) => distanceMeters(out[index]!.coordinate, hit.coordinate) <= DEDUP_NEAR_M,
-    );
+    const hitAddress = normalizeAddress(hit.address);
+    const nearby = (byName.get(normalizedName) ?? []).find((index) => {
+      const existing = out[index]!;
+      if (distanceMeters(existing.coordinate, hit.coordinate) > DEDUP_NEAR_M) return false;
+      const existingAddress = normalizeAddress(existing.address);
+      // 양쪽 주소가 명확히 다르면 가까운 동명 장소라도 별도 목적지다.
+      return !existingAddress || !hitAddress || existingAddress === hitAddress;
+    });
     if (nearby !== undefined) {
       // 동일 지점의 주소가 한 제공자에서만 누락된 경우 더 자세한 쪽을 보존한다.
-      if (!out[nearby]!.address && hit.address) out[nearby] = hit;
+      if (!normalizeAddress(out[nearby]!.address) && hitAddress) out[nearby] = hit;
       continue;
     }
     const indices = byName.get(normalizedName);
