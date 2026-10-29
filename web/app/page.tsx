@@ -2,7 +2,8 @@
 
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getCurrentPositionOnce, isDeviationFixReliable, useCompass, useSmoothedFix, useWatchPosition } from "../lib/useGeolocation";
+import { getCurrentPositionOnce,
+  getSearchCenterOnce, isDeviationFixReliable, useCompass, useSmoothedFix, useWatchPosition } from "../lib/useGeolocation";
 import type { Fix } from "../lib/useGeolocation";
 import { useNavigation } from "../lib/useNavigation";
 import type { Coordinate, PlaceHit, RouteResponse } from "../lib/types";
@@ -146,6 +147,25 @@ export default function Home() {
   const { fix, error: geoError } = useWatchPosition(wantWatch);
   const { headingDegrees: compass, request: requestCompass } = useCompass(wantWatch);
   const currentFix = fix ?? originFix;
+  // 검색 기준 좌표. 좌표 없이 검색하면 제공자가 전국 관련도순(사실상 서울 도심·시청 부근)으로
+  // 답해 여의도·강남 등 어느 지역에서든 엉뚱한 지점이 위로 온다. 그래서 검색어를 입력하면
+  // 위치를 단발로 한 번 받아 기준으로 쓴다(watchPosition 구독 아님 — 연속 추적은 안내 중에만).
+  // 실패하면 조용히 넘어가지 않고 "가까운 순 아님" 안내를 띄운다.
+  const [searchCenter, setSearchCenter] = useState<Fix | null>(null);
+  const [searchCenterState, setSearchCenterState] = useState<"idle" | "pending" | "ok" | "failed">("idle");
+  const searchCenterAsked = useRef(false);
+  const askSearchCenter = useCallback(() => {
+    if (searchCenterAsked.current) return;
+    searchCenterAsked.current = true;
+    setSearchCenterState("pending");
+    // 위치 응답 전 경쟁 상태: 최대 2.5초만 기다리고, 그 뒤엔 좌표 없이 검색하되 안내를 띄운다.
+    // 늦게라도 위치가 오면 searchCenter 가 바뀌어 검색이 자동으로 다시 돈다.
+    const slow = setTimeout(() => setSearchCenterState((prev) => (prev === "pending" ? "failed" : prev)), 2_500);
+    getSearchCenterOnce().then(
+      (f) => { clearTimeout(slow); setSearchCenter(f); setSearchCenterState("ok"); },
+      () => { clearTimeout(slow); setSearchCenterState("failed"); },
+    );
+  }, []);
   const currentFixRef = useRef<Fix | null>(null);
   currentFixRef.current = currentFix;
   // nav_progress: while navigating, every 30 s or 50 m (WALK_STORE_COORDS).
@@ -272,14 +292,18 @@ export default function Home() {
       setSearching(false);
       return;
     }
+    if (!currentFix && !searchCenter) askSearchCenter();
     const seq = ++searchSeq.current;
     setSearching(true);
+    // 위치 응답을 기다리는 중이면 좌표 없는(시청 편향) 검색을 먼저 보내지 않는다.
+    if (!currentFix && !searchCenter && searchCenterState !== "failed") return;
     const timer = setTimeout(async () => {
       try {
         const params = new URLSearchParams({ q });
-        if (fix) {
-          params.set("lat", String(fix.latitude));
-          params.set("lon", String(fix.longitude));
+        const center = currentFix ?? searchCenter;
+        if (center) {
+          params.set("lat", String(center.latitude));
+          params.set("lon", String(center.longitude));
         }
         const resp = await fetch(`/api/places?${params}`);
         const body: unknown = await resp.json();
@@ -304,7 +328,7 @@ export default function Home() {
       }
     }, SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(timer);
-  }, [query, dest]);
+  }, [query, dest, searchCenter, searchCenterState]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 선택 시에만 기존 장소 검색 API를 재사용한다. 접혀 있으면 요청하지 않는다.
   useEffect(() => {
@@ -316,12 +340,23 @@ export default function Home() {
       setOriginSearchError(null);
       return;
     }
+    if (!currentFixRef.current && !searchCenter) askSearchCenter();
+    if (!currentFixRef.current && !searchCenter && searchCenterState !== "failed") {
+      setOriginSearching(true);
+      return;
+    }
     let cancelled = false;
     const controller = new AbortController();
     setOriginSearching(true);
     const timer = setTimeout(async () => {
       try {
-        const resp = await fetch(`/api/places?q=${encodeURIComponent(q)}`, { signal: controller.signal });
+        const params = new URLSearchParams({ q });
+        const center = currentFixRef.current ?? searchCenter;
+        if (center) {
+          params.set("lat", String(center.latitude));
+          params.set("lon", String(center.longitude));
+        }
+        const resp = await fetch(`/api/places?${params}`, { signal: controller.signal });
         const body: unknown = await resp.json();
         if (cancelled) return;
         setOriginHits(resp.ok ? ((body as { hits?: PlaceHit[] }).hits ?? []) : []);
@@ -340,7 +375,7 @@ export default function Home() {
       }
     }, SEARCH_DEBOUNCE_MS);
     return () => { cancelled = true; clearTimeout(timer); controller.abort(); };
-  }, [originEditorOpen, originQuery, selectedOrigin, ui.routeFailed]);
+  }, [originEditorOpen, originQuery, selectedOrigin, ui.routeFailed, searchCenter, searchCenterState]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const rememberRecent = useCallback((entry: Recent) => {
     setRecents((prev) => {
@@ -610,6 +645,9 @@ export default function Home() {
       />
 
       {searching ? <p className="hint">{ui.searchLoading}</p> : null}
+      {query.trim() && !currentFix && !searchCenter && searchCenterState === "failed" ? (
+        <p className="hint">{ui.searchNoLocation}</p>
+      ) : null}
 
       {searched && !searching && hits.length === 0 && !dest ? (
         <>
@@ -625,9 +663,9 @@ export default function Home() {
               <button type="button" onClick={() => pick(hit)}>
                 <span className="hit-details">
                   <span className="hit-name">{hit.name}</span>
-                  {hit.address === hit.name ? null : (
-                    <span className="hit-address">{hit.address || ui.searchAddressUnknown}</span>
-                  )}
+                  <span className="hit-address">
+                    {hit.address === hit.name ? ui.searchAddressResult : hit.address || ui.searchAddressUnknown}
+                  </span>
                 </span>
                 {hit.distanceMeters !== undefined ? (
                   <span className="hit-dist">{metersText(hit.distanceMeters)}</span>
@@ -681,9 +719,9 @@ export default function Home() {
                   }}>
                     <span className="hit-details">
                       <span className="hit-name">{hit.name}</span>
-                      {hit.address === hit.name ? null : (
-                        <span className="hit-address">{hit.address || ui.searchAddressUnknown}</span>
-                      )}
+                      <span className="hit-address">
+                        {hit.address === hit.name ? ui.searchAddressResult : hit.address || ui.searchAddressUnknown}
+                      </span>
                     </span>
                   </button>
                 </li>

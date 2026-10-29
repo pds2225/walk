@@ -253,3 +253,20 @@ describe("상호 소스 인터리브", () => {
     expect(hits.map((h) => h.name)).toEqual(["동네치킨", "서울시청"]);
   });
 });
+
+describe("주소 전용 결과와 상호 결과 중복", () => {
+  it("같은 지점의 주소 지오코딩 결과는 상호 결과에 흡수된다(이름이 빠지지 않는다)", async () => {
+    const { searchKakaoLocal } = await import("./kakao");
+    const { searchTmapPlaces } = await import("./tmap");
+    const { searchDestinations } = await import("./search");
+    vi.mocked(searchKakaoLocal).mockResolvedValueOnce([
+      { name: "IFC몰", address: "서울 영등포구 국제금융로 10", coordinate: at(0, 0) },
+    ]);
+    vi.mocked(searchTmapPlaces).mockResolvedValueOnce([
+      { name: "서울 영등포구 여의도동 23", address: "서울 영등포구 여의도동 23", coordinate: at(5, 5) },
+      { name: "서울 강남구 역삼동 1", address: "서울 강남구 역삼동 1", coordinate: at(5000, 0) },
+    ]);
+    const { hits } = await searchDestinations("국제금융로 10", ORIGIN);
+    expect(hits.map((h) => h.name)).toEqual(["IFC몰", "서울 강남구 역삼동 1"]);
+  });
+});
