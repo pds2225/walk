@@ -6,9 +6,9 @@
  * 쪽 lifecycle 계약은 web/app/page.test.tsx 에서 실제 컴포넌트를 통해 검증한다.
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { createElement } from "react";
-import { getCurrentPositionOnce, useSmoothedFix, useWatchPosition, type Fix } from "./useGeolocation";
+import { getCurrentPositionOnce, useCompass, useSmoothedFix, useWatchPosition, type Fix } from "./useGeolocation";
 
 type SuccessCb = (pos: GeolocationPosition) => void;
 type ErrorCb = (err: GeolocationPositionError) => void;
@@ -188,5 +188,55 @@ describe("useSmoothedFix", () => {
     currentFix = second;
     rerender(createElement(Wrapper));
     await waitFor(() => expect(screen.getByTestId("lat").textContent).toBe(second.latitude.toFixed(8)));
+  });
+});
+
+
+describe("useCompass absolute direction", () => {
+  it("진북이 아닌 일반 alpha 이벤트는 표시하지 않고 절대방위만 사용한다", () => {
+    const hook = renderHook(() => useCompass(true));
+    const relative = new Event("deviceorientation");
+    Object.defineProperty(relative, "alpha", { value: 90 });
+    act(() => window.dispatchEvent(relative));
+    expect(hook.result.current.headingDegrees).toBeNull();
+
+    const absolute = new Event("deviceorientationabsolute");
+    Object.defineProperty(absolute, "alpha", { value: 90 });
+    act(() => window.dispatchEvent(absolute));
+    expect(hook.result.current.headingDegrees).toBe(270);
+  });
+
+  it("안내 중지와 새 세션 시작 사이에 이전 나침반 방위를 재사용하지 않는다", () => {
+    const hook = renderHook(({ enabled }) => useCompass(enabled), { initialProps: { enabled: true } });
+    const first = new Event("deviceorientationabsolute");
+    Object.defineProperty(first, "alpha", { value: 90 });
+    act(() => window.dispatchEvent(first));
+    expect(hook.result.current.headingDegrees).toBe(270);
+
+    hook.rerender({ enabled: false });
+    expect(hook.result.current.headingDegrees).toBeNull();
+    hook.rerender({ enabled: true });
+    expect(hook.result.current.headingDegrees).toBeNull();
+
+    const next = new Event("deviceorientationabsolute");
+    Object.defineProperty(next, "alpha", { value: 180 });
+    act(() => window.dispatchEvent(next));
+    expect(hook.result.current.headingDegrees).toBe(180);
+  });
+
+  it("북쪽을 지날 때 짧은 각도로 스무딩하며 부정확한 iOS heading은 무시한다", () => {
+    const hook = renderHook(() => useCompass(true));
+    function send(degrees: number, accuracy?: number) {
+      const evt = new Event("deviceorientation");
+      Object.defineProperty(evt, "webkitCompassHeading", { value: degrees });
+      if (accuracy !== undefined) Object.defineProperty(evt, "webkitCompassAccuracy", { value: accuracy });
+      act(() => window.dispatchEvent(evt));
+    }
+    send(359);
+    expect(hook.result.current.headingDegrees).toBe(359);
+    send(1);
+    expect(hook.result.current.headingDegrees).toBeGreaterThan(359);
+    send(90, 60);
+    expect(hook.result.current.headingDegrees).toBeGreaterThan(359);
   });
 });

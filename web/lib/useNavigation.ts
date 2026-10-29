@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createRouteDeviationEngine, distanceMeters, getNextTurnPoint, prepareRouteModel } from "@walk/route-engine";
+import { bearingDegrees, createRouteDeviationEngine, distanceMeters, findNearestRouteSegment, getExpectedHeadingForSegment, getNextTurnPoint, prepareRouteModel } from "@walk/route-engine";
 import type { DeviationState, EngineResult, PositionSample } from "@walk/route-engine";
 import { isArrivalAccuracyReliable, isDeviationFixReliable } from "./useGeolocation";
 import type { Fix } from "./useGeolocation";
@@ -40,22 +40,31 @@ export function applyDeviationAccuracyGate(
   accuracyMeters: number | null,
 ): AccuracyGateDecision {
   const fixReliable = isDeviationFixReliable(accuracyMeters);
+  const distance = rawResult.metrics.distanceFromRouteMeters;
+  const uncertainty = accuracyMeters ?? 25; // 미보고 위치 정확도는 보수적으로 취급
   const distanceClearsAccuracy =
-    accuracyMeters === null ||
-    rawResult.metrics.distanceFromRouteMeters >= accuracyMeters;
-
+    accuracyMeters === null || distance >= accuracyMeters;
+  // 측위 오차 반경 안의 10~15m 횡거리만으로 경고하지 않는다.
+  const driftConfident = distance >= Math.max(12, uncertainty * 0.75);
+  const deviationConfident = distance >= Math.max(20, uncertainty + 5);
   const downgradeDeviation =
     rawResult.state === "deviated" &&
-    (!fixReliable || !distanceClearsAccuracy);
+    (!fixReliable || !distanceClearsAccuracy || !deviationConfident);
   const downgradePassedTurn =
-    rawResult.state === "passed_turn" &&
-    !fixReliable;
+    rawResult.state === "passed_turn" && !fixReliable;
+  const suppressDrift = rawResult.state === "drifting" && !driftConfident;
 
+  // '회전 미이행'은 위치 오차가 큰 경우에도 on_route로 확정해선 안 된다.
+  // 강한 경고와 재탐색만 보류하고 보수적인 drifting 상태를 유지한다.
+  const downgradeState = downgradePassedTurn
+    ? "drifting"
+    : downgradeDeviation
+      ? (driftConfident ? "drifting" : "on_route")
+      : suppressDrift ? "on_route" : null;
   return {
-    result:
-      downgradeDeviation || downgradePassedTurn
-        ? { ...rawResult, state: "drifting", suggestedNextAction: "monitor" }
-        : rawResult,
+    result: downgradeState
+      ? { ...rawResult, state: downgradeState, suggestedNextAction: downgradeState === "on_route" ? "none" : "monitor" }
+      : rawResult,
     fixReliable,
     distanceClearsAccuracy,
   };
@@ -104,7 +113,8 @@ export function useNavigation(
   const lastFixTs = useRef<number | null>(null);
   const firstFixTs = useRef<number | null>(null);
   const acceptedSampleCount = useRef(0);
-  const prevSample = useRef<PositionSample | null>(null);
+  const headingAnchor = useRef<Fix | null>(null);
+  const lastReliableMovementHeading = useRef<number | null>(null);
   const spokenState = useRef<DeviationState>("on_route");
   const lastDriftSpokenMs = useRef<number>(0);
   const announcedTurn = useRef<string | null>(null);
@@ -173,7 +183,8 @@ export function useNavigation(
     lastFixTs.current = null;
     firstFixTs.current = null;
     acceptedSampleCount.current = 0;
-    prevSample.current = null;
+    headingAnchor.current = null;
+    lastReliableMovementHeading.current = null;
     spokenState.current = "on_route";
     lastDriftSpokenMs.current = 0;
     announcedTurn.current = null;
@@ -211,29 +222,42 @@ export function useNavigation(
     setSampleCount(acceptedSampleCount.current);
     setElapsedSinceStartMs(Math.max(0, fix.timestampMs - (firstFixTs.current ?? fix.timestampMs)));
 
-    const previous = prevSample.current;
-    // heading·speed 는 기기가 안 줄 때가 많다(정지 중·실내). 직전 표본에서 직접 계산해 채운다.
-    let heading = fix.headingDegrees;
-    let speed = fix.speedMetersPerSecond;
-    if (previous) {
-      const dtSec = (fix.timestampMs - previous.timestampMs) / 1000;
-      const moved = distanceMeters(previous, fix);
-      if (speed === null && dtSec > 0) speed = moved / dtSec;
-      if (heading === null && moved >= 1) {
-        const dLon = (fix.longitude - previous.longitude) * Math.cos((fix.latitude * Math.PI) / 180);
-        heading = ((Math.atan2(dLon, fix.latitude - previous.latitude) * 180) / Math.PI + 360) % 360;
+    // 정지 상태에서 1m GPS 지터로 계산한 course/speed는 방향 오표시와 이탈 오탐을 만든다.
+    // 기기 course는 실제 보행속도일 때만 신뢰하며, 없으면 여러 위치 사이의 유효 변위로 구한다.
+    let speed = fix.speedMetersPerSecond !== null && Number.isFinite(fix.speedMetersPerSecond)
+      ? Math.max(0, fix.speedMetersPerSecond) : null;
+    let heading = speed !== null && speed >= 0.7 ? fix.headingDegrees : null;
+    const anchor = headingAnchor.current;
+    if (!anchor) {
+      headingAnchor.current = fix;
+    } else {
+      const dtSec = (fix.timestampMs - anchor.timestampMs) / 1000;
+      const moved = distanceMeters(anchor, fix);
+      const minMovementMeters = Math.max(8, Math.min(15, (fix.accuracyMeters ?? 20) * 0.5));
+      if (dtSec > 0 && moved >= minMovementMeters) {
+        const derivedSpeed = moved / dtSec;
+        // 비정상적인 GPS 순간 점프는 방향 근거가 아니다. 다음 표본부터 재측정한다.
+        if (derivedSpeed >= 0.7 && derivedSpeed <= 3.5) {
+          if (speed === null) speed = derivedSpeed;
+          if (heading === null) heading = bearingDegrees(anchor, fix);
+        }
+        headingAnchor.current = fix;
       }
     }
-    setMovementHeadingDegrees(heading);
-
+    if (heading !== null) lastReliableMovementHeading.current = heading;
+    setMovementHeadingDegrees(lastReliableMovementHeading.current);
+    // 알 수 없는 heading을 북쪽(0°)으로 만들어 회전 미이행을 확정하지 않는다.
+    // 신뢰 가능한 이동 방향이 없으면 경로 접선 방향을 채우되 speed=0으로 방향 충돌을 막는다.
+    const segment = findNearestRouteSegment(prepared, fix);
+    const fallbackHeading = getExpectedHeadingForSegment(prepared, segment.segmentIndex);
+    const hasMotionEvidence = heading !== null;
     const sample: PositionSample = {
       latitude: fix.latitude,
       longitude: fix.longitude,
-      headingDegrees: heading ?? 0,
-      speedMetersPerSecond: speed ?? 0,
+      headingDegrees: heading ?? lastReliableMovementHeading.current ?? fallbackHeading,
+      speedMetersPerSecond: hasMotionEvidence ? (speed ?? 0) : 0,
       timestampMs: fix.timestampMs,
     };
-    prevSample.current = sample;
 
     const rawResult = engine.processSample(sample);
 

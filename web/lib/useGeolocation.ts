@@ -223,28 +223,43 @@ export function useSmoothedFix(fix: Fix | null): Fix | null {
  * 나침반(기기 방위) — 서 있을 때 '보는 방향'. GPS heading 은 걸어야만 값이 나온다.
  *
  * iOS 는 사용자 제스처 안에서 requestPermission() 을 불러야 해서 `request` 를 노출한다.
- * 안드로이드는 절대방위(deviceorientationabsolute)를 우선하되, 그게 안 오면 일반
- * deviceorientation 으로 떨어진다 — 파이썬판 진단에서 확인한 순서 그대로다.
+ * 안드로이드는 절대방위(deviceorientationabsolute 또는 absolute=true)만 사용한다.
+ * 상대방위 alpha는 진북 기준이 아니므로 지도 방향으로 사용하지 않는다.
  */
 export function useCompass(enabled: boolean): { headingDegrees: number | null; request: () => void } {
   const [headingDegrees, setHeading] = useState<number | null>(null);
-  const absoluteSeen = useRef(false);
-
   const handle = useCallback((event: DeviceOrientationEvent, absolute: boolean) => {
-    if (absolute) absoluteSeen.current = true;
-    // 절대방위가 한 번이라도 왔으면 일반 이벤트는 무시한다(진북 기준이 아니라 방향이 틀어진다).
-    if (!absolute && absoluteSeen.current) return;
+    const webkitEvent = event as DeviceOrientationEvent & {
+      webkitCompassHeading?: number;
+      webkitCompassAccuracy?: number;
+    };
+    // iOS는 나침반 오차각을 제공할 수 있다. 매우 불확실한 측정치는 화면을 돌리지 않는다.
+    if (typeof webkitEvent.webkitCompassAccuracy === "number" &&
+        webkitEvent.webkitCompassAccuracy > 35) return;
 
-    const webkit = (event as DeviceOrientationEvent & { webkitCompassHeading?: number })
-      .webkitCompassHeading;
+    const webkit = webkitEvent.webkitCompassHeading;
+    let next: number | null = null;
     if (typeof webkit === "number" && Number.isFinite(webkit)) {
-      setHeading(((webkit % 360) + 360) % 360);
-      return;
+      next = ((webkit % 360) + 360) % 360;
+    } else if ((absolute || event.absolute === true) &&
+               typeof event.alpha === "number" && Number.isFinite(event.alpha)) {
+      // 상대 deviceorientation(alpha)은 진북 기준이 아니므로 방위로 표시하지 않는다.
+      next = ((360 - event.alpha) % 360 + 360) % 360;
     }
-    if (typeof event.alpha === "number" && Number.isFinite(event.alpha)) {
-      setHeading(((360 - event.alpha) % 360 + 360) % 360);
-    }
+    if (next === null) return;
+    // 359°→1° 등 북쪽 경계에서도 최단 각도로 완만하게 회전한다.
+    const measured = next;
+    setHeading((previous) => {
+      if (previous === null) return measured;
+      const delta = ((measured - previous + 540) % 360) - 180;
+      return Math.abs(delta) < 2 ? previous : ((previous + delta * 0.35) % 360 + 360) % 360;
+    });
   }, []);
+
+  useEffect(() => {
+    // 이전 길안내의 방위는 구독을 재시작했을 때의 현재 방위가 아니다.
+    if (!enabled) setHeading(null);
+  }, [enabled]);
 
   useEffect(() => {
     if (!enabled || typeof window === "undefined") return;

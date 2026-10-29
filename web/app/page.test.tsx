@@ -378,7 +378,7 @@ describe("TEST C — navigating 중 GPS 틱은 엔진에 반영되고 검색 상
 
     for (let i = 1; i <= 20; i++) {
       const point = moveCoordinateByMeters(ORIGIN, i * 2, 0); // 경로를 따라 2m씩 전진 (총 40m, 도착 반경 20m 밖)
-      watch.success?.(position(point, 1000 + i * 500));
+      watch.success?.(position(point, 1000 + i * 1_000)); // 보행 속도 2m/s
       // eslint-disable-next-line no-await-in-loop
       await waitFor(() => {});
     }
@@ -405,7 +405,7 @@ describe("TEST G — 사용자 시야방향과 GPS 이동방향은 별도 데이
     const orientation = new Event("deviceorientationabsolute");
     Object.defineProperty(orientation, "alpha", { value: 90 });
     window.dispatchEvent(orientation);
-    watch.success?.(position(moveCoordinateByMeters(ORIGIN, 2, 0), 2_000));
+    watch.success?.(position(moveCoordinateByMeters(ORIGIN, 10, 0), 10_000)); // 1.1m/s 보행으로 course 신뢰도 확보
 
     await waitFor(() => expect(screen.getByText("내가 보는 방향 270°")).toBeTruthy());
     expect(screen.getByTestId("map-view").getAttribute("data-view-heading")).toBe("270");
@@ -469,7 +469,10 @@ describe("TEST E — 확정 이탈은 active route 를 실제로 재탐색한다
       await waitFor(() => expect(screen.queryByText("경로를 다시 찾는 중…")).toBeNull());
       expect(screen.getByRole("button", { name: "안내 중지" })).toBeTruthy();
     } else {
+      // 40m 오차에서는 확정 이탈·재탐색을 보류하되 회전 미이행 가능성은 drifting으로 유지한다.
       expect(screen.getByText("길에서 조금 벗어났어요")).toBeTruthy();
+      expect(routeCallCount()).toBe(1);
+      expect(document.querySelector(".banner-off")).toBeNull();
     }
   });
 
