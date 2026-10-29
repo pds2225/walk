@@ -154,12 +154,19 @@ export default function Home() {
   const [searchCenter, setSearchCenter] = useState<Fix | null>(null);
   const [searchCenterState, setSearchCenterState] = useState<"idle" | "pending" | "ok" | "failed">("idle");
   const searchCenterAsked = useRef(false);
+  // 성공·실패와 관계없이 마지막 단발 조회 시도 이후 2분간 재시도를 제한한다.
+  const searchCenterLastAttemptAt = useRef<number | null>(null);
   // 검색 기준을 받은 시각(기기 시계). 2분 지나면 다음 검색 때 다시 받는다.
   const searchCenterAt = useRef(0);
   const searchCenterStale = () => !searchCenter || Date.now() - searchCenterAt.current > SEARCH_ORIGIN_MAX_AGE_MS;
   const askSearchCenter = useCallback(() => {
-    if (searchCenterAsked.current) return;
+    const now = Date.now();
+    // 2.5초 fallback은 조회 중단이 아니다. 실제 요청이 끝나기 전에는 중복 호출 금지.
+    if (searchCenterAsked.current ||
+      (searchCenterLastAttemptAt.current !== null &&
+       now - searchCenterLastAttemptAt.current < SEARCH_ORIGIN_MAX_AGE_MS)) return;
     searchCenterAsked.current = true;
+    searchCenterLastAttemptAt.current = now;
     setSearchCenterState("pending");
     // 위치 응답 전 경쟁 상태: 최대 2.5초만 기다리고, 그 뒤엔 좌표 없이 검색하되 안내를 띄운다.
     // 늦게라도 위치가 오면 searchCenter 가 바뀌어 검색이 자동으로 다시 돈다.
@@ -167,7 +174,7 @@ export default function Home() {
     getSearchCenterOnce((first) => { clearTimeout(slow); searchCenterAt.current = Date.now(); setSearchCenter(first); setSearchCenterState("ok"); }).then(
       (f) => { clearTimeout(slow); searchCenterAt.current = Date.now(); setSearchCenter(f); setSearchCenterState("ok"); },
       () => { clearTimeout(slow); setSearchCenterState("failed"); },
-    );
+    ).finally(() => { searchCenterAsked.current = false; });
   }, []);
   // 검색 기준: 실시간 fix → 신선한(2분·2km 이내) originFix → 검색용 단발. 오래된 걷기 출발점이
   // 새 검색 중심보다 앞서지 않게 한다.
@@ -300,7 +307,6 @@ export default function Home() {
     }
     if (!searchFix && searchCenterStale()) {
       // 2분 넘은 검색 기준은 다시 한 번 받는다(이동 후 예전 위치로 정렬 방지).
-      if (searchCenter && searchCenterState !== "pending") searchCenterAsked.current = false;
       askSearchCenter();
     }
     const seq = ++searchSeq.current;
@@ -351,7 +357,6 @@ export default function Home() {
       return;
     }
     if (!currentFixRef.current && searchCenterStale()) {
-      if (searchCenter && searchCenterState !== "pending") searchCenterAsked.current = false;
       askSearchCenter();
     }
     if (!currentFixRef.current && !searchCenter && searchCenterState !== "failed") {
