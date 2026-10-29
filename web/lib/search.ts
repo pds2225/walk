@@ -56,13 +56,21 @@ export function missingSourceHint(): string | null {
 }
 
 function dedupe(hits: readonly PlaceHit[]): PlaceHit[] {
-  const byName = new Map<string, Coordinate[]>();
+  const byName = new Map<string, number[]>();
   const out: PlaceHit[] = [];
   for (const hit of hits) {
-    const near = byName.get(hit.name);
-    if (near?.some((c) => distanceMeters(c, hit.coordinate) <= DEDUP_NEAR_M)) continue;
-    if (near) near.push(hit.coordinate);
-    else byName.set(hit.name, [hit.coordinate]);
+    const normalizedName = hit.name.replace(/\s+/g, " ").trim().toLocaleLowerCase();
+    const nearby = (byName.get(normalizedName) ?? []).find(
+      (index) => distanceMeters(out[index]!.coordinate, hit.coordinate) <= DEDUP_NEAR_M,
+    );
+    if (nearby !== undefined) {
+      // 동일 지점의 주소가 한 제공자에서만 누락된 경우 더 자세한 쪽을 보존한다.
+      if (!out[nearby]!.address && hit.address) out[nearby] = hit;
+      continue;
+    }
+    const indices = byName.get(normalizedName);
+    if (indices) indices.push(out.length);
+    else byName.set(normalizedName, [out.length]);
     out.push(hit);
   }
   return out;
@@ -77,7 +85,7 @@ export interface SearchOutcome {
 export async function searchDestinations(
   query: string,
   center: Coordinate | null,
-  limit = 8,
+  limit = 15,
 ): Promise<SearchOutcome> {
   const status = sourceStatus();
   if (!status.kakaoLocal && !status.naverLocal && !status.tmap) {
