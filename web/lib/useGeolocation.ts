@@ -80,7 +80,18 @@ export function getCurrentPositionOnce(): Promise<Fix> {
  * 허용하고 정확도 필터를 두지 않는다(실내 수백 m 오차도 시청 기본값보다 훨씬 낫다).
  * 단발 getCurrentPosition 이다 — 연속 추적(watchPosition)은 안내 중에만 쓴다.
  */
-export function getSearchCenterOnce(): Promise<Fix> {
+export const SEARCH_CENTER_GOOD_ACCURACY_M = 100;
+export const SEARCH_CENTER_MAX_ACCURACY_M = 2_000;
+export const SEARCH_ORIGIN_MAX_AGE_MS = 120_000;
+
+/** 검색 편향에 쓸 수 있는 fix 인가 — 오래됐거나(2분) 정확도가 너무 나쁘면(2km) 쓰지 않는다. */
+export function isSearchCenterFresh(fix: Fix | null, nowMs: number = Date.now()): fix is Fix {
+  if (!fix) return false;
+  if (nowMs - fix.timestampMs > SEARCH_ORIGIN_MAX_AGE_MS) return false;
+  return fix.accuracyMeters === null || fix.accuracyMeters <= SEARCH_CENTER_MAX_ACCURACY_M;
+}
+
+function readOnce(options: PositionOptions): Promise<Fix> {
   return new Promise((resolve, reject) => {
     if (typeof navigator === "undefined" || !navigator.geolocation) {
       reject(new Error("이 브라우저는 위치 기능을 지원하지 않습니다."));
@@ -89,9 +100,41 @@ export function getSearchCenterOnce(): Promise<Fix> {
     navigator.geolocation.getCurrentPosition(
       (pos) => resolve(toFix(pos)),
       (err) => reject(new Error(geoErrorMessage(err))),
-      { enableHighAccuracy: false, maximumAge: 60_000, timeout: 8_000 },
+      options,
     );
   });
+}
+
+function betterFix(a: Fix | null, b: Fix | null): Fix | null {
+  if (!a) return b;
+  if (!b) return a;
+  return (b.accuracyMeters ?? Infinity) < (a.accuracyMeters ?? Infinity) ? b : a;
+}
+
+/**
+ * 검색 기준 좌표용 단발 위치 조회(watchPosition 아님 — 연속 추적은 안내 중에만).
+ * 1) 빠른 저정확도(30초 캐시 허용) → 2) 정확도가 100m 보다 나쁘거나 실패하면 고정밀 1회 재시도
+ * → 더 정확한 쪽 사용. 2km 보다 나쁜 fix 는 '가까운 순' 근거로 쓰지 않는다(실패 취급).
+ * onUpdate 로 1차 결과를 먼저 넘겨 검색이 기다리지 않게 한다.
+ */
+export async function getSearchCenterOnce(onUpdate?: (fix: Fix) => void): Promise<Fix> {
+  let best: Fix | null = null;
+  try {
+    const quick = await readOnce({ enableHighAccuracy: false, maximumAge: 30_000, timeout: 6_000 });
+    if (isSearchCenterFresh(quick)) best = quick;
+  } catch (err) {
+    if (err instanceof Error && err.message.includes("권한")) throw err;
+  }
+  if (best && best.accuracyMeters !== null && best.accuracyMeters <= SEARCH_CENTER_GOOD_ACCURACY_M) return best;
+  if (best && onUpdate) onUpdate(best);
+  try {
+    const precise = await readOnce({ enableHighAccuracy: true, maximumAge: 0, timeout: 10_000 });
+    if (isSearchCenterFresh(precise)) best = betterFix(best, precise);
+  } catch {
+    /* 1차 결과가 있으면 그걸 쓴다. */
+  }
+  if (!best) throw new Error("현재 위치를 찾지 못했습니다. 실내라면 창가로 나가 보세요.");
+  return best;
 }
 
 export interface WatchPositionState {
@@ -258,7 +301,8 @@ export function useCompass(enabled: boolean): { headingDegrees: number | null; r
 
     const webkit = webkitEvent.webkitCompassHeading;
     let next: number | null = null;
-    if (typeof webkit === "number" && Number.isFinite(webkit)) {
+    // iOS 는 보정 전 webkitCompassHeading 을 -1 로 준다 — 방위로 쓰지 않는다.
+    if (typeof webkit === "number" && Number.isFinite(webkit) && webkit >= 0) {
       next = ((webkit % 360) + 360) % 360;
     } else if ((absolute || event.absolute === true) &&
                typeof event.alpha === "number" && Number.isFinite(event.alpha)) {
