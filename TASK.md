@@ -7,6 +7,13 @@
 > Status: **ACTIVE**
 
 
+## WCM-RAIL-P2-20261029 — 카테고리 필터 목록 고정·주변 점포 이미지 지연 로딩
+- 원인: PR #170 Codex P2 두 건. 필터 선택 뒤 floor SVG 점포를 페이지 단위 scrollIntoView로 찾아가 위쪽 필터 목록이 화면에서 사라짐. 상세 인접점포 rail의 poster 이미지 45개가 모두 즉시 내려받힐 수 있음.
+- 조치: 필터가 활성화된 상태에서만 자동 page-scroll 건너뛰며, 명시 점포 선택/내 위치 버튼 동작 보존. 주변 rail의 offscreen `img`에 native lazy loading 및 async decode 적용. 콘텐츠 수량·점포 순서·이미지 원본 보존.
+- 브랜치: `fix/worldcup-market-list-scroll-loading-20261029`; 최초 main `b0f63d368cd4283555fa6937a070971cd177971d`.
+- VERIFY: 필터 상태의 auto-scroll 0회, 일반 점포 선택의 스크롤 유지, rail 이미지 lazy 속성, 기존 점포 탐색·언어·지도 테스트, Vitest·lint·TS·빌드·docs gate.
+- 실기기 수동 UX 검증은 사용자 지시대로 일괄 후순위; main 병합은 최신 CI/리뷰/충돌상태 기준 판단.
+
 ## WALK-PLACE-DEDUP-20261029 — 60m 이내 동명 장소 주소 충돌 보존 (PR #184 후속)
 - 근거: PR #184 병합 이후 Codex P2. `web/lib/search.ts`의 이름+60m 기준은 다른 주소의 인접 동명 매장을 잘못 병합할 수 있음.
 - 수정 범위: 이름이 동일하고 60m 이내여도 **양쪽 원본 주소가 있고 정규화 후 다르면 각 후보 보존**. 주소가 동일하거나 한쪽만 누락됐으면 기존 중복 제거·주소 채우기 유지. 60m 기준·검색 순서·상한·API 타입·화면·GPS·경로 엔진 변경 금지.
