@@ -100,7 +100,9 @@ html, body {
   color: var(--ink);
   cursor: pointer;
 }
-.hit-name { font-weight: 600; }
+.hit-details { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
+.hit-name { font-weight: 600; overflow-wrap: anywhere; }
+.hit-address { color: var(--muted); font-size: 13px; line-height: 1.35; overflow-wrap: anywhere; }
 .hit-dist { color: var(--muted); font-size: 14px; white-space: nowrap; }
 
 .chips { display: flex; gap: 8px; flex-wrap: wrap; }
