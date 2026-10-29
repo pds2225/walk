@@ -2,7 +2,10 @@
 /**
  * 목적지 검색/선택과 실시간 GPS 내비게이션의 lifecycle 분리를 고정하는 회귀테스트.
  *
- *   TEST A — 목적지 선택은 어떤 geolocation API 도 부르지 않는다.
+ *   TEST A — 검색은 단발 위치(getCurrentPosition, 저정확도) 1회만 받아 lat/lon 으로 보낸다.
+ *            검색·선택은 watchPosition(연속 추적)을 절대 시작하지 않는다 — 안내 중에만.
+ *            (옛 규칙 「검색은 GPS를 절대 안 부른다」는 폐기: 좌표 없는 검색이 전 지역에서
+ *             서울 도심·시청 부근으로 편향되던 원인이었다.)
  *   TEST B — '걷기' 클릭에서만 1회 위치 조회, 성공해야만 navigating 진입.
  *   TEST C — navigating 중 GPS 틱은 엔진에 반영되고 검색 상태는 건드리지 않는다.
  *   TEST D — '안내 중지'는 워처를 반드시 해제한다.
@@ -51,7 +54,11 @@ const ROADVIEW_ROUTE: RouteModel = {
   turnPoints: [],
 };
 
+/** 안내용(고정확도) 단발 조회. 검색 기준 조회는 mockSearchCenter 로 따로 센다. */
 const mockGetCurrentPosition = vi.fn();
+/** 검색 기준 좌표용 단발 조회(enableHighAccuracy:false). 기본은 여의도에서 성공. */
+const mockSearchCenter = vi.fn();
+const YEOUIDO: Coordinate = { latitude: 37.5219, longitude: 126.9245 };
 const mockWatchPosition = vi.fn();
 const mockClearWatch = vi.fn();
 
@@ -59,7 +66,8 @@ function installGeolocationMock() {
   Object.defineProperty(window.navigator, "geolocation", {
     configurable: true,
     value: {
-      getCurrentPosition: mockGetCurrentPosition,
+      getCurrentPosition: (ok: PositionCallback, err?: PositionErrorCallback | null, opts?: PositionOptions) =>
+        opts?.enableHighAccuracy === false ? mockSearchCenter(ok, err, opts) : mockGetCurrentPosition(ok, err, opts),
       watchPosition: mockWatchPosition,
       clearWatch: mockClearWatch,
     },
@@ -132,6 +140,8 @@ beforeEach(() => {
   // 최근 목적지 칩으로 남아 검색 결과 버튼과 이름이 겹친다.
   window.localStorage.clear();
   mockGetCurrentPosition.mockReset();
+  mockSearchCenter.mockReset();
+  mockSearchCenter.mockImplementation((ok: SuccessCb) => ok(position(YEOUIDO, 500, 50)));
   mockWatchPosition.mockReset();
   mockClearWatch.mockReset();
   routeResponses = [ROUTE];
@@ -159,7 +169,7 @@ async function pickDestination() {
 }
 
 describe("진도식당 동명 장소 검색 표시", () => {
-  it("GPS를 요구하지 않고 서로 다른 주소 2개를 표시하며 가짜 13,000km 거리는 표시하지 않는다", async () => {
+  it("안내용 GPS 없이 서로 다른 주소 2개를 표시하며 가짜 13,000km 거리는 표시하지 않는다", async () => {
     fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
       if (String(input).startsWith("/api/places")) {
         return new Response(JSON.stringify({ hits: [
@@ -178,7 +188,11 @@ describe("진도식당 동명 장소 검색 표시", () => {
     expect(within(results).getByText("서울 영등포구 여의대로 2")).toBeTruthy();
     expect(within(results).queryByText(/13,000|13000|km/)).toBeNull();
     expect(mockGetCurrentPosition).not.toHaveBeenCalled();
-    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("&lat="))).toBe(false);
+    expect(mockWatchPosition).not.toHaveBeenCalled();
+    // 좌표 없는(시청 편향) 검색은 한 번도 나가지 않는다.
+    const placeUrls = fetchMock.mock.calls.map(([url]) => String(url)).filter((u) => u.startsWith("/api/places"));
+    expect(placeUrls.length).toBeGreaterThan(0);
+    expect(placeUrls.every((u) => u.includes("&lat=") && u.includes("&lon="))).toBe(true);
   });
 
   it("주소가 없는 후보를 확인 가능하도록 주소 미제공으로 표시한다", async () => {
@@ -196,30 +210,70 @@ describe("진도식당 동명 장소 검색 표시", () => {
   });
 });
 
-describe("TEST A — 목적지 선택은 어떤 geolocation API 도 부르지 않는다", () => {
-  it("검색 → 선택 → 시간이 흘러도 watchPosition/getCurrentPosition 이 호출되지 않는다", async () => {
+describe("TEST A — 검색은 단발 위치로 기준을 잡고, 연속 추적은 시작하지 않는다", () => {
+  it("검색 → 선택 → 시간이 흘러도 watchPosition 은 없고, 검색 기준 단발 조회는 1회뿐이다", async () => {
     await pickDestination();
 
     expect(mockWatchPosition).not.toHaveBeenCalled();
     expect(mockGetCurrentPosition).not.toHaveBeenCalled();
-    expect(placesCallCount()).toBe(1);
+    expect(mockSearchCenter).toHaveBeenCalledTimes(1);
+    const url = fetchMock.mock.calls.map(([u]) => String(u)).find((u) => u.startsWith("/api/places"))!;
+    expect(url).toContain(`lat=${YEOUIDO.latitude}`);
+    expect(url).toContain(`lon=${YEOUIDO.longitude}`);
+    const placesAfterPick = placesCallCount();
 
-    // 실제 GPS 구독 자체가 없으니 "주입"할 콜백이 없다 — 걸었다면 GPS 20틱쯤
-    // 지났을 시간을 흘려보내며 아무 것도 안 바뀌는지 확인한다.
     for (let i = 0; i < 20; i++) {
       await new Promise((r) => setTimeout(r, 10));
     }
 
     expect(mockWatchPosition).not.toHaveBeenCalled();
-    expect(mockGetCurrentPosition).not.toHaveBeenCalled();
-    expect(placesCallCount()).toBe(1);
+    expect(mockSearchCenter).toHaveBeenCalledTimes(1);
+    expect(placesCallCount()).toBe(placesAfterPick);
 
     const input = screen.getByLabelText("목적지") as HTMLInputElement;
     expect(input.value).toBe("경복궁");
-    expect(screen.queryByRole("button", { name: /경복궁/ })).toBeNull(); // 결과 목록이 다시 뜨지 않는다
+    expect(screen.queryByRole("button", { name: /경복궁/ })).toBeNull();
     expect(screen.queryByText("검색 중…")).toBeNull();
-    expect(screen.queryByText("현재 위치 확인 중…")).toBeNull();
     expect(document.querySelector(".error")).toBeNull();
+  });
+
+  it.each([
+    ["여의도", { latitude: 37.5219, longitude: 126.9245 }],
+    ["합정", { latitude: 37.5496, longitude: 126.9139 }],
+    ["강남", { latitude: 37.4979, longitude: 127.0276 }],
+    ["부산 서면", { latitude: 35.1577, longitude: 129.0596 }],
+  ])("%s 에서 검색하면 그 지역 좌표가 기준으로 간다 (시청 고정 아님)", async (_area, at) => {
+    mockSearchCenter.mockImplementation((ok: SuccessCb) => ok(position(at, 500, 80)));
+    render(<Home />);
+    fireEvent.change(screen.getByLabelText("목적지"), { target: { value: "서울 영등포구 여의대로 2" } });
+    await waitFor(() => expect(placesCallCount()).toBeGreaterThan(0));
+    const url = fetchMock.mock.calls.map(([u]) => String(u)).find((u) => u.startsWith("/api/places"))!;
+    expect(url).toContain(`lat=${at.latitude}`);
+    expect(url).toContain(`lon=${at.longitude}`);
+    expect(mockWatchPosition).not.toHaveBeenCalled();
+  });
+
+  it("위치 권한 거부 시 좌표 없이 검색하되 '가까운 순 아님' 안내를 띄운다", async () => {
+    mockSearchCenter.mockImplementation((_ok: SuccessCb, err: ErrorCb) => err({ code: 1, message: "denied", PERMISSION_DENIED: 1, POSITION_UNAVAILABLE: 2, TIMEOUT: 3 } as GeolocationPositionError));
+    render(<Home />);
+    fireEvent.change(screen.getByLabelText("목적지"), { target: { value: "경복궁" } });
+    expect(await screen.findByText(/가까운 순이 아닐 수 있어요/)).toBeTruthy();
+    await waitFor(() => expect(placesCallCount()).toBeGreaterThan(0));
+    expect(mockWatchPosition).not.toHaveBeenCalled();
+  });
+
+  it("주소 지오코딩 결과(name=address)는 빈 줄 없이 '주소 검색 결과'로 일관 표시한다", async () => {
+    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+      if (String(input).startsWith("/api/places")) {
+        return new Response(JSON.stringify({ hits: [
+          { name: "서울 영등포구 여의도동 1", address: "서울 영등포구 여의도동 1", coordinate: DEST_COORD },
+        ], hint: null }), { status: 200 });
+      }
+      return new Response("not found", { status: 404 });
+    });
+    render(<Home />);
+    fireEvent.change(screen.getByLabelText("목적지"), { target: { value: "여의도동 1" } });
+    expect(await screen.findByText("주소 검색 결과")).toBeTruthy();
   });
 });
 

@@ -73,7 +73,12 @@ function dedupe(hits: readonly PlaceHit[]): PlaceHit[] {
     else byName.set(normalizedName, [out.length]);
     out.push(hit);
   }
-  return out;
+  // 주소 지오코딩 결과(name===address)가 같은 지점의 상호 결과와 겹치면 상호 쪽만 남긴다 —
+  // 같은 곳이 어떤 때는 이름+주소, 어떤 때는 주소만으로 보이던 원인.
+  const named = out.filter((h) => h.address !== h.name);
+  return out.filter(
+    (h) => h.address !== h.name || !named.some((n) => distanceMeters(n.coordinate, h.coordinate) <= DEDUP_NEAR_M),
+  );
 }
 
 export interface SearchOutcome {

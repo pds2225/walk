@@ -75,6 +75,25 @@ export function getCurrentPositionOnce(): Promise<Fix> {
   });
 }
 
+/**
+ * 검색 기준 좌표용 단발 위치 조회. 검색은 '가까운 순' 편향만 필요하므로 저정확도·최근 캐시를
+ * 허용하고 정확도 필터를 두지 않는다(실내 수백 m 오차도 시청 기본값보다 훨씬 낫다).
+ * 단발 getCurrentPosition 이다 — 연속 추적(watchPosition)은 안내 중에만 쓴다.
+ */
+export function getSearchCenterOnce(): Promise<Fix> {
+  return new Promise((resolve, reject) => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      reject(new Error("이 브라우저는 위치 기능을 지원하지 않습니다."));
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve(toFix(pos)),
+      (err) => reject(new Error(geoErrorMessage(err))),
+      { enableHighAccuracy: false, maximumAge: 60_000, timeout: 8_000 },
+    );
+  });
+}
+
 export interface WatchPositionState {
   readonly fix: Fix | null;
   readonly error: string | null;
