@@ -105,6 +105,10 @@ function readOnce(options: PositionOptions): Promise<Fix> {
   });
 }
 
+function accurateEnough(fix: Fix): boolean {
+  return fix.accuracyMeters === null || fix.accuracyMeters <= SEARCH_CENTER_MAX_ACCURACY_M;
+}
+
 function betterFix(a: Fix | null, b: Fix | null): Fix | null {
   if (!a) return b;
   if (!b) return a;
@@ -121,15 +125,15 @@ export async function getSearchCenterOnce(onUpdate?: (fix: Fix) => void): Promis
   let best: Fix | null = null;
   try {
     const quick = await readOnce({ enableHighAccuracy: false, maximumAge: 30_000, timeout: 6_000 });
-    if (isSearchCenterFresh(quick)) best = quick;
+    if (accurateEnough(quick)) best = quick;
   } catch (err) {
     if (err instanceof Error && err.message.includes("권한")) throw err;
   }
-  if (best && best.accuracyMeters !== null && best.accuracyMeters <= SEARCH_CENTER_GOOD_ACCURACY_M) return best;
+  if (best && (best.accuracyMeters === null || best.accuracyMeters <= SEARCH_CENTER_GOOD_ACCURACY_M)) return best;
   if (best && onUpdate) onUpdate(best);
   try {
     const precise = await readOnce({ enableHighAccuracy: true, maximumAge: 0, timeout: 10_000 });
-    if (isSearchCenterFresh(precise)) best = betterFix(best, precise);
+    if (accurateEnough(precise)) best = betterFix(best, precise);
   } catch {
     /* 1차 결과가 있으면 그걸 쓴다. */
   }
