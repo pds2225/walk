@@ -81,11 +81,26 @@
   color: var(--blue);
 }
 
+
+.worldcup-market-brand-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: inherit;
+  text-decoration: none;
+}
+.worldcup-market-brand-mark {
+  width: 22px;
+  height: 20px;
+  object-fit: contain;
+  flex: 0 0 auto;
+  display: block;
+}
 .worldcup-market-mobile-brand strong {
-  color: var(--blue);
-  font-size: 22px;
+  color: #012178;
+  font-size: 17px;
   font-weight: 900;
-  letter-spacing: -0.04em;
+  letter-spacing: -0.03em;
 }
 
 .worldcup-market-mobile-brand span {
@@ -614,7 +629,7 @@
 }
 .worldcup-market-back-button { grid-area: back; }
 .worldcup-market-mobile-brand { grid-area: brand; }
-.worldcup-market-mobile-brand strong { font-size: 20px; letter-spacing: -0.02em; white-space: nowrap; }
+.worldcup-market-mobile-brand strong { font-size: 16px; letter-spacing: -0.02em; white-space: nowrap; }
 .worldcup-market-header-title {
   grid-area: title;
   min-width: 0;
@@ -652,7 +667,7 @@
 }
 @media (max-width: 360px) {
   .worldcup-market-demo .worldcup-market-locale-switcher button { padding: 0 5px; font-size: 11px; }
-  .worldcup-market-mobile-brand strong { font-size: 17px; }
+  .worldcup-market-mobile-brand strong { font-size: 15px; }
 }
 
 /* Floor-directory map (draft v2) */
