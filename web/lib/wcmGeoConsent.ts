@@ -33,9 +33,12 @@ export function consentedPosition(): GeoFix | null {
   return getGeoConsent() === "yes" ? lastFix : null;
 }
 
+export const PRIVACY_POLICY_PATH = "/worldcup-market/privacy";
+
+/** Popup copy: one sentence; `link` is rendered as a hyperlink to the privacy policy (new tab). */
 export const GEO_CONSENT_TEXT = {
-  ko: { title: "위치 정보 안내", body: "더 나은 서비스를 위해, 동의하시면 대략적인 위치 좌표를 저장하며 1년 후 삭제됩니다. IP 주소는 저장하지 않아요. 거절해도 지도는 그대로 이용할 수 있어요.", yes: "동의", no: "거절" },
-  en: { title: "We value your privacy", body: "With your consent, we store your approximate location coordinates to improve our service. They are deleted after 1 year, and we do not store your IP address. You can still use the map if you decline.", yes: "Accept", no: "Decline" },
-  ja: { title: "位置情報について", body: "サービス向上のため、同意いただいた場合はおおよその位置座標を保存し、1年後に削除します。IPアドレスは保存しません。拒否しても地図はそのままご利用いただけます。", yes: "同意する", no: "拒否する" },
-  zh: { title: "隐私提示", body: "为改进服务，经您同意后我们会保存您的大致位置坐标，并在1年后删除。我们不会保存您的IP地址。即使拒绝，您仍可正常使用地图。", yes: "接受", no: "拒绝" },
+  ko: { label: "위치 정보 수집 동의", before: "", link: "개인정보 처리방침", after: "에 따라 서비스 개선을 위한 대략적인 위치 정보 수집·저장(보관 기간 1년)에 동의하시겠습니까?", yes: "동의", no: "동의 안 함" },
+  en: { label: "Location consent", before: "In accordance with our ", link: "Privacy Policy", after: ", do you agree to the collection and storage of your approximate location to improve our service (retained for 1 year)?", yes: "Agree", no: "Disagree" },
+  ja: { label: "位置情報の収集への同意", before: "", link: "プライバシーポリシー", after: "に基づき、サービス改善のためのおおよその位置情報の収集・保存（保存期間1年）に同意しますか？", yes: "同意する", no: "同意しない" },
+  zh: { label: "位置信息收集同意", before: "根据", link: "隐私政策", after: "，您是否同意为改进服务而收集并保存您的大致位置信息（保存期限1年）？", yes: "同意", no: "不同意" },
 } as const;
