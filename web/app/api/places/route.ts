@@ -11,8 +11,14 @@ export const dynamic = "force-dynamic";
 const MAX_QUERY_LEN = 100;
 
 function parseCenter(params: URLSearchParams): Coordinate | null {
-  const lat = Number(params.get("lat"));
-  const lon = Number(params.get("lon"));
+  const latRaw = params.get("lat");
+  const lonRaw = params.get("lon");
+  // Number(null) === 0. 좌표가 생략된 검색을 (0,0)에서의 거리로 계산하면
+  // 서울 식당이 약 13,000km 떨어진 곳으로 표시되는 문제가 발생한다.
+  if (!latRaw?.trim() || !lonRaw?.trim()) return null;
+  const lat = Number(latRaw);
+  const lon = Number(lonRaw);
+  if (lat === 0 && lon === 0) return null;
   if (!Number.isFinite(lat) || lat < -90 || lat > 90) return null;
   if (!Number.isFinite(lon) || lon < -180 || lon > 180) return null;
   return { latitude: lat, longitude: lon };

@@ -158,6 +158,44 @@ async function pickDestination() {
   fireEvent.click(hit);
 }
 
+describe("진도식당 동명 장소 검색 표시", () => {
+  it("GPS를 요구하지 않고 서로 다른 주소 2개를 표시하며 가짜 13,000km 거리는 표시하지 않는다", async () => {
+    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+      if (String(input).startsWith("/api/places")) {
+        return new Response(JSON.stringify({ hits: [
+          { name: "진도식당", address: "서울 마포구 월드컵로 1", coordinate: DEST_COORD },
+          { name: "진도식당", address: "서울 영등포구 여의대로 2", coordinate: MANUAL_ORIGIN },
+        ], hint: null }), { status: 200 });
+      }
+      return new Response("not found", { status: 404 });
+    });
+
+    render(<Home />);
+    fireEvent.change(screen.getByRole("searchbox", { name: "목적지" }), { target: { value: "진도식당" } });
+    const results = await screen.findByRole("list");
+    expect(within(results).getAllByRole("button")).toHaveLength(2);
+    expect(within(results).getByText("서울 마포구 월드컵로 1")).toBeTruthy();
+    expect(within(results).getByText("서울 영등포구 여의대로 2")).toBeTruthy();
+    expect(within(results).queryByText(/13,000|13000|km/)).toBeNull();
+    expect(mockGetCurrentPosition).not.toHaveBeenCalled();
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("&lat="))).toBe(false);
+  });
+
+  it("주소가 없는 후보를 확인 가능하도록 주소 미제공으로 표시한다", async () => {
+    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+      if (String(input).startsWith("/api/places")) {
+        return new Response(JSON.stringify({ hits: [
+          { name: "진도식당", coordinate: DEST_COORD },
+        ], hint: null }), { status: 200 });
+      }
+      return new Response("not found", { status: 404 });
+    });
+    render(<Home />);
+    fireEvent.change(screen.getByRole("searchbox", { name: "목적지" }), { target: { value: "진도식당" } });
+    expect(await screen.findByText("주소 정보 미제공")).toBeTruthy();
+  });
+});
+
 describe("TEST A — 목적지 선택은 어떤 geolocation API 도 부르지 않는다", () => {
   it("검색 → 선택 → 시간이 흘러도 watchPosition/getCurrentPosition 이 호출되지 않는다", async () => {
     await pickDestination();
@@ -192,7 +230,7 @@ describe("TEST I — 출발지 변경은 숨겨진 보조 기능이며 수동 �
     fireEvent.click(screen.getByRole("button", { name: /출발지 변경/ }));
     fireEvent.change(screen.getByRole("searchbox", { name: "출발지" }), { target: { value: "서울역" } });
     const list = await screen.findByRole("list", { name: "출발지" });
-    fireEvent.click(within(list).getByRole("button", { name: "서울역" }));
+    fireEvent.click(within(list).getByRole("button", { name: /서울역/ }));
 
     expect(screen.queryByRole("searchbox", { name: "출발지" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "경로 미리보기" }));
@@ -214,7 +252,7 @@ describe("TEST I — 출발지 변경은 숨겨진 보조 기능이며 수동 �
     await pickDestination();
     fireEvent.click(screen.getByRole("button", { name: /출발지 변경/ }));
     fireEvent.change(screen.getByRole("searchbox", { name: "출발지" }), { target: { value: "서울역" } });
-    fireEvent.click(within(await screen.findByRole("list", { name: "출발지" })).getByRole("button", { name: "서울역" }));
+    fireEvent.click(within(await screen.findByRole("list", { name: "출발지" })).getByRole("button", { name: /서울역/ }));
     fireEvent.click(screen.getByRole("button", { name: "경로 미리보기" }));
     await screen.findByText(/지정한 출발지의 경로입니다/);
     fireEvent.click(screen.getByRole("button", { name: "현재 위치에서 안내 시작" }));
