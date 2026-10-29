@@ -44,6 +44,7 @@ interface UiText {
   readonly destination: string;
   readonly destinationPlaceholder: string;
   readonly searchLoading: string;
+  readonly searchAddressUnknown: string;
   readonly noMatch: (query: string) => string;
   readonly recents: string;
   readonly collapse: string;
@@ -92,6 +93,7 @@ const UI: Record<Locale, UiText> = {
     destination: "목적지",
     destinationPlaceholder: "예) 경복궁, 강남역 10번출구",
     searchLoading: "검색 중…",
+    searchAddressUnknown: "주소 정보 미제공",
     noMatch: (query) => `‘${query}’ — 일치하는 장소가 없습니다.`,
     recents: "최근",
     collapse: "접기",
@@ -143,6 +145,7 @@ const UI: Record<Locale, UiText> = {
     destination: "Destination",
     destinationPlaceholder: "e.g. Gyeongbokgung, Gangnam Station Exit 10",
     searchLoading: "Searching…",
+    searchAddressUnknown: "Address not provided",
     noMatch: (query) => `No places match “${query}”.`,
     recents: "Recent",
     collapse: "Collapse",
@@ -194,6 +197,7 @@ const UI: Record<Locale, UiText> = {
     destination: "目的地",
     destinationPlaceholder: "例）景福宮、江南駅10番出口",
     searchLoading: "検索中…",
+    searchAddressUnknown: "住所情報なし",
     noMatch: (query) => `「${query}」に一致する場所がありません。`,
     recents: "最近の目的地",
     collapse: "閉じる",
@@ -245,6 +249,7 @@ const UI: Record<Locale, UiText> = {
     destination: "目的地",
     destinationPlaceholder: "例如：景福宫、江南站10号出口",
     searchLoading: "搜索中…",
+    searchAddressUnknown: "暂无地址信息",
     noMatch: (query) => `没有找到与“${query}”匹配的地点。`,
     recents: "最近目的地",
     collapse: "收起",

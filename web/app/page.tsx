@@ -424,7 +424,7 @@ export default function Home() {
   );
 
   const pick = useCallback((hit: PlaceHit) => {
-    const entry: Recent = { name: hit.name, coordinate: hit.coordinate };
+    const entry: Recent = { name: hit.address && hit.address !== hit.name ? `${hit.name} · ${hit.address}` : hit.name, coordinate: hit.coordinate };
     setDest(entry);
     setQuery(hit.name);
     setHits([]);
@@ -612,7 +612,12 @@ export default function Home() {
           {hits.map((hit) => (
             <li key={`${hit.name}-${hit.coordinate.latitude}-${hit.coordinate.longitude}`}>
               <button type="button" onClick={() => pick(hit)}>
-                <span className="hit-name">{hit.name}</span>
+                <span className="hit-details">
+                  <span className="hit-name">{hit.name}</span>
+                  {hit.address === hit.name ? null : (
+                    <span className="hit-address">{hit.address || ui.searchAddressUnknown}</span>
+                  )}
+                </span>
                 {hit.distanceMeters !== undefined ? (
                   <span className="hit-dist">{metersText(hit.distanceMeters)}</span>
                 ) : null}
@@ -658,10 +663,18 @@ export default function Home() {
               {originHits.map((hit) => (
                 <li key={`${hit.name}-${hit.coordinate.latitude}-${hit.coordinate.longitude}`}>
                   <button type="button" onClick={() => {
-                    setSelectedOrigin({ name: hit.name, coordinate: hit.coordinate });
-                    setOriginQuery(hit.name);
+                    const label = hit.address && hit.address !== hit.name ? `${hit.name} · ${hit.address}` : hit.name;
+                    setSelectedOrigin({ name: label, coordinate: hit.coordinate });
+                    setOriginQuery(label);
                     setOriginEditorOpen(false);
-                  }}>{hit.name}</button>
+                  }}>
+                    <span className="hit-details">
+                      <span className="hit-name">{hit.name}</span>
+                      {hit.address === hit.name ? null : (
+                        <span className="hit-address">{hit.address || ui.searchAddressUnknown}</span>
+                      )}
+                    </span>
+                  </button>
                 </li>
               ))}
             </ul>
