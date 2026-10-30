@@ -33,7 +33,7 @@ vi.mock("./tmap", async () => {
 const kakao = await import("./kakao");
 const naver = await import("./naver");
 const tmap = await import("./tmap");
-const { missingSourceHint, searchDestinations, sourceStatus } = await import("./search");
+const { isLikelySubwayStation, missingSourceHint, searchDestinations, sourceStatus } = await import("./search");
 
 const mockKakaoAvailable = vi.mocked(kakao.kakaoLocalAvailable);
 const mockSearchKakao = vi.mocked(kakao.searchKakaoLocal);
@@ -172,6 +172,28 @@ describe("searchDestinations", () => {
     const { hits } = await searchDestinations("진도식당", null);
     expect(hits).toHaveLength(1);
     expect(hits[0]?.address).toBe("서울 마포구 월드컵로 1");
+  });
+
+  it("지하철역 후보를 가게·상호보다 앞에 둔다", async () => {
+    // 실사용: '신촌' 검색에 신촌점이 신촌역보다 위에 뜨면 안 된다.
+    mockSearchKakao.mockResolvedValue([
+      { name: "이디야커피 신촌점", coordinate: at(40, 0), distanceMeters: 40 },
+      { name: "신촌점", coordinate: at(30, 0), distanceMeters: 30 },
+    ]);
+    mockSearchLocal.mockResolvedValue([
+      { name: "스타벅스 신촌점", coordinate: at(20, 0), distanceMeters: 20 },
+    ]);
+    mockSearchTmap.mockResolvedValue([
+      { name: "신촌역", coordinate: at(200, 0), distanceMeters: 200 },
+      { name: "신촌역2번출구", coordinate: at(210, 0), distanceMeters: 210 },
+    ]);
+
+    const { hits } = await searchDestinations("신촌", ORIGIN);
+
+    expect(hits[0]?.name).toBe("신촌역");
+    expect(hits[1]?.name).toBe("신촌역2번출구");
+    expect(hits.map((h) => h.name).slice(0, 2)).toEqual(["신촌역", "신촌역2번출구"]);
+    expect(hits.findIndex((h) => h.name.includes("점"))).toBeGreaterThan(1);
   });
 
   it("현재 위치를 주면 가까운 순으로 정렬한다", async () => {
@@ -327,3 +349,16 @@ describe("주소 전용 결과와 상호 결과 중복", () => {
     expect(hits.map((h) => h.name)).toEqual(["IFC몰", "서울 강남구 역삼동 1"]);
   });
 });
+
+
+describe("isLikelySubwayStation", () => {
+  it("역·출구 이름은 참으로, 분점·상호는 거짓으로 본다", () => {
+    expect(isLikelySubwayStation("신촌역")).toBe(true);
+    expect(isLikelySubwayStation("신촌역 2번출구")).toBe(true);
+    expect(isLikelySubwayStation("홍대입구역")).toBe(true);
+    expect(isLikelySubwayStation("신촌점")).toBe(false);
+    expect(isLikelySubwayStation("이디야커피 신촌점")).toBe(false);
+    expect(isLikelySubwayStation("역전할머니맥주")).toBe(false);
+  });
+});
+

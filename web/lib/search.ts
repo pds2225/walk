@@ -58,6 +58,21 @@ function normalizeAddress(address: string | undefined): string {
   return (address ?? "").replace(/\s+/g, " ").trim().toLocaleLowerCase();
 }
 
+
+/**
+ * 이름만으로 지하철·전철역(및 출구) 후보인지 본다.
+ * PlaceHit 에 카테고리가 없어 휴리스틱을 쓴다. '신촌점' 같은 분점은 제외.
+ */
+export function isLikelySubwayStation(name: string): boolean {
+  const compact = name.replace(/\s+/g, '');
+  if (!compact) return false;
+  // 신촌역2번출구 / 강남역10번출구 / 홍대입구역출구
+  if (/^[가-힣A-Za-z0-9]+역\d*번?출구$/.test(compact)) return true;
+  // 신촌역 · 서울역 · 홍대입구역 (끝에 역, 점포 접미사 없음)
+  if (/^[가-힣A-Za-z0-9]+역$/.test(compact)) return true;
+  return false;
+}
+
 function dedupe(hits: readonly PlaceHit[]): PlaceHit[] {
   const byName = new Map<string, number[]>();
   const out: PlaceHit[] = [];
@@ -139,11 +154,14 @@ export async function searchDestinations(
   const merged = [...interleaved, ...value(tmap)];
 
   const unique = dedupe(merged);
-  // 현재 위치를 알면 가까운 순으로 — 동명 장소 오선택을 줄인다. 다만 거리를 모르는
-  // 후보(주소 지오코딩 결과 등)를 뒤로 밀어내지 않도록 안정 정렬을 유지한다.
-  if (center) {
-    unique.sort((a, b) => (a.distanceMeters ?? Infinity) - (b.distanceMeters ?? Infinity));
-  }
+  // 지하철역을 가게·상호보다 앞에 둔다(실사용: '신촌' 검색에 신촌점이 신촌역보다 위).
+  // 그 안에서만 가까운 순 — 거리를 모르는 후보는 뒤로 밀지 않도록 안정 정렬.
+  unique.sort((a, b) => {
+    const stationDelta = Number(isLikelySubwayStation(a.name)) - Number(isLikelySubwayStation(b.name));
+    if (stationDelta !== 0) return -stationDelta;
+    if (!center) return 0;
+    return (a.distanceMeters ?? Infinity) - (b.distanceMeters ?? Infinity);
+  });
 
   const hits = unique.slice(0, limit);
   return { hits, hint: hits.length === 0 ? missingSourceHint() : null };
