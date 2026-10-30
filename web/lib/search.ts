@@ -62,15 +62,32 @@ function normalizeAddress(address: string | undefined): string {
 /**
  * 이름만으로 지하철·전철역(및 출구) 후보인지 본다.
  * PlaceHit 에 카테고리가 없어 휴리스틱을 쓴다. '신촌점' 같은 분점은 제외.
+ * TMAP 표기 `합정역[수도권2호선]`, `홍대입구역 9번출구` 도 포함한다.
  */
 export function isLikelySubwayStation(name: string): boolean {
-  const compact = name.replace(/\s+/g, '');
+  const compact = name.replace(/\s+/g, "");
   if (!compact) return false;
-  // 신촌역2번출구 / 강남역10번출구 / 홍대입구역출구
-  if (/^[가-힣A-Za-z0-9]+역\d*번?출구$/.test(compact)) return true;
-  // 신촌역 · 서울역 · 홍대입구역 (끝에 역, 점포 접미사 없음)
+  // 분점·상호는 제외
+  if (/(점|마트|병원|약국|카페|식당|치킨|호텔|맥주)$/.test(compact)) return false;
+  if (/역점/.test(compact)) return false;
+  // 신촌역2번출구 / 강남역10번출구 / 홍대입구역9번출구
+  if (/[가-힣A-Za-z0-9]+역\d+번출구/.test(compact)) return true;
+  // 홍대입구역출구
+  if (/[가-힣A-Za-z0-9]+역출구/.test(compact)) return true;
+  // 합정역[수도권2호선] / 서울역(1호선)
+  if (/[가-힣A-Za-z0-9]+역[[(]/.test(compact)) return true;
+  // 신촌역 · 서울역 · 홍대입구역
   if (/^[가-힣A-Za-z0-9]+역$/.test(compact)) return true;
   return false;
+}
+
+/** 주소 지오코딩만 있는 후보(name===address). 역 검색을 가로채지 않게 뒤로 민다. */
+export function isAddressOnlyHit(hit: { name: string; address?: string | undefined }): boolean {
+  const name = hit.name.replace(/\s+/g, " ").trim();
+  const address = (hit.address ?? "").replace(/\s+/g, " ").trim();
+  if (!name) return false;
+  if (isLikelySubwayStation(name)) return false;
+  return !address || name === address;
 }
 
 function dedupe(hits: readonly PlaceHit[]): PlaceHit[] {
@@ -154,11 +171,16 @@ export async function searchDestinations(
   const merged = [...interleaved, ...value(tmap)];
 
   const unique = dedupe(merged);
-  // 지하철역을 가게·상호보다 앞에 둔다(실사용: '신촌' 검색에 신촌점이 신촌역보다 위).
-  // 그 안에서만 가까운 순 — 거리를 모르는 후보는 뒤로 밀지 않도록 안정 정렬.
+  // 1) 지하철역·N번출구  2) 그 외 상호/POI  3) 주소 지오코딩만
+  // 실사용: '서울역'에 광진구 구의동 주소가 맨 위 → 엉뚱한 안내.
   unique.sort((a, b) => {
-    const stationDelta = Number(isLikelySubwayStation(a.name)) - Number(isLikelySubwayStation(b.name));
-    if (stationDelta !== 0) return -stationDelta;
+    const rank = (hit: PlaceHit) => {
+      if (isLikelySubwayStation(hit.name)) return 0;
+      if (isAddressOnlyHit(hit)) return 2;
+      return 1;
+    };
+    const rankDelta = rank(a) - rank(b);
+    if (rankDelta !== 0) return rankDelta;
     if (!center) return 0;
     return (a.distanceMeters ?? Infinity) - (b.distanceMeters ?? Infinity);
   });
