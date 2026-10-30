@@ -33,7 +33,7 @@ vi.mock("./tmap", async () => {
 const kakao = await import("./kakao");
 const naver = await import("./naver");
 const tmap = await import("./tmap");
-const { isLikelySubwayStation, missingSourceHint, searchDestinations, sourceStatus } = await import("./search");
+const { isAddressOnlyHit, isLikelySubwayStation, missingSourceHint, searchDestinations, sourceStatus } = await import("./search");
 
 const mockKakaoAvailable = vi.mocked(kakao.kakaoLocalAvailable);
 const mockSearchKakao = vi.mocked(kakao.searchKakaoLocal);
@@ -172,6 +172,22 @@ describe("searchDestinations", () => {
     const { hits } = await searchDestinations("진도식당", null);
     expect(hits).toHaveLength(1);
     expect(hits[0]?.address).toBe("서울 마포구 월드컵로 1");
+  });
+
+  it("역 검색에서 주소 지오코딩만 있는 후보를 역·출구보다 뒤로 민다", async () => {
+    // 실사용: '서울역' 검색에 광진구 구의동이 맨 위 → 11km 빗나감.
+    mockSearchTmap.mockResolvedValue([
+      { name: "서울 광진구 구의동", address: "서울 광진구 구의동", coordinate: at(9000, 0), distanceMeters: 11000 },
+      { name: "서울역", address: "서울 중구 한강대로", coordinate: at(50, 0), distanceMeters: 50 },
+      { name: "서울역 1번출구", address: "서울 중구", coordinate: at(60, 0), distanceMeters: 60 },
+    ]);
+
+    const { hits } = await searchDestinations("서울역", ORIGIN);
+
+    expect(hits[0]?.name).toBe("서울역");
+    expect(hits[1]?.name).toBe("서울역 1번출구");
+    expect(hits.find((h) => h.name.includes("구의동"))).toBeDefined();
+    expect(hits.findIndex((h) => h.name.includes("구의동"))).toBeGreaterThan(1);
   });
 
   it("지하철역 후보를 가게·상호보다 앞에 둔다", async () => {
@@ -352,13 +368,24 @@ describe("주소 전용 결과와 상호 결과 중복", () => {
 
 
 describe("isLikelySubwayStation", () => {
-  it("역·출구 이름은 참으로, 분점·상호는 거짓으로 본다", () => {
+  it("역·출구·호선 표기는 참으로, 분점·상호는 거짓으로 본다", () => {
     expect(isLikelySubwayStation("신촌역")).toBe(true);
     expect(isLikelySubwayStation("신촌역 2번출구")).toBe(true);
+    expect(isLikelySubwayStation("홍대입구역 9번출구")).toBe(true);
+    expect(isLikelySubwayStation("합정역[수도권2호선]")).toBe(true);
     expect(isLikelySubwayStation("홍대입구역")).toBe(true);
     expect(isLikelySubwayStation("신촌점")).toBe(false);
     expect(isLikelySubwayStation("이디야커피 신촌점")).toBe(false);
     expect(isLikelySubwayStation("역전할머니맥주")).toBe(false);
+    expect(isLikelySubwayStation("서울 광진구 구의동")).toBe(false);
+  });
+});
+
+describe("isAddressOnlyHit", () => {
+  it("이름=주소인 지오코딩만 참으로 본다", () => {
+    expect(isAddressOnlyHit({ name: "서울 광진구 구의동", address: "서울 광진구 구의동" })).toBe(true);
+    expect(isAddressOnlyHit({ name: "서울역", address: "서울 중구" })).toBe(false);
+    expect(isAddressOnlyHit({ name: "합정역 8번출구", address: "서울 마포구 양화로 45" })).toBe(false);
   });
 });
 

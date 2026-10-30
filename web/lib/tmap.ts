@@ -324,10 +324,13 @@ export async function searchTmapPlaces(query: string, center: Coordinate | null,
     if (n) poiInterleaved.push(n);
   }
 
-  const merged: PlaceHit[] = [
-    ...(addr.status === "fulfilled" ? addressHits(addr.value) : []),
-    ...poiInterleaved,
-  ];
+  // '서울역' 같은 질의는 fullAddrGeo 가 엉뚱한 동 주소를 앞에 올려 POI 역을 밀어낸다.
+  // 질의에 '역'이 있으면 장소(POI)를 주소보다 앞에 둔다.
+  const addrList = addr.status === "fulfilled" ? addressHits(addr.value) : [];
+  const stationQuery = /역/.test(query.replace(/\s+/g, ""));
+  const merged: PlaceHit[] = stationQuery
+    ? [...poiInterleaved, ...addrList]
+    : [...addrList, ...poiInterleaved];
 
   const seen = new Set<string>();
   const unique = merged.filter((hit) => {
