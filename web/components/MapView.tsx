@@ -113,14 +113,18 @@ export default function MapView({
       center: [first.longitude, first.latitude],
       zoom: ZOOM,
       attributionControl: { compact: true },
+      locale: {
+        "NavigationControl.ZoomIn": "지도 확대",
+        "NavigationControl.ZoomOut": "지도 축소",
+      },
     });
     map.current = instance;
+    instance.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
 
-    // GPS easeTo 중 손가락으로 이동을 시작하면 dragstart 전에 다시 중앙으로
-    // 튕길 수 있다. 최초 입력에서 즉시 따라가기를 멈추고 진행 중 애니메이션도 끊는다.
+    // 최초 입력에서 GPS 따라가기를 멈춘다. 진행 중 카메라 애니메이션은 MapLibre의
+    // 제스처 처리에 맡긴다. stop()은 활성 터치 핸들러도 초기화해 핀치를 끊는다.
     const pauseFollow = () => {
       userMoved.current = true;
-      instance.stop();
     };
     const interactionSurface = instance.getContainer();
     interactionSurface.addEventListener("pointerdown", pauseFollow);
