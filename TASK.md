@@ -1,5 +1,16 @@
 # K-Navi / 케이네비 — Active Development TASK
 
+## [~] KN-DATA-054 / KN-ANL-001~010 — Issue #200 P0 운영로그·보행 ID·관리자 분석
+
+- 사용자 요청: https://github.com/pds2225/walk/issues/200 실행. 기존 변경 보존, 중복 작업 통합, 실제 코드·관련 테스트·PR까지 진행. 운영 배포는 승인 없이 금지.
+- 상위 참조: Issue에 명시된 KN-DATA-054를 유지하되 현재 main TASK에는 해당 상세가 없어 완료 상태를 추정하지 않음. KN-ANL-001~010 결과를 이 항목에 통합 기록.
+- 재사용: 기존 track/qrScan·점포 마스터·위치 동의·DestinationWalk/일반 WALK·기존 Next.js. 다른 installation-db worktree의 미커밋 구축 단위 DB 어댑터는 원본을 보존하고 수집 관련 모듈만 통합, 공간 체류 기능은 별도 작업으로 유지. 앞선 로컬 app별 DB 분리 초안은 중복 구현하지 않음.
+- MUST: 점포 보행 ID 연결, 동의 없는 좌표 저장 차단/철회, navigation_id 생명주기, 근거 기반 트래픽 구분, 관리자 인증·조회·KPI·CSV·점포 성과, 저장 실패 진단 및 실제 DB 검증 상태 구분.
+- KEEP: 기존 UI/4언어/지도/안내/QR·세션 계약·점포 좌표·이탈/도착 판정·모든 기존 데이터와 다른 작업 변경.
+- FORBIDDEN: .env 열람/수정·비밀 출력·운영 배포·무단 병합·파괴적 DB 변경·전체 로컬 테스트. P1/P2 중복 개발 금지.
+- VERIFY: 직접 영향받은 테스트, 타입검사/빌드, 로컬 브라우저 합성 GPS/DB 대역과 운영 DB·실기기 E2E 결과 분리. 운영 접근 불가 항목은 구체적 blocker로 기록.
+- 상태: 최신 main 3ee7216 기준 별도 feat/issue-200-p0-analytics worktree에서 실행. 원본 dirty worktree·stash 보존.
+
 ## WCM-LOCATION-WALKING-20261103 — 월드컵시장 위치·길찾기 오픈
 - 운영 배포 승인 후 정상 조회: 기존 k-navi ID prj_87r30cKYvuPS8oCu4ijAt34mrdqg, 도메인 k-navi-eight.vercel.app. 최근 main 배포는 CANCELED, 마지막 READY는 48c5a397. 과거 브랜치 전용 ignore 조건을 main 및 이번 release 브랜치에도 허용해 수정.
 - 공간 체류 신규 API/DB/수집 설정은 이번 위치·길찾기 배포에 포함하지 않음. 운영 Supabase 자격증명 신규 설정·복사는 미실행.
