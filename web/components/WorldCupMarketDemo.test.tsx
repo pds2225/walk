@@ -251,7 +251,7 @@ describe("World Cup Market demo", () => {
     const view = render(<WorldCupMarketDemo locale="ko" onStartWalking={vi.fn()} />);
     expect(screen.getByRole("heading", { level: 2 })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /저장|공유/ })).toBeNull();
-    expect(view.container.querySelector(".worldcup-market-mobile-actions")).toBeNull();
+    expect(screen.getByRole("button", { name: getWorldCupMarketUiText("ko").goThere })).toBeTruthy();
     const photo = view.container.querySelector("img.worldcup-market-hero-photo");
     expect(photo?.getAttribute("alt")).toContain("대표 이미지");
     expect(view.container.querySelector("img.worldcup-market-hero-backdrop")?.getAttribute("aria-hidden")).toBe("true");
@@ -287,7 +287,7 @@ describe("World Cup Market demo", () => {
   });
 
   it("좌표 있는 점포만 지도 핀·도보 목적지를 사용하며 공유 좌표를 그대로 안내한다", async () => {
-    vi.stubEnv("NEXT_PUBLIC_WORLDCUP_WALKING_ENABLED", "true");
+    vi.stubEnv("NEXT_PUBLIC_WORLDCUP_WALKING_ENABLED", undefined);
     vi.stubEnv("NEXT_PUBLIC_WORLDCUP_LIVE_MAP", "true");
     const first = locateStore(0);
     locateStore(1, first.storeLocation);
@@ -476,7 +476,7 @@ describe("World Cup Market demo", () => {
       fireEvent.click(screen.getByRole("button", { name: ({ ko: "한국어", en: "English", ja: "日本語", zh: "中文" } as const)[locale] }));
       expect(screen.getByRole("heading", { name: ui.nearbyTitle })).toBeTruthy();
       expect(screen.getByRole("heading", { name: ui.storefrontTitle })).toBeTruthy();
-      expect(screen.getByText(ui.storefrontLocationUnknown)).toBeTruthy();
+      expect(screen.getByText(ui.storefrontUnknownFallback)).toBeTruthy();
       const firstStore = within(screen.getByRole("list", { name: ui.nearbyTitle }))
         .getByRole("listitem", { name: localizeStoreName(store, locale) });
       expect(within(firstStore).getByText(localizeCategory(store.category, locale))).toBeTruthy();
@@ -487,10 +487,14 @@ describe("World Cup Market demo", () => {
     expect(onStartWalking).not.toHaveBeenCalled();
   });
 
-  it("기본값은 상세·주변의 길찾기를 숨긴다", () => {
+  it("기본값은 길찾기를 열고 명시 false에서만 숨긴다", () => {
     locateStore(0);
-    render(<WorldCupMarketDemo locale="ko" onStartWalking={vi.fn()} />);
-    expect(screen.queryByRole("button", { name: "여기로 가기" })).toBeNull();
+    const onStartWalking = vi.fn();
+    const view = render(<WorldCupMarketDemo locale="ko" onStartWalking={onStartWalking} />);
+    expect((screen.getByRole("button", { name: "여기로 가기" }) as HTMLButtonElement).disabled).toBe(false);
+    expect(screen.getByText(getWorldCupMarketUiText("ko").walkingDestinationNotice)).toBeTruthy();
+    vi.stubEnv("NEXT_PUBLIC_WORLDCUP_WALKING_ENABLED", "false");
+    view.rerender(<WorldCupMarketDemo locale="ko" onStartWalking={onStartWalking} />);
     expect(screen.queryByRole("button", { name: "여기로 가기" })).toBeNull();
   });
 

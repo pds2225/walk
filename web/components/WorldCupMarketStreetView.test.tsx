@@ -69,8 +69,8 @@ function withNaverPanorama(): WorldCupMarketStore {
 }
 
 describe("WorldCupMarketStreetView", () => {
-  it.each(LOCALES)("%s: 도보 기능 기본 숨김일 때 거리뷰 fallback은 지도 위치만 안내한다", (locale) => {
-    vi.stubEnv("NEXT_PUBLIC_WORLDCUP_WALKING_ENABLED", "");
+  it.each(LOCALES)("%s: 도보 기능을 명시적으로 끈 경우 거리뷰 fallback은 지도 위치만 안내한다", (locale) => {
+    vi.stubEnv("NEXT_PUBLIC_WORLDCUP_WALKING_ENABLED", "false");
     const ui = getWorldCupMarketUiText(locale);
     const view = render(<WorldCupMarketStreetView store={withCoordinate(unlocated)} locale={locale} />);
     expect(screen.getByText(ui.storefrontMapFallback)).toBeTruthy();

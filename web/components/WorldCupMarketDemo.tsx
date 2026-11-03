@@ -224,6 +224,7 @@ function StorePrimaryActions({ store, locale, onStartWalking }: {
   const ui = getWorldCupMarketUiText(locale);
   return (
     <div className="worldcup-market-mobile-actions">
+      <p className="worldcup-market-walking-note">{ui.walkingDestinationNotice}</p>
       <button
         type="button"
         className="worldcup-market-mobile-primary"

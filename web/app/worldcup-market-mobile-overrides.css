@@ -748,6 +748,8 @@
 .wcm-floor-myloc { position: fixed; right: max(16px, env(safe-area-inset-right)); bottom: max(20px, env(safe-area-inset-bottom)); z-index: 40;
   display: flex; flex-direction: column; align-items: flex-end; gap: 8px; margin: 0; max-width: min(320px, calc(100vw - 32px)); transition: opacity .2s; }
 .wcm-floor-myloc.is-offscreen { opacity: 0; pointer-events: none; }
+.wcm-floor.is-detail .wcm-floor-myloc { position: static; align-items: flex-start; margin: 0 0 12px; max-width: 100%; }
+.worldcup-market-walking-note { margin: 0 0 10px; color: #536171; font-size: 13px; line-height: 1.5; }
 .wcm-floor-myloc button { padding: 13px 20px; border: 0; border-radius: 999px; background: #1e88e5; color: #fff; font-size: 17px; font-weight: 800;
   box-shadow: 0 6px 18px rgba(30, 136, 229, .45); gap: 8px; }
 .wcm-floor-myloc button span { font-size: 20px; }

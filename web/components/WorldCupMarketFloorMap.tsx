@@ -15,7 +15,7 @@ export interface WorldCupMarketFloorMapProps {
   readonly locale: Locale;
   readonly onSelect: (storeId: string) => void;
   readonly selectedId?: string;
-  /** "detail": plan only (no title/legend/my-location), scrollable, selected store in red and scrolled into view. */
+  /** "detail": scrollable plan with an inline my-location button and the selected store in red. */
   readonly variant?: "overview" | "detail";
   /** Category filter: these stores are emphasised; all stores stay drawn in colour. */
   readonly highlightIds?: ReadonlySet<string> | null;
@@ -88,20 +88,9 @@ export default function WorldCupMarketFloorMap({ stores, locale, onSelect, selec
     setAskConsent(null);
   };
   const ct = GEO_CONSENT_TEXT[locale] ?? GEO_CONSENT_TEXT.en;
-  // Only a button tap scrolls the page to the dot; the automatic locate on load must not move the page.
-  // Follow = keep the dot centred on live updates. A tap on 「내 위치」 turns it on; touching/scrolling
-  // the page turns it off (the location watch keeps running), so the user can pan freely.
+  // Only take a one-shot fix after a tap. Continuous tracking belongs to DestinationWalk.
+  // Touching/scrolling stops pending automatic centring so the user can pan freely.
   const manualLocateRef = useRef(false);
-  const watchIdRef = useRef<number | null>(null);
-  const startWatch = () => {
-    if (watchIdRef.current !== null || typeof navigator === "undefined" || !navigator.geolocation?.watchPosition) return;
-    watchIdRef.current = navigator.geolocation.watchPosition(
-      (pos) => setMyLoc({ kind: "fix", lat: pos.coords.latitude, lng: pos.coords.longitude, acc: pos.coords.accuracy }),
-      () => {},
-      { enableHighAccuracy: true, timeout: 20000, maximumAge: 5000 },
-    );
-  };
-  useEffect(() => () => { if (watchIdRef.current !== null) navigator.geolocation?.clearWatch(watchIdRef.current); }, []);
   useEffect(() => {
     if (detail) return;
     const pause = () => { manualLocateRef.current = false; };
@@ -117,7 +106,6 @@ export default function WorldCupMarketFloorMap({ stores, locale, onSelect, selec
     const ok = (pos: GeolocationPosition) => {
       setMyLoc({ kind: "fix", lat: pos.coords.latitude, lng: pos.coords.longitude, acc: pos.coords.accuracy });
       onFix({ latitude: pos.coords.latitude, longitude: pos.coords.longitude, accuracyMeters: pos.coords.accuracy }, manual ? "button" : "auto");
-      startWatch();
     };
     const fail = (err: GeolocationPositionError) => setMyLoc({ kind: err.code === err.PERMISSION_DENIED ? "denied" : err.code === err.TIMEOUT ? "timeout" : "unavailable" });
     // Fresh GPS fix first (10s, no cache: a re-tap after walking must not show the old spot); fallback network location (10s, ≤1 min cache).
@@ -126,8 +114,6 @@ export default function WorldCupMarketFloorMap({ stores, locale, onSelect, selec
       navigator.geolocation.getCurrentPosition(ok, fail, { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 });
     }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
   };
-  // Dasom 2026-10-16: ask for location automatically on the market map so the blue dot is always there.
-  useEffect(() => { if (!detail) locate(false); }, [detail]); // eslint-disable-line react-hooks/exhaustive-deps
   // Overview pick: bring the picked store (red) into view.
   useEffect(() => {
     // 카테고리 필터는 지도 위 목록을 보여주는 동작: SVG로 페이지를 자동 스크롤하지 않는다.
@@ -240,18 +226,16 @@ export default function WorldCupMarketFloorMap({ stores, locale, onSelect, selec
   }
   return (
     <div ref={rootRef} className={`wcm-floor${detail ? " is-detail" : ""}`} data-map-provider="floor">
-      {detail ? null : <>
       {/* Floating "my location" button + toast, shown while the map is on screen. */}
       {askConsent ? <div className="wcm-geo-consent" role="dialog" aria-modal="false" aria-label={ct.label}>
         <p>{ct.before}<a href={PRIVACY_POLICY_PATH} target="_blank" rel="noopener noreferrer">{ct.link}</a>{ct.after}</p>
         <div><button type="button" onClick={() => answerConsent(false)}>{ct.no}</button><button type="button" className="is-yes" onClick={() => answerConsent(true)}>{ct.yes}</button></div>
       </div> : null}
-      {meEdge && mapOnScreen ? <button type="button" className={`wcm-floor-me-edge is-${meEdge}`} onClick={goToMe}>{meEdge === "up" ? "↑" : "↓"} {mt.button}</button> : null}
+      {!detail && meEdge && mapOnScreen ? <button type="button" className={`wcm-floor-me-edge is-${meEdge}`} onClick={goToMe}>{meEdge === "up" ? "↑" : "↓"} {mt.button}</button> : null}
       <div className={`wcm-floor-myloc${mapOnScreen ? "" : " is-offscreen"}`}>
         {myMsg ? <span role="status" className={`wcm-floor-toast${fixV?.kind === "ok" ? " is-ok" : ""}`}>{myMsg}</span> : null}
         <button type="button" onClick={() => { locate(); manualLocateRef.current = true; }} disabled={myLoc.kind === "locating"}><span aria-hidden="true">◎</span> {mt.button}</button>
       </div>
-      </>}
       <div className="wcm-floor-plan is-vertical">{renderPlan(vertical, false)}</div>
       <div className="wcm-floor-plan is-horizontal">{renderPlan(horizontal, false)}</div>
       <p className="wcm-floor-note">{ko ? "개략도입니다. 점포 위치와 순서는 주소 기반 추정이며 실측이 아닙니다. 입구·화장실 정보는 아직 없습니다." : ui.mapGuideApproximate}
