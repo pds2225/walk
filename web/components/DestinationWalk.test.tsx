@@ -3,6 +3,8 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import DestinationWalk from "./DestinationWalk";
+import { track } from "../lib/track";
+vi.mock("../lib/track", () => ({ track: vi.fn() }));
 
 vi.mock("next/dynamic", () => ({ default: () => () => <div data-testid="walking-map" /> }));
 vi.mock("./RoadviewViewer", () => ({ default: () => null }));
@@ -28,6 +30,7 @@ const position = {
 } as GeolocationPosition;
 
 beforeEach(() => {
+  vi.mocked(track).mockClear();
   get = vi.fn((ok: PositionCallback, fail: PositionErrorCallback) => { success = ok; failure = fail; });
   watch = vi.fn(() => 42);
   clear = vi.fn();
@@ -38,6 +41,20 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
 describe("market walking location lifecycle", () => {
+  it("starts independent store 23 and 05 sessions even when they share the same coordinate object", async () => {
+    request.mockImplementation(async () => Response.json({ route: { polyline: [A, B], turnPoints: [] } }));
+    const view = render(<DestinationWalk locale="en" onLocaleChange={vi.fn()} target={{ ...target, storeId: "worldcup-market-23" }} onStop={vi.fn()} />);
+    await act(async () => success(position));
+    await waitFor(() => expect(screen.getByTestId("walking-map")).toBeTruthy());
+    view.rerender(<DestinationWalk locale="en" onLocaleChange={vi.fn()} target={{ ...target, storeId: "worldcup-market-05" }} onStop={vi.fn()} />);
+    expect(get).toHaveBeenCalledTimes(2);
+    await act(async () => success(position));
+    await waitFor(() => expect(vi.mocked(track).mock.calls.filter(([event]) => event === "nav_start")).toHaveLength(2));
+    const starts = vi.mocked(track).mock.calls.filter(([event]) => event === "nav_start");
+    expect(starts[0]![1]?.storeId).toBe("worldcup-market-23");
+    expect(starts[1]![1]?.storeId).toBe("worldcup-market-05");
+    expect(starts[0]![1]?.navigationId).not.toBe(starts[1]![1]?.navigationId);
+  });
   it("takes one fix, waits for the selected destination route, then tracks only until stopped", async () => {
     let finishRoute!: (response: Response) => void;
     request.mockImplementation(() => new Promise<Response>((resolve) => { finishRoute = resolve; }));

@@ -12,6 +12,12 @@ const call = (no: string, headers: Record<string, string> = {}) =>
   GET(new Request(`https://k-navi.vercel.app/q/${no}`, { headers }), { params: Promise.resolve({ no }) });
 
 beforeEach(() => {
+  vi.stubEnv("VERCEL_PROJECT_ID", "");
+  vi.stubEnv("STORAGE_PRODUCT", "knavi");
+  vi.stubEnv("KNAVI_INSTALLATION_ID", "mangwon-worldcup-market");
+  vi.stubEnv("KNAVI_DATABASE_PROJECT_REF", "markettest");
+  vi.stubEnv("KNAVI_SUPABASE_URL", "https://markettest.supabase.co");
+  vi.stubEnv("KNAVI_SUPABASE_SERVICE_ROLE_KEY", "sb_secret_test_market");
   afterTasks.length = 0;
   vi.stubEnv("SUPABASE_URL", "https://example.supabase.co");
   vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "sb_secret_test");
@@ -20,7 +26,8 @@ afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 
 describe("GET /q/[no]", () => {
   it("302s to the store and logs one row without IP", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 201 }));
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => url.includes("/deployment_identity?")
+      ? Response.json([{ product_id: "knavi", installation_id: "mangwon-worldcup-market" }]) : url.includes("ingest_id=eq.") ? Response.json([{ ingest_id: new URL(url).searchParams.get("ingest_id")!.slice(3) }]) : new Response(null, { status: 201 }));
     vi.stubGlobal("fetch", fetchMock);
     const res = await call("23", { "accept-language": "ja-JP,ja;q=0.9", "user-agent": "UA", "x-forwarded-for": "1.2.3.4" });
     expect(res.status).toBe(302);
@@ -29,8 +36,8 @@ describe("GET /q/[no]", () => {
     expect(res.headers.get("set-cookie")).toMatch(/ktrip_qr_23=1; Path=\/q; Expires=[^;]+; Max-Age=180;/);
     expect(afterTasks).toHaveLength(1);
     await afterTasks[0]!();
-    const [url, init] = fetchMock.mock.calls[0]!;
-    expect(url).toBe("https://example.supabase.co/rest/v1/qr_scans");
+    const [url, init] = fetchMock.mock.calls.find(([, init]) => init?.method === "POST")!;
+    expect(url).toBe("https://markettest.supabase.co/rest/v1/qr_scans");
     const row = JSON.parse(init.body);
     expect(row).toMatchObject({ store_id: "worldcup-market-23", store_no: 23, locale: "ja", src: "qr", user_agent: "UA", is_first_visit: true });
     expect(JSON.stringify(row)).not.toContain("1.2.3.4");
@@ -43,11 +50,12 @@ describe("GET /q/[no]", () => {
   });
 
   it("marks returning visitors", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 201 }));
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => url.includes("/deployment_identity?")
+      ? Response.json([{ product_id: "knavi", installation_id: "mangwon-worldcup-market" }]) : url.includes("ingest_id=eq.") ? Response.json([{ ingest_id: new URL(url).searchParams.get("ingest_id")!.slice(3) }]) : new Response(null, { status: 201 }));
     vi.stubGlobal("fetch", fetchMock);
     await call("5", { cookie: "ktrip_vid=abcdef12-3456" });
     await afterTasks[0]!();
-    expect(JSON.parse(fetchMock.mock.calls[0]![1].body)).toMatchObject({ visitor_id: "abcdef12-3456", is_first_visit: false });
+    expect(JSON.parse(fetchMock.mock.calls.find(([, init]) => init?.method === "POST")![1].body)).toMatchObject({ visitor_id: "abcdef12-3456", is_first_visit: false });
   });
 
   it("sends unknown numbers to the market list without logging", async () => {
@@ -57,7 +65,7 @@ describe("GET /q/[no]", () => {
   });
 
   it("still redirects when Supabase is not configured", async () => {
-    vi.stubEnv("SUPABASE_URL", "");
+    vi.stubEnv("KNAVI_SUPABASE_URL", "");
     const res = await call("1");
     expect(res.status).toBe(302);
     await expect(afterTasks[0]!()).resolves.toBeUndefined();

@@ -10,6 +10,8 @@ import type { Coordinate, PlaceHit, RouteResponse } from "../lib/types";
 import { getServiceMetadata, getUiText, LOCALE_OPTIONS, type Locale } from "../lib/i18n";
 import { primeSpeech } from "../lib/voice";
 import { track } from "../lib/track";
+import { createNavigationAnalytics } from "../lib/navigationAnalytics";
+import LocationStorageConsent from "../components/LocationStorageConsent";
 import { WALK_PROGRESS_DISTANCE_M, WALK_PROGRESS_INTERVAL_MS, WALK_STORE_COORDS } from "../lib/funnelEvents";
 
 const pos = (f: Fix | null | undefined) => (WALK_STORE_COORDS && f ? { latitude: f.latitude, longitude: f.longitude, accuracyMeters: f.accuracyMeters } : null);
@@ -79,6 +81,7 @@ function routeFingerprint(response: RouteResponse): string {
 }
 
 export default function Home() {
+  const analytics = useRef(createNavigationAnalytics());
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<PlaceHit[]>([]);
   // 결과가 0건일 때 '왜 없는지'. 소스가 조용히 죽으면 '장소 없음'과 구별이 안 된다.
@@ -188,7 +191,7 @@ export default function Home() {
     const last = lastProgress.current, now = Date.now();
     if (last && now - last.at < WALK_PROGRESS_INTERVAL_MS && metersBetween(last.fix, fix) < WALK_PROGRESS_DISTANCE_M) return;
     lastProgress.current = { at: now, fix };
-    if (last) track("nav_progress", { locale: localeRef.current, position: pos(fix) });
+    if (last) analytics.current.event("nav_progress", { locale: localeRef.current, position: pos(fix) });
   }, [fix, phase]);
   // 지도 핀 표시 전용 — 판정(useNavigation)·재탐색·Roadview 는 currentFix(raw)를 그대로 쓴다.
   const displayFix = useSmoothedFix(currentFix);
@@ -216,7 +219,7 @@ export default function Home() {
       navigationSession.current += 1;
       setRerouting(false);
       setPhase("arrived");
-      track("arrive", { locale: localeRef.current, position: pos(currentFixRef.current) });
+      analytics.current.event("arrive", { locale: localeRef.current, position: pos(currentFixRef.current) });
     }
   }, [phase, nav.arrived]);
 
@@ -234,7 +237,7 @@ export default function Home() {
       if (!dest || !routeResponse || rerouting) return;
       const session = navigationSession.current;
       setRerouting(true);
-      track("reroute", { locale, position: pos(current) });
+      analytics.current.event("reroute", { locale, position: pos(current) });
       try {
         const resp = await fetch("/api/route", {
           method: "POST",
@@ -250,7 +253,7 @@ export default function Home() {
           return;
         }
         if (!resp.ok) {
-          track("route_error", { locale, errorType: "reroute_http" });
+          analytics.current.event("route_error", { locale, errorType: "reroute_http" });
           setError((body as { error?: string }).error ?? ui.rerouteFailed);
           return;
         }
@@ -259,7 +262,7 @@ export default function Home() {
         setError(null);
       } catch {
         if (navigationSession.current === session && phaseRef.current === "navigating") {
-          track("route_error", { locale, errorType: "reroute_network" });
+          analytics.current.event("route_error", { locale, errorType: "reroute_network" });
           setError(ui.rerouteFailed);
         }
       } finally {
@@ -409,6 +412,7 @@ export default function Home() {
 
   const startWalking = useCallback(
     async (target: Recent, originOverride: Recent | null = selectedOrigin) => {
+      if (!originOverride) analytics.current.begin();
       primeSpeech(locale); // 모바일 브라우저가 사용자 제스처 뒤의 TTS를 허용하도록 예열한다
       const session = navigationSession.current + 1;
       navigationSession.current = session;
@@ -436,7 +440,7 @@ export default function Home() {
           origin = gpsOrigin;
         } catch (err) {
           if (navigationSession.current !== session) return;
-          track("route_error", { locale, errorType: "location" });
+          analytics.current.event("route_error", { locale, errorType: "location" });
           setError(err instanceof Error ? err.message : ui.locating);
           setPhase("destination_selected");
           return;
@@ -454,7 +458,8 @@ export default function Home() {
         const body: unknown = await resp.json();
         if (navigationSession.current !== session) return;
         if (!resp.ok) {
-          track("route_error", { locale, errorType: "route_http" });
+          if (originOverride) track("route_error", { locale, errorType: "route_http" });
+          else analytics.current.event("route_error", { locale, errorType: "route_http" });
           setError((body as { error?: string }).error ?? ui.routeFailed);
           setPhase("destination_selected");
           return;
@@ -466,12 +471,13 @@ export default function Home() {
           setPhase("preview");  // GPS 추적 없이 지정한 출발지의 경로만 보여준다
         } else if (gpsOrigin) {
           setPhase("navigating");  // 이 시점부터만 watchPosition 이 시작된다
-          track("nav_start", { locale, position: pos(gpsOrigin) });
+          analytics.current.event("nav_start", { locale, position: pos(gpsOrigin) });
           lastProgress.current = { at: Date.now(), fix: gpsOrigin };
         }
       } catch {
         if (navigationSession.current !== session) return;
-        track("route_error", { locale, errorType: "route_network" });
+        if (originOverride) track("route_error", { locale, errorType: "route_network" });
+          else analytics.current.event("route_error", { locale, errorType: "route_network" });
         setError(ui.routeFailed);
         setPhase("destination_selected");
       }
@@ -489,6 +495,7 @@ export default function Home() {
   }, []);
 
   const reset = useCallback(() => {
+    analytics.current.stop({ locale: localeRef.current });
     navigationSession.current += 1;
     setPhase("idle");
     setRouteResponse(null);
@@ -566,6 +573,7 @@ export default function Home() {
         : ui.waitingDirection;
     return (
       <main className="nav-screen">
+        <LocationStorageConsent locale={locale} />
         <div className="language-bar">
           <label>
             <span className="visually-hidden">{ui.language}</span>
@@ -643,6 +651,7 @@ export default function Home() {
   const shown = recentsExpanded ? recents : recents.slice(0, RECENT_ROW);
   return (
     <main className="home">
+      <LocationStorageConsent locale={locale} />
       <div className="language-bar">
         <label>
           <span className="visually-hidden">{ui.language}</span>

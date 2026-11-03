@@ -1,8 +1,11 @@
 /** Funnel event collector for K-TRIP (/worldcup-market, app=worldcup-market) and WALK (/, app=walk). Inserts into public.events server-side (never IP; coordinates only for WALK movement events and consented K-TRIP location events). */
 import { after, NextResponse } from "next/server";
-import { DETAIL_SECTIONS, isFunnelEvent, isWalkEvent, WALK_COORD_EVENTS, WALK_ERROR_TYPES, WALK_HOME_VIEW_COOKIE, WALK_HOME_VIEW_DEDUPE_SECONDS, WALK_SOURCES, WCM_COORD_EVENTS, WCM_LOCATION_SOURCES, MAX_DWELL_SECONDS, STORE_VIEW_COOKIE_PREFIX, STORE_VIEW_DEDUPE_SECONDS, STORE_VIEW_SOURCES } from "../../../lib/funnelEvents";
-import { insertSupabaseRow, QR_LANDING_COOKIE, trackRateBuckets as buckets, storeIdFromQrNumber, storeNumberFromId, VISITOR_COOKIE } from "../../../lib/qrScan";
+import { DETAIL_SECTIONS, isFunnelEvent, isWalkEvent, WALK_COORD_EVENTS, WALK_STORE_EVENTS, WALK_ERROR_TYPES, WALK_HOME_VIEW_COOKIE, WALK_HOME_VIEW_DEDUPE_SECONDS, WALK_SOURCES, WCM_COORD_EVENTS, WCM_LOCATION_SOURCES, MAX_DWELL_SECONDS, STORE_VIEW_COOKIE_PREFIX, STORE_VIEW_DEDUPE_SECONDS, STORE_VIEW_SOURCES } from "../../../lib/funnelEvents";
+import { insertSupabaseRow, supabaseConfig, QR_LANDING_COOKIE, trackRateBuckets as buckets, storeIdFromQrNumber, storeNumberFromId, VISITOR_COOKIE } from "../../../lib/qrScan";
 import { WORLD_CUP_MARKET_STORES } from "../../../lib/worldCupMarketStores";
+
+import { storageDeploymentIdentity } from "../../../lib/storageDeployment";
+import { serverTraffic } from "../../../lib/analyticsDiagnostics";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,7 +21,7 @@ function readCookie(header: string | null, name: string): string | null {
   if (!header) return null;
   for (const part of header.split(";")) {
     const [k, ...v] = part.trim().split("=");
-    if (k === name) return decodeURIComponent(v.join("="));
+    if (k === name) { try { return decodeURIComponent(v.join("=")); } catch { return null; } }
   }
   return null;
 }
@@ -49,6 +52,12 @@ export async function POST(request: Request) {
   }
   const event = body["event"];
   if (!isFunnelEvent(event)) return NextResponse.json({ ok: false, error: "unknown event" }, { status: 400 });
+  const identity = storageDeploymentIdentity();
+  if (!identity || !supabaseConfig()) return NextResponse.json({ ok: false, error: "analytics storage not configured" }, { status: 503 });
+  if (identity.productId === "walk" && !isWalkEvent(event)) return NextResponse.json({ ok: false, error: "market event on WALK deployment" }, { status: 409 });
+  const navigationRaw = body["navigation_id"];
+  const navigationId = typeof navigationRaw === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(navigationRaw) ? navigationRaw : null;
+  if (navigationRaw != null && !navigationId) return NextResponse.json({ ok: false, error: "invalid navigation_id" }, { status: 400 });
   const storeIdRaw = body["store_id"];
   const storeId = typeof storeIdRaw === "string" && KNOWN_STORES.has(storeIdRaw) ? storeIdRaw : null;
   if (storeIdRaw !== null && storeIdRaw !== undefined && !storeId) return NextResponse.json({ ok: false, error: "unknown store" }, { status: 400 });
@@ -58,14 +67,15 @@ export async function POST(request: Request) {
   const existing = readCookie(cookies, VISITOR_COOKIE);
   const visitorId = existing && VISITOR_RE.test(existing) ? existing : crypto.randomUUID();
   const secure = new URL(request.url).protocol === "https:";
-  const response = NextResponse.json({ ok: true }, { status: 202 });
+  const receiptId = crypto.randomUUID();
+  const response = NextResponse.json({ ok: true, receipt_id: receiptId, storage: "pending" }, { status: 202 });
   if (visitorId !== existing) {
     response.cookies.set(VISITOR_COOKIE, visitorId, { httpOnly: true, sameSite: "lax", secure, path: "/", maxAge: 60 * 60 * 24 * 365 });
   }
   if (limited(visitorId, Date.now())) return NextResponse.json({ ok: false }, { status: 429 });
 
   const walk = isWalkEvent(event);
-  if (walk && storeId) return NextResponse.json({ ok: false, error: "store not allowed" }, { status: 400 });
+  if (walk && storeId && !(WALK_STORE_EVENTS as readonly string[]).includes(event)) return NextResponse.json({ ok: false, error: "store not allowed" }, { status: 400 });
   let src = str(body["src"], 16);
   let queryLen: number | null = null, errorType: string | null = null;
   let coords: { lat: number; lng: number; accuracy_m: number | null } | null = null;
@@ -82,7 +92,7 @@ export async function POST(request: Request) {
       errorType = e;
     }
     const lat = body["lat"], lng = body["lng"], acc = body["accuracy_m"];
-    if (process.env.WALK_STORE_COORDS !== "off" && (WALK_COORD_EVENTS as readonly string[]).includes(event)
+    if (body["geo_consent"] === true && process.env.WALK_STORE_COORDS !== "off" && (identity.productId !== "knavi" || process.env.WCM_STORE_COORDS !== "off") && (WALK_COORD_EVENTS as readonly string[]).includes(event)
       && typeof lat === "number" && typeof lng === "number" && Math.abs(lat) <= 90 && Math.abs(lng) <= 180) {
       coords = { lat: Math.round(lat * 1e6) / 1e6, lng: Math.round(lng * 1e6) / 1e6,
         accuracy_m: typeof acc === "number" && Number.isFinite(acc) && acc >= 0 ? Math.min(Math.round(acc * 10) / 10, 100000) : null };
@@ -129,6 +139,9 @@ export async function POST(request: Request) {
   const sessionId = str(body["session_id"], 64);
   const row = {
     event,
+    ingest_id: receiptId,
+    navigation_id: walk ? navigationId : null,
+    ...serverTraffic(),
     store_id: storeId,
     store_no: storeId ? storeNumberFromId(storeId) : null,
     locale: locale && LOCALES.has(locale) ? locale : null,
@@ -138,7 +151,7 @@ export async function POST(request: Request) {
     path: str(body["path"], 128),
     user_agent: request.headers.get("user-agent")?.slice(0, 512) ?? null,
     dwell_sec: dwellSec,
-    ...(walk ? { app: "walk", query_len: queryLen, error_type: errorType, ...(coords ?? {}) } : { app: "worldcup-market", ...(coords ? { ...coords, geo_consent: geoConsent } : {}) }),
+    ...(walk ? { app: identity.productId === "knavi" ? "worldcup-market" : "walk", query_len: queryLen, error_type: errorType, ...(coords ?? {}), ...(coords ? { geo_consent: true } : {}) } : { app: "worldcup-market", ...(coords ? { ...coords, geo_consent: geoConsent } : {}) }),
   };
   after(async () => {
     await insertSupabaseRow("events", row);

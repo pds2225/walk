@@ -4,7 +4,8 @@ export const FUNNEL_EVENTS = ["page_view", "store_view", "phone_click", "map_pin
 export const WCM_COORD_EVENTS = ["location_fix", "store_view", "map_pin_click"] as const;
 export const WCM_LOCATION_SOURCES = ["auto", "button"] as const;
 /** WALK walking-nav app (/) step events. Stored with app = 'walk'; never mixed with K-TRIP. */
-export const WALK_EVENTS = ["home_view", "search", "destination_select", "nav_start", "nav_progress", "reroute", "arrive", "route_error"] as const;
+export const WALK_EVENTS = ["home_view", "search", "destination_select", "nav_start", "nav_progress", "reroute", "arrive", "route_error", "nav_stop"] as const;
+export const WALK_STORE_EVENTS = ["nav_start", "nav_progress", "reroute", "arrive", "route_error", "nav_stop"] as const;
 /**
  * WALK nav position logging (lat/lng/accuracy, never IP). Turn off here (client stops sending)
  * or set Vercel env WALK_STORE_COORDS=off (server drops coordinates). K-TRIP never sends coordinates.

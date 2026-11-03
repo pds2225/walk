@@ -2,6 +2,7 @@
  * Printed store QR target: /q/<NN>. Logs the scan server-side (no IP) and
  * 302-redirects to the store detail. Unknown numbers go to the market list.
  */
+import { serverTraffic } from "../../../lib/analyticsDiagnostics";
 import { after, NextResponse } from "next/server";
 import {
   DEDUPE_COOKIE_PREFIX,
@@ -51,6 +52,8 @@ export async function GET(request: Request, context: { params: Promise<{ no: str
   response.cookies.set(dedupeName, "1", { httpOnly: true, sameSite: "lax", secure, path: "/q", maxAge: QR_DEDUPE_WINDOW_SECONDS });
 
   const row = {
+    ingest_id: crypto.randomUUID(),
+    ...serverTraffic(),
     store_id: storeId,
     store_no: storeNumberFromId(storeId),
     locale: localeFromAcceptLanguage(request.headers.get("accept-language")),

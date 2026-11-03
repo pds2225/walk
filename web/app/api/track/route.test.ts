@@ -16,23 +16,69 @@ const post = (body: unknown, cookie?: string) => POST(new Request("https://k-nav
 
 let fetchMock: ReturnType<typeof vi.fn>;
 beforeEach(() => {
+  vi.stubEnv("VERCEL_PROJECT_ID", "");
+  vi.stubEnv("STORAGE_PRODUCT", "knavi");
+  vi.stubEnv("KNAVI_INSTALLATION_ID", "mangwon-worldcup-market");
+  vi.stubEnv("KNAVI_DATABASE_PROJECT_REF", "markettest");
+  vi.stubEnv("KNAVI_SUPABASE_URL", "https://markettest.supabase.co");
+  vi.stubEnv("KNAVI_SUPABASE_SERVICE_ROLE_KEY", "sb_secret_test_market");
   afterTasks.length = 0;
   trackRateBuckets.clear();
   vi.stubEnv("SUPABASE_URL", "https://example.supabase.co");
   vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "sb_secret_test");
-  fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 201 }));
+  fetchMock = vi.fn().mockImplementation(async (url: string) => url.includes("/deployment_identity?")
+    ? Response.json([{ product_id: "knavi", installation_id: "mangwon-worldcup-market" }]) : url.includes("ingest_id=eq.") ? Response.json([{ ingest_id: new URL(url).searchParams.get("ingest_id")!.slice(3) }]) : new Response(null, { status: 201 }));
   vi.stubGlobal("fetch", fetchMock);
 });
 afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 
 async function insertedRow() {
   await afterTasks[0]!();
-  const [url, init] = fetchMock.mock.calls[0]!;
-  expect(url).toBe("https://example.supabase.co/rest/v1/events");
+  const [url, init] = fetchMock.mock.calls.find(([, init]) => init?.method === "POST")!;
+  expect(url).toBe(`${process.env.STORAGE_PRODUCT === "walk" ? "https://example.supabase.co" : "https://markettest.supabase.co"}/rest/v1/events`);
   return JSON.parse(init.body);
 }
 
 describe("POST /api/track", () => {
+  it("accepts store 23 only on navigation events and computes store number on the server", async () => {
+    const navigationId = "12345678-1234-4234-8234-123456789012";
+    for (const event of ["nav_start", "nav_progress", "reroute", "arrive", "nav_stop", "route_error"]) {
+      afterTasks.length = 0; fetchMock.mockClear();
+      const response = await post({ event, store_id: "worldcup-market-23", store_no: 999, navigation_id: navigationId, error_type: "route_http" });
+      expect(response.status).toBe(202);
+      expect(await response.json()).toMatchObject({ storage: "pending" });
+      expect(await insertedRow()).toMatchObject({ store_id: "worldcup-market-23", store_no: 23, navigation_id: navigationId });
+    }
+    expect((await post({ event: "nav_start", store_id: "worldcup-market-99" })).status).toBe(400);
+    expect((await post({ event: "nav_start", navigation_id: "forged" })).status).toBe(400);
+  });
+  it("never stores WALK coordinates without current consent and ignores claimed traffic class", async () => {
+    vi.stubEnv("STORAGE_PRODUCT", "walk"); vi.stubEnv("VERCEL_ENV", ""); vi.stubEnv("ANALYTICS_TRAFFIC_TYPE", "");
+    for (const consent of [undefined, false, "true"]) {
+      afterTasks.length = 0; fetchMock.mockClear();
+      await post({ event: "nav_start", lat: 37.55, lng: 126.91, geo_consent: consent, traffic_type: "production" });
+      const row = await insertedRow(); expect(row.lat).toBeUndefined(); expect(row.lng).toBeUndefined(); expect(row.traffic_type).toBe("unknown");
+    }
+    afterTasks.length = 0; fetchMock.mockClear();
+    vi.stubEnv("ANALYTICS_TRAFFIC_TYPE", "test");
+    await post({ event: "nav_start", lat: 37.55, lng: 126.91, geo_consent: true });
+    expect(await insertedRow()).toMatchObject({ lat: 37.55, geo_consent: true, traffic_type: "test", traffic_evidence: "server-test-setting" });
+  });
+  it("rejects a market event on WALK and refuses generic WALK fallback when installation config is absent", async () => {
+    vi.stubEnv("STORAGE_PRODUCT","walk");
+    expect((await post({event:"page_view",product_id:"knavi",installation_id:"mangwon-worldcup-market"})).status).toBe(409);
+    expect(afterTasks).toHaveLength(0);
+    vi.stubEnv("STORAGE_PRODUCT","knavi");vi.stubEnv("KNAVI_SUPABASE_URL","");
+    expect((await post({event:"page_view"})).status).toBe(503);
+    expect(afterTasks).toHaveLength(0);expect(fetchMock).not.toHaveBeenCalled();
+  });
+  it("requires location consent for navigation events on a K-Navi deployment", async () => {
+    await post({event:"nav_start",lat:37.55,lng:126.91});
+    const row=await insertedRow();expect(row.app).toBe("worldcup-market");expect(row.lat).toBeUndefined();
+    afterTasks.length=0;fetchMock.mockClear();
+    await post({event:"nav_start",lat:37.55,lng:126.91,geo_consent:true});
+    expect(await insertedRow()).toMatchObject({app:"worldcup-market",product_id:"knavi",installation_id:"mangwon-worldcup-market",geo_consent:true,lat:37.55});
+  });
   it("rejects unknown events, unknown stores, oversize bodies and store events without a store", async () => {
     expect((await post({ event: "purchase" })).status).toBe(400);
     expect((await post({ event: "page_view", store_id: "nope" })).status).toBe(400);
@@ -92,22 +138,26 @@ describe("POST /api/track", () => {
   });
 
   it("stores WALK events as app=walk with query length / error type only, no store", async () => {
+    vi.stubEnv("STORAGE_PRODUCT", "walk");
     expect((await post({ event: "search", query_len: 5, src: "hit" })).status).toBe(202);
     const row = await insertedRow();
     expect(row).toMatchObject({ event: "search", app: "walk", query_len: 5, src: "hit", store_id: null });
     expect(JSON.stringify(row)).not.toContain("1.2.3.4");
     expect((await post({ event: "search" })).status).toBe(400);
     expect((await post({ event: "route_error", error_type: "bogus" })).status).toBe(400);
-    expect((await post({ event: "nav_start", store_id: "worldcup-market-01" })).status).toBe(400);
+    expect((await post({ event: "search", query_len: 1, store_id: "worldcup-market-01" })).status).toBe(400);
   });
   it("keeps coordinates only on WALK nav events and drops them when WALK_STORE_COORDS=off", async () => {
-    await post({ event: "nav_progress", lat: 37.55, lng: 126.91, accuracy_m: 8 });
+    vi.stubEnv("STORAGE_PRODUCT", "walk");
+    await post({ event: "nav_progress", geo_consent: true, lat: 37.55, lng: 126.91, accuracy_m: 8 });
     expect(await insertedRow()).toMatchObject({ app: "walk", lat: 37.55, lng: 126.91, accuracy_m: 8 });
     afterTasks.length = 0; fetchMock.mockClear();
+    vi.stubEnv("STORAGE_PRODUCT", "knavi");
     await post({ event: "page_view", lat: 37.55, lng: 126.91 });
     const ktrip = await insertedRow();
     expect(ktrip.lat).toBeUndefined(); expect(ktrip.app).toBe("worldcup-market");
     afterTasks.length = 0; fetchMock.mockClear();
+    vi.stubEnv("STORAGE_PRODUCT", "walk");
     vi.stubEnv("WALK_STORE_COORDS", "off");
     await post({ event: "arrive", lat: 37.55, lng: 126.91 });
     expect((await insertedRow()).lat).toBeUndefined();
