@@ -4,6 +4,8 @@
  */
 import { WORLD_CUP_MARKET_STORES } from "./worldCupMarketStores";
 import { localeFromBrowserLanguages } from "./localePreference";
+import { bindStorageRow, resolveStorageTarget, storageHeaders, verifyStorageIdentity } from "./storageDeployment";
+import { recordStorageResult } from "./analyticsDiagnostics";
 
 export const VISITOR_COOKIE = "ktrip_vid";
 export const DEDUPE_COOKIE_PREFIX = "ktrip_qr_";
@@ -56,20 +58,16 @@ export interface QrScanRow {
 }
 
 function supabaseHeaders(key: string): Record<string, string> {
-  const headers: Record<string, string> = { apikey: key };
-  // Legacy service_role keys are JWTs; new sb_secret_ keys go in apikey only.
-  if (key.startsWith("eyJ")) headers["authorization"] = `Bearer ${key}`;
-  return headers;
+  return storageHeaders(key);
 }
 
-export function supabaseConfig(): { readonly url: string; readonly key: string } | null {
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  return url && key ? { url: url.replace(/\/$/, ""), key } : null;
+export function supabaseConfig() {
+  return resolveStorageTarget();
 }
 
 /** Inserts one row into public.qr_scans. Never throws; returns false on any failure. */
 export async function insertQrScan(row: QrScanRow): Promise<boolean> {
+  if (supabaseConfig()?.identity.productId !== "knavi") return false;
   return insertSupabaseRow("qr_scans", row);
 }
 
@@ -80,15 +78,28 @@ export const QR_LANDING_COOKIE = "ktrip_land";
 export async function insertSupabaseRow(table: "qr_scans" | "events", row: object): Promise<boolean> {
   const config = supabaseConfig();
   if (!config) return false;
+  if (config.identity.productId === "walk" && (table !== "events" || !("app" in row) || row.app !== "walk")) return false;
+  const writeRow = { ...row, ingest_id: "ingest_id" in row && typeof row.ingest_id === "string" ? row.ingest_id : crypto.randomUUID() };
   try {
+    if (!await verifyStorageIdentity(config)) { recordStorageResult(false); return false; }
     const res = await fetch(`${config.url}/rest/v1/${table}`, {
       method: "POST",
       headers: { ...supabaseHeaders(config.key), "content-type": "application/json", prefer: "return=minimal" },
-      body: JSON.stringify(row),
+      body: JSON.stringify(bindStorageRow(config, table, writeRow)),
       signal: AbortSignal.timeout(5000),
     });
-    return res.ok;
+    let confirmed = res.ok;
+    if (confirmed) {
+      const check = await fetch(`${config.url}/rest/v1/${table}?select=ingest_id&ingest_id=eq.${encodeURIComponent(writeRow.ingest_id)}&limit=1`, {
+        headers: supabaseHeaders(config.key), cache: "no-store", signal: AbortSignal.timeout(5000),
+      });
+      const rows: unknown = check.ok ? await check.json() : null;
+      confirmed = Array.isArray(rows) && rows.length === 1 && rows[0]?.ingest_id === writeRow.ingest_id;
+    }
+    recordStorageResult(confirmed);
+    return confirmed;
   } catch {
+    recordStorageResult(false);
     return false;
   }
 }
@@ -98,6 +109,7 @@ export async function pingQrScans(): Promise<"ok" | "unconfigured" | "error"> {
   const config = supabaseConfig();
   if (!config) return "unconfigured";
   try {
+    if (!await verifyStorageIdentity(config)) return "error";
     const res = await fetch(`${config.url}/rest/v1/qr_scans?select=id&limit=1`, {
       headers: supabaseHeaders(config.key),
       cache: "no-store",

@@ -10,6 +10,14 @@
 - FORBIDDEN: .env 열람/수정·비밀 출력·운영 배포·무단 병합·파괴적 DB 변경·전체 로컬 테스트. P1/P2 중복 개발 금지.
 - VERIFY: 직접 영향받은 테스트, 타입검사/빌드, 로컬 브라우저 합성 GPS/DB 대역과 운영 DB·실기기 E2E 결과 분리. 운영 접근 불가 항목은 구체적 blocker로 기록.
 - 상태: 최신 main 3ee7216 기준 별도 feat/issue-200-p0-analytics worktree에서 실행. 원본 dirty worktree·stash 보존.
+- KN-ANL-001: 코드/마이그레이션·45개 점포·기존 혼재/구축 전용 어댑터 확인. 시장 빈 DB bootstrap 재사용, 기존 DB용 nullable 컬럼/인덱스/신규 동의 제약 추가. 운영 inventory는 접근 자격증명 부재로 UNKNOWN.
+- KN-ANL-002~005: 점포→보행 store_id/store_no, 동일 좌표 점포별 독립 navigation_id, 진행/재탐색/도착/중지/실패 연결, WALK/시장 동의 분리·철회 및 서버 게이트, 서버 배포 근거 traffic_type/evidence 구현. 기존 ID/동의/분류 결측은 복원하지 않음.
+- KN-ANL-006~009: 관리자 서명 세션·origin 검사·감사 로그, 배포에 묶인 읽기 API, KST/앱/공간/분류·검색·정렬/50행, KPI·점포 성과·누락/중복 진단·안전 CSV 구현. 정밀좌표·원본 식별자 제외, UTC/KST 날짜 경계 및 CSV 수식 방어. POST 후 ingest_id 재조회 확인을 저장 진단에 반영.
+- 로컬 자동검증: 직접 관련 최종 Vitest 15개 파일 259개 모두 PASS(readback 실패/동일좌표 점포전환 회귀 포함). root/web TypeScript, root lint, 변경 web 30개 파일 ESLint 비교(신규 오류 0, 기존 미사용 함수 2 보존), Next production build PASS. 전체 로컬 suite 미실행.
+- KN-ANL-010 PARTIAL: Chromium 모바일390×844/데스크톱1440×1000, 합성GPS/경로·인메모리DB 대역으로 시장23→05 ID분리·동의/철회·관리자차단/로그인·API→재조회→KPI/CSV 9개 점검 PASS. 일반WALK store_id=null→합성도착 같은ID→KPI 5개 점검 PASS. 페이지런타임 오류0, 모바일 page overflow0.
+- DB 준비검증: PostgreSQL 호환 PGlite에서 원본이력/결측동의 보존·신규무동의GPS 차단·점포/nav_stop·traffic 제약·시장동의·anon 차단·구축identity 보호 8개 검사 PASS. pg_cron 실행/등록, 실제 Supabase SQL 적용·키 설정·운영DB 저장·실기기 USER_E2E는 미검증. 비용/운영변경 없음.
+- 독립 PR 안전검토: 인증·개인정보·DB분리·migration·집계 점검. 발견된 미리보기 오류수집 누락/identity 실패진단/합산페이지 상한 3건 수정, 재검토 material blocker0. 상세 실행/적용 경계는 `docs/analytics-operations.md`.
+- P1 KN-ANL-011~012/P2 KN-ANL-013 미구현 유지. 운영 E2E 종료 기준 미충족으로 Issue #200 완료/실사용 DONE 표시 금지. 이 변경은 검증 결과와 운영 blocker를 명시해 Draft PR로 제출하는 범위이며 병합·운영배포 금지.
 
 ## WCM-LOCATION-WALKING-20261103 — 월드컵시장 위치·길찾기 오픈
 - 운영 배포 승인 후 정상 조회: 기존 k-navi ID prj_87r30cKYvuPS8oCu4ijAt34mrdqg, 도메인 k-navi-eight.vercel.app. 최근 main 배포는 CANCELED, 마지막 READY는 48c5a397. 과거 브랜치 전용 ignore 조건을 main 및 이번 release 브랜치에도 허용해 수정.

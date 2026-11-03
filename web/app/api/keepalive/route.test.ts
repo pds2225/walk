@@ -4,6 +4,8 @@ import { GET } from "./route";
 const req = (auth?: string) => new Request("http://x/api/keepalive", { headers: auth ? { authorization: auth } : {} });
 
 beforeEach(() => {
+  vi.stubEnv("VERCEL_PROJECT_ID", "");
+  vi.stubEnv("STORAGE_PRODUCT", "walk");
   vi.stubEnv("CRON_SECRET", "s3cret");
   vi.stubEnv("SUPABASE_URL", "https://example.supabase.co");
   vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "sb_secret_test");
