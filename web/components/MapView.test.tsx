@@ -32,6 +32,7 @@ vi.mock("maplibre-gl", () => {
     setStyle = vi.fn();
     addSource = vi.fn();
     addLayer = vi.fn();
+    addControl = vi.fn();
     source = { setData: vi.fn() };
     constructor() { this.surface.appendChild(this.canvas); fake.maps.push(this); }
     getCanvas() { return this.canvas; }
@@ -54,7 +55,8 @@ vi.mock("maplibre-gl", () => {
   class LngLatBounds {
     extend() { return this; }
   }
-  return { default: { Map, Marker, LngLatBounds } };
+  class NavigationControl {}
+  return { default: { Map, Marker, LngLatBounds, NavigationControl } };
 });
 
 const A = { latitude: 37.5665, longitude: 126.978 };
@@ -95,7 +97,10 @@ describe("MapView manual camera control", () => {
 
     // dragstart 이전의 최초 터치도 카메라를 고정해야 한다.
     fireEvent.pointerDown(map.canvas);
-    expect(map.stop).toHaveBeenCalledTimes(1);
+    // stop()은 MapLibre의 활성 제스처까지 초기화한다. 터치 처리에 개입하지 않는다.
+    fireEvent.touchStart(map.canvas, { touches: [{ identifier: 1 }, { identifier: 2 }] });
+    act(() => map.emit("dragstart"));
+    expect(map.stop).not.toHaveBeenCalled();
     view.rerender(<MapView {...props} here={B} viewHeadingDegrees={50} />);
     expect(map.easeTo).toHaveBeenCalledTimes(1);
     expect(fake.markers[0]?.setLngLat).toHaveBeenLastCalledWith([B.longitude, B.latitude]);
