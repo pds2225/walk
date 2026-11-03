@@ -19,6 +19,7 @@ export default function AnalyticsAdmin() {
   const [busy, setBusy] = useState(false);
   const [query, setQuery] = useState("");
   async function load(params = "") {
+    setQuery(params);
     setBusy(true); setError(""); setData(null);
     try {
       const response = await fetch(`/api/admin/analytics?${params}`, { cache: "no-store" });
@@ -26,7 +27,7 @@ export default function AnalyticsAdmin() {
       if (response.status === 401) { setAuthenticated(false); return; }
       setAuthenticated(true);
       if (!response.ok) throw new Error(body.error ?? "조회 실패");
-      setData(body as Data); setQuery(params);
+      setData(body as Data);
     } catch (e) { setError(e instanceof Error ? e.message : "조회 실패"); }
     finally { setBusy(false); }
   }
@@ -52,7 +53,7 @@ export default function AnalyticsAdmin() {
   return <main className="analytics-admin">
     <header><div><p className="admin-eyebrow">WALK · 운영 분석</p><h1>이용 흐름과 수집 상태</h1><p>기록으로 확인되는 것만 표시합니다. 날짜는 한국시간 기준입니다.</p></div>
       {authenticated && <button onClick={async () => { await fetch("/api/admin/session", { method: "DELETE" }); setAuthenticated(false); setData(null); }}>로그아웃</button>}</header>
-    {error && <p className="admin-error" role="alert">{error} · 미수집·연결 오류를 0건으로 표시하지 않습니다.</p>}
+    {error && <div className="admin-error" role="alert"><p>{error} · 미수집·연결 오류를 0건으로 표시하지 않습니다.</p><button type="button" disabled={busy} onClick={() => { void load(query); }}>다시 시도</button></div>}
     {authenticated === false && <section className="admin-login"><h2>관리자 로그인</h2><p>허가된 관리자만 로그와 CSV에 접근할 수 있습니다.</p>
       <form onSubmit={login}><label>관리자 비밀번호<input name="password" type="password" autoComplete="current-password" required maxLength={512} /></label><button disabled={busy}>로그인</button></form></section>}
     {authenticated && <>

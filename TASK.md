@@ -18,6 +18,9 @@
 - DB 준비검증: PostgreSQL 호환 PGlite에서 원본이력/결측동의 보존·신규무동의GPS 차단·점포/nav_stop·traffic 제약·시장동의·anon 차단·구축identity 보호 8개 검사 PASS. pg_cron 실행/등록, 실제 Supabase SQL 적용·키 설정·운영DB 저장·실기기 USER_E2E는 미검증. 비용/운영변경 없음.
 - 독립 PR 안전검토: 인증·개인정보·DB분리·migration·집계 점검. 발견된 미리보기 오류수집 누락/identity 실패진단/합산페이지 상한 3건 수정, 재검토 material blocker0. 상세 실행/적용 경계는 `docs/analytics-operations.md`.
 - P1 KN-ANL-011~012/P2 KN-ANL-013 미구현 유지. 운영 E2E 종료 기준 미충족으로 Issue #200 완료/실사용 DONE 표시 금지. 이 변경은 검증 결과와 운영 blocker를 명시해 Draft PR로 제출하는 범위이며 병합·운영배포 금지.
+- 실사용 후속 요청(2026-11-03): 사용자 `실제사용`. 실제 Preview READY지만 연결 도구의 보호주소 접근은 read_protection_bypass 단계 403으로 거부됨. 보호 설정 변경/대체 자격증명 시도 없음. 로컬 실제 API에서 미인증 조회401·관리자 미설정503 확인(DB 대역/관리자 비밀 미사용).
+- 실사용 재현: 관리자 최초 조회의 일시 통신 실패를 1회 주입하면 authenticated=null로 남고, 복구 후에도 로그인·재시도 버튼이 없어 화면 내 재진입 불가. 최소 수정은 같은 진입점으로 다시 시도할 버튼 1개 추가. 운영 설정·DB·정상 인증 계약·기존 사용자 변경 보존.
+- 실사용 후속 결과: 실패한 조회 조건을 보존하는 재시도 버튼 추가. 관련 Vitest 3개 파일7개·web TypeScript·production build·diff 공백 검사 PASS, web ESLint 비교 신규오류0. 실제 로컬 production 서버에서 1회 통신 실패 후 재시도→실제 API401→로그인 복귀 확인(DB 대역·관리자 비밀 설정 없음). Preview403은 앱401과 구분하며 운영DB/현장 E2E는 여전히 미검증. 별도 안전검토 신규 지적0.
 
 ## WCM-LOCATION-WALKING-20261103 — 월드컵시장 위치·길찾기 오픈
 - 운영 배포 승인 후 정상 조회: 기존 k-navi ID prj_87r30cKYvuPS8oCu4ijAt34mrdqg, 도메인 k-navi-eight.vercel.app. 최근 main 배포는 CANCELED, 마지막 READY는 48c5a397. 과거 브랜치 전용 ignore 조건을 main 및 이번 release 브랜치에도 허용해 수정.
