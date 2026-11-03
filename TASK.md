@@ -1,5 +1,17 @@
 # K-Navi / 케이네비 — Active Development TASK
 
+## WCM-LOCATION-WALKING-20261103 — 월드컵시장 위치·길찾기 오픈
+- 운영 배포 승인 후 정상 조회: 기존 k-navi ID prj_87r30cKYvuPS8oCu4ijAt34mrdqg, 도메인 k-navi-eight.vercel.app. 최근 main 배포는 CANCELED, 마지막 READY는 48c5a397. 과거 브랜치 전용 ignore 조건을 main 및 이번 release 브랜치에도 허용해 수정.
+- 공간 체류 신규 API/DB/수집 설정은 이번 위치·길찾기 배포에 포함하지 않음. 운영 Supabase 자격증명 신규 설정·복사는 미실행.
+- 사용자 요청: 숨겨둔 내 위치와 점포 길찾기를 기존 경로 엔진으로 활성화. 범위는 /worldcup-market에 한정.
+- 기준: origin/main a467801. 별도 feat/worldcup-location-walking-20261103 worktree 사용. 기존 지도 수정 e3e4999와 원본 미추적 파일 보존.
+- 위치는 버튼의 일회 조회, 연속 GPS는 안내 시작 이후만 사용. 좌표 저장 동의·기존 목적지 좌표·API 키·외부 서비스 설정은 변경하지 않음.
+- 검증: 시장 화면·위치 동의·GPS lifecycle·안내 연결 회귀, TypeScript·lint·build 및 독립 브라우저. 주소 기반 건물 좌표와 개략도임을 표시.
+- 운영 반영: k-navi 서비스의 프로젝트·브랜치·권한을 확인한 뒤 정확한 반영 경로를 보고. PR 승인·병합이나 새 자격증명 발급은 수행하지 않음.
+- 로컬 검증 완료: 전체 Vitest 564/564, root/web TypeScript, ESLint, Next production build PASS. 독립 Chromium 151에서 합성 GPS·경로와 전송 차단으로 27개 점검 PASS. 실기기·실제 TMAP·운영 DB 저장은 미검증.
+- 배포 차단: 현재 Vercel 연결에서 k-navi 이름 및 기존 프로젝트 ID 조회 404. 연결된 팀 프로젝트 목록에도 해당 프로젝트가 없어 운영 반영 미실행. 시장 변경은 미커밋 별도 worktree에 보존.
+- 분석 확인만 수행: store_view·store_leave/dwell_sec·메뉴/주소 section_view 실제 발생 확인(전송 차단). nearby observer selector는 현재 DOM과 불일치. 분석 코드/수집 범위 변경 없음.
+
 > Repository: `pds2225/walk`  
 > Product name: **K-Navi / 케이네비**  
 > Canonical task SSOT: **`origin/main:TASK.md` only**  

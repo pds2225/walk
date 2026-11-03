@@ -1,6 +1,7 @@
 const WALK_PROJECT_ID = "prj_oAKXh05oilzBd9h5CeMw6gcppSuq";
 const WORLD_CUP_PROJECT_ID = "prj_87r30cKYvuPS8oCu4ijAt34mrdqg";
 const WORLD_CUP_BRANCH = "feat/worldcup-market-demo";
+const WORLD_CUP_RELEASE_BRANCH = "feat/worldcup-location-walking-20261103";
 
 const projectId = process.env.VERCEL_PROJECT_ID ?? "";
 const branch = process.env.VERCEL_GIT_COMMIT_REF ?? "";
@@ -10,7 +11,7 @@ let shouldBuild = false;
 if (projectId === WALK_PROJECT_ID) {
   shouldBuild = branch !== WORLD_CUP_BRANCH;
 } else if (projectId === WORLD_CUP_PROJECT_ID) {
-  shouldBuild = branch === WORLD_CUP_BRANCH;
+  shouldBuild = branch === "main" || branch === WORLD_CUP_BRANCH || branch === WORLD_CUP_RELEASE_BRANCH;
 }
 
 process.exit(shouldBuild ? 1 : 0);

@@ -312,6 +312,7 @@ export function getUiText(locale: Locale): UiText {
 }
 
 export interface WorldCupMarketUiText {
+  readonly walkingDestinationNotice: string;
   /** 상세 화면에서 값이 없는 항목을 한 줄로 모아 보여줄 때의 머리말. */
   readonly notConfirmedFields: string;
   readonly phone: string;
@@ -417,6 +418,7 @@ const WORLD_CUP_MARKET_UI: Record<Locale, WorldCupMarketUiText> = {
     nearbyTitle: "주변 점포",
     storefrontTitle: "점포 근처 거리 뷰",
     storefrontUnavailable: "사용 가능한 점포 근처 거리 뷰가 없습니다",
+    walkingDestinationNotice: "주소 기준 건물 주변까지 안내합니다. 점포 입구와 실내 위치는 현장에서 확인해 주세요.",
     storefrontFallback: "지도와 케이트립 도보안내는 계속 사용할 수 있습니다.",
     storefrontMapOnlyFallback: "지도에서 위치를 볼 수 있습니다. 도보안내 목적지는 미확인입니다.",
     storefrontMapFallback: "지도에서 점포 위치를 확인하세요.",
@@ -492,6 +494,7 @@ const WORLD_CUP_MARKET_UI: Record<Locale, WorldCupMarketUiText> = {
     nearbyTitle: "Nearby Shops",
     storefrontTitle: "Street View near this store",
     storefrontUnavailable: "Street View near this store is unavailable",
+    walkingDestinationNotice: "Directions lead to the building near the address. Please check the shop entrance and indoor location on site.",
     storefrontFallback: "You can still check the map and start the walking guide.",
     storefrontMapOnlyFallback: "The location is shown on the map. The walking destination still needs checking.",
     storefrontMapFallback: "Check the store location on the map.",
@@ -567,6 +570,7 @@ const WORLD_CUP_MARKET_UI: Record<Locale, WorldCupMarketUiText> = {
     nearbyTitle: "周辺の店舗",
     storefrontTitle: "店舗付近のストリートビュー",
     storefrontUnavailable: "利用できる店舗付近のストリートビューがありません",
+    walkingDestinationNotice: "住所を基に建物付近まで案内します。店舗の入口や屋内の位置は現地でご確認ください。",
     storefrontFallback: "地図とK-Tripの徒歩案内は引き続き使えます。",
     storefrontMapOnlyFallback: "地図で位置を確認できます。徒歩案内の目的地は要確認です。",
     storefrontMapFallback: "地図で店舗の位置を確認できます。",
@@ -642,6 +646,7 @@ const WORLD_CUP_MARKET_UI: Record<Locale, WorldCupMarketUiText> = {
     nearbyTitle: "附近店铺",
     storefrontTitle: "店铺附近的街景",
     storefrontUnavailable: "没有可用的店铺附近街景",
+    walkingDestinationNotice: "导航前往地址附近的建筑物。店铺入口及室内位置请在现场确认。",
     storefrontFallback: "仍可查看地图并开始步行导航。",
     storefrontMapOnlyFallback: "可以在地图上查看位置。步行导航目的地仍需确认。",
     storefrontMapFallback: "请在地图上查看店铺位置。",
