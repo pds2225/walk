@@ -7,10 +7,18 @@
 - 기준: origin/main a467801. 별도 feat/worldcup-location-walking-20261103 worktree 사용. 기존 지도 수정 e3e4999와 원본 미추적 파일 보존.
 - 위치는 버튼의 일회 조회, 연속 GPS는 안내 시작 이후만 사용. 좌표 저장 동의·기존 목적지 좌표·API 키·외부 서비스 설정은 변경하지 않음.
 - 검증: 시장 화면·위치 동의·GPS lifecycle·안내 연결 회귀, TypeScript·lint·build 및 독립 브라우저. 주소 기반 건물 좌표와 개략도임을 표시.
-- 운영 반영: k-navi 서비스의 프로젝트·브랜치·권한을 확인한 뒤 정확한 반영 경로를 보고. PR 승인·병합이나 새 자격증명 발급은 수행하지 않음.
+- 운영 반영: 이후 사용자 운영 배포 승인에 따라 검증된 기존 k-navi/main 대상으로 반영 진행. PR approve·보호규칙 우회·새 자격증명 발급은 수행하지 않음.
 - 로컬 검증 완료: 전체 Vitest 564/564, root/web TypeScript, ESLint, Next production build PASS. 독립 Chromium 151에서 합성 GPS·경로와 전송 차단으로 27개 점검 PASS. 실기기·실제 TMAP·운영 DB 저장은 미검증.
-- 배포 차단: 현재 Vercel 연결에서 k-navi 이름 및 기존 프로젝트 ID 조회 404. 연결된 팀 프로젝트 목록에도 해당 프로젝트가 없어 운영 반영 미실행. 시장 변경은 미커밋 별도 worktree에 보존.
+- 접근 진단: 같은 커넥터에서 teamId를 명시하면 대상이 누락되지만 생략하면 동일 프로젝트 ID 조회 정상. 자격증명 전환 없이 기존 대상 확인 완료. 기준 main 90cb6c9 통합 시 TASK의 두 작업 항목을 모두 보존.
 - 분석 확인만 수행: store_view·store_leave/dwell_sec·메뉴/주소 section_view 실제 발생 확인(전송 차단). nearby observer selector는 현재 DOM과 불일치. 분석 코드/수집 범위 변경 없음.
+
+## WALK-MAP-ZOOM-20261102 — Android 지도 핀치와 줌 버튼
+- 사용자 승인 범위: 주 지도에 접근성 있는 +/− 버튼 추가, 두 손가락 핀치 축소 복구. 더블 탭 확대·한 손가락 이동 유지. 새 드래그 줌·배포·병합 금지.
+- 기준 main: a46780124c580ffd8570dee4b6c98976f037e530. 샌드박스의 원본 경로 접근 제한은 정식 승인 실행으로 해결. 원본 pds2225/walk remote와 동일 main SHA 확인, 기존 미추적 파일 보존.
+- 진단: MapView의 입력 리스너가 MapLibre stop()을 호출해 활성 제스처 핸들러까지 초기화할 수 있음. 정확한 사용자 페이지·브라우저/WebView는 미확정이며 다른 지도에는 적용하지 않음.
+- 수정: MapView 입력 리스너의 stop() 제거(최초 입력에서 GPS follow 정지는 유지), 기본 NavigationControl의 +/− 및 한국어 접근성 이름, 44px 터치 영역. 새 제스처 추가 없음.
+- 검증: 독립 headless Chromium 151(390×844), lockfile 동일 MapLibre 5.24.0/React 19.2.8. 원본 핀치 in/out 모두 17 고정 재현, 수정 후 in 17→15.20/out 15.20→16.88. +/-·키보드·44px·명시 min/max·화면 바닥값·더블 탭·한 손가락 pan·카메라 이동 중 핀치 총 14개 PASS. MapLibre 5.9에서도 핀치 전후 확인. React 기존 카메라 회귀 2개 및 변경 MapView TypeScript 검사 PASS.
+- 상태: 사용자 요청에 따라 별도 브랜치 로컬 커밋만 준비. 전체 앱 lint/build/테스트·Android 실기기·운영 USER_E2E 미검증. 배포·push·PR·병합 없음. 정확한 사용자 페이지·브라우저 확인 필요.
 
 > Repository: `pds2225/walk`  
 > Product name: **K-Navi / 케이네비**  
