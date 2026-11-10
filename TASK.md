@@ -1,3 +1,9 @@
+## KN-POC-AGGREGATE-20261110 — PoC 개인정보 보호형 점포 집계 API
+- 사용자 후속 요청: 방문객별 GPS 원본 조회와 분리된 집계 전용 API 추가. 기존 public.events의 store_view만 사용하고 신규 DB/마이그레이션 없음.
+- GET /api/v1/poc/store-aggregates: 24시간 이하 조회, Bearer 인증, 기본 비활성, 점포별 고유 방문자수·이벤트수. visitor_id는 서버 내부 중복 제거에만 사용하며 외부 미반환. 5명 미만 그룹 숨김.
+- 최대 5000행 전수 수집 제한; 초과하면 부분집계 반환 없이 422 처리. 실시간 현재 방문객/실측 체류·GPS 동선으로 해석 금지.
+- 프리뷰 테스트·CI 및 운영 데이터 실조회 미확정. 운영 환경변수 활성화·병합·배포 금지.
+
 ## KN-POC-LOCATION-READ-20261110 — 월드컵시장 위치기록 읽기 전용 PoC API
 - 사용자 요청: 상대 PoC 서버가 K-Navi의 동의된 위치기록을 조회할 수 있도록 최소 API 추가. 기존 데이터/수집/보관 정책 변경 금지.
 - 범위: GET /api/v1/poc/location-records, public.events의 app=worldcup-market 및 geo_consent=true 및 좌표 존재 기록만; UTC 기간 제한, 제한된 페이징, 방문객 필터, 비밀값 서버간 Bearer 인증.
