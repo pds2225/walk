@@ -1,3 +1,10 @@
+## KN-POC-LOCATION-READ-20261110 — 월드컵시장 위치기록 읽기 전용 PoC API
+- 사용자 요청: 상대 PoC 서버가 K-Navi의 동의된 위치기록을 조회할 수 있도록 최소 API 추가. 기존 데이터/수집/보관 정책 변경 금지.
+- 범위: GET /api/v1/poc/location-records, public.events의 app=worldcup-market 및 geo_consent=true 및 좌표 존재 기록만; UTC 기간 제한, 제한된 페이징, 방문객 필터, 비밀값 서버간 Bearer 인증.
+- 기본 비활성: POC_LOCATION_API_ENABLED=true 설정 전 503. POC_LOCATION_API_KEY 미설정 시 503. 별도 동의/제3자 제공 적법성 확인 후에만 운영 활성화.
+- 운영 배포 및 실데이터 조회는 미승인/미검증. main 병합 금지. 기존 Supabase service key 재사용, 새 DB/마이그레이션 없음.
+- 검증: 무인증/잘못된 인증, 미설정, 날짜·범위·limit, Supabase 오류, 필터·응답·데이터 최소화, 기존 track 회귀, 타입·빌드.
+
 # K-Navi / 케이네비 — Active Development TASK
 
 ## WCM-LOCATION-WALKING-20261103 — 월드컵시장 위치·길찾기 오픈
