@@ -1,7 +1,7 @@
 /** Read-only, explicitly enabled PoC export of consented World Cup Market location events. */
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
-import { supabaseConfig } from "../../../../lib/qrScan";
+import { supabaseConfig } from "../../../../../lib/qrScan";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
