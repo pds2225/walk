@@ -29,7 +29,8 @@ describe("GET /api/v1/poc/store-aggregates", () => {
 
   it("rejects unsupported filters and invalid windows", async () => {
     for (const q of ["", "?from=bad&to=bad", `?from=${from}&to=${to}&visitor_id=abc`,
-      "?from=2026-11-09T00:00:00Z&to=2026-11-11T00:00:00Z",\n      "?from=2026-11-09T00:00:00Z&to=2026-11-09T12:00:00Z"]) {
+      "?from=2026-11-09T00:00:00Z&to=2026-11-11T00:00:00Z",
+      "?from=2026-11-09T00:00:00Z&to=2026-11-09T12:00:00Z"]) {
       expect((await call(q)).status).toBe(400);
     }
     expect(fetchMock).not.toHaveBeenCalled();
