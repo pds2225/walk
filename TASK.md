@@ -1,3 +1,10 @@
+## KN-POC-EXTERNAL-AGGREGATE-ONLY-20261110 — 외부 PoC 제공 범위 확정
+- 최신 사용자 지시: 방문객별 GPS 원본 제공 제외, 익명 점포 집계만 외부 API 제공. 기존 위치 원본 조회 route 및 테스트는 작업 브랜치에서 삭제(원래 main에는 없음).
+- 기존 위치 수집 동의·처리방침은 서비스 개선용 통계 분석만 명시, 외부 업체에 개인별 좌표를 제공하는 동의 근거 확인되지 않음.
+- 집계 API: 완료된 UTC 날짜(00:00~익일 00:00)만, 점포별 고유 방문자 5명 미만 미노출, 숫자 5단위 절사, 5000 이벤트 초과 전체 실패.
+- 문서: docs/poc-store-aggregates-api.md. 실측 방문객 수와 다르게 웹 store_view 이벤트 기반 지표임.
+- PR CI·Vercel 통과 후 병합/운영 반영 검토. 운영 Vercel 프로젝트 접근 권한 및 서버 키 미확인 시 API 실사용 미완료 명시. 기존 DB·GPS 수집 변경 없음.
+
 ## KN-POC-AGGREGATE-20261110 — PoC 개인정보 보호형 점포 집계 API
 - 사용자 후속 요청: 방문객별 GPS 원본 조회와 분리된 집계 전용 API 추가. 기존 public.events의 store_view만 사용하고 신규 DB/마이그레이션 없음.
 - GET /api/v1/poc/store-aggregates: 24시간 이하 조회, Bearer 인증, 기본 비활성, 점포별 고유 방문자수·이벤트수. visitor_id는 서버 내부 중복 제거에만 사용하며 외부 미반환. 5명 미만 그룹 숨김.
