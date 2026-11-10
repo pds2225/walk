@@ -43,8 +43,8 @@ export async function GET(request: Request) {
   const from = params.get("from"), to = params.get("to");
   if (!from || !to || !ISO_RE.test(from) || !ISO_RE.test(to)) return json({ error: "ISO 8601 from/to required" }, 400);
   const start = Date.parse(from), end = Date.parse(to);
-  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start || end - start > MAX_WINDOW_MS || end > Date.now() + 60_000) {
-    return json({ error: "invalid time window (max 24 hours)" }, 400);
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end - start !== DAY_MS || start % DAY_MS !== 0 || end > Math.floor(Date.now() / DAY_MS) * DAY_MS) {
+    return json({ error: "only completed UTC calendar days are supported" }, 400);
   }
   if ([...params.keys()].some(k => k !== "from" && k !== "to")) return json({ error: "unsupported filter" }, 400);
 
