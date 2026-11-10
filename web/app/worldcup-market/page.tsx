@@ -5,6 +5,7 @@ import "../worldcup-market-mobile-overrides.css";
 import "../worldcup-market-streetview.css";
 import { useRef, useCallback, useEffect, useState } from "react";
 import DestinationWalk from "../../components/DestinationWalk";
+import AihowsLocationConsent from "../../components/AihowsLocationConsent";
 import { track } from "../../lib/track";
 import WorldCupMarketDemo from "../../components/WorldCupMarketDemo";
 import { getServiceMetadata, type Locale } from "../../lib/i18n";
@@ -71,6 +72,7 @@ export default function WorldCupMarketDemoPage() {
   return (
     <main>
       <WorldCupMarketDemo locale={locale} onLocaleChange={changeLocale} onStartWalking={startWalking} />
+      <AihowsLocationConsent />
     </main>
   );
 }
