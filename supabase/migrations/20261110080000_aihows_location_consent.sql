@@ -31,7 +31,7 @@ create or replace view public.aihows_shareable_location_events
 with (security_barrier = true)
 as
 select e.id, e.created_at, e.event, e.visitor_id, e.session_id, e.store_id,
-       e.lat, e.lng, e.accuracy_m
+       e.lat, e.lng, e.accuracy_m, c.recipient_legal_name, c.notice_version
 from public.events e
 join public.aihows_location_consents c on c.visitor_id = e.visitor_id
 where e.app = 'worldcup-market'
