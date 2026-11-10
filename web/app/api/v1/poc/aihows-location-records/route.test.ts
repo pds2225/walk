@@ -23,7 +23,7 @@ describe("AIHows GPS consent-gated export", () => {
   });
   it("only queries the consent-gated view with recipient and notice filters", async () => {
     expect((await call()).status).toBe(200);
-    const u = new URL(fetchMock.mock.calls[0][0]);
+    const u = new URL(fetchMock.mock.calls[0]![0]);
     expect(u.pathname).toBe("/rest/v1/aihows_shareable_location_events");
     expect(u.searchParams.get("recipient_legal_name")).toBe("eq.AIHows Verified Corporation");
     expect(u.searchParams.get("notice_version")).toBe("eq.aihows-poc-2026-11-v1");
