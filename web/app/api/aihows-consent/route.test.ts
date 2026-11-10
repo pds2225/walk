@@ -30,19 +30,19 @@ describe("AIHows third-party consent", () => {
   it("records separate consent and an audit entry using the server cookie", async () => {
     expect((await post("grant")).status).toBe(200);
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    const row = JSON.parse(fetchMock.mock.calls[0][1].body);
+    const row = JSON.parse(fetchMock.mock.calls[0]![1].body);
     expect(row.visitor_id).toBe("visitor-00000001");
     expect(row.notice_version).toBe("aihows-poc-2026-11-v1");
     expect(row.granted_at).toBeTruthy();
     expect(row.revoked_at).toBeNull();
-    expect(fetchMock.mock.calls[1][0]).toContain("aihows_location_consent_audit");
+    expect(fetchMock.mock.calls[1]![0]).toContain("aihows_location_consent_audit");
   });
   it("revokes consent and logs the action", async () => {
     expect((await post("revoke")).status).toBe(200);
-    const row = JSON.parse(fetchMock.mock.calls[0][1].body);
+    const row = JSON.parse(fetchMock.mock.calls[0]![1].body);
     expect(row.granted_at).toBeNull();
     expect(row.revoked_at).toBeTruthy();
-    expect(JSON.parse(fetchMock.mock.calls[1][1].body).action).toBe("revoke");
+    expect(JSON.parse(fetchMock.mock.calls[1]![1].body).action).toBe("revoke");
   });
   it("fails closed when the DB is not available", async () => {
     fetchMock.mockResolvedValueOnce(new Response("error", { status: 500 }));
