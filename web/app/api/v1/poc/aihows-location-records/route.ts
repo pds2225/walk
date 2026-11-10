@@ -29,6 +29,8 @@ export async function GET(request: Request) {
   if (!/^\d{1,3}$/.test(limitRaw) || Number(limitRaw) < 1 || Number(limitRaw) > 100) return json({ error: "invalid limit" }, 400);
   const url = new URL(db.url + "/rest/v1/aihows_shareable_location_events");
   url.searchParams.set("select", "created_at,event,visitor_id,store_id,lat,lng,accuracy_m");
+  url.searchParams.set("recipient_legal_name", "eq." + legalName);
+  url.searchParams.set("notice_version", "eq.aihows-poc-2026-11-v1");
   url.searchParams.append("created_at", "gte." + new Date(start).toISOString());
   url.searchParams.append("created_at", "lt." + new Date(end).toISOString());
   url.searchParams.set("order", "created_at.asc");
