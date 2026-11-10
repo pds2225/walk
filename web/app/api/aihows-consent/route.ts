@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
-import { supabaseConfig, VISITOR_COOKIE } from "../../../../lib/qrScan";
+import { supabaseConfig, VISITOR_COOKIE } from "../../../lib/qrScan";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
