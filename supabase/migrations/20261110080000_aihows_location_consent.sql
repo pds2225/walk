@@ -40,6 +40,15 @@ where e.app = 'worldcup-market'
   and c.granted_at is not null
   and c.revoked_at is null
   and e.created_at > c.granted_at
+  -- A consent-state write alone is insufficient: require its successful grant audit.
+  -- This also prevents disclosure during a state-written/audit-pending interval.
+  and exists (
+    select 1 from public.aihows_location_consent_audit a
+    where a.visitor_id = c.visitor_id
+      and a.action = 'grant'
+      and a.notice_version = c.notice_version
+      and a.recorded_at >= c.granted_at
+  )
   and e.created_at >= now() - interval '365 days';
 revoke all on public.aihows_shareable_location_events from public, anon, authenticated;
 grant select on public.aihows_shareable_location_events to service_role;
