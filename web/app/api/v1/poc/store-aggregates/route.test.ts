@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GET } from "./route";
 
 const base = "https://k-navi.vercel.app/api/v1/poc/store-aggregates";
-const from = "2026-11-10T00:00:00Z", to = "2026-11-10T01:00:00Z";
+const from = "2026-11-09T00:00:00Z", to = "2026-11-10T00:00:00Z";
 const call = (q = `?from=${from}&to=${to}`, authorization = "Bearer test-key") =>
   GET(new Request(base + q, { headers: { authorization } }));
 
@@ -29,7 +29,7 @@ describe("GET /api/v1/poc/store-aggregates", () => {
 
   it("rejects unsupported filters and invalid windows", async () => {
     for (const q of ["", "?from=bad&to=bad", `?from=${from}&to=${to}&visitor_id=abc`,
-      "?from=2026-11-10T00:00:00Z&to=2026-11-12T00:00:00Z"]) {
+      "?from=2026-11-09T00:00:00Z&to=2026-11-11T00:00:00Z",\n      "?from=2026-11-09T00:00:00Z&to=2026-11-09T12:00:00Z"]) {
       expect((await call(q)).status).toBe(400);
     }
     expect(fetchMock).not.toHaveBeenCalled();
@@ -45,7 +45,7 @@ describe("GET /api/v1/poc/store-aggregates", () => {
     const res = await call();
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.stores).toEqual([{ store_id: "worldcup-market-01", unique_qr_or_web_visitors: 5, store_view_events: 6 }]);
+    expect(body.stores).toEqual([{ store_id: "worldcup-market-01", unique_qr_or_web_visitors: 5, store_view_events: 5 }]);
     expect(JSON.stringify(body)).not.toContain("visitor-00000");
     expect(JSON.stringify(body)).not.toContain("lat");
     const [url, init] = fetchMock.mock.calls[0]!;
