@@ -7,7 +7,8 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const ISO_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/;
-const MAX_WINDOW_MS = 24 * 60 * 60 * 1000;\nconst DAY_MS = MAX_WINDOW_MS;
+const MAX_WINDOW_MS = 24 * 60 * 60 * 1000;
+const DAY_MS = MAX_WINDOW_MS;
 const PAGE_SIZE = 1000;
 const MAX_ROWS = 5000;
 const MIN_VISITORS = 5;
