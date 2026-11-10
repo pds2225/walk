@@ -7,7 +7,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const ISO_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/;
-const MAX_WINDOW_MS = 24 * 60 * 60 * 1000;
+const MAX_WINDOW_MS = 24 * 60 * 60 * 1000;\nconst DAY_MS = MAX_WINDOW_MS;
 const PAGE_SIZE = 1000;
 const MAX_ROWS = 5000;
 const MIN_VISITORS = 5;
@@ -80,7 +80,7 @@ export async function GET(request: Request) {
     }
     const stores = [...grouped.entries()]
       .filter(([, item]) => item.visitors.size >= MIN_VISITORS)
-      .map(([store_id, item]) => ({ store_id, unique_qr_or_web_visitors: item.visitors.size, store_view_events: item.count }))
+      .map(([store_id, item]) => ({ store_id, unique_qr_or_web_visitors: Math.floor(item.visitors.size / MIN_VISITORS) * MIN_VISITORS, store_view_events: Math.floor(item.count / MIN_VISITORS) * MIN_VISITORS }))
       .sort((a, b) => a.store_id.localeCompare(b.store_id));
     return json({ from: new Date(start).toISOString(), to: new Date(end).toISOString(), metric: "store_view", minimum_group_size: MIN_VISITORS, stores });
   } catch {
