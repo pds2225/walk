@@ -1,13 +1,16 @@
+import { createHmac } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GET, POST } from "./route";
 let fetchMock: ReturnType<typeof vi.fn>;
 const url = "https://k-navi.vercel.app/api/aihows-consent";
-const post = (action: string, cookie = "ktrip_vid=visitor-00000001", origin = "https://k-navi.vercel.app") => POST(new Request(url, {
+const signature = createHmac("sha256", "test-signing-key-longer-than-32-chars-12345").update("visitor-00000001").digest("hex");
+const post = (action: string, cookie = `ktrip_vid=visitor-00000001; aihows_vid_sig=${signature}`, origin = "https://k-navi.vercel.app") => POST(new Request(url, {
   method: "POST", headers: { "content-type": "application/json", cookie, origin },
   body: JSON.stringify({ action, notice_version: "aihows-poc-2026-11-v1" }),
 }));
 beforeEach(() => {
   vi.stubEnv("AIHOWS_LEGAL_NAME", "AIHows Verified Corporation");
+  vi.stubEnv("AIHOWS_CONSENT_SIGNING_KEY", "test-signing-key-longer-than-32-chars-12345");
   vi.stubEnv("SUPABASE_URL", "https://example.supabase.co");
   vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "sb_secret_test");
   fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 201 }));
@@ -45,8 +48,13 @@ describe("AIHows third-party consent", () => {
     fetchMock.mockResolvedValueOnce(new Response("error", { status: 500 }));
     expect((await post("grant")).status).toBe(503);
   });
-  it("GET does not invent consent without a cookie", async () => {
+  it("GET issues a new signed visitor identity rather than trusting an unsigned cookie", async () => {
     const r = await GET(new Request(url));
     expect((await r.json()).consented).toBe(false);
+    expect(r.headers.get("set-cookie")).toContain("ktrip_vid=");
+    expect(r.headers.get("set-cookie")).toContain("aihows_vid_sig=");
+  });
+  it("rejects unsigned visitor consent attempts", async () => {
+    expect((await post("grant", "ktrip_vid=visitor-00000001")).status).toBe(400);
   });
 });
