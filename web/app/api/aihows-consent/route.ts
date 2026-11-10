@@ -1,3 +1,4 @@
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { supabaseConfig, VISITOR_COOKIE } from "../../../../lib/qrScan";
 
@@ -5,11 +6,20 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 const VERSION = "aihows-poc-2026-11-v1";
 const ID_RE = /^[A-Za-z0-9-]{8,64}$/;
+const SIG_COOKIE = "aihows_vid_sig";
 const headers = (key: string) => ({ apikey: key, ...(key.startsWith("eyJ") ? { authorization: "Bearer " + key } : {}), "content-type": "application/json" });
 const json = (body: object, status = 200) => NextResponse.json(body, { status, headers: { "cache-control": "no-store" } });
 function visitor(request: Request) {
   const raw = request.headers.get("cookie")?.split(";").map(s => s.trim()).find(s => s.startsWith(VISITOR_COOKIE + "="))?.slice(VISITOR_COOKIE.length + 1);
   return raw && ID_RE.test(raw) ? raw : null;
+}
+function sign(id: string, secret: string) { return createHmac("sha256", secret).update(id).digest("hex"); }
+function verifiedVisitor(request: Request, secret: string) {
+  const id = visitor(request);
+  const signature = request.headers.get("cookie")?.split(";").map(s => s.trim()).find(s => s.startsWith(SIG_COOKIE + "="))?.slice(SIG_COOKIE.length + 1);
+  if (!id || !signature || !/^[a-f0-9]{64}$/.test(signature)) return null;
+  const actual = Buffer.from(signature, "hex"), expected = Buffer.from(sign(id, secret), "hex");
+  return timingSafeEqual(actual, expected) ? id : null;
 }
 function configured() {
   const legalName = process.env.AIHOWS_LEGAL_NAME?.trim();
@@ -18,9 +28,17 @@ function configured() {
 export async function GET(request: Request) {
   const legalName = configured();
   const db = supabaseConfig();
-  const id = visitor(request);
-  if (!legalName || !db) return json({ available: false, consented: false, notice_version: VERSION });
-  if (!id) return json({ available: true, consented: false, recipient: legalName, notice_version: VERSION });
+  const secret = process.env.AIHOWS_CONSENT_SIGNING_KEY;
+  const id = secret ? verifiedVisitor(request, secret) : null;
+  if (!legalName || !db || !secret || secret.length < 32) return json({ available: false, consented: false, notice_version: VERSION });
+  if (!id) {
+    const nextId = crypto.randomUUID();
+    const response = json({ available: true, consented: false, recipient: legalName, notice_version: VERSION });
+    const secure = new URL(request.url).protocol === "https:";
+    response.cookies.set(VISITOR_COOKIE, nextId, { httpOnly: true, secure, sameSite: "lax", path: "/", maxAge: 365 * 86400 });
+    response.cookies.set(SIG_COOKIE, sign(nextId, secret), { httpOnly: true, secure, sameSite: "lax", path: "/api/aihows-consent", maxAge: 365 * 86400 });
+    return response;
+  }
   try {
     const u = new URL(db.url + "/rest/v1/aihows_location_consents");
     u.searchParams.set("select", "granted_at,revoked_at,notice_version,recipient_legal_name");
@@ -37,7 +55,8 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const db = supabaseConfig();
   const legalName = configured();
-  if (!db || !legalName) return json({ error: "not configured" }, 503);
+  const secret = process.env.AIHOWS_CONSENT_SIGNING_KEY;
+  if (!db || !legalName || !secret || secret.length < 32) return json({ error: "not configured" }, 503);
   const origin = request.headers.get("origin");
   if (origin && origin !== new URL(request.url).origin) return json({ error: "origin mismatch" }, 403);
   const contentType = request.headers.get("content-type") ?? "";
@@ -48,7 +67,7 @@ export async function POST(request: Request) {
   try { ({ action, notice_version: noticeVersion } = JSON.parse(raw)); } catch { return json({ error: "invalid JSON" }, 400); }
   if (action !== "grant" && action !== "revoke") return json({ error: "invalid action" }, 400);
   if (action === "grant" && noticeVersion !== VERSION) return json({ error: "notice version mismatch" }, 400);
-  const id = visitor(request) ?? (action === "grant" ? crypto.randomUUID() : null);
+  const id = verifiedVisitor(request, secret);
   if (!id) return json({ error: "no visitor consent" }, 400);
   try {
     const now = new Date().toISOString();
@@ -66,7 +85,6 @@ export async function POST(request: Request) {
       return json({ error: "audit unavailable" }, 503);
     }
     const response = json({ ok: true, consented: action === "grant" });
-    if (action === "grant" && !visitor(request)) response.cookies.set(VISITOR_COOKIE, id, { httpOnly: true, secure: new URL(request.url).protocol === "https:", sameSite: "lax", path: "/", maxAge: 365 * 86400 });
     return response;
   } catch { return json({ error: "storage unavailable" }, 503); }
 }
