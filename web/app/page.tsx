@@ -6,6 +6,7 @@ import { getCurrentPositionOnce,
   getSearchCenterOnce, isDeviationFixReliable, isSearchCenterFresh, SEARCH_ORIGIN_MAX_AGE_MS, useCompass, useSmoothedFix, useWatchPosition } from "../lib/useGeolocation";
 import type { Fix } from "../lib/useGeolocation";
 import { useNavigation } from "../lib/useNavigation";
+import WalkTimeReadout from "../components/WalkTimeReadout";
 import type { Coordinate, PlaceHit, RouteResponse } from "../lib/types";
 import { getServiceMetadata, getUiText, LOCALE_OPTIONS, type Locale } from "../lib/i18n";
 import { primeSpeech } from "../lib/voice";
@@ -530,6 +531,7 @@ export default function Home() {
           <strong>{ui.previewRoute}</strong>
           <span>{ui.startPointLabel}: {selectedOrigin?.name} → {dest?.name}</span>
           <span>{ui.previewNotice}</span>
+          <WalkTimeReadout locale={locale} phase="preview" totalSeconds={routeResponse.totalSeconds} totalDistanceMeters={routeResponse.totalDistanceMeters} />
         </div>
         <MapView
           route={routeResponse.route}
@@ -583,6 +585,7 @@ export default function Home() {
               : ""}
           </span>
           <span className="direction-readout" aria-label={ui.directionStatus}>{directionReadout}</span>
+          <WalkTimeReadout locale={locale} phase={phase} totalSeconds={routeResponse.totalSeconds} totalDistanceMeters={routeResponse.totalDistanceMeters} remainingMeters={nav.remainingMeters} />
         </div>
 
         <MapView
