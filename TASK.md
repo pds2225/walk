@@ -1,5 +1,16 @@
 # K-Navi / 케이네비 — Active Development TASK
 
+## WALK-TIME-20261112 — 도보 예상·실제·도착 후 시간 표시
+- 요청: WALK 웹과 월드컵시장 길찾기에서 예상 이동시간, 실제 이동시간, 도착 후 경과시간 세 가지를 표시.
+- 기준: main의 `RouteResponse.totalSeconds`/`totalDistanceMeters`, `useNavigation.remainingMeters`, 기존 arrival 상태 재사용. API/DB/원본 GPS/분석 추적·동의 정책은 변경하지 않음.
+- 설계: 출발 후 실제 경과시간은 재탐색 시 초기화하지 않음. 도착에서 값 고정, 도착 후 경과는 화면이 살아 있는 동안만 참고값으로 표시(실제 물리적 점포 체류로 오인 금지). 시간 정보가 없으면 허위 추정 대신 미확인.
+- 적용: `web/app/page.tsx`, `web/components/DestinationWalk.tsx`, 공통 시간 표시 컴포넌트 및 관련 테스트.
+- 검증: 예측/남은시간/결측/재탐색/도착/리셋과 기존 GPS 라이프사이클 회귀; GitHub Actions 검사. 실외 GPS/실서비스 배포 미검증은 별도 보고.
+- 브랜치: `feat/walk-travel-time-20261112`, PR #203. 사용자의 2026-11-12 명시적 병합 요청에 따라 자동검증 PASS·충돌/미해결 리뷰 0건 확인 후 main 병합 대상으로 승인. 병합 전 상태는 코드 검증 완료.
+- 코드 검증(커밋 `a6669aeb`): GitHub Actions `test`/`docs-gate` PASS. 테스트·Lint·root/web TypeScript·route-engine 및 Next.js 빌드 PASS. Vercel `walk` Preview READY, `k-navi` 빌드 CANCELED(별도 프로젝트).
+- 브라우저 미리보기: 메인 페이지 로드와 목적지 검색 정상. GPS 권한을 얻을 수 없어 실제 경로 API 이동시간/도착 후 경과 USER_E2E는 미검증. 실기기 현장 보행 미실행. 본 TASK는 CODE_VERIFIED / FIELD_BEHAVIOR_UNVERIFIED이며 기능은 PR 병합 가능 판정. 운영 배포 상태는 병합 후 별도 확인.
+
+
 ## WCM-LOCATION-WALKING-20261103 — 월드컵시장 위치·길찾기 오픈
 - 운영 배포 승인 후 정상 조회: 기존 k-navi ID prj_87r30cKYvuPS8oCu4ijAt34mrdqg, 도메인 k-navi-eight.vercel.app. 최근 main 배포는 CANCELED, 마지막 READY는 48c5a397. 과거 브랜치 전용 ignore 조건을 main 및 이번 release 브랜치에도 허용해 수정.
 - 공간 체류 신규 API/DB/수집 설정은 이번 위치·길찾기 배포에 포함하지 않음. 운영 Supabase 자격증명 신규 설정·복사는 미실행.
@@ -104,6 +115,12 @@
 - 상태: 작업 브랜치 구현 및 자동 검증 완료. 모바일 브라우저 실사용 E2E·운영 배포는 미검증/미반영. PR은 Draft 유지하고 병합하지 않았다.
 
 # GLOBAL DEFAULT GUARDRAILS — 모든 TASK 기본 안전장치
+
+### 검증 방식 최신 사용자 정책 (2026-11-12)
+- 실기기(Android/iOS, 현장 GPS) 검증은 **기본 제외**. 특별히 요청한 작업에서만 수행하며 실기기 미검증만으로 코드 병합을 보류하지 않음.
+- 코드 직접테스트·영향 회귀·타입검사·빌드 및 가능한 PC 브라우저/모바일 에뮬레이션 자동 E2E를 기본으로 하며, 실제 GPS 정확도/현장 동작 등 직접 확인하지 못한 운영 성능은 미검증으로 보고.
+- 기존 개인정보·DB·외부 API·운영 배포의 위험 게이트 및 사용자 직접 승인 요구는 그대로 유지.
+
 
 > 아래 규칙은 이 저장소의 **모든 현재/미래 TASK와 실행 프롬프트에 자동 적용**한다.
 > 새 TASK마다 같은 문구를 반복 복사할 필요는 없다.

@@ -321,6 +321,7 @@ describe("TEST I — 출발지 변경은 숨겨진 보조 기능이며 수동 �
     expect(mockGetCurrentPosition).not.toHaveBeenCalled();
     expect(mockWatchPosition).not.toHaveBeenCalled();
     expect(screen.getByTestId("map-view")).toBeTruthy();
+    expect(screen.getByRole("timer").textContent).toContain("예상 이동: 약 3분");
   });
 
   it("미리보기에서 현재 위치 안내 시작 시 GPS로 다시 경로를 계산한다", async () => {
@@ -375,6 +376,8 @@ describe("TEST B — '걷기' 클릭에서만 원샷 위치 조회, 성공해야
     expect(mockGetCurrentPosition).toHaveBeenCalledTimes(1);
     expect(routeCallCount()).toBe(1);
     expect(mockWatchPosition).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("timer").textContent).toContain("예상 이동: 약 3분");
+    expect(screen.getByRole("timer").textContent).toContain("이동 경과: 0:00");
   });
 
   it("iOS 나침반 권한은 위치 조회보다 먼저 사용자 제스처 안에서 요청한다", async () => {
