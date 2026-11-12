@@ -6,7 +6,9 @@
 - 설계: 출발 후 실제 경과시간은 재탐색 시 초기화하지 않음. 도착에서 값 고정, 도착 후 경과는 화면이 살아 있는 동안만 참고값으로 표시(실제 물리적 점포 체류로 오인 금지). 시간 정보가 없으면 허위 추정 대신 미확인.
 - 적용: `web/app/page.tsx`, `web/components/DestinationWalk.tsx`, 공통 시간 표시 컴포넌트 및 관련 테스트.
 - 검증: 예측/남은시간/결측/재탐색/도착/리셋과 기존 GPS 라이프사이클 회귀; GitHub Actions 검사. 실외 GPS/실서비스 배포 미검증은 별도 보고.
-- 브랜치: `feat/walk-travel-time-20261112`. main 직접 push/병합 또는 운영 배포 없음. 진행상태: 구현 중.
+- 브랜치: `feat/walk-travel-time-20261112`, Draft PR #203. main 직접 push/병합 또는 운영 배포 없음.
+- 코드 검증(커밋 `a6669aeb`): GitHub Actions `test`/`docs-gate` PASS. 테스트·Lint·root/web TypeScript·route-engine 및 Next.js 빌드 PASS. Vercel `walk` Preview READY, `k-navi` 빌드 CANCELED(별도 프로젝트).
+- 브라우저 미리보기: 메인 페이지 로드와 목적지 검색 정상. GPS 권한을 얻을 수 없어 실제 경로 API 이동시간/도착 후 경과 USER_E2E는 미검증. 운영 배포·실기기 현장 보행 미실행. 본 TASK는 CODE_VERIFIED / USER_E2E_PENDING.
 
 
 ## WCM-LOCATION-WALKING-20261103 — 월드컵시장 위치·길찾기 오픈
