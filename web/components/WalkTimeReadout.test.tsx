@@ -92,6 +92,17 @@ describe("walk travel time screen", () => {
   it("does not invent an ETA if the route has no time or distance data", () => {
     render(<WalkTimeReadout locale="ko" phase="navigating" totalSeconds={null} totalDistanceMeters={null} remainingMeters={20} />);
     expect(screen.getByRole("timer").textContent).toContain("예상 이동: 확인 불가");
-    expect(screen.getByRole("timer").textContent).not.toContain("남은 예상");
+    expect(screen.getByRole("timer").textContent).toContain("남은 예상: 확인 불가");
+  });
+});
+
+// Recorded public-place production route response: 521m / 464s.
+describe("remaining time visibility with production route data", () => {
+  it("keeps the field visible before GPS, then uses distance-scaled provider time", () => {
+    const { rerender } = render(<WalkTimeReadout locale="ko" phase="navigating" totalSeconds={464} totalDistanceMeters={521} remainingMeters={null} />);
+    expect(screen.getByRole("timer").textContent).toContain("남은 예상: 위치 확인 중");
+    rerender(<WalkTimeReadout locale="ko" phase="navigating" totalSeconds={464} totalDistanceMeters={521} remainingMeters={260.5} />);
+    expect(remainingRouteSeconds(464, 521, 260.5)).toBe(232);
+    expect(screen.getByRole("timer").textContent).toContain("남은 예상: 약 4분");
   });
 });
