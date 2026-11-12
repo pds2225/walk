@@ -1,5 +1,14 @@
 # K-Navi / 케이네비 — Active Development TASK
 
+## WALK-TIME-20261112 — 도보 예상·실제·도착 후 시간 표시
+- 요청: WALK 웹과 월드컵시장 길찾기에서 예상 이동시간, 실제 이동시간, 도착 후 경과시간 세 가지를 표시.
+- 기준: main의 `RouteResponse.totalSeconds`/`totalDistanceMeters`, `useNavigation.remainingMeters`, 기존 arrival 상태 재사용. API/DB/원본 GPS/분석 추적·동의 정책은 변경하지 않음.
+- 설계: 출발 후 실제 경과시간은 재탐색 시 초기화하지 않음. 도착에서 값 고정, 도착 후 경과는 화면이 살아 있는 동안만 참고값으로 표시(실제 물리적 점포 체류로 오인 금지). 시간 정보가 없으면 허위 추정 대신 미확인.
+- 적용: `web/app/page.tsx`, `web/components/DestinationWalk.tsx`, 공통 시간 표시 컴포넌트 및 관련 테스트.
+- 검증: 예측/남은시간/결측/재탐색/도착/리셋과 기존 GPS 라이프사이클 회귀; GitHub Actions 검사. 실외 GPS/실서비스 배포 미검증은 별도 보고.
+- 브랜치: `feat/walk-travel-time-20261112`. main 직접 push/병합 또는 운영 배포 없음. 진행상태: 구현 중.
+
+
 ## WCM-LOCATION-WALKING-20261103 — 월드컵시장 위치·길찾기 오픈
 - 운영 배포 승인 후 정상 조회: 기존 k-navi ID prj_87r30cKYvuPS8oCu4ijAt34mrdqg, 도메인 k-navi-eight.vercel.app. 최근 main 배포는 CANCELED, 마지막 READY는 48c5a397. 과거 브랜치 전용 ignore 조건을 main 및 이번 release 브랜치에도 허용해 수정.
 - 공간 체류 신규 API/DB/수집 설정은 이번 위치·길찾기 배포에 포함하지 않음. 운영 Supabase 자격증명 신규 설정·복사는 미실행.
