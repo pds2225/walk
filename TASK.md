@@ -1,12 +1,12 @@
 # K-Navi / 케이네비 — Active Development TASK
 
 ## KN-AIHOWS-API-DOCS-20261112 — AI하우스 월드컵시장 PoC 연동 명세 (문서 작업)
-- 사용자 요청: PR 생성 없이 \`docs/aihows-market-poc-api.md\`에 협력사 연동 명세 작성, 기존 \`TASK.md\`에 연결. AI하우스 관제 대시보드 중복 개발 제외.
-- K-Navi 통합 관리자 / K-Trip 시장별 방문객 서비스 / WALK 공통 엔진 역할 유지. 기존 GitHub 저장소 \`walk\` 명칭·기존 시장 URL·인쇄 QR·원본 DB 변경 금지.
-- PoC 7개 QR 통계는 AI하우스가 자체 수집·산출. 기존 K-Navi \`store_view\`는 웹 조회 지표로 구별. 집계 API는 Draft PR #202에만 있고 운영 미배포·인증·실데이터 E2E 미완료.
+- 사용자 요청: PR 생성 없이 `docs/aihows-market-poc-api.md`에 협력사 연동 명세 작성, 기존 `TASK.md`에 연결. AI하우스 관제 대시보드 중복 개발 제외.
+- K-Navi 통합 관리자 / K-Trip 시장별 방문객 서비스 / WALK 공통 엔진 역할 유지. 기존 GitHub 저장소 `walk` 명칭·기존 시장 URL·인쇄 QR·원본 DB 변경 금지.
+- PoC 7개 QR 통계는 AI하우스가 자체 수집·산출. 기존 K-Navi `store_view`는 웹 조회 지표로 구별. 집계 API는 Draft PR #202에만 있고 운영 미배포·인증·실데이터 E2E 미완료.
 - 개인별 GPS API는 별도 제3자 제공 동의, 법적 검토, 제공사실 통지 및 철회·감사 E2E 선행 전 외부 활성화 금지. 내부 GPS/길찾기 기능은 보존.
 - 미해결: 협력사 QR 원천데이터 반환 규격, 공식 호스트·인쇄 QR 확인, 샘플 HTML 120분 vs PDF 60분 활동 종료 기준, HTTPS/인증, 운영 E2E.
-- 문서 브랜치 준비 (main 보호규칙 \`docs-gate\`; 사용자 지시에 따라 PR 미생성). **main TASK SSOT 반영 전**, 운영 배포·DB·API 설정 변경 없음.
+- 문서 브랜치 준비 (main 보호규칙 `docs-gate`; 사용자 지시에 따라 PR 미생성). **main TASK SSOT 반영 전**, 운영 배포·DB·API 설정 변경 없음.
 
 
 ## WALK-TIME-20261112 — 도보 예상·실제·도착 후 시간 표시
