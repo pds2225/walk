@@ -55,9 +55,11 @@ describe("market walking location lifecycle", () => {
     expect(url).toBe("/api/route");
     expect(JSON.parse(init.body)).toMatchObject({ origin: A, dest: B });
     expect(watch).not.toHaveBeenCalled();
-    await act(async () => finishRoute(new Response(JSON.stringify({ route: { polyline: [A, B], turnPoints: [] } }), { status: 200 })));
+    await act(async () => finishRoute(new Response(JSON.stringify({ route: { polyline: [A, B], turnPoints: [] }, totalDistanceMeters: 180, totalSeconds: 180 }), { status: 200 })));
     await waitFor(() => expect(screen.getByTestId("walking-map")).toBeTruthy());
     expect(watch).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("timer").textContent).toContain("Estimated walk: about 3 min");
+    expect(screen.getByRole("timer").textContent).toContain("Walking elapsed: 0:00");
     fireEvent.click(screen.getByRole("button", { name: /stop/i }));
     expect(screen.getByText("Stopped")).toBeTruthy();
     expect(clear).toHaveBeenCalledWith(42);
