@@ -10,6 +10,7 @@ import type { Coordinate, RouteResponse } from "../lib/types";
 import { getCurrentPositionOnce, isDeviationFixReliable, useCompass, useWatchPosition } from "../lib/useGeolocation";
 import type { Fix } from "../lib/useGeolocation";
 import { useNavigation } from "../lib/useNavigation";
+import WalkTimeReadout from "./WalkTimeReadout";
 
 // The home page loads MapView the same way. This route must not import maplibre at module scope.
 const MapView = dynamic(() => import("./MapView"), { ssr: false });
@@ -223,6 +224,7 @@ export default function DestinationWalk({ locale, onLocaleChange, target, onStop
               : ""}
           </span>
           <span className="direction-readout" aria-label={ui.directionStatus}>{directionReadout}</span>
+          <WalkTimeReadout locale={locale} phase={phase} totalSeconds={routeResponse.totalSeconds} totalDistanceMeters={routeResponse.totalDistanceMeters} remainingMeters={nav.remainingMeters} />
         </div>
         <MapView
           route={routeResponse.route}
