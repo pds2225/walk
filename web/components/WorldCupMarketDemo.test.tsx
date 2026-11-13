@@ -296,7 +296,7 @@ describe("World Cup Market demo", () => {
     const walk = screen.getByRole("button", { name: "여기로 가기" }) as HTMLButtonElement;
     expect(walk.disabled).toBe(false);
     fireEvent.click(walk);
-    expect(onStartWalking).toHaveBeenLastCalledWith({ name: first.nameKo, coordinate: first.navigationTarget });
+    expect(onStartWalking).toHaveBeenLastCalledWith({ name: first.nameKo, coordinate: first.navigationTarget, storeId: first.id });
 
     expect(screen.getAllByTestId("worldcup-market-floor-map").some((m) => m.getAttribute("data-variant") === "detail")).toBe(true);
     expect(screen.queryByText(/좌표를 공유하는/)).toBeNull();
@@ -305,7 +305,7 @@ describe("World Cup Market demo", () => {
     if (!second) throw new Error("점포 fixture가 없습니다");
     fireEvent.click(screen.getByRole("listitem", { name: second.nameKo }));
     fireEvent.click(screen.getByRole("button", { name: "여기로 가기" }));
-    expect(onStartWalking).toHaveBeenLastCalledWith({ name: second.nameKo, coordinate: second.navigationTarget });
+    expect(onStartWalking).toHaveBeenLastCalledWith({ name: second.nameKo, coordinate: second.navigationTarget, storeId: second.id });
 
     const unknown = fixtures.stores[2];
     if (!unknown) throw new Error("점포 fixture가 없습니다");
