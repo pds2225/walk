@@ -41,6 +41,8 @@ export interface TrackInput {
   readonly position?: { readonly latitude: number; readonly longitude: number; readonly accuracyMeters?: number | null } | null;
   /** Worldcup Market: the user agreed to location storage (required server-side for coordinates). */
   readonly geoConsent?: boolean;
+  /** One market walking attempt. Sent only for K-Trip navigation events. */
+  readonly navigationId?: string | null;
 }
 
 /**
@@ -60,6 +62,7 @@ export function track(event: FunnelEvent, input: TrackInput = {}): void {
       error_type: input.errorType ?? null,
       ...(input.position ? { lat: input.position.latitude, lng: input.position.longitude, accuracy_m: input.position.accuracyMeters ?? null } : {}),
       ...(input.geoConsent ? { geo_consent: true } : {}),
+      navigation_id: input.navigationId ?? null,
       session_id: getSessionId(),
       path: window.location.pathname,
     });
