@@ -1,5 +1,16 @@
 # K-Navi / 케이네비 — Active Development TASK
 
+## KN-KTRIP-CONSENTED-GPS-20261113 — 월드컵시장 동의된 GPS 경로 수집·저장·재조회
+- 사용자 요청: PR #201의 기존 보행 식별/동의 흐름을 재사용해 K-Trip 방문객의 연속 GPS 이동경로 수집→DB 저장→방문자 본인 재조회만 최소 완성. 실제 운영·현장 GPS 검증은 사용자 후속 지시로 보류하고 운영과 유사한 데이터 대역 테스트로 진행.
+- 기존 운영 상태: `main`의 QR/웹 이벤트 저장은 운영 DB 실조회 검증 완료(PR #205). `DestinationWalk`는 이전까지 연속 GPS 데이터 기록 이벤트가 없었음.
+- 범위: `wcm:nav-geo-consent` 별도 명시 동의·철회(기존 `wcm:geo-consent` 재활용 금지), 네 언어 안내, 이동 중 30초 또는 50m 보행표본(기존 WALK 상수 재사용), 보행 ID UUID·점포 ID 부여, 동일 브라우저의 `GET /api/storage-status?nav=1` 결과만 조회. 응답에 실측 좌표·방문자 ID·기록 원문 없음.
+- 기존 구현 재사용: PR #201 `createNavigationAnalytics` 동의 재검사/시도 식별 방식만 선별 반영. PR #201의 구축 전용 DB 분리·광범위 관리자 UI·GPS 외부제공과 무관하게 기존 `/api/track`·`events`·`/api/storage-status`를 확장. QR/점포/지도/도보시간/WALK 원본 기능 불변.
+- DB: additive `20261113000000_wcm_navigation_gps.sql` (기존 데이터 유지, `navigation_id` UUID·인덱스·KTrip 명시 동의 좌표 CHECK). `pg_cron` 365일 기존 처리 유지. 실행 전 운영 원본 DB/현재 제약·마이그레이션 적용 상태를 별도 검증; 현 단계 운영 SQL 미적용.
+- 검증: 프런트 독립 동의·철회, 서버 미동의 좌표 거절, 기존 WALK 호환, 인증된 동일 쿠키의 15분 DB 재조회, 운영유사 fake PostgREST E2E, GitHub Actions 테스트·빌드. 실제 위치정보 제공 관련 법률 적합성의 최종 검토는 미확정.
+- 검증 경계: Mock/임시 DB 성공과 운영 DB/GPS·동의 실기기 검증은 구분. 운영 K-Navi Vercel 환경변수·Supabase 실제 DB 데이터·인증키·migration·운영 배포 변경 금지.
+- 작업 브랜치: `feat/ktrip-consented-navigation-capture-20261113`. 기존 미병합 PR #201/#202 및 main 기록 보존. 고위험 운영 적용은 추후 별도 검증·승인.
+- 상태: 개발·운영유사 검증 진행 중, LIVE_GPS_E2E_UNVERIFIED.
+
 ## KN-STORAGE-READBACK-20261113 — K-Navi 운영 수집·DB 저장 재조회 진단
 - 사용자 요청: K-Navi 수집→저장→조회 실제 사용자 경로를 확인하고 운영 장애를 최소 변경으로 해결. 실기기 현장 GPS 검증은 사용자 기존 기본 제외 정책 유지.
 - 원인(운영 확인): 동일 GitHub main c2e368e를 배포한 Vercel `k-navi`에 `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET` 운영 설정이 없어 `insertSupabaseRow`가 저장하지 않았음. `walk`에는 기존 Supabase 설정이 존재.
