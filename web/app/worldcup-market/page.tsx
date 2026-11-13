@@ -26,7 +26,7 @@ export default function WorldCupMarketDemoPage() {
   const [locale, setLocale] = useState<Locale | null>(null);
   const localeRef = useRef<Locale | null>(null);
   localeRef.current = locale;
-  const [target, setTarget] = useState<{ name: string; coordinate: Coordinate } | null>(null);
+  const [target, setTarget] = useState<{ name: string; coordinate: Coordinate; storeId?: string } | null>(null);
 
   useEffect(() => {
     setLocale(resolveInitialLocale());
@@ -48,7 +48,7 @@ export default function WorldCupMarketDemoPage() {
     setLocale(next);
   }, []);
 
-  const startWalking = useCallback((next: { name: string; coordinate: Coordinate }) => {
+  const startWalking = useCallback((next: { name: string; coordinate: Coordinate; storeId?: string }) => {
     if (!locale) return;
     primeSpeech(locale);
     requestDeviceOrientationPermission();
