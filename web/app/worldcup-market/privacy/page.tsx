@@ -27,7 +27,7 @@ export default function WorldCupMarketPrivacyPage() {
       <p>개인정보 관련 문의·열람·삭제 요청은 위 이메일로 연락해 주세요.</p>
       <hr />
       <h2 lang="en">Privacy Policy (English)</h2>
-      <p lang="en">Only with a separate walking-record consent do we store GPS coordinates, accuracy, store and navigation attempt IDs approximately every 30 seconds or 50 meters during navigation; one-off location consent does not authorize this continuous recording. These records are for route analysis and service improvement, not sharing with AIHows or other third parties. No IP address is stored. Location data is deleted automatically 1 year after collection. You can use navigation without recording and withdraw consent at any time to stop future location samples; request deletion of previously stored records through the contact below. Operator and privacy officer: PARK DASOM, ekth3691@gmail.com, 11 Eoulmadang-ro 3-gil, Mapo-gu, Seoul.</p>
+      <p lang="en">Only with a separate walking-record consent do we store GPS coordinates (including precise GPS coordinates), accuracy, store and navigation attempt IDs approximately every 30 seconds or 50 meters during navigation; one-off location consent does not authorize this continuous recording. These records are for route analysis and service improvement, not sharing with AIHows or other third parties. No IP address is stored. Location data is deleted automatically 1 year after collection. You can use navigation without recording and withdraw consent at any time to stop future location samples; request deletion of previously stored records through the contact below. Operator and privacy officer: PARK DASOM, ekth3691@gmail.com, 11 Eoulmadang-ro 3-gil, Mapo-gu, Seoul.</p>
     </main>
   );
 }
