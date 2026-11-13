@@ -10,6 +10,9 @@ import type { Coordinate, RouteResponse } from "../lib/types";
 import { getCurrentPositionOnce, isDeviationFixReliable, useCompass, useWatchPosition } from "../lib/useGeolocation";
 import type { Fix } from "../lib/useGeolocation";
 import { useNavigation } from "../lib/useNavigation";
+import { createNavigationAnalytics } from "../lib/navigationAnalytics";
+import LocationStorageConsent from "./LocationStorageConsent";
+import { WALK_PROGRESS_INTERVAL_MS, WALK_PROGRESS_DISTANCE_M } from "../lib/funnelEvents";
 import WalkTimeReadout from "./WalkTimeReadout";
 
 // The home page loads MapView the same way. This route must not import maplibre at module scope.
@@ -24,7 +27,7 @@ type Phase = "acquiring_location" | "routing" | "navigating" | "arrived" | "fail
 interface DestinationWalkProps {
   readonly locale: Locale;
   readonly onLocaleChange: (locale: Locale) => void;
-  readonly target: { readonly name: string; readonly coordinate: Coordinate };
+  readonly target: { readonly name: string; readonly coordinate: Coordinate; readonly storeId?: string };
   readonly onStop: () => void;
 }
 
@@ -46,6 +49,8 @@ function routeFingerprint(response: RouteResponse): string {
  */
 export default function DestinationWalk({ locale, onLocaleChange, target, onStop }: DestinationWalkProps) {
   const ui = getUiText(locale);
+  const analytics = useRef(createNavigationAnalytics());
+  const lastProgress = useRef<{ at: number; fix: Fix } | null>(null);
   const [routeResponse, setRouteResponse] = useState<RouteResponse | null>(null);
   const [phase, setPhase] = useState<Phase>("acquiring_location");
   const [originFix, setOriginFix] = useState<Fix | null>(null);
@@ -76,6 +81,7 @@ export default function DestinationWalk({ locale, onLocaleChange, target, onStop
     if (phase === "navigating" && nav.arrived) {
       navigationSession.current += 1;
       setRerouting(false);
+      analytics.current.event("arrive", { locale, position: currentFix });
       setPhase("arrived");
     }
   }, [phase, nav.arrived]);
@@ -87,6 +93,7 @@ export default function DestinationWalk({ locale, onLocaleChange, target, onStop
     async (current: Fix) => {
       if (!routeResponse || rerouting) return;
       const session = navigationSession.current;
+      analytics.current.event("reroute", { locale, position: current });
       setRerouting(true);
       try {
         const resp = await fetch("/api/route", {
@@ -144,6 +151,8 @@ export default function DestinationWalk({ locale, onLocaleChange, target, onStop
   useEffect(() => {
     const session = navigationSession.current + 1;
     navigationSession.current = session;
+    analytics.current.begin(target.storeId ?? null);
+    lastProgress.current = null;
     roadviewProvider.current = selectRoadviewProvider();
     setPhase("acquiring_location");
     setError(null);
@@ -180,6 +189,8 @@ export default function DestinationWalk({ locale, onLocaleChange, target, onStop
         }
         setRouteResponse(body as RouteResponse);
         setOriginFix(origin);
+        analytics.current.event("nav_start", { locale, position: origin });
+        lastProgress.current = { at: Date.now(), fix: origin };
         setPhase("navigating");
       } catch {
         if (navigationSession.current !== session) return;
@@ -190,13 +201,27 @@ export default function DestinationWalk({ locale, onLocaleChange, target, onStop
 
     return () => {
       navigationSession.current += 1;
+      analytics.current.stop();
     };
-  }, [attempt, target.coordinate]);
+  }, [attempt, target.coordinate, target.storeId]);
 
   const stop = useCallback(() => {
+    analytics.current.stop();
     navigationSession.current += 1;
     onStop();
   }, [onStop]);
+
+  useEffect(() => {
+    if (phase !== "navigating" || !fix) return;
+    const last = lastProgress.current;
+    const distance = last ? Math.hypot(
+      (fix.latitude - last.fix.latitude) * 111320,
+      (fix.longitude - last.fix.longitude) * 88000,
+    ) : 0;
+    if (last && Date.now() - last.at < WALK_PROGRESS_INTERVAL_MS && distance < WALK_PROGRESS_DISTANCE_M) return;
+    lastProgress.current = { at: Date.now(), fix };
+    analytics.current.event("nav_progress", { locale, position: fix });
+  }, [fix, locale, phase]);
 
   if ((phase === "navigating" || phase === "arrived") && routeResponse) {
     const offRoute = nav.state === "deviated" || nav.state === "passed_turn";
@@ -207,6 +232,7 @@ export default function DestinationWalk({ locale, onLocaleChange, target, onStop
         : ui.waitingDirection;
     return (
       <main className="nav-screen">
+        <LocationStorageConsent locale={locale} />
         <div className="language-bar">
           <label>
             <span className="visually-hidden">{ui.language}</span>
@@ -265,6 +291,7 @@ export default function DestinationWalk({ locale, onLocaleChange, target, onStop
 
   return (
     <main className="home">
+      <LocationStorageConsent locale={locale} />
       <h1>{target.name}</h1>
       <p className="hint" role="status">
         {phase === "routing" ? ui.findingRoute : phase === "failed" ? (error ?? ui.routeFailed) : ui.locating}
