@@ -47,7 +47,7 @@ const WorldCupMarketMap = dynamic(() => import("./WorldCupMarketMap"), { ssr: fa
 interface WorldCupMarketDemoProps {
   readonly locale: Locale;
   readonly onLocaleChange?: (locale: Locale) => void;
-  readonly onStartWalking: (target: { name: string; coordinate: Coordinate }) => void;
+  readonly onStartWalking: (target: { name: string; coordinate: Coordinate; storeId?: string }) => void;
 }
 
 type DisplayProduct = StoreProduct;
@@ -233,7 +233,7 @@ function StorePrimaryActions({ store, locale, onStartWalking }: {
           const coordinate = store.navigationTarget;
           if (!coordinate) return;
           track("directions", { storeId: store.id, locale });
-          onStartWalking({ name: localizeStoreName(store, locale), coordinate });
+          onStartWalking({ name: localizeStoreName(store, locale), coordinate, storeId: store.id });
         }}
       >
         {walkLabel(locale, ui)}
