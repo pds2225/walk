@@ -53,28 +53,29 @@ const COPY: Record<Locale, {
   readonly actual: string;
   readonly sinceArrival: string;
   readonly unknown: string;
+  readonly locating: string;
   readonly lessThanMinute: string;
   readonly approximately: (minutes: number) => string;
 }> = {
   ko: {
     times: "이동시간 안내", estimated: "예상 이동", remaining: "남은 예상",
     elapsed: "이동 경과", actual: "실제 이동", sinceArrival: "도착 후 경과(체류 참고)",
-    unknown: "확인 불가", lessThanMinute: "1분 미만", approximately: (minutes) => `약 ${minutes}분`,
+    unknown: "확인 불가", locating: "위치 확인 중", lessThanMinute: "1분 미만", approximately: (minutes) => `약 ${minutes}분`,
   },
   en: {
     times: "Walking times", estimated: "Estimated walk", remaining: "Estimated remaining",
     elapsed: "Walking elapsed", actual: "Actual walk", sinceArrival: "Since arrival (not verified dwell)",
-    unknown: "unavailable", lessThanMinute: "under 1 min", approximately: (minutes) => `about ${minutes} min`,
+    unknown: "unavailable", locating: "Waiting for location", lessThanMinute: "under 1 min", approximately: (minutes) => `about ${minutes} min`,
   },
   ja: {
     times: "歩行時間", estimated: "予想歩行時間", remaining: "残り予想",
     elapsed: "歩行経過", actual: "実際の歩行", sinceArrival: "到着後経過（滞在の参考）",
-    unknown: "確認不可", lessThanMinute: "1分未満", approximately: (minutes) => `約${minutes}分`,
+    unknown: "確認不可", locating: "位置確認中", lessThanMinute: "1分未満", approximately: (minutes) => `約${minutes}分`,
   },
   zh: {
     times: "步行时间", estimated: "预计步行", remaining: "预计剩余",
     elapsed: "步行已用", actual: "实际步行", sinceArrival: "到达后经过（仅供停留参考）",
-    unknown: "无法确认", lessThanMinute: "不足1分钟", approximately: (minutes) => `约${minutes}分钟`,
+    unknown: "无法确认", locating: "正在确认位置", lessThanMinute: "不足1分钟", approximately: (minutes) => `约${minutes}分钟`,
   },
 };
 
@@ -115,8 +116,13 @@ export default function WalkTimeReadout({
 
   const sections: string[] = [`${copy.estimated}: ${brief(estimate)}`];
   if (phase !== "preview") {
-    if (phase === "navigating" && estimatedRemaining !== null) {
-      sections.push(`${copy.remaining}: ${brief(estimatedRemaining)}`);
+    if (phase === "navigating") {
+      const remainingText = estimatedRemaining !== null
+        ? brief(estimatedRemaining)
+        : estimate !== null && totalDistanceMeters !== null && totalDistanceMeters > 0 && remainingMeters == null
+          ? copy.locating
+          : copy.unknown;
+      sections.push(`${copy.remaining}: ${remainingText}`);
     }
     const walkEnd = arrivedAt ?? now;
     const elapsed = Math.max(0, Math.floor((walkEnd - startedAt) / 1_000));

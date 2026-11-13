@@ -1,5 +1,12 @@
 # K-Navi / 케이네비 — Active Development TASK
 
+## WALK-REMAINING-VISIBILITY-20261112
+- 요청: 남은 시간이 실제에 맞게 표시될 때까지 문제 해결.
+- 확인: PR #203 main 병합 및 두 운영 프로젝트 READY. 실제 공개 장소 경로 응답 521m/464초 확인. GPS 첫 결과 이전 및 경로 시간 결측 시 남은 시간 필드가 숨겨짐.
+- 최소 수정: 필드를 숨기지 않고 위치 확인 중/확인 불가를 구별. 임의 보행속도나 시간값을 만들지 않음.
+- 검증: 기록된 운영 응답을 사용해 GPS 대기 → 거리 비례 예상시간 전환 테스트. 실기기 기본 제외. 사용자 화면과 같은 원인인지는 미확정.
+- 별도 차단: cloud 브라우저 WebGL 비활성으로 지도 초기화 실패; 운영 GPS E2E 미검증.
+
 ## WALK-TIME-20261112 — 도보 예상·실제·도착 후 시간 표시
 - 요청: WALK 웹과 월드컵시장 길찾기에서 예상 이동시간, 실제 이동시간, 도착 후 경과시간 세 가지를 표시.
 - 기준: main의 `RouteResponse.totalSeconds`/`totalDistanceMeters`, `useNavigation.remainingMeters`, 기존 arrival 상태 재사용. API/DB/원본 GPS/분석 추적·동의 정책은 변경하지 않음.
