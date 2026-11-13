@@ -133,4 +133,45 @@ describe("POST /api/track", () => {
     await post({ event: "map_pin_click", lat: 37.5587, lng: 126.905, geo_consent: true });
     expect((await insertedRow()).lat).toBeUndefined();
   });
+  it("requires a valid navigation UUID for K-Trip store walking events", async () => {
+    const store_id = "worldcup-market-01";
+    expect((await post({ event: "nav_start", store_id })).status).toBe(400);
+    expect((await post({ event: "nav_start", store_id, navigation_id: "bad" })).status).toBe(400);
+    expect((await post({ event: "search", store_id, query_len: 2 })).status).toBe(400);
+    expect(afterTasks).toHaveLength(0);
+  });
+
+  it("never accepts market walking coordinates without explicit storage consent", async () => {
+    const row = { event: "nav_progress", store_id: "worldcup-market-01",
+      navigation_id: "a1b2c3d4-1234-4abc-8def-1234567890ab" };
+    expect((await post({ ...row, lat: 37.5587, lng: 126.9051 })).status).toBe(400);
+    expect(afterTasks).toHaveLength(0);
+    expect((await post(row)).status).toBe(202);
+    const saved = await insertedRow();
+    expect(saved).toMatchObject({ app: "worldcup-market", navigation_id: row.navigation_id,
+      store_id: row.store_id, event: "nav_progress", geo_consent: false });
+    expect(saved.lat).toBeUndefined();
+    expect(saved.lng).toBeUndefined();
+  });
+
+  it("stores consenting market GPS navigation samples but preserves WALK's existing contract", async () => {
+    const row = { event: "nav_progress", store_id: "worldcup-market-23",
+      navigation_id: "a1b2c3d4-1234-4abc-8def-1234567890ab",
+      geo_consent: true, lat: 37.5587, lng: 126.9051, accuracy_m: 8 };
+    expect((await post(row)).status).toBe(202);
+    expect(await insertedRow()).toMatchObject({ app: "worldcup-market", ...row });
+    afterTasks.length = 0; fetchMock.mockClear();
+
+    vi.stubEnv("WCM_STORE_COORDS", "off");
+    await post(row);
+    const disabled = await insertedRow();
+    expect(disabled.lat).toBeUndefined();
+    expect(disabled.geo_consent).toBe(true);
+    afterTasks.length = 0; fetchMock.mockClear();
+
+    await post({ event: "nav_progress", lat: 37.55, lng: 126.91 });
+    const walk = await insertedRow();
+    expect(walk).toMatchObject({ app: "walk", lat: 37.55, lng: 126.91, store_id: null });
+  });
+
 });
