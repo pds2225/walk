@@ -13,6 +13,8 @@ const KNOWN_STORES = new Set(WORLD_CUP_MARKET_STORES.map((store) => store.id));
 const LOCALES = new Set(["ko", "en", "ja", "zh"]);
 const VISITOR_RE = /^[A-Za-z0-9-]{8,64}$/;
 const SESSION_RE = /^[A-Za-z0-9-]{8,64}$/;
+const NAVIGATION_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const MARKET_NAV_COORD_EVENTS = ["nav_start", "nav_progress", "reroute", "arrive"] as const;
 
 function readCookie(header: string | null, name: string): string | null {
   if (!header) return null;
@@ -65,7 +67,14 @@ export async function POST(request: Request) {
   if (limited(visitorId, Date.now())) return NextResponse.json({ ok: false }, { status: 429 });
 
   const walk = isWalkEvent(event);
-  if (walk && storeId) return NextResponse.json({ ok: false, error: "store not allowed" }, { status: 400 });
+  const marketNav = walk && storeId !== null && (MARKET_NAV_COORD_EVENTS as readonly string[]).includes(event);
+  if (walk && storeId && !marketNav) return NextResponse.json({ ok: false, error: "store not allowed" }, { status: 400 });
+  const rawNavigationId = body["navigation_id"];
+  const navigationId = typeof rawNavigationId === "string" && NAVIGATION_ID_RE.test(rawNavigationId) ? rawNavigationId : null;
+  if (marketNav && !navigationId) return NextResponse.json({ ok: false, error: "market navigation_id required" }, { status: 400 });
+  if (marketNav && body["geo_consent"] !== true && (body["lat"] !== undefined || body["lng"] !== undefined)) {
+    return NextResponse.json({ ok: false, error: "location storage consent required" }, { status: 400 });
+  }
   let src = str(body["src"], 16);
   let queryLen: number | null = null, errorType: string | null = null;
   let coords: { lat: number; lng: number; accuracy_m: number | null } | null = null;
@@ -82,8 +91,12 @@ export async function POST(request: Request) {
       errorType = e;
     }
     const lat = body["lat"], lng = body["lng"], acc = body["accuracy_m"];
-    if (process.env.WALK_STORE_COORDS !== "off" && (WALK_COORD_EVENTS as readonly string[]).includes(event)
-      && typeof lat === "number" && typeof lng === "number" && Math.abs(lat) <= 90 && Math.abs(lng) <= 180) {
+    const storeCoordinates = marketNav
+      ? body["geo_consent"] === true && process.env.WCM_STORE_COORDS !== "off"
+      : process.env.WALK_STORE_COORDS !== "off";
+    if (storeCoordinates && (WALK_COORD_EVENTS as readonly string[]).includes(event)
+      && typeof lat === "number" && typeof lng === "number" && Number.isFinite(lat) && Number.isFinite(lng)
+      && Math.abs(lat) <= 90 && Math.abs(lng) <= 180) {
       coords = { lat: Math.round(lat * 1e6) / 1e6, lng: Math.round(lng * 1e6) / 1e6,
         accuracy_m: typeof acc === "number" && Number.isFinite(acc) && acc >= 0 ? Math.min(Math.round(acc * 10) / 10, 100000) : null };
     }
@@ -138,7 +151,12 @@ export async function POST(request: Request) {
     path: str(body["path"], 128),
     user_agent: request.headers.get("user-agent")?.slice(0, 512) ?? null,
     dwell_sec: dwellSec,
-    ...(walk ? { app: "walk", query_len: queryLen, error_type: errorType, ...(coords ?? {}) } : { app: "worldcup-market", ...(coords ? { ...coords, geo_consent: geoConsent } : {}) }),
+    ...(walk ? {
+      app: marketNav ? "worldcup-market" : "walk",
+      query_len: queryLen, error_type: errorType,
+      ...(marketNav ? { navigation_id: navigationId, geo_consent: body["geo_consent"] === true } : {}),
+      ...(coords ?? {}),
+    } : { app: "worldcup-market", ...(coords ? { ...coords, geo_consent: geoConsent } : {}) }),
   };
   after(async () => {
     await insertSupabaseRow("events", row);
