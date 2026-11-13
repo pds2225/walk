@@ -1,5 +1,15 @@
 # K-Navi / 케이네비 — Active Development TASK
 
+## KN-STORAGE-READBACK-20261113 — K-Navi 운영 수집·DB 저장 재조회 진단
+- 사용자 요청: K-Navi 수집→저장→조회 실제 사용자 경로를 확인하고 운영 장애를 최소 변경으로 해결. 실기기 현장 GPS 검증은 사용자 기존 기본 제외 정책 유지.
+- 원인(운영 확인): 동일 GitHub main c2e368e를 배포한 Vercel `k-navi`에 `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET` 운영 설정이 없어 `insertSupabaseRow`가 저장하지 않았음. `walk`에는 기존 Supabase 설정이 존재.
+- 복구(운영): 기존 `walk` 연결값과 동일한 세 설정을 Vercel `k-navi` production에 복구(실제 값 비공개). 별도 DB 신설·이관·마이그레이션 없음. k-navi production 동일 main 강제 새 배포 `dpl_FjpbZaLsLsmXGN9y9wjaR4DwuzPo` READY. 기존 WALK 운영 배포·원본 DB 변경 없음.
+- 검증(운영): 월드컵시장 45개 목록·점포 01 상세·뒤로 가기 실제 브라우저 PASS. 비로그인 `/api/keepalive` 401 정상. 기존 `/api/track` 202 및 QR 302는 DB 저장 증거가 아니므로 오인 금지. GPS 실측/제3자 전송 금지.
+- 최소 코드: `GET /api/storage-status`는 같은 브라우저의 기존 HttpOnly `ktrip_vid` 쿠키만으로 최근 15분의 `events` 및 `qr_scans` DB 행 존재 여부를 읽기 전용 검사. 원본 방문자 ID·좌표·개별 행사·비밀키를 반환하거나 별도 로그/테이블을 만들지 않음. 성공 응답은 DB 연결 여부와 실제 저장 여부를 분리. 다른 개인의 기록 조회 금지.
+- 직접 검증: 관련 단위·개인정보 및 오류 회귀 테스트, GitHub Actions, 기존 시장 웹 smoke 및 `/q/01`→`/api/storage-status` 운영 실제 재조회. 이 단계 완료 전 `NORMAL_SAVE_VERIFIED` 표시 금지.
+- 범위·유지: PR #201의 장기 구축별 전용 DB/관리자 분석 미병합 구조는 손대지 않으며, 공유 기존 DB는 현행 운영 구조를 회복하는 조치로만 취급. `.env`·GitHub workflows·다른 API·원본 DB·기존 사용자 기록 보존.
+- 현재 상태: 운영 배포 READY·UI PASS, 데이터 실제 저장 재조회 진행. 브랜치 `fix/knavi-storage-readback-20261113`.
+
 ## WALK-REMAINING-VISIBILITY-20261112
 - 요청: 남은 시간이 실제에 맞게 표시될 때까지 문제 해결.
 - 확인: PR #203 main 병합 및 두 운영 프로젝트 READY. 실제 공개 장소 경로 응답 521m/464초 확인. GPS 첫 결과 이전 및 경로 시간 결측 시 남은 시간 필드가 숨겨짐.
