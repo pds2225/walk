@@ -89,4 +89,45 @@ describe("GET /api/storage-status", () => {
       expect(init.headers.authorization).toBe("Bearer eyJlegacy_test");
     }
   });
+  it("optionally verifies market navigation samples and GPS in the same visitor's DB rows", async () => {
+    fetchMock.mockImplementation(async (url: URL) => {
+      const nav = url.searchParams.get("event") === "in.(nav_start,nav_progress,reroute,arrive)";
+      const recordedGps = url.searchParams.get("lat") === "not.is.null";
+      return new Response(JSON.stringify(
+        nav && !recordedGps ? [{ id: 21 }] : nav && recordedGps ? [{ id: 22 }] : [{ id: 1 }],
+      ), { status: 200 });
+    });
+    const res = await GET(new Request("https://k-navi-eight.vercel.app/api/storage-status?nav=1", { headers: { cookie } }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body).toMatchObject({
+      status: "storage_connected",
+      recent_events_saved: true,
+      recent_qr_scans_saved: true,
+      recent_market_navigation_events_saved: true,
+      recent_market_navigation_gps_saved: true,
+    });
+    expect(JSON.stringify(body)).not.toContain("abcdef12-3456");
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    const navUrls = fetchMock.mock.calls.map(([u]) => u as URL)
+      .filter(u => u.searchParams.has("app"));
+    expect(navUrls).toHaveLength(2);
+    for (const url of navUrls) {
+      expect(url.searchParams.get("app")).toBe("eq.worldcup-market");
+      expect(url.searchParams.get("visitor_id")).toBe("eq.abcdef12-3456");
+    }
+    expect(navUrls.some(u => u.searchParams.get("lat") === "not.is.null")).toBe(true);
+  });
+
+  it("does not report saved GPS when the visitor has only non-GPS navigation records", async () => {
+    fetchMock.mockImplementation(async (url: URL) => new Response(JSON.stringify(
+      url.searchParams.get("lat") === "not.is.null" ? [] : [{ id: 2 }]
+    ), { status: 200 }));
+    const res = await GET(new Request("https://k-navi-eight.vercel.app/api/storage-status?nav=1", { headers: { cookie } }));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({
+      recent_market_navigation_events_saved: true, recent_market_navigation_gps_saved: false,
+    });
+  });
+
 });
