@@ -147,15 +147,10 @@ describe("POST /api/track", () => {
       navigation_id: "a1b2c3d4-1234-4abc-8def-1234567890ab" };
     expect((await post({ ...row, lat: 37.5587, lng: 126.9051 })).status).toBe(400);
     expect(afterTasks).toHaveLength(0);
-    const stored = await post(row);
-    expect(stored.status).toBe(201);
-    expect(await stored.json()).toMatchObject({ ok: true, storage: "persisted", gps_stored: false });
+    const declined = await post(row);
+    expect(declined.status).toBe(204);
     expect(afterTasks).toHaveLength(0);
-    const saved = JSON.parse(fetchMock.mock.calls[0]![1].body);
-    expect(saved).toMatchObject({ app: "worldcup-market", navigation_id: row.navigation_id,
-      store_id: row.store_id, event: "nav_progress", geo_consent: false });
-    expect(saved.lat).toBeUndefined();
-    expect(saved.lng).toBeUndefined();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("stores consenting market GPS navigation samples but preserves WALK's existing contract", async () => {
@@ -165,7 +160,8 @@ describe("POST /api/track", () => {
     const savedResponse = await post(row);
     expect(savedResponse.status).toBe(201);
     expect(await savedResponse.json()).toMatchObject({ ok: true, storage: "persisted", gps_stored: true });
-    expect(JSON.parse(fetchMock.mock.calls[0]![1].body)).toMatchObject({ app: "worldcup-market", ...row });
+    expect(fetchMock.mock.calls[0]![0]).toBe("https://example.supabase.co/rest/v1/wcm_navigation_points");
+    expect(JSON.parse(fetchMock.mock.calls[0]![1].body)).toMatchObject(row);
     expect(afterTasks).toHaveLength(0);
     fetchMock.mockClear();
 
