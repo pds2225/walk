@@ -1,7 +1,7 @@
 /** Funnel event collector for K-TRIP (/worldcup-market, app=worldcup-market) and WALK (/, app=walk). Inserts into public.events server-side (never IP; coordinates only for WALK movement events and consented K-TRIP location events). */
 import { after, NextResponse } from "next/server";
 import { DETAIL_SECTIONS, isFunnelEvent, isWalkEvent, WALK_COORD_EVENTS, WALK_ERROR_TYPES, WALK_HOME_VIEW_COOKIE, WALK_HOME_VIEW_DEDUPE_SECONDS, WALK_SOURCES, WCM_COORD_EVENTS, WCM_LOCATION_SOURCES, MAX_DWELL_SECONDS, STORE_VIEW_COOKIE_PREFIX, STORE_VIEW_DEDUPE_SECONDS, STORE_VIEW_SOURCES } from "../../../lib/funnelEvents";
-import { insertSupabaseRow, QR_LANDING_COOKIE, trackRateBuckets as buckets, storeIdFromQrNumber, storeNumberFromId, VISITOR_COOKIE } from "../../../lib/qrScan";
+import { insertSupabaseRow, supabaseConfig, QR_LANDING_COOKIE, trackRateBuckets as buckets, storeIdFromQrNumber, storeNumberFromId, VISITOR_COOKIE } from "../../../lib/qrScan";
 import { WORLD_CUP_MARKET_STORES } from "../../../lib/worldCupMarketStores";
 
 export const runtime = "nodejs";
@@ -74,6 +74,26 @@ export async function POST(request: Request) {
   if (marketNav && !navigationId) return NextResponse.json({ ok: false, error: "market navigation_id required" }, { status: 400 });
   if (marketNav && body["geo_consent"] !== true && (body["lat"] !== undefined || body["lng"] !== undefined)) {
     return NextResponse.json({ ok: false, error: "location storage consent required" }, { status: 400 });
+  }
+  // K-Trip walking GPS MUST NOT silently report accepted before the shared DB
+  // migration, retention and consent gates have been reviewed and enabled.
+  if (marketNav && process.env.KNAVI_NAV_CAPTURE_ENABLED !== "true") {
+    return NextResponse.json({ ok: false, error: "gps_storage_not_enabled" }, { status: 503 });
+  }
+  if (marketNav && !supabaseConfig()) {
+    return NextResponse.json({ ok: false, error: "gps_storage_unconfigured" }, { status: 503 });
+  }
+  if (marketNav && body["geo_consent"] === true && (
+    body["lat"] !== undefined || body["lng"] !== undefined
+  )) {
+    if (process.env.WCM_STORE_COORDS === "off") {
+      return NextResponse.json({ ok: false, error: "gps_storage_disabled" }, { status: 503 });
+    }
+    if (typeof body["lat"] !== "number" || typeof body["lng"] !== "number" ||
+      !Number.isFinite(body["lat"]) || !Number.isFinite(body["lng"]) ||
+      Math.abs(body["lat"]) > 90 || Math.abs(body["lng"]) > 180) {
+      return NextResponse.json({ ok: false, error: "invalid_gps_coordinates" }, { status: 400 });
+    }
   }
   let src = str(body["src"], 16);
   let queryLen: number | null = null, errorType: string | null = null;
@@ -158,6 +178,19 @@ export async function POST(request: Request) {
       ...(coords ?? {}),
     } : { app: "worldcup-market", ...(coords ? { ...coords, geo_consent: geoConsent } : {}) }),
   };
+  if (marketNav) {
+    // Unlike ordinary analytics (202 + after), a GPS write is acknowledged
+    // ONLY after the existing PostgREST insert transaction responds success.
+    const saved = await insertSupabaseRow("events", row);
+    const result = NextResponse.json(
+      saved
+        ? { ok: true, storage: "persisted", gps_stored: coords !== null }
+        : { ok: false, error: "gps_storage_write_failed", storage: "failed" },
+      { status: saved ? 201 : 502, headers: { "cache-control": "no-store" } },
+    );
+    for (const cookie of response.cookies.getAll()) result.cookies.set(cookie);
+    return result;
+  }
   after(async () => {
     await insertSupabaseRow("events", row);
   });
