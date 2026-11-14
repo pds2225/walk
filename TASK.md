@@ -1,5 +1,31 @@
 # K-Navi / 케이네비 — Active Development TASK
 
+## KN-KTRIP-CONSENTED-GPS-20261113 — 월드컵시장 동의된 GPS 경로 수집·저장·재조회
+- [2026-11-14 Supabase 직접 검증] 기존 K-Navi/WALK Vercel 설정이 모두 ktrip-qr (vkmpitfvcmjqlugixsqo)에 연결됨 확인. 기존 DB 사건 events 1,853건·qr_scans 55건, GPS 포인트용 신규 테이블 없음, 기존 시장 파기 cron 29회 성공, WALK GPS 206건, WCM 단발 위치 29건 확인. 해당 Supabase 조직 free plan으로 자동 일일 백업 없음(공식 Backups 문서). 기존 공용 테이블 CHECK 교체는 변경 위험 때문에 **취소/미실행**.
+- [2026-11-14 안전한 대체 이행] 사용자 데이터·기존 WALK 테이블에 대한 DDL 없이 **신규 public.wcm_navigation_points만** 만들도록 기존 미적용 migration 파일을 변경해 Supabase 관리 migration `20261114084519_wcm_navigation_points_isolated`로 적용. 새 테이블 RLS 활성/anon·authenticated 직접 조회 차단/service_role SELECT·INSERT 허용. 별도 GPS 365일 파기 cron 활성.
+- [2026-11-14 무변경 검증] migration 전후 events=1,853·qr_scans=55 동일. 새 테이블 포인트 0건. `SET LOCAL ROLE service_role` 실제 Postgres 트랜잭션에서 GPS 임의점 INSERT→SELECT=1을 확인하고 ROLLBACK, 종료 후 0건 확인. 이는 실제 DB DDL/권한 검증이며 외부 HTTP API E2E 또는 실사용 GPS 아님.
+- [API 코드 변경] 시장 GPS 전용 `POST /api/track`은 `KNAVI_NAV_CAPTURE_ENABLED=true`에서만 허용, 별도 동의 없는 보행은 204 무저장, 동의 GPS만 신규 테이블 INSERT 결과에 따라 201/502. 기존 웹·QR 및 일반 WALK 이벤트는 events/qr_scans 기존 202 유지. `GET /api/storage-status?nav=1`은 동일 브라우저의 신규 GPS 테이블만 두 가지 Boolean으로 조회. `web/lib/qrScan.ts` 기존 저장 공통 어댑터 재사용.
+- [모의검증] 58파일 593 테스트 PASS, lint/TS/root/web 빌드 PASS (Github Actions, 스키마 대체 코드 헤드). 실제 HTTP API 호출·실사용 GPS·대외 제공은 별도 E2E 전까지 **미완료**. 
+- 사용자 요청: PR #201의 기존 보행 식별/동의 흐름을 재사용해 K-Trip 방문객의 연속 GPS 이동경로 수집→DB 저장→방문자 본인 재조회만 최소 완성. 실제 운영·현장 GPS 검증은 사용자 후속 지시로 보류하고 운영과 유사한 데이터 대역 테스트로 진행.
+- 기존 운영 상태: `main`의 QR/웹 이벤트 저장은 운영 DB 실조회 검증 완료(PR #205). `DestinationWalk`는 이전까지 연속 GPS 데이터 기록 이벤트가 없었음.
+- 범위: `wcm:nav-geo-consent` 별도 명시 동의·철회(기존 `wcm:geo-consent` 재활용 금지), 네 언어 안내, 이동 중 30초 또는 50m 보행표본(기존 WALK 상수 재사용), 보행 ID UUID·점포 ID 부여, 동일 브라우저의 `GET /api/storage-status?nav=1` 결과만 조회. 응답에 실측 좌표·방문자 ID·기록 원문 없음.
+- 기존 구현 재사용: PR #201 `createNavigationAnalytics` 동의 재검사/시도 식별 방식만 선별 반영. PR #201의 구축 전용 DB 분리·광범위 관리자 UI·GPS 외부제공과 무관하게 기존 `/api/track`·`events`·`/api/storage-status`를 확장. QR/점포/지도/도보시간/WALK 원본 기능 불변.
+- DB: additive `20261113000000_wcm_navigation_gps.sql` (기존 데이터 유지, `navigation_id` UUID·인덱스·KTrip 명시 동의 좌표 CHECK). `pg_cron` 365일 기존 처리 유지. 실행 전 운영 원본 DB/현재 제약·마이그레이션 적용 상태를 별도 검증; 현 단계 운영 SQL 미적용.
+- 검증: 프런트 독립 동의·철회, 서버 미동의 좌표 거절, 기존 WALK 호환, 인증된 동일 쿠키의 15분 DB 재조회, 운영유사 fake PostgREST E2E, GitHub Actions 테스트·빌드. 실제 위치정보 제공 관련 법률 적합성의 최종 검토는 미확정.
+- 검증 경계: Mock/임시 DB 성공과 운영 DB/GPS·동의 실기기 검증은 구분. 운영 K-Navi Vercel 환경변수·Supabase 실제 DB 데이터·인증키·migration·운영 배포 변경 금지.
+- 작업 브랜치: `feat/ktrip-consented-navigation-capture-20261113`. 기존 미병합 PR #201/#202 및 main 기록 보존. 고위험 운영 적용은 추후 별도 검증·승인.
+- 검증(2026-11-13): GitHub Actions `test` 전체 58개 테스트 파일/590개 케이스 PASS, `docs-gate` PASS, ESLint·TypeScript(root/web)·route-engine·Next.js 빌드 PASS. PostgREST 유사 메모리 대역에서 GPS nav_start/nav_progress 2건(가상 위경도) 수집→쓰기→같은 쿠키 GET `/api/storage-status?nav=1`를 검증하고, 미동의/철회/다른 브라우저 차단 검증. 첫 CI의 기존 영어 고지 회귀 1건을 수정하고 재검증 PASS.
+- 상태: CODE_AND_SIMULATED_DB_E2E_VERIFIED / LIVE_GPS_E2E_UNVERIFIED. 사용자 지시에 따라 운영 DB·Vercel에 변경·배포·마이그레이션 없음. 안전한 추가 검증 후에만 main 병합·운영 적용.
+- 2026-11-14 운영 사전점검: K-Navi·WALK Vercel production이 실제 동일한 Supabase URL·저장 인증값을 사용함을 비교 검증(값 비출력). PR #206은 Draft·미병합, K-Navi production은 main 41022f0, 방문객 웹 45개 표시 및 비인증 저장진단 400 확인.
+- 적용 차단: Supabase SQL 관리 연결 없음. `public.events` 공유 제약·인덱스 및 기존 365일 `pg_cron` 작업의 실DB 상태, 백업/복원 여부를 미확인. 안전 확인 전 마이그레이션·운영 배포·GPS 개인정보 기록 금지. PR #206 본문에 읽기전용 SQL 점검과 실행 순서를 기록.
+- 상태: OPERATING_PREFLIGHT_COMPLETE / DB_MIGRATION_BLOCKED / LIVE_GPS_E2E_UNVERIFIED. 기존 QR·웹 기록 운영 기능 및 개인정보 보호 유지.
+- 2026-11-14 추가 사용자 완료 기준: **실제 API 사용·전달과 실제 운영 DB write/readback 검증이 되지 않으면 DONE 금지**. CI/모의 DB 593 PASS, Vercel READY, 코드 작성만으로 운영 GPS 완료 선언 금지.
+- 코드 안전 보완: K-Trip 시장 GPS `POST /api/track`은 `KNAVI_NAV_CAPTURE_ENABLED=true`가 없으면 503(기본 비활성). 공유 Supabase 연결 누락도 503, GPS 저장 실패는 502, 기존 PostgREST가 INSERT 성공을 확인한 경우만 201(`storage=persisted`, `gps_stored` 명시) 반환. 기존 일반 웹·QR 수집의 202 방식은 변경하지 않음. GPS 좌표는 응답에 반환하지 않음.
+- 검증: GitHub Actions `test` 58개 파일·593개 테스트 PASS, ESLint·TypeScript(root/web)·경로엔진/Next 빌드 PASS. 가상 DB를 이용한 통합 테스트이며 **운영 Supabase 직접 재조회·마이그레이션 검증 아님**.
+- 외부 API 범위: `/api/track`은 **우리 브라우저의 내부 수집 API**, `/api/storage-status?nav=1`은 **동일 브라우저의 저장 여부 불리언 조회**이며 외부 AI하우스에 GPS 경로를 제공하는 API가 아님. 위치기록 제3자 제공 법적 근거·동의·수령자·전달 계약이 확보되지 않아 외부 GPS API는 개발·활성화·전달 완료로 처리하지 않음.
+- 실제 운영 차단: Supabase 직접 관리 플러그인 미설치, 운영 스키마·공유 제약·365일 cron·백업 미확인. DB 승인/적용→WALK 기존 쓰기 회귀→K-Navi 실GPS 동의 수집/DB 재조회→실제 호출 가능한 API 응답 증빙→대외 전달 범위 승인 전까지 운영 미완료. 운영 환경변수 `KNAVI_NAV_CAPTURE_ENABLED`는 **설정하지 않음**.
+- 상태: CODE_VERIFIED / LIVE_DB_SCHEMA_UNKNOWN / MIGRATION_NOT_APPLIED / EXTERNAL_API_NOT_DELIVERABLE / OPERATING_INCOMPLETE.
+
 ## KN-STORAGE-READBACK-20261113 — K-Navi 운영 수집·DB 저장 재조회 진단
 - 사용자 요청: K-Navi 수집→저장→조회 실제 사용자 경로를 확인하고 운영 장애를 최소 변경으로 해결. 실기기 현장 GPS 검증은 사용자 기존 기본 제외 정책 유지.
 - 원인(운영 확인): 동일 GitHub main c2e368e를 배포한 Vercel `k-navi`에 `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET` 운영 설정이 없어 `insertSupabaseRow`가 저장하지 않았음. `walk`에는 기존 Supabase 설정이 존재.

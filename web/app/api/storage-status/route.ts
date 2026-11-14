@@ -42,16 +42,25 @@ export async function GET(request: Request) {
   if (!db) return respond({ ok: false, status: "storage_unconfigured" }, 503);
 
   const from = new Date(Date.now() - LOOKBACK_MINUTES * 60_000).toISOString();
+  const navigationCheck = new URL(request.url).searchParams.get("nav") === "1";
   const headers: Record<string, string> = { apikey: db.key };
   // Legacy JWT service_role keys use Bearer; sb_secret_ keys use apikey only.
   if (db.key.startsWith("eyJ")) headers.authorization = `Bearer ${db.key}`;
 
-  const recent = async (table: "events" | "qr_scans", timeField: "created_at" | "scanned_at") => {
+  const recent = async (
+    table: "events" | "qr_scans" | "wcm_navigation_points",
+    timeField: "created_at" | "scanned_at",
+    filter: "navigation" | "navigation_gps" | null = null,
+  ) => {
     const url = new URL(`${db.url}/rest/v1/${table}`);
     url.searchParams.set("select", "id");
     url.searchParams.set("visitor_id", `eq.${visitorId}`);
     url.searchParams.set(timeField, `gte.${from}`);
     url.searchParams.set("limit", "1");
+    if (filter) {
+      url.searchParams.set("event", "in.(nav_start,nav_progress,reroute,arrive)");
+      if (filter === "navigation_gps") url.searchParams.set("lat", "not.is.null");
+    }
 
     const response = await fetch(url, { headers, cache: "no-store", signal: AbortSignal.timeout(10_000) });
     if (!response.ok) throw new Error("storage read failed");
@@ -66,11 +75,22 @@ export async function GET(request: Request) {
       recent("qr_scans", "scanned_at"),
     ]);
 
+    // Optional navigation readback: only this visitor, last 15 minutes, boolean results.
+    // No IDs, route geometry, coordinates, sample counts or personal data leave this route.
+    const navigation = navigationCheck ? await Promise.all([
+      recent("wcm_navigation_points", "created_at", "navigation"),
+      recent("wcm_navigation_points", "created_at", "navigation_gps"),
+    ]) : null;
+
     return respond({
       ok: true,
       status: "storage_connected",
       recent_events_saved: recentEventsSaved,
       recent_qr_scans_saved: recentQrScansSaved,
+      ...(navigation ? {
+        recent_market_navigation_events_saved: navigation[0],
+        recent_market_navigation_gps_saved: navigation[1],
+      } : {}),
       lookback_minutes: LOOKBACK_MINUTES,
     }, 200);
   } catch {

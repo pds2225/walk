@@ -33,6 +33,24 @@ export function consentedPosition(): GeoFix | null {
   return getGeoConsent() === "yes" ? lastFix : null;
 }
 
+// Continuous walking trace storage requires its own opt-in. Prior consent for
+// one-off location fixes must never silently authorize route recording.
+export const NAV_GEO_CONSENT_KEY = "wcm:nav-geo-consent";
+
+export function getNavGeoConsent(): GeoConsent {
+  try {
+    const value = window.localStorage.getItem(NAV_GEO_CONSENT_KEY);
+    return value === "yes" || value === "no" ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+export function setNavGeoConsent(choice: "yes" | "no"): void {
+  try { window.localStorage.setItem(NAV_GEO_CONSENT_KEY, choice); }
+  catch { /* Storage denied: fail closed, so consent cannot be assumed. */ }
+}
+
 export const PRIVACY_POLICY_PATH = "/worldcup-market/privacy";
 
 /** Popup copy: one sentence; `link` is rendered as a hyperlink to the privacy policy (new tab). */
