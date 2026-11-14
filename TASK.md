@@ -11,6 +11,9 @@
 - 작업 브랜치: `feat/ktrip-consented-navigation-capture-20261113`. 기존 미병합 PR #201/#202 및 main 기록 보존. 고위험 운영 적용은 추후 별도 검증·승인.
 - 검증(2026-11-13): GitHub Actions `test` 전체 58개 테스트 파일/590개 케이스 PASS, `docs-gate` PASS, ESLint·TypeScript(root/web)·route-engine·Next.js 빌드 PASS. PostgREST 유사 메모리 대역에서 GPS nav_start/nav_progress 2건(가상 위경도) 수집→쓰기→같은 쿠키 GET `/api/storage-status?nav=1`를 검증하고, 미동의/철회/다른 브라우저 차단 검증. 첫 CI의 기존 영어 고지 회귀 1건을 수정하고 재검증 PASS.
 - 상태: CODE_AND_SIMULATED_DB_E2E_VERIFIED / LIVE_GPS_E2E_UNVERIFIED. 사용자 지시에 따라 운영 DB·Vercel에 변경·배포·마이그레이션 없음. 안전한 추가 검증 후에만 main 병합·운영 적용.
+- 2026-11-14 운영 사전점검: K-Navi·WALK Vercel production이 실제 동일한 Supabase URL·저장 인증값을 사용함을 비교 검증(값 비출력). PR #206은 Draft·미병합, K-Navi production은 main 41022f0, 방문객 웹 45개 표시 및 비인증 저장진단 400 확인.
+- 적용 차단: Supabase SQL 관리 연결 없음. `public.events` 공유 제약·인덱스 및 기존 365일 `pg_cron` 작업의 실DB 상태, 백업/복원 여부를 미확인. 안전 확인 전 마이그레이션·운영 배포·GPS 개인정보 기록 금지. PR #206 본문에 읽기전용 SQL 점검과 실행 순서를 기록.
+- 상태: OPERATING_PREFLIGHT_COMPLETE / DB_MIGRATION_BLOCKED / LIVE_GPS_E2E_UNVERIFIED. 기존 QR·웹 기록 운영 기능 및 개인정보 보호 유지.
 
 ## KN-STORAGE-READBACK-20261113 — K-Navi 운영 수집·DB 저장 재조회 진단
 - 사용자 요청: K-Navi 수집→저장→조회 실제 사용자 경로를 확인하고 운영 장애를 최소 변경으로 해결. 실기기 현장 GPS 검증은 사용자 기존 기본 제외 정책 유지.
