@@ -1,5 +1,16 @@
 # K-Navi / 케이네비 — Active Development TASK
 
+## KN-GPS-LIVE-AND-CONSENT-20261114 — 실제 수집 API 검증 및 브라우저 저장 차단 복구
+- [실DB] Supabase `ktrip-qr`(K-Navi/WALK 공유) 직접 관리 연결 및 스키마 검증 완료. 기존 events 1,853건·qr_scans 55건의 마이그레이션 전후 건수를 보존. 기존 두 테이블 제약 변경 없이 신규 `public.wcm_navigation_points` (RLS·service_role 전용, anon 차단)와 365일 GPS 전용 파기 cron만 관리 마이그레이션 `20261114084519_wcm_navigation_points_isolated`로 적용함. Free plan 자동 일일 백업 없음.
+- [실DB 원자 테스트] `SET LOCAL ROLE service_role`에서 합성 GPS INSERT→DB SELECT=1→ROLLBACK, 뒤이은 테이블 0건 확인.
+- [운영 코드] PR #206 main 병합 `e5f2e37b83cfd1401c5eb033dd5e260d3bfd7d83`, Vercel `k-navi`와 `walk` READY. `KNAVI_NAV_CAPTURE_ENABLED=true`는 K-Navi production에만 설정. WALK 변경 없음.
+- [실HTTP] 운영 `POST /api/track` 합성 GPS 2점 각각 HTTP 201, `GET /api/storage-status?nav=1` HTTP 200·GPS 저장 true. QA PR #207 `test/knavi-live-gps-http-20261114` 594/594 테스트 PASS 및 TypeScript/Lint/Next 빌드 PASS. Supabase 2회 실행에서 테스트 레코드 4건 직접 확인 후 해당 QA 레코드만 정리; 신규 GPS 테이블 현재 0건. QA PR #207은 종료·미병합, 기존 방문자 데이터 삭제 없음.
+- [현재 화면] 실제 브라우저에서 시장 점포 상세→길찾기→별도 GPS 동의 UI·개인정보 처리방침 표시 확인. 그러나 테스트 브라우저에서 동의 버튼 클릭 후 상태 변경을 확인하지 못함. 코드상 localStorage 저장 실패 시 선택 갱신이 무반응일 수 있어 오류를 명시하고 철회 실패 시 같은 탭 GPS 저장을 즉시 차단하도록 보완함.
+- [코드 보완] `web/lib/wcmGeoConsent.ts`, `web/components/LocationStorageConsent.tsx` 및 관련 회귀 테스트. 사용자의 GPS 동의가 저장되지 않으면 허용된 것으로 처리하지 않음.
+- [미완료 경계] 브라우저의 실제 GPS 위치 측정·보행 실기기 E2E는 미검증. AI하우스 외부 제공용 GPS 경로 조회 API는 수신자·인증·위치정보 제3자 제공 동의·기술 명세 미확정이므로 미제공(현 개인정보 처리방침에서 제3자 미제공). 기술 내부 API 실사용 검증과 외부 제공 완료는 혼동하지 않음.
+- [완료조건] 신규 UI 오류 회귀/운영 배포까지 검증하고, 별도 대외 계약·적법한 동의·실수신 API 검증 전까지 서비스 전체 DONE 금지. WORK 실외 측정은 사용자 기준에 따라 별도 검증.
+- 브랜치: `fix/knavi-gps-consent-storage-20261114`. 사용자 기존 DB와 파일·PR 이력 보존. 현재 INTERNAL_GPS_API_E2E_PASS / CONSENT_UI_HARDENING_IN_PROGRESS / EXTERNAL_GPS_API_NOT_DELIVERED.
+
 ## KN-KTRIP-CONSENTED-GPS-20261113 — 월드컵시장 동의된 GPS 경로 수집·저장·재조회
 - [2026-11-14 Supabase 직접 검증] 기존 K-Navi/WALK Vercel 설정이 모두 ktrip-qr (vkmpitfvcmjqlugixsqo)에 연결됨 확인. 기존 DB 사건 events 1,853건·qr_scans 55건, GPS 포인트용 신규 테이블 없음, 기존 시장 파기 cron 29회 성공, WALK GPS 206건, WCM 단발 위치 29건 확인. 해당 Supabase 조직 free plan으로 자동 일일 백업 없음(공식 Backups 문서). 기존 공용 테이블 CHECK 교체는 변경 위험 때문에 **취소/미실행**.
 - [2026-11-14 안전한 대체 이행] 사용자 데이터·기존 WALK 테이블에 대한 DDL 없이 **신규 public.wcm_navigation_points만** 만들도록 기존 미적용 migration 파일을 변경해 Supabase 관리 migration `20261114084519_wcm_navigation_points_isolated`로 적용. 새 테이블 RLS 활성/anon·authenticated 직접 조회 차단/service_role SELECT·INSERT 허용. 별도 GPS 365일 파기 cron 활성.
