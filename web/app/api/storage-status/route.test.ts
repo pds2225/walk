@@ -110,11 +110,11 @@ describe("GET /api/storage-status", () => {
     expect(JSON.stringify(body)).not.toContain("abcdef12-3456");
     expect(fetchMock).toHaveBeenCalledTimes(4);
     const navUrls = fetchMock.mock.calls.map(([u]) => u as URL)
-      .filter(u => u.searchParams.has("app"));
+      .filter(u => u.pathname.endsWith("/wcm_navigation_points"));
     expect(navUrls).toHaveLength(2);
     for (const url of navUrls) {
-      expect(url.searchParams.get("app")).toBe("eq.worldcup-market");
       expect(url.searchParams.get("visitor_id")).toBe("eq.abcdef12-3456");
+      expect(url.searchParams.get("event")).toBe("in.(nav_start,nav_progress,reroute,arrive)");
     }
     expect(navUrls.some(u => u.searchParams.get("lat") === "not.is.null")).toBe(true);
   });
