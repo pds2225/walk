@@ -235,11 +235,11 @@ export default function LocationStorageConsent({
               {copy.title}: {choice === "yes" ? copy.enabled : copy.disabled}
             </p>
             {saveError ? <p role="alert" style={{ color: "#a21d18" }}>{copy.saveError}</p> : null}
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-              <button type="button" aria-pressed={choice === "yes"} onClick={() => decide("yes")} style={primaryStyle}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <button id="gps-consent-agree" type="button" aria-pressed={choice === "yes"} onClick={() => decide("yes")} style={{ ...primaryStyle, width: "100%", minHeight: 48 }}>
                 {copy.yes}
               </button>
-              <button type="button" aria-pressed={choice !== "yes"} onClick={() => decide("no")} style={secondaryStyle}>
+              <button id="gps-consent-decline" type="button" aria-pressed={choice !== "yes"} onClick={() => decide("no")} style={{ ...secondaryStyle, width: "100%", minHeight: 48 }}>
                 {copy.no}
               </button>
               {mode === "manage" ? (
