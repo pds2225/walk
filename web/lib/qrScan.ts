@@ -77,7 +77,7 @@ export async function insertQrScan(row: QrScanRow): Promise<boolean> {
 export const QR_LANDING_COOKIE = "ktrip_land";
 
 /** Server-side REST insert with the service key. Never throws. */
-export async function insertSupabaseRow(table: "qr_scans" | "events", row: object): Promise<boolean> {
+export async function insertSupabaseRow(table: "qr_scans" | "events" | "wcm_navigation_points", row: object): Promise<boolean> {
   const config = supabaseConfig();
   if (!config) return false;
   try {
