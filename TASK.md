@@ -1,6 +1,11 @@
 # K-Navi / 케이네비 — Active Development TASK
 
 ## KN-KTRIP-CONSENTED-GPS-20261113 — 월드컵시장 동의된 GPS 경로 수집·저장·재조회
+- [2026-11-14 Supabase 직접 검증] 기존 K-Navi/WALK Vercel 설정이 모두 ktrip-qr (vkmpitfvcmjqlugixsqo)에 연결됨 확인. 기존 DB 사건 events 1,853건·qr_scans 55건, GPS 포인트용 신규 테이블 없음, 기존 시장 파기 cron 29회 성공, WALK GPS 206건, WCM 단발 위치 29건 확인. 해당 Supabase 조직 free plan으로 자동 일일 백업 없음(공식 Backups 문서). 기존 공용 테이블 CHECK 교체는 변경 위험 때문에 **취소/미실행**.
+- [2026-11-14 안전한 대체 이행] 사용자 데이터·기존 WALK 테이블에 대한 DDL 없이 **신규 public.wcm_navigation_points만** 만들도록 기존 미적용 migration 파일을 변경해 Supabase 관리 migration `20261114084519_wcm_navigation_points_isolated`로 적용. 새 테이블 RLS 활성/anon·authenticated 직접 조회 차단/service_role SELECT·INSERT 허용. 별도 GPS 365일 파기 cron 활성.
+- [2026-11-14 무변경 검증] migration 전후 events=1,853·qr_scans=55 동일. 새 테이블 포인트 0건. `SET LOCAL ROLE service_role` 실제 Postgres 트랜잭션에서 GPS 임의점 INSERT→SELECT=1을 확인하고 ROLLBACK, 종료 후 0건 확인. 이는 실제 DB DDL/권한 검증이며 외부 HTTP API E2E 또는 실사용 GPS 아님.
+- [API 코드 변경] 시장 GPS 전용 `POST /api/track`은 `KNAVI_NAV_CAPTURE_ENABLED=true`에서만 허용, 별도 동의 없는 보행은 204 무저장, 동의 GPS만 신규 테이블 INSERT 결과에 따라 201/502. 기존 웹·QR 및 일반 WALK 이벤트는 events/qr_scans 기존 202 유지. `GET /api/storage-status?nav=1`은 동일 브라우저의 신규 GPS 테이블만 두 가지 Boolean으로 조회. `web/lib/qrScan.ts` 기존 저장 공통 어댑터 재사용.
+- [모의검증] 58파일 593 테스트 PASS, lint/TS/root/web 빌드 PASS (Github Actions, 스키마 대체 코드 헤드). 실제 HTTP API 호출·실사용 GPS·대외 제공은 별도 E2E 전까지 **미완료**. 
 - 사용자 요청: PR #201의 기존 보행 식별/동의 흐름을 재사용해 K-Trip 방문객의 연속 GPS 이동경로 수집→DB 저장→방문자 본인 재조회만 최소 완성. 실제 운영·현장 GPS 검증은 사용자 후속 지시로 보류하고 운영과 유사한 데이터 대역 테스트로 진행.
 - 기존 운영 상태: `main`의 QR/웹 이벤트 저장은 운영 DB 실조회 검증 완료(PR #205). `DestinationWalk`는 이전까지 연속 GPS 데이터 기록 이벤트가 없었음.
 - 범위: `wcm:nav-geo-consent` 별도 명시 동의·철회(기존 `wcm:geo-consent` 재활용 금지), 네 언어 안내, 이동 중 30초 또는 50m 보행표본(기존 WALK 상수 재사용), 보행 ID UUID·점포 ID 부여, 동일 브라우저의 `GET /api/storage-status?nav=1` 결과만 조회. 응답에 실측 좌표·방문자 ID·기록 원문 없음.
