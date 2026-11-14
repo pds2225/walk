@@ -28,7 +28,7 @@ it.skipIf(!onQaBranch)("operational HTTPS POST two synthetic fixes, then same vi
   let browserCookie: string | null = null;
 
   for (const [index, payload] of payloads.entries()) {
-    const res = await fetch(`${base}/api/track`, {
+    const res: Response = await fetch(`${base}/api/track`, {
       method: "POST",
       headers: {
         "content-type": "application/json",
@@ -42,7 +42,8 @@ it.skipIf(!onQaBranch)("operational HTTPS POST two synthetic fixes, then same vi
     const reply: unknown = await res.json();
     expect(reply).toMatchObject({ ok: true, storage: "persisted", gps_stored: true });
     if (index === 0) {
-      const cookieMatch = res.headers.get("set-cookie")?.match(/ktrip_vid=[A-Za-z0-9-]+/);
+      const cookieHeader: string | null = res.headers.get("set-cookie");
+      const cookieMatch: RegExpMatchArray | null = cookieHeader?.match(/ktrip_vid=[A-Za-z0-9-]+/) ?? null;
       expect(cookieMatch, "first POST must set a first-party visitor cookie").toBeTruthy();
       browserCookie = cookieMatch![0];
     }
