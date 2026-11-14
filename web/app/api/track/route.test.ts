@@ -20,6 +20,7 @@ beforeEach(() => {
   trackRateBuckets.clear();
   vi.stubEnv("SUPABASE_URL", "https://example.supabase.co");
   vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "sb_secret_test");
+  vi.stubEnv("KNAVI_NAV_CAPTURE_ENABLED", "true");
   fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 201 }));
   vi.stubGlobal("fetch", fetchMock);
 });
@@ -146,8 +147,11 @@ describe("POST /api/track", () => {
       navigation_id: "a1b2c3d4-1234-4abc-8def-1234567890ab" };
     expect((await post({ ...row, lat: 37.5587, lng: 126.9051 })).status).toBe(400);
     expect(afterTasks).toHaveLength(0);
-    expect((await post(row)).status).toBe(202);
-    const saved = await insertedRow();
+    const stored = await post(row);
+    expect(stored.status).toBe(201);
+    expect(await stored.json()).toMatchObject({ ok: true, storage: "persisted", gps_stored: false });
+    expect(afterTasks).toHaveLength(0);
+    const saved = JSON.parse(fetchMock.mock.calls[0]![1].body);
     expect(saved).toMatchObject({ app: "worldcup-market", navigation_id: row.navigation_id,
       store_id: row.store_id, event: "nav_progress", geo_consent: false });
     expect(saved.lat).toBeUndefined();
@@ -158,20 +162,62 @@ describe("POST /api/track", () => {
     const row = { event: "nav_progress", store_id: "worldcup-market-23",
       navigation_id: "a1b2c3d4-1234-4abc-8def-1234567890ab",
       geo_consent: true, lat: 37.5587, lng: 126.9051, accuracy_m: 8 };
-    expect((await post(row)).status).toBe(202);
-    expect(await insertedRow()).toMatchObject({ app: "worldcup-market", ...row });
-    afterTasks.length = 0; fetchMock.mockClear();
+    const savedResponse = await post(row);
+    expect(savedResponse.status).toBe(201);
+    expect(await savedResponse.json()).toMatchObject({ ok: true, storage: "persisted", gps_stored: true });
+    expect(JSON.parse(fetchMock.mock.calls[0]![1].body)).toMatchObject({ app: "worldcup-market", ...row });
+    expect(afterTasks).toHaveLength(0);
+    fetchMock.mockClear();
 
     vi.stubEnv("WCM_STORE_COORDS", "off");
-    await post(row);
-    const disabled = await insertedRow();
-    expect(disabled.lat).toBeUndefined();
-    expect(disabled.geo_consent).toBe(true);
-    afterTasks.length = 0; fetchMock.mockClear();
+    const disabled = await post(row);
+    expect(disabled.status).toBe(503);
+    expect((await disabled.json()).error).toBe("gps_storage_disabled");
+    expect(fetchMock).not.toHaveBeenCalled();
+    vi.stubEnv("WCM_STORE_COORDS", "on");
 
     await post({ event: "nav_progress", lat: 37.55, lng: 126.91 });
     const walk = await insertedRow();
     expect(walk).toMatchObject({ app: "walk", lat: 37.55, lng: 126.91, store_id: null });
+  });
+
+  it("fails closed for an unapproved GPS API while leaving ordinary tracking unaffected", async () => {
+    const row = { event: "nav_start", store_id: "worldcup-market-01",
+      navigation_id: "a1b2c3d4-1234-4abc-8def-1234567890ab",
+      geo_consent: true, lat: 37.5587, lng: 126.9051 };
+    vi.stubEnv("KNAVI_NAV_CAPTURE_ENABLED", "");
+    const response = await post(row);
+    expect(response.status).toBe(503);
+    expect((await response.json()).error).toBe("gps_storage_not_enabled");
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(afterTasks).toHaveLength(0);
+
+    expect((await post({ event: "page_view" })).status).toBe(202);
+    expect(await insertedRow()).toMatchObject({ event: "page_view" });
+  });
+
+  it("only acknowledges a GPS write after PostgREST confirms it", async () => {
+    const row = { event: "nav_progress", store_id: "worldcup-market-23",
+      navigation_id: "a1b2c3d4-1234-4abc-8def-1234567890ab",
+      geo_consent: true, lat: 37.5587, lng: 126.9051 };
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 503 }));
+    const failed = await post(row);
+    expect(failed.status).toBe(502);
+    expect((await failed.json()).storage).toBe("failed");
+    expect(afterTasks).toHaveLength(0);
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 201 }));
+    const saved = await post(row);
+    expect(saved.status).toBe(201);
+    expect((await saved.json()).gps_stored).toBe(true);
+    expect(afterTasks).toHaveLength(0);
+  });
+
+  it("rejects invalid GPS coordinates instead of reporting a successful GPS write", async () => {
+    const row = { event: "nav_progress", store_id: "worldcup-market-01",
+      navigation_id: "a1b2c3d4-1234-4abc-8def-1234567890ab",
+      geo_consent: true, lat: 999, lng: 126.9051 };
+    expect((await post(row)).status).toBe(400);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
 });
