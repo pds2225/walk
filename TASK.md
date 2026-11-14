@@ -9,7 +9,8 @@
 - 수정 대상: `web/components/LocationStorageConsent.tsx`, `web/app/worldcup-market/page.tsx`, 관련 화면·페이지 테스트와 본 `TASK.md`.
 - 테스트 기준: 팝업 최초 진입·선택·재진입·거부·철회·브라우저 저장 장애·키보드·4개 언어, 기존 GPS·QR·WALK 기능 회귀; GH Actions `test`, `docs-gate`와 Next 빌드 확인. 현장 GPS E2E·AI하우스 대외 API는 범위 밖, 실사용 미검증으로 구분.
 - 브랜치 `fix/knavi-gps-consent-popup-20261114`. 운영 Supabase·배포 설정·마이그레이션·.env·기존 방문객 데이터 변경 없음. CI/실제 브라우저 검증 완료 전 운영 DONE 금지.
-- 현재 상태: IMPLEMENTED / CI_PENDING / LIVE_BROWSER_UNVERIFIED.
+- 검증(2026-11-14): GitHub Actions `test` 58개 테스트 파일·603개 테스트 PASS, ESLint/root·web TypeScript·route-engine/Next 빌드 PASS, `docs-gate` PASS. WALK preview의 동일 Next.js K-Trip UI에서 실제 클릭 E2E: 점포 01→최초 팝업→동의(`GPS 이동기록 설정: 동의함`)→설정 다시 열기→철회(`동의 안 함`) PASS. 두 선택 버튼을 세로 48px 높이·별도 ID로 구분하여 자동 브라우저 오클릭 방지. 브라우저 GPS 권한 미부여, 좌표 전송/DB 쓰기 없음.
+- 현재 상태: CODE_AND_PREVIEW_UI_E2E_VERIFIED / K_NAVI_PRODUCTION_UI_NOT_YET_VERIFIED / REAL_DEVICE_GPS_E2E_UNVERIFIED. PR 병합 및 운영 실수신 확인 전 배포 완료로 판정 금지.
 
 ## KN-GPS-LIVE-AND-CONSENT-20261114 — 실제 수집 API 검증 및 브라우저 저장 차단 복구
 - [실DB] Supabase `ktrip-qr`(K-Navi/WALK 공유) 직접 관리 연결 및 스키마 검증 완료. 기존 events 1,853건·qr_scans 55건의 마이그레이션 전후 건수를 보존. 기존 두 테이블 제약 변경 없이 신규 `public.wcm_navigation_points` (RLS·service_role 전용, anon 차단)와 365일 GPS 전용 파기 cron만 관리 마이그레이션 `20261114084519_wcm_navigation_points_isolated`로 적용함. Free plan 자동 일일 백업 없음.
