@@ -75,8 +75,13 @@ export async function POST(request: Request) {
   if (marketNav && body["geo_consent"] !== true && (body["lat"] !== undefined || body["lng"] !== undefined)) {
     return NextResponse.json({ ok: false, error: "location storage consent required" }, { status: 400 });
   }
-  // K-Trip walking GPS MUST NOT silently report accepted before the shared DB
-  // migration, retention and consent gates have been reviewed and enabled.
+  // A declined GPS consent never creates navigation data, even if a browser
+  // is permitted to keep using navigation without any location storage.
+  if (marketNav && body["geo_consent"] !== true) {
+    return new Response(null, { status: 204, headers: { "cache-control": "no-store" } });
+  }
+  // Never accept a GPS write before the isolated storage migration is verified
+  // and the server-only feature flag is explicitly enabled.
   if (marketNav && process.env.KNAVI_NAV_CAPTURE_ENABLED !== "true") {
     return NextResponse.json({ ok: false, error: "gps_storage_not_enabled" }, { status: 503 });
   }
@@ -179,12 +184,29 @@ export async function POST(request: Request) {
     } : { app: "worldcup-market", ...(coords ? { ...coords, geo_consent: geoConsent } : {}) }),
   };
   if (marketNav) {
-    // Unlike ordinary analytics (202 + after), a GPS write is acknowledged
-    // ONLY after the existing PostgREST insert transaction responds success.
-    const saved = await insertSupabaseRow("events", row);
+    if (!coords || !navigationId || !storeId) {
+      return NextResponse.json(
+        { ok: false, error: "gps_fix_required", storage: "not_saved" },
+        { status: 422, headers: { "cache-control": "no-store" } },
+      );
+    }
+    // A new market-only table avoids altering existing WALK/QR constraints.
+    // HTTP 201 confirms that PostgREST acknowledged a committed INSERT;
+    // /api/storage-status?nav=1 independently verifies subsequent readback.
+    const saved = await insertSupabaseRow("wcm_navigation_points", {
+      event,
+      visitor_id: visitorId,
+      session_id: sessionId && SESSION_RE.test(sessionId) ? sessionId : null,
+      navigation_id: navigationId,
+      store_id: storeId,
+      lat: coords.lat,
+      lng: coords.lng,
+      accuracy_m: coords.accuracy_m,
+      geo_consent: true,
+    });
     const result = NextResponse.json(
       saved
-        ? { ok: true, storage: "persisted", gps_stored: coords !== null }
+        ? { ok: true, storage: "persisted", gps_stored: true }
         : { ok: false, error: "gps_storage_write_failed", storage: "failed" },
       { status: saved ? 201 : 502, headers: { "cache-control": "no-store" } },
     );
