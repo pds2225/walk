@@ -4,12 +4,22 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Locale } from "../../lib/i18n";
+import { getNavGeoConsent, setNavGeoConsent } from "../../lib/wcmGeoConsent";
+
+vi.mock("../../lib/voice", () => ({ primeSpeech: vi.fn() }));
 import WorldCupMarketDemoPage from "./page";
 
 vi.mock("../../components/WorldCupMarketDemo", () => ({
-  default: ({ locale, onLocaleChange }: { locale: Locale; onLocaleChange?: (locale: Locale) => void }) => (
+  default: ({ locale, onLocaleChange, onStartWalking }: {
+    locale: Locale;
+    onLocaleChange?: (locale: Locale) => void;
+    onStartWalking?: (target: { name: string; coordinate: { latitude: number; longitude: number }; storeId?: string }) => void;
+  }) => (
     <div data-testid="demo" data-locale={locale}>
       <button onClick={() => onLocaleChange?.("ja")}>switch-to-ja</button>
+      <button onClick={() => onStartWalking?.({
+        name: "Test shop", coordinate: { latitude: 37.5587, longitude: 126.905 }, storeId: "worldcup-market-01",
+      })}>mock-start-walk</button>
     </div>
   ),
 }));
@@ -70,5 +80,45 @@ describe("월드컵시장 페이지: 언어 유지 (Fix 2)", () => {
     expect(window.location.search).toContain("lang=ja");
     expect(window.location.search).toContain("store=worldcup-market-01");
     expect(window.history.length).toBe(lengthBefore);
+  });
+});
+
+
+describe("월드컵시장 GPS 첫 동의 팝업 → 길찾기", () => {
+  it("별도 GPS 동의가 없다면 브라우저 길찾기를 먼저 시작하지 않는다", () => {
+    render(<WorldCupMarketDemoPage />);
+    fireEvent.click(screen.getByRole("button", { name: "mock-start-walk" }));
+    expect(screen.getByRole("dialog", { name: "보행 GPS 이동기록 저장" })).toBeTruthy();
+    expect(screen.queryByTestId("destination-walk")).toBeNull();
+    expect(getNavGeoConsent()).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "이동기록 저장 동의" }));
+    expect(getNavGeoConsent()).toBe("yes");
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.getByTestId("destination-walk")).toBeTruthy();
+  });
+
+  it("저장 거부여도 정상적으로 길찾기로 이동하며 연속 GPS 저장은 동의 안 함", () => {
+    render(<WorldCupMarketDemoPage />);
+    fireEvent.click(screen.getByRole("button", { name: "mock-start-walk" }));
+    fireEvent.click(screen.getByRole("button", { name: "이동기록 저장 거부·철회" }));
+    expect(getNavGeoConsent()).toBe("no");
+    expect(screen.getByTestId("destination-walk")).toBeTruthy();
+  });
+
+  it("이미 사용자가 선택한 경우 반복 팝업 없이 기존 설정을 사용한다", () => {
+    setNavGeoConsent("yes");
+    render(<WorldCupMarketDemoPage />);
+    fireEvent.click(screen.getByRole("button", { name: "mock-start-walk" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.getByTestId("destination-walk")).toBeTruthy();
+  });
+
+  it("첫 동의 화면에서 Escape를 누르면 동의 없이 길찾기를 시작한다", () => {
+    render(<WorldCupMarketDemoPage />);
+    fireEvent.click(screen.getByRole("button", { name: "mock-start-walk" }));
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(getNavGeoConsent()).toBe("no");
+    expect(screen.getByTestId("destination-walk")).toBeTruthy();
   });
 });
