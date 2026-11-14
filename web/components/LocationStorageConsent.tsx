@@ -112,7 +112,9 @@ const secondaryStyle: CSSProperties = {
 export default function LocationStorageConsent({
   locale, mode = "manage", onResolved,
 }: LocationStorageConsentProps) {
-  const [choice, setChoice] = useState<"yes" | "no" | null>(null);
+  const [choice, setChoice] = useState<"yes" | "no" | null>(() =>
+    typeof window === "undefined" ? null : getNavGeoConsent(),
+  );
   const [open, setOpen] = useState(mode === "prompt");
   const [saveError, setSaveError] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
