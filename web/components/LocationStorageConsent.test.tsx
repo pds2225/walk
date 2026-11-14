@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import LocationStorageConsent from "./LocationStorageConsent";
-import { getNavGeoConsent, getGeoConsent, setGeoConsent } from "../lib/wcmGeoConsent";
+import { getNavGeoConsent, getGeoConsent, setGeoConsent, setNavGeoConsent } from "../lib/wcmGeoConsent";
 
 afterEach(() => { cleanup(); window.localStorage.clear(); });
 
@@ -33,4 +33,25 @@ describe("walking GPS storage consent UI", () => {
       view.unmount();
     }
   });
+  it("reports blocked browser storage instead of falsely confirming GPS consent", () => {
+    const view = render(<LocationStorageConsent locale="ko" />);
+    const spy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("blocked"); });
+    fireEvent.click(view.container.querySelectorAll("button")[0]!);
+    expect(getNavGeoConsent()).toBeNull();
+    expect(view.container.querySelector('[role="alert"]')?.textContent).toContain("저장하지 못했습니다");
+    expect(view.container.textContent).toContain("동의 안 함");
+    spy.mockRestore();
+  });
+
+  it("fails closed on consent withdrawal even when browser refuses to save the revocation", () => {
+    setNavGeoConsent("yes");
+    const view = render(<LocationStorageConsent locale="ko" />);
+    const spy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("blocked"); });
+    fireEvent.click(view.container.querySelectorAll("button")[1]!);
+    expect(getNavGeoConsent()).toBe("no");
+    expect(view.container.querySelector('[role="alert"]')?.textContent).toContain("철회");
+    spy.mockRestore();
+    setNavGeoConsent("yes"); // reset session-only emergency opt-out for isolated tests
+  });
+
 });

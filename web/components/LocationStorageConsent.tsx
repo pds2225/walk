@@ -12,6 +12,7 @@ const COPY = {
     no: "이동기록 저장 거부·철회",
     enabled: "동의함",
     disabled: "동의 안 함",
+    saveError: "브라우저 저장소 문제로 선택을 저장하지 못했습니다. 동의가 저장되지 않으면 GPS를 기록하지 않습니다. 철회가 실패했다면 새로고침 전 사이트 데이터를 확인하세요.",
   },
   en: {
     title: "Save walking GPS records",
@@ -20,6 +21,7 @@ const COPY = {
     no: "Decline or withdraw",
     enabled: "Agreed",
     disabled: "Not agreed",
+    saveError: "The browser could not save your choice. Unpersisted consent does not enable GPS recording. If withdrawal fails, check site data before reloading.",
   },
   ja: {
     title: "歩行GPS移動記録の保存",
@@ -28,6 +30,7 @@ const COPY = {
     no: "拒否・撤回",
     enabled: "同意済み",
     disabled: "未同意",
+    saveError: "ブラウザーに選択を保存できません。保存できない同意ではGPSを記録しません。撤回が失敗した場合は再読み込み前にサイトデータを確認してください。",
   },
   zh: {
     title: "保存步行GPS轨迹",
@@ -36,17 +39,20 @@ const COPY = {
     no: "拒绝或撤回",
     enabled: "已同意",
     disabled: "未同意",
+    saveError: "浏览器无法保存您的选择。未保存的同意不会启用GPS记录。如果撤回失败，请在刷新页面前检查站点数据。",
   },
-} satisfies Record<Locale, { title: string; notice: string; yes: string; no: string; enabled: string; disabled: string }>;
+} satisfies Record<Locale, { title: string; notice: string; yes: string; no: string; enabled: string; disabled: string; saveError: string }>;
 
 export default function LocationStorageConsent({ locale }: { readonly locale: Locale }) {
   const [choice, setChoice] = useState<"yes" | "no" | null>(null);
+  const [saveError, setSaveError] = useState(false);
   useEffect(() => { setChoice(getNavGeoConsent()); }, []);
   const copy = COPY[locale];
 
   const decide = (value: "yes" | "no") => {
-    setNavGeoConsent(value);
-    setChoice(getNavGeoConsent()); // A blocked localStorage write is NOT consent.
+    const persisted = setNavGeoConsent(value);
+    setChoice(getNavGeoConsent());
+    setSaveError(!persisted); // Explain when restricted browser storage prevented persistence.
   };
 
   return (
@@ -56,6 +62,7 @@ export default function LocationStorageConsent({ locale }: { readonly locale: Lo
       <p><a href="/worldcup-market/privacy" target="_blank" rel="noreferrer">개인정보 처리방침 · Privacy Policy</a></p>
       <button type="button" aria-pressed={choice === "yes"} onClick={() => decide("yes")}>{copy.yes}</button>{" "}
       <button type="button" aria-pressed={choice !== "yes"} onClick={() => decide("no")}>{copy.no}</button>
+      {saveError ? <p role="alert">{copy.saveError}</p> : null}
     </details>
   );
 }
