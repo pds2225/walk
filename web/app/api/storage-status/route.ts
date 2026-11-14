@@ -48,7 +48,7 @@ export async function GET(request: Request) {
   if (db.key.startsWith("eyJ")) headers.authorization = `Bearer ${db.key}`;
 
   const recent = async (
-    table: "events" | "qr_scans",
+    table: "events" | "qr_scans" | "wcm_navigation_points",
     timeField: "created_at" | "scanned_at",
     filter: "navigation" | "navigation_gps" | null = null,
   ) => {
@@ -58,7 +58,6 @@ export async function GET(request: Request) {
     url.searchParams.set(timeField, `gte.${from}`);
     url.searchParams.set("limit", "1");
     if (filter) {
-      url.searchParams.set("app", "eq.worldcup-market");
       url.searchParams.set("event", "in.(nav_start,nav_progress,reroute,arrive)");
       if (filter === "navigation_gps") url.searchParams.set("lat", "not.is.null");
     }
@@ -79,8 +78,8 @@ export async function GET(request: Request) {
     // Optional navigation readback: only this visitor, last 15 minutes, boolean results.
     // No IDs, route geometry, coordinates, sample counts or personal data leave this route.
     const navigation = navigationCheck ? await Promise.all([
-      recent("events", "created_at", "navigation"),
-      recent("events", "created_at", "navigation_gps"),
+      recent("wcm_navigation_points", "created_at", "navigation"),
+      recent("wcm_navigation_points", "created_at", "navigation_gps"),
     ]) : null;
 
     return respond({
