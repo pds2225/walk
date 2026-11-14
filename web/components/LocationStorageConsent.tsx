@@ -49,7 +49,7 @@ const COPY = {
     manage: "GPS记录设置",
     close: "关闭",
   },
-} satisfies Record<Locale, { title: string; notice: string; yes: string; no: string; enabled: string; disabled: string; saveError: string }>;
+} satisfies Record<Locale, { title: string; notice: string; yes: string; no: string; enabled: string; disabled: string; saveError: string; manage: string; close: string }>;
 
 type ConsentMode = "prompt" | "manage";
 
