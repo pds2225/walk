@@ -31,21 +31,20 @@ beforeEach(() => {
   vi.stubEnv("KNAVI_NAV_CAPTURE_ENABLED", "true");
   requests = vi.fn(async (input: URL | string, init?: RequestInit) => {
     const url = input instanceof URL ? input : new URL(input);
-    if (url.pathname === "/rest/v1/events" && init?.method === "POST") {
+    if (url.pathname === "/rest/v1/wcm_navigation_points" && init?.method === "POST") {
       const row = JSON.parse(String(init.body)) as Record<string, unknown>;
       recorded.push({ ...row, id: recorded.length + 1, created_at: new Date().toISOString() });
       return new Response(null, { status: 201 });
     }
     if (init?.method !== undefined && init.method !== "GET") throw Error("unexpected method");
-    const isEvents = url.pathname === "/rest/v1/events";
-    if (!isEvents && url.pathname !== "/rest/v1/qr_scans") throw Error("unexpected table");
+    const isNav = url.pathname === "/rest/v1/wcm_navigation_points";
+    if (!isNav && url.pathname !== "/rest/v1/events" && url.pathname !== "/rest/v1/qr_scans") throw Error("unexpected table");
     const filter = url.searchParams;
-    const items = isEvents ? recorded.filter((row) => {
+    const items = isNav ? recorded.filter((row) => {
       const visitorFilter = filter.get("visitor_id");
       const dateFilter = filter.get("created_at");
       if (visitorFilter && row.visitor_id !== visitorFilter.slice(3)) return false;
       if (dateFilter && Date.parse(row.created_at) < Date.parse(dateFilter.slice(4))) return false;
-      if (filter.get("app") === "eq.worldcup-market" && row.app !== "worldcup-market") return false;
       if (filter.get("event")?.startsWith("in.") && !["nav_start", "nav_progress", "reroute", "arrive"].includes(String(row.event))) return false;
       if (filter.get("lat") === "not.is.null" && (row.lat == null || row.lng == null)) return false;
       return true;
@@ -80,13 +79,13 @@ describe("K-Trip walking GPS collection → PostgREST-like persistence → same-
     const report = await verification.json();
     expect(verification.status).toBe(200);
     expect(report).toMatchObject({
-      ok: true, status: "storage_connected", recent_events_saved: true,
+      ok: true, status: "storage_connected", recent_events_saved: false,
       recent_qr_scans_saved: false, recent_market_navigation_events_saved: true,
       recent_market_navigation_gps_saved: true, lookback_minutes: 15,
     });
     expect(recorded).toHaveLength(2);
     expect(recorded.every((row) => row.navigation_id === navigationId)).toBe(true);
-    expect(recorded.every((row) => row.app === "worldcup-market" && row.geo_consent === true)).toBe(true);
+    expect(recorded.every((row) => row.geo_consent === true && row.store_id === "worldcup-market-01")).toBe(true);
     expect(recorded.map((row) => row.lat)).toEqual([37.5587, 37.5589]);
     expect(JSON.stringify(report)).not.toContain("visitor-001-1122");
     expect(JSON.stringify(report)).not.toContain("37.5587");
@@ -100,10 +99,9 @@ describe("K-Trip walking GPS collection → PostgREST-like persistence → same-
     expect((await send(visitBody("nav_start", true, { lat: 37.5587, lng: 126.9051 }))).status).toBe(201);
     expect(queued).toHaveLength(0);
 
-    expect((await send(visitBody("nav_progress", false))).status).toBe(201);
+    expect((await send(visitBody("nav_progress", false))).status).toBe(204);
     expect(queued).toHaveLength(0);
-    expect(recorded[1]!.lat).toBeUndefined();
-    expect(recorded[1]!.geo_consent).toBe(false);
+    expect(recorded).toHaveLength(1);
     expect(recorded[0]!.lat).toBe(37.5587);
 
     const own = await (await readback()).json();
