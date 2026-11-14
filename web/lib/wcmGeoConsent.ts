@@ -37,7 +37,12 @@ export function consentedPosition(): GeoFix | null {
 // one-off location fixes must never silently authorize route recording.
 export const NAV_GEO_CONSENT_KEY = "wcm:nav-geo-consent";
 
+// If a previously stored opt-in cannot be revoked due to a storage write
+// failure, stop GPS collection for the current page regardless of stale data.
+let revokeAfterStorageFailure = false;
+
 export function getNavGeoConsent(): GeoConsent {
+  if (revokeAfterStorageFailure) return "no";
   try {
     const value = window.localStorage.getItem(NAV_GEO_CONSENT_KEY);
     return value === "yes" || value === "no" ? value : null;
@@ -46,9 +51,18 @@ export function getNavGeoConsent(): GeoConsent {
   }
 }
 
-export function setNavGeoConsent(choice: "yes" | "no"): void {
-  try { window.localStorage.setItem(NAV_GEO_CONSENT_KEY, choice); }
-  catch { /* Storage denied: fail closed, so consent cannot be assumed. */ }
+/** False means persistence failed; never report a successful consent on failure. */
+export function setNavGeoConsent(choice: "yes" | "no"): boolean {
+  try {
+    window.localStorage.setItem(NAV_GEO_CONSENT_KEY, choice);
+    const persisted = window.localStorage.getItem(NAV_GEO_CONSENT_KEY) === choice;
+    if (persisted) revokeAfterStorageFailure = false;
+    else if (choice === "no") revokeAfterStorageFailure = true;
+    return persisted;
+  } catch {
+    if (choice === "no") revokeAfterStorageFailure = true;
+    return false;
+  }
 }
 
 export const PRIVACY_POLICY_PATH = "/worldcup-market/privacy";
