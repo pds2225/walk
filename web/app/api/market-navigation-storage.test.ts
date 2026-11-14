@@ -28,6 +28,7 @@ beforeEach(() => {
   trackRateBuckets.clear();
   vi.stubEnv("SUPABASE_URL", "https://example.supabase.co");
   vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "sb_secret_fixture");
+  vi.stubEnv("KNAVI_NAV_CAPTURE_ENABLED", "true");
   requests = vi.fn(async (input: URL | string, init?: RequestInit) => {
     const url = input instanceof URL ? input : new URL(input);
     if (url.pathname === "/rest/v1/events" && init?.method === "POST") {
@@ -63,17 +64,17 @@ const readback = (cookie = browserCookie) => GET(new Request("https://k-navi-eig
 }));
 
 describe("K-Trip walking GPS collection → PostgREST-like persistence → same-browser readback", () => {
-  it("does not claim storage before the async write, then verifies two consented samples", async () => {
-    const start = await send(visitBody("nav_start", true, { lat: 37.5587, lng: 126.9051 }));
-    expect(start.status).toBe(202);
+  it("confirms two GPS writes before responding, then reads them from the same browser", async () => {
     const before = await (await readback()).json();
     expect(before.recent_market_navigation_gps_saved).toBe(false);
-    expect(queued).toHaveLength(1);
-    await queued.shift()!();
+    const start = await send(visitBody("nav_start", true, { lat: 37.5587, lng: 126.9051 }));
+    expect(start.status).toBe(201);
+    expect(await start.json()).toMatchObject({ ok: true, storage: "persisted", gps_stored: true });
+    expect(queued).toHaveLength(0);
 
     const progress = await send(visitBody("nav_progress", true, { lat: 37.5589, lng: 126.9053 }));
-    expect(progress.status).toBe(202);
-    await queued.shift()!();
+    expect(progress.status).toBe(201);
+    expect(queued).toHaveLength(0);
 
     const verification = await readback();
     const report = await verification.json();
@@ -96,11 +97,11 @@ describe("K-Trip walking GPS collection → PostgREST-like persistence → same-
     expect(recorded).toHaveLength(0);
     expect(queued).toHaveLength(0);
 
-    expect((await send(visitBody("nav_start", true, { lat: 37.5587, lng: 126.9051 }))).status).toBe(202);
-    await queued.shift()!();
+    expect((await send(visitBody("nav_start", true, { lat: 37.5587, lng: 126.9051 }))).status).toBe(201);
+    expect(queued).toHaveLength(0);
 
-    expect((await send(visitBody("nav_progress", false))).status).toBe(202);
-    await queued.shift()!();
+    expect((await send(visitBody("nav_progress", false))).status).toBe(201);
+    expect(queued).toHaveLength(0);
     expect(recorded[1]!.lat).toBeUndefined();
     expect(recorded[1]!.geo_consent).toBe(false);
     expect(recorded[0]!.lat).toBe(37.5587);
