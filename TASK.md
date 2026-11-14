@@ -1,5 +1,17 @@
 # K-Navi / 케이네비 — Active Development TASK
 
+## KN-GPS-CONSENT-POPUP-20261114 — GPS 동의 화면 최초 진입 팝업 전환
+- 사용자 요청: 월드컵시장 GPS 이동기록 동의 화면을 상단 접이식 영역 대신 간편한 팝업으로 표시. 이전에 선택한 동의를 반복 요구하지 않으며, 언제든 변경·철회 가능한 설정 제공.
+- 기존 `LocationStorageConsent` 및 `wcm:nav-geo-consent` 키·4개 언어 고지·`getNavGeoConsent()/setNavGeoConsent()` 재사용. 새로운 동의 DB·API·권한 없이 UI에서만 처리.
+- UX 경로: 점포 상세 `여기로 가기` → 아직 동의/거부하지 않았으면 GPS 동의 팝업(브라우저 지오로케이션 시작 전) → 동의/거부 후 길찾기. 거부해도 길찾기 허용. 이미 yes/no면 반복 동의 팝업 생략.
+- 내비게이션 화면은 간단한 `GPS 이동기록 설정` 버튼으로 바꿔 동의 수정·철회 가능. 모달의 `Escape`는 최초일 때 수집 거부로 처리, 재설정일 때 상태 보존 후 닫기. 키보드 포커스 트랩/포커스 복귀, 개인정보 처리방침 연결.
+- 저장 실패 시 기존 fail-closed 정책 유지: 동의 저장 실패는 수집 허용하지 않고 경고, 거부 쓰기 실패는 이 탭에서 GPS 즉시 차단. 동의는 브라우저 GPS 위치 권한과 별개.
+- 수정 대상: `web/components/LocationStorageConsent.tsx`, `web/app/worldcup-market/page.tsx`, 관련 화면·페이지 테스트와 본 `TASK.md`.
+- 테스트 기준: 팝업 최초 진입·선택·재진입·거부·철회·브라우저 저장 장애·키보드·4개 언어, 기존 GPS·QR·WALK 기능 회귀; GH Actions `test`, `docs-gate`와 Next 빌드 확인. 현장 GPS E2E·AI하우스 대외 API는 범위 밖, 실사용 미검증으로 구분.
+- 브랜치 `fix/knavi-gps-consent-popup-20261114`. 운영 Supabase·배포 설정·마이그레이션·.env·기존 방문객 데이터 변경 없음. CI/실제 브라우저 검증 완료 전 운영 DONE 금지.
+- 검증(2026-11-14): GitHub Actions `test` 58개 테스트 파일·603개 테스트 PASS, ESLint/root·web TypeScript·route-engine/Next 빌드 PASS, `docs-gate` PASS. WALK preview의 동일 Next.js K-Trip UI에서 실제 클릭 E2E: 점포 01→최초 팝업→동의(`GPS 이동기록 설정: 동의함`)→설정 다시 열기→철회(`동의 안 함`) PASS. 두 선택 버튼을 세로 48px 높이·별도 ID로 구분하여 자동 브라우저 오클릭 방지. 브라우저 GPS 권한 미부여, 좌표 전송/DB 쓰기 없음.
+- 현재 상태: CODE_AND_PREVIEW_UI_E2E_VERIFIED / K_NAVI_PRODUCTION_UI_NOT_YET_VERIFIED / REAL_DEVICE_GPS_E2E_UNVERIFIED. PR 병합 및 운영 실수신 확인 전 배포 완료로 판정 금지.
+
 ## KN-GPS-LIVE-AND-CONSENT-20261114 — 실제 수집 API 검증 및 브라우저 저장 차단 복구
 - [실DB] Supabase `ktrip-qr`(K-Navi/WALK 공유) 직접 관리 연결 및 스키마 검증 완료. 기존 events 1,853건·qr_scans 55건의 마이그레이션 전후 건수를 보존. 기존 두 테이블 제약 변경 없이 신규 `public.wcm_navigation_points` (RLS·service_role 전용, anon 차단)와 365일 GPS 전용 파기 cron만 관리 마이그레이션 `20261114084519_wcm_navigation_points_isolated`로 적용함. Free plan 자동 일일 백업 없음.
 - [실DB 원자 테스트] `SET LOCAL ROLE service_role`에서 합성 GPS INSERT→DB SELECT=1→ROLLBACK, 뒤이은 테이블 0건 확인.
